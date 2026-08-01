@@ -18,9 +18,11 @@ const ComparisonAnalysis = () => {
     const isDarkMode = theme === 'dark';
 
     const [centres, setCentres] = useState([]);
+    const [zones, setZones] = useState([]);
     const [sessions, setSessions] = useState([]);
     const [selectedCentres, setSelectedCentres] = useState([]);
-    
+    const [selectedZones, setSelectedZones] = useState([]);
+
     // Default to the current month name (dynamically shifts month-to-month)
     const currentMonthName = new Date().toLocaleString('en-US', { month: 'long' });
     const matchedMonth = monthNames.find(m => m.toLowerCase() === currentMonthName.toLowerCase()) || "April";
@@ -42,16 +44,17 @@ const ComparisonAnalysis = () => {
 
     useEffect(() => {
         fetchComparisonData();
-    }, [selectedCentres, selectedMonths]);
+    }, [selectedCentres, selectedZones, selectedMonths]);
 
     const fetchMasterData = async () => {
         try {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
             
-            const [centreRes, sessionRes] = await Promise.all([
+            const [centreRes, sessionRes, zoneRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
             ]);
 
             if (centreRes.ok) {
@@ -75,6 +78,13 @@ const ComparisonAnalysis = () => {
                 const sessionData = await sessionRes.json();
                 setSessions(sessionData || []);
             }
+
+            if (zoneRes.ok) {
+                const zData = await zoneRes.json();
+                const zoneList = Array.isArray(zData) ? zData : (zData.data || []);
+                const activeZones = zoneList.filter(z => z.isActive !== false);
+                setZones(activeZones.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+            }
         } catch (error) {
             console.error("Error fetching master data:", error);
             toast.error("Failed to load master data");
@@ -90,6 +100,9 @@ const ComparisonAnalysis = () => {
             
             if (selectedCentres.length > 0) {
                 params.append("centreIds", selectedCentres.join(","));
+            }
+            if (selectedZones.length > 0) {
+                params.append("zoneIds", selectedZones.join(","));
             }
             if (selectedMonths.length > 0) {
                 params.append("months", selectedMonths.join(","));
@@ -121,6 +134,19 @@ const ComparisonAnalysis = () => {
             }
         }
     };
+
+    // Filter centres for dropdown by selected zones
+    const zoneCentreIds = selectedZones.length > 0
+        ? new Set(
+            zones
+                .filter(z => selectedZones.includes(z._id))
+                .flatMap(z => (z.centres || []).map(c => (c._id || c).toString()))
+          )
+        : null;
+
+    const availableCentres = zoneCentreIds
+        ? centres.filter(c => zoneCentreIds.has(c._id.toString()))
+        : centres;
 
     const calculateGrowth = (prev, curr) => {
         if (!prev || prev === 0) {
@@ -263,8 +289,28 @@ const ComparisonAnalysis = () => {
                         </span>
                         <div className="w-64">
                             <CustomMultiSelect
-                                options={centres.map(c => ({ value: c._id, label: c.centreName }))}
-                                value={centres.map(c => ({ value: c._id, label: c.centreName })).filter(opt => selectedCentres.includes(opt.value))}
+                                options={zones.map(z => ({ value: z._id, label: z.name }))}
+                                value={zones.map(z => ({ value: z._id, label: z.name })).filter(opt => selectedZones.includes(opt.value))}
+                                onChange={(selected) => {
+                                    const nextZoneIds = selected ? selected.map(o => o.value) : [];
+                                    setSelectedZones(nextZoneIds);
+                                    if (nextZoneIds.length > 0) {
+                                        const newZoneCentreIds = new Set(
+                                            zones
+                                                .filter(z => nextZoneIds.includes(z._id))
+                                                .flatMap(z => (z.centres || []).map(c => (c._id || c).toString()))
+                                        );
+                                        setSelectedCentres(sc => sc.filter(cid => newZoneCentreIds.has(cid.toString())));
+                                    }
+                                }}
+                                placeholder="All Zones"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
+                        <div className="w-64">
+                            <CustomMultiSelect
+                                options={availableCentres.map(c => ({ value: c._id, label: c.centreName }))}
+                                value={availableCentres.map(c => ({ value: c._id, label: c.centreName })).filter(opt => selectedCentres.includes(opt.value))}
                                 onChange={(selected) => setSelectedCentres(selected ? selected.map(o => o.value) : [])}
                                 placeholder="All Centres"
                                 isDarkMode={isDarkMode}

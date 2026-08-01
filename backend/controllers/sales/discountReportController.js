@@ -11,6 +11,7 @@ export const getDiscountReport = async (req, res) => {
             startDate,
             endDate,
             centreIds,
+            zoneIds,
             examTagId,
             programme,
             reportType, // monthly or daily
@@ -43,21 +44,47 @@ export const getDiscountReport = async (req, res) => {
             allowedCentreNames = userCentres.map(c => c.centreName);
         }
 
+        // Resolve Zone IDs to Centre Names if provided
+        let zoneCentreNames = null;
+        if (zoneIds) {
+            const Zone = mongoose.model("Zone");
+            const rawZoneIds = typeof zoneIds === 'string' ? zoneIds.split(',') : zoneIds;
+            const validZoneIds = rawZoneIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            if (validZoneIds.length > 0) {
+                const zoneDocs = await Zone.find({ _id: { $in: validZoneIds } }).select("centres").lean();
+                const zoneCentreObjectIds = zoneDocs.flatMap(z => z.centres || []);
+                const zoneCentres = await Centre.find({ _id: { $in: zoneCentreObjectIds } }).select("centreName");
+                zoneCentreNames = zoneCentres.map(c => c.centreName);
+            }
+        }
+
         if (centreIds) {
             const rawIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
             const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
 
             if (validIds.length > 0) {
                 const requestedCentres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
-                const requestedNames = requestedCentres.map(c => c.centreName);
+                let requestedNames = requestedCentres.map(c => c.centreName);
+
+                if (zoneCentreNames !== null) {
+                    requestedNames = requestedNames.filter(name => zoneCentreNames.includes(name));
+                }
 
                 if (req.user.role !== 'superAdmin') {
                     const finalNames = requestedNames.filter(name => allowedCentreNames.includes(name));
                     matchStage.centre = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
                 } else if (requestedNames.length > 0) {
                     matchStage.centre = { $in: requestedNames };
+                } else {
+                    matchStage.centre = { $in: ["__NO_MATCH__"] };
                 }
             }
+        } else if (zoneCentreNames !== null) {
+            let finalNames = zoneCentreNames;
+            if (req.user.role !== 'superAdmin') {
+                finalNames = finalNames.filter(name => allowedCentreNames.includes(name));
+            }
+            matchStage.centre = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
         } else {
             let defaultNames = [];
             if (req.user.role !== 'superAdmin') {

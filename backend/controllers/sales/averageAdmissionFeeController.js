@@ -12,6 +12,7 @@ export const getAverageAdmissionFee = async (req, res) => {
             startDate,
             endDate,
             centreIds, // comma separated or array
+            zoneIds,
             examTagIds, // comma separated or array
             programme,
             sessions
@@ -48,23 +49,48 @@ export const getAverageAdmissionFee = async (req, res) => {
             allowedCentreNames = userCentres.map(c => c.centreName);
         }
 
+        // Resolve Zone IDs to Centre Names if provided
+        let zoneCentreNames = null;
+        if (zoneIds) {
+            const Zone = mongoose.model("Zone");
+            const rawZoneIds = typeof zoneIds === 'string' ? zoneIds.split(',') : zoneIds;
+            const validZoneIds = rawZoneIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            if (validZoneIds.length > 0) {
+                const zoneDocs = await Zone.find({ _id: { $in: validZoneIds } }).select("centres").lean();
+                const zoneCentreObjectIds = zoneDocs.flatMap(z => z.centres || []);
+                const zoneCentres = await Centre.find({ _id: { $in: zoneCentreObjectIds }, status: { $ne: "deactive" } }).select("centreName");
+                zoneCentreNames = zoneCentres.map(c => c.centreName);
+            }
+        }
+
         if (centreIds) {
             const rawIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
             const validIds = rawIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
 
             if (req.user.role !== 'superAdmin') {
-                const finalIds = validIds.filter(id => allowedCentreIds.includes(id));
+                let finalIds = validIds.filter(id => allowedCentreIds.includes(id));
                 const finalObjectIds = finalIds.map(id => new mongoose.Types.ObjectId(id));
                 const finalCentres = await Centre.find({ _id: { $in: finalObjectIds } }).select("centreName");
-                const finalNames = finalCentres.map(c => c.centreName);
+                let finalNames = finalCentres.map(c => c.centreName);
+                if (zoneCentreNames !== null) {
+                    finalNames = finalNames.filter(name => zoneCentreNames.includes(name));
+                }
                 admissionQuery.centre = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
-            } else if (validIds.length > 0) {
-                const finalIds = validIds.filter(id => activeCentreIds.includes(id));
-                const objectIds = finalIds.map(id => new mongoose.Types.ObjectId(id));
-                const centres = await Centre.find({ _id: { $in: objectIds } }).select("centreName");
-                const centreNames = centres.map(c => c.centreName);
-                admissionQuery.centre = { $in: centreNames.length > 0 ? centreNames : ["__NO_MATCH__"] };
+            } else {
+                const objectIds = validIds.map(id => new mongoose.Types.ObjectId(id));
+                const requestedCentres = await Centre.find({ _id: { $in: objectIds } }).select("centreName");
+                let requestedNames = requestedCentres.map(c => c.centreName);
+                if (zoneCentreNames !== null) {
+                    requestedNames = requestedNames.filter(name => zoneCentreNames.includes(name));
+                }
+                admissionQuery.centre = { $in: requestedNames.length > 0 ? requestedNames : ["__NO_MATCH__"] };
             }
+        } else if (zoneCentreNames !== null) {
+            let finalNames = zoneCentreNames;
+            if (req.user.role !== 'superAdmin') {
+                finalNames = finalNames.filter(name => allowedCentreNames.includes(name));
+            }
+            admissionQuery.centre = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
         } else {
             const allowedNames = (req.user.role !== 'superAdmin' ? allowedCentreNames : activeCentreNames)
                 .filter(name => name && !/phsps/i.test(name) && !/franchise/i.test(name) && !/rkm/i.test(name));

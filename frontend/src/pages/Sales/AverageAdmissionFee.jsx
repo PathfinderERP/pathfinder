@@ -134,11 +134,13 @@ const AverageAdmissionFee = () => {
 
     // ── master data ───────────────────────────────────────────────────────────
     const [centres, setCentres] = useState([]);
+    const [zones, setZones] = useState([]);
     const [examTags, setExamTags] = useState([]);
     const [sessions, setSessions] = useState([]);
 
     // ── filters ───────────────────────────────────────────────────────────────
     const [selCentres, setSelectedCentres]   = useState([]);
+    const [selZones, setSelectedZones]       = useState([]);
     const [selTags, setSelectedTags]         = useState([]);
     const [selSessions, setSelSessions]       = useState([]);
     const [selectedProgramme, setSelectedProgramme] = useState("");
@@ -160,10 +162,11 @@ const AverageAdmissionFee = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
             try {
-                const [cRes, tRes, sRes] = await Promise.all([
+                const [cRes, tRes, sRes, zRes] = await Promise.all([
                     fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
-                    fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
+                    fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
+                    fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
                 ]);
                 if (cRes.ok) {
                     const d = await cRes.json();
@@ -189,6 +192,12 @@ const AverageAdmissionFee = () => {
                         .filter(s => s.isGlobalActive)
                         .sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
                     setSessions(sessionList);
+                }
+                if (zRes.ok) {
+                    const zData = await zRes.json();
+                    const zoneList = Array.isArray(zData) ? zData : (zData.data || []);
+                    const activeZones = zoneList.filter(z => z.isActive !== false);
+                    setZones(activeZones.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
                 }
             } catch (e) {
                 console.error(e);
@@ -224,11 +233,12 @@ const AverageAdmissionFee = () => {
             p.append("year", timePeriod === "This Year" ? yr : yr - 1);
         }
         if (selCentres.length) p.append("centreIds", selCentres.join(","));
+        if (selZones.length) p.append("zoneIds", selZones.join(","));
         if (selTags.length) p.append("examTagIds", selTags.join(","));
         if (selectedProgramme) p.append("programme", selectedProgramme);
         if (selSessions.length) p.append("sessions", selSessions.join(","));
         return p.toString();
-    }, [selCentres, selTags, selSessions, selectedProgramme, timePeriod, startDate, endDate]);
+    }, [selCentres, selZones, selTags, selSessions, selectedProgramme, timePeriod, startDate, endDate]);
 
     // ── fetch report ──────────────────────────────────────────────────────────
     const fetchReport = useCallback(async () => {
@@ -262,11 +272,38 @@ const AverageAdmissionFee = () => {
     }, [fetchReport]);
 
     // ── helpers ───────────────────────────────────────────────────────────────
+    const zoneCentreIds = selZones.length > 0
+        ? new Set(
+            zones
+                .filter(z => selZones.includes(z._id))
+                .flatMap(z => (z.centres || []).map(c => (c._id || c).toString()))
+          )
+        : null;
+
+    const availableCentres = zoneCentreIds
+        ? centres.filter(c => zoneCentreIds.has(c._id.toString()))
+        : centres;
+
+    const toggleZone = (id) => {
+        setSelectedZones(prev => {
+            const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+            if (next.length > 0) {
+                const newZoneCentreIds = new Set(
+                    zones
+                        .filter(z => next.includes(z._id))
+                        .flatMap(z => (z.centres || []).map(c => (c._id || c).toString()))
+                );
+                setSelectedCentres(sc => sc.filter(cid => newZoneCentreIds.has(cid.toString())));
+            }
+            return next;
+        });
+    };
     const toggleCentre = (id) => setSelectedCentres(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     const toggleExamTag = (id) => setSelectedTags(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
     const toggleSession = (name) => setSelSessions(prev => prev.includes(name) ? prev.filter(x => x !== name) : [...prev, name]);
     const resetAll = () => {
         setSelectedCentres([]);
+        setSelectedZones([]);
         setSelectedTags([]);
         setSelSessions([]);
         setSelectedProgramme("");
@@ -502,10 +539,20 @@ const AverageAdmissionFee = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-3 items-center">
+                        {/* Zone */}
+                        <MultiSelect
+                            placeholder="All Zones"
+                            options={zones}
+                            selected={selZones}
+                            onToggle={toggleZone}
+                            labelKey="name"
+                            isDarkMode={isDark}
+                        />
+
                         {/* Centre */}
                         <MultiSelect
                             placeholder="All Centres"
-                            options={centres}
+                            options={availableCentres}
                             selected={selCentres}
                             onToggle={toggleCentre}
                             labelKey="centreName"

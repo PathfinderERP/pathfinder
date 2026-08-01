@@ -23,7 +23,7 @@ const getYearForMonth = (financialYear, month) => {
 
 export const getComparisonAnalysis = async (req, res) => {
     try {
-        const { centreIds, months } = req.query;
+        const { centreIds, zoneIds, months } = req.query;
 
         // 1. Get allowed centres based on permissions
         let allowedCentreIds = [];
@@ -31,15 +31,35 @@ export const getComparisonAnalysis = async (req, res) => {
             allowedCentreIds = (req.user.centres || []).map(id => id.toString());
         }
 
+        let zoneCentreIds = null;
+        if (zoneIds) {
+            const Zone = mongoose.model("Zone");
+            const rawZoneIds = typeof zoneIds === 'string' ? zoneIds.split(',') : zoneIds;
+            const validZoneIds = rawZoneIds.map(id => id.trim()).filter(id => mongoose.Types.ObjectId.isValid(id));
+            if (validZoneIds.length > 0) {
+                const zoneDocs = await Zone.find({ _id: { $in: validZoneIds } }).select("centres").lean();
+                zoneCentreIds = zoneDocs.flatMap(z => (z.centres || []).map(c => (c._id || c).toString()));
+            }
+        }
+
         let centreQuery = { status: { $ne: 'deactive' } };
         if (centreIds) {
-            const requested = (typeof centreIds === 'string' ? centreIds.split(',') : centreIds).filter(Boolean);
-            if (req.user.role !== 'superAdmin') {
-                queryCentres = requested.filter(id => allowedCentreIds.includes(id));
-                centreQuery._id = { $in: queryCentres };
-            } else {
-                centreQuery._id = { $in: requested };
+            let requested = (typeof centreIds === 'string' ? centreIds.split(',') : centreIds).filter(Boolean);
+            if (zoneCentreIds !== null) {
+                requested = requested.filter(id => zoneCentreIds.includes(id));
             }
+            if (req.user.role !== 'superAdmin') {
+                const queryCentres = requested.filter(id => allowedCentreIds.includes(id));
+                centreQuery._id = { $in: queryCentres.length > 0 ? queryCentres : [new mongoose.Types.ObjectId()] };
+            } else {
+                centreQuery._id = { $in: requested.length > 0 ? requested : [new mongoose.Types.ObjectId()] };
+            }
+        } else if (zoneCentreIds !== null) {
+            let targetCentreIds = zoneCentreIds;
+            if (req.user.role !== 'superAdmin') {
+                targetCentreIds = targetCentreIds.filter(id => allowedCentreIds.includes(id));
+            }
+            centreQuery._id = { $in: targetCentreIds.length > 0 ? targetCentreIds : [new mongoose.Types.ObjectId()] };
         } else {
             // Exclude phsps, franchise, rkm by default
             centreQuery.centreName = { $nin: [/phsps/i, /franchise/i, /rkm/i] };

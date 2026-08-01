@@ -152,11 +152,13 @@ const DiscountComparison = () => {
     // ---- State ----
     const [loading, setLoading] = useState(false);
     const [centres, setCentres] = useState([]);
+    const [zones, setZones] = useState([]);
     const [examTags, setExamTags] = useState([]);
     const [sessions, setSessions] = useState([]);
 
     // Filters
     const [selectedCentres, setSelectedCentres] = useState([]);
+    const [selectedZones, setSelectedZones] = useState([]);
     const [selectedSessions, setSelectedSessions] = useState([]);
     const [selectedProgramme, setSelectedProgramme] = useState("");
     const [timePeriod, setTimePeriod] = useState("This Month");
@@ -183,7 +185,7 @@ const DiscountComparison = () => {
             return;
         }
         fetchReportData();
-    }, [selectedCentres, selectedSessions, selectedProgramme, timePeriod, startDate, endDate]);
+    }, [selectedCentres, selectedZones, selectedSessions, selectedProgramme, timePeriod, startDate, endDate]);
 
     // ---- API Calls ----
     const fetchMasterData = async () => {
@@ -191,10 +193,11 @@ const DiscountComparison = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [cRes, eRes, sRes] = await Promise.all([
+            const [cRes, eRes, sRes, zRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
             ]);
 
             if (cRes.ok) {
@@ -218,7 +221,6 @@ const DiscountComparison = () => {
                     .sort((a, b) => (a.name || "").localeCompare(b.name || ""));
                 setExamTags(sortedTags);
                 if (sortedTags.length > 0) {
-                    // Try to default to "JEE 1 YEAR" or "NEET 1 YEAR" if present, otherwise first available
                     const firstOption = sortedTags.find(t => t.name.toUpperCase().includes("JEE 1 YEAR")) || sortedTags[0];
                     if (firstOption) setComparedExamTags([firstOption.name]);
                 }
@@ -229,6 +231,12 @@ const DiscountComparison = () => {
                     .filter(s => s.isGlobalActive)
                     .sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
                 setSessions(sessionList);
+            }
+            if (zRes.ok) {
+                const zData = await zRes.json();
+                const zoneList = Array.isArray(zData) ? zData : (zData.data || []);
+                const activeZones = zoneList.filter(z => z.isActive !== false);
+                setZones(activeZones.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
             }
         } catch (error) {
             console.error("Error fetching master data", error);
@@ -279,6 +287,7 @@ const DiscountComparison = () => {
             }
 
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
+            if (selectedZones.length > 0) params.append("zoneIds", selectedZones.join(","));
             if (selectedProgramme) params.append("programme", selectedProgramme);
             if (selectedSessions.length > 0) params.append("sessions", selectedSessions.join(","));
 
@@ -301,6 +310,33 @@ const DiscountComparison = () => {
     };
 
     // ---- Handlers ----
+    const zoneCentreIds = selectedZones.length > 0
+        ? new Set(
+            zones
+                .filter(z => selectedZones.includes(z._id))
+                .flatMap(z => (z.centres || []).map(c => (c._id || c).toString()))
+          )
+        : null;
+
+    const availableCentres = zoneCentreIds
+        ? centres.filter(c => zoneCentreIds.has(c._id.toString()))
+        : centres;
+
+    const toggleZoneSelection = (id) => {
+        setSelectedZones(prev => {
+            const next = prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id];
+            if (next.length > 0) {
+                const newZoneCentreIds = new Set(
+                    zones
+                        .filter(z => next.includes(z._id))
+                        .flatMap(z => (z.centres || []).map(c => (c._id || c).toString()))
+                );
+                setSelectedCentres(sc => sc.filter(cid => newZoneCentreIds.has(cid.toString())));
+            }
+            return next;
+        });
+    };
+
     const toggleCentreSelection = (id) => {
         setSelectedCentres(prev =>
             prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
@@ -315,6 +351,7 @@ const DiscountComparison = () => {
 
     const handleResetFilters = () => {
         setSelectedCentres([]);
+        setSelectedZones([]);
         setSelectedSessions([]);
         setSelectedProgramme("");
         setTimePeriod("This Month");
@@ -611,10 +648,20 @@ const DiscountComparison = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4">
+                        {/* Zone Multi-Select */}
+                        <MultiSelect
+                            placeholder="All Zones"
+                            options={zones}
+                            selected={selectedZones}
+                            onToggle={toggleZoneSelection}
+                            labelKey="name"
+                            isDarkMode={isDarkMode}
+                        />
+
                         {/* Centre Multi-Select */}
                         <MultiSelect
                             placeholder="All Centres"
-                            options={centres}
+                            options={availableCentres}
                             selected={selectedCentres}
                             onToggle={toggleCentreSelection}
                             labelKey="centreName"
