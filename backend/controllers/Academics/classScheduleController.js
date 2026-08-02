@@ -2935,11 +2935,14 @@ export const bulkStartClass = async (req, res) => {
         }
 
         const classesToStart = await ClassSchedule.find(query);
-        const invalidClasses = classesToStart.filter(c => 
-            !c.subjectName || c.subjectName === "N/A" || 
-            !c.chapterName || c.chapterName === "N/A" || 
-            !c.topicName || c.topicName === "N/A"
-        );
+        const isValidClass = (c) => {
+            const hasSubject = Boolean(c.acadSubjectId || c.subjectId || (c.subjectName && c.subjectName !== "N/A"));
+            const hasChapter = Boolean((c.chapterIds && c.chapterIds.length > 0) || c.chapterId || (c.chapterName && c.chapterName !== "N/A") || c.chapter);
+            const hasTopic = Boolean((c.topicIds && c.topicIds.length > 0) || (c.topicName && c.topicName !== "N/A") || c.topic);
+            return hasSubject && hasChapter && hasTopic;
+        };
+
+        const invalidClasses = classesToStart.filter(c => !isValidClass(c));
 
         if (invalidClasses.length > 0 && !allMatching) {
             return res.status(400).json({
@@ -2948,7 +2951,7 @@ export const bulkStartClass = async (req, res) => {
         }
 
         const validClassIds = classesToStart
-            .filter(c => c.subjectName && c.subjectName !== "N/A" && c.chapterName && c.chapterName !== "N/A" && c.topicName && c.topicName !== "N/A")
+            .filter(c => isValidClass(c))
             .map(c => c._id);
 
         if (validClassIds.length === 0) {
