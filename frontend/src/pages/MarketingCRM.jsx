@@ -1171,6 +1171,18 @@ const MarketingCRM = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab, currentPage, itemsPerPage, auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditFilterCentres, auditDateRange, auditStartDate, auditEndDate]);
 
+    // Assign Task & Assigned Tasks tab data watcher
+    useEffect(() => {
+        if (activeTab === "Assign Task") {
+            fetchAssignStaff();
+            fetchAssignSchoolMasterOptions();
+            fetchAssignSchools(assignSchoolSearch, assignSchoolFilters);
+        } else if (activeTab === "Assigned Tasks") {
+            fetchAssignedTasksList();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab]);
+
     // Reset current page to 1 on filter changes
     useEffect(() => {
         setCurrentPage(1);
@@ -1909,20 +1921,39 @@ const MarketingCRM = () => {
                                 </button>
                             ))}
 
-                            {/* Assign Task — super admin only */}
+                            {/* Assign Task & Assigned Tasks — super admin only */}
                             {(userRoleLower === "superadmin" || userRoleLower === "super admin") && (
-                                <button
-                                    onClick={() => setActiveTab("Assign Task")}
-                                    className={`px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${activeTab === "Assign Task"
-                                        ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
-                                        : "bg-purple-50 border border-purple-200 text-purple-600 hover:bg-purple-100"
-                                        }`}
-                                >
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
-                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
-                                    </svg>
-                                    Assign Task
-                                </button>
+                                <>
+                                    <button
+                                        onClick={() => setActiveTab("Assign Task")}
+                                        className={`px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${activeTab === "Assign Task"
+                                            ? "bg-purple-600 text-white shadow-lg shadow-purple-500/30"
+                                            : "bg-purple-50 border border-purple-200 text-purple-600 hover:bg-purple-100"
+                                            }`}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                                        </svg>
+                                        Assign Task
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab("Assigned Tasks")}
+                                        className={`px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${activeTab === "Assigned Tasks"
+                                            ? "bg-indigo-600 text-white shadow-lg shadow-indigo-500/30"
+                                            : "bg-indigo-50 border border-indigo-200 text-indigo-600 hover:bg-indigo-100"
+                                            }`}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                                        </svg>
+                                        Assigned Tasks
+                                        {assignedTasksTotal > 0 && (
+                                            <span className="ml-1 px-2 py-0.5 rounded-full text-[9px] font-black bg-white/20 text-white">
+                                                {assignedTasksTotal}
+                                            </span>
+                                        )}
+                                    </button>
+                                </>
                             )}
 
 
@@ -3720,490 +3751,467 @@ const MarketingCRM = () => {
                             );
                         })()}
 
-                        {/* ── ASSIGN TASK VIEW (super admin only) ── */}
-                        {activeTab === "Assign Task" && (
-                            <div className="space-y-6 animate-fadeIn">
+                        {/* ── ASSIGN TASK VIEW (superadmin only) ── */}
+                        {(userRoleLower === "superadmin" || userRoleLower === "super admin") && activeTab === "Assign Task" && (
+                            <div className="max-w-4xl mx-auto space-y-6 animate-fadeIn">
 
                                 {/* Header */}
                                 <div>
-                                    <h2 className="text-3xl font-black tracking-tighter">Assign Task</h2>
-                                    <p className="text-gray-500 text-[11px] font-bold mt-1">Assign a school visit task to a staff member. School comes from the SchoolForTask master data — with status, tier and centre pre-filled.</p>
+                                    <h2 className="text-2xl font-black tracking-tight flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6 text-purple-500">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                                        </svg>
+                                        Assign School Visit Task
+                                    </h2>
+                                    <p className="text-gray-500 text-xs font-semibold mt-1">Assign a school visit task to staff members. Select schools from the master data filters below.</p>
                                 </div>
 
-                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                                <div className={`p-8 md:p-10 rounded-3xl border shadow-xl ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-purple-100 shadow-purple-500/5'}`}>
+                                    <h3 className={`text-base font-black uppercase tracking-wider mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-5 h-5 text-purple-500">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                                        </svg>
+                                        New Assigned Task Details
+                                    </h3>
 
-                                    {/* ── LEFT: Assign Form ────────────────────────────── */}
-                                    <div className={`p-8 rounded-3xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                        <h3 className={`text-sm font-black uppercase tracking-widest mb-6 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-purple-500">
-                                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                            </svg>
-                                            New Assigned Task
-                                        </h3>
+                                    <form onSubmit={handleSubmitAssignTask} className="space-y-6">
 
-                                        <form onSubmit={handleSubmitAssignTask} className="space-y-4">
-
-                                            {/* Assign To (Multiple Staff Member Selection) */}
-                                            <div className="flex flex-col gap-1.5">
-                                                <div className="flex justify-between items-center">
-                                                    <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">
-                                                        Assign To (Staff Members) *
-                                                    </label>
-                                                    <div className="flex gap-2">
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setAssignForm({ ...assignForm, assignedTo: assignStaff.map(s => s._id) })}
-                                                            className="text-[9px] font-bold text-purple-500 hover:underline"
-                                                        >
-                                                            Select All
-                                                        </button>
-                                                        <span className="text-[9px] text-gray-500">|</span>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => setAssignForm({ ...assignForm, assignedTo: [] })}
-                                                            className="text-[9px] font-bold text-gray-400 hover:underline"
-                                                        >
-                                                            Clear All
-                                                        </button>
-                                                    </div>
+                                        {/* Assign To (Multiple Staff Member Selection) */}
+                                        <div className="flex flex-col gap-2">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-xs font-black uppercase tracking-wider text-purple-500 dark:text-purple-400">
+                                                    Assign To (Staff Members) *
+                                                </label>
+                                                <div className="flex items-center gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAssignForm({ ...assignForm, assignedTo: assignStaff.map(s => s._id) })}
+                                                        className="text-xs font-black text-purple-500 hover:underline"
+                                                    >
+                                                        Select All
+                                                    </button>
+                                                    <span className="text-xs text-gray-500">|</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setAssignForm({ ...assignForm, assignedTo: [] })}
+                                                        className="text-xs font-black text-gray-400 hover:underline"
+                                                    >
+                                                        Clear All
+                                                    </button>
                                                 </div>
+                                            </div>
 
-                                                {/* Staff Search Input */}
-                                                <input
-                                                    type="text"
-                                                    placeholder="Search staff by name, role or centre..."
-                                                    value={assignStaffSearch}
-                                                    onChange={e => setAssignStaffSearch(e.target.value)}
-                                                    className={`w-full px-3 py-1.5 rounded-lg border text-[10px] font-bold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
-                                                />
+                                            {/* Staff Search Input */}
+                                            <input
+                                                type="text"
+                                                placeholder="Search staff member by name, role or centre..."
+                                                value={assignStaffSearch}
+                                                onChange={e => setAssignStaffSearch(e.target.value)}
+                                                className={`w-full px-4 py-2.5 rounded-xl border text-xs font-semibold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
+                                            />
 
-                                                <div className={`w-full max-h-40 overflow-y-auto p-2 rounded-xl border space-y-1.5 ${isDarkMode ? 'border-gray-700 bg-black/50' : 'border-gray-200 bg-white'}`}>
-                                                    {(() => {
-                                                        const filteredStaff = assignStaff.filter(s => {
-                                                            if (!assignStaffSearch.trim()) return true;
-                                                            const q = assignStaffSearch.toLowerCase();
-                                                            return (
-                                                                (s.name && s.name.toLowerCase().includes(q)) ||
-                                                                (s.role && s.role.toLowerCase().includes(q)) ||
-                                                                (s.primaryCentre && s.primaryCentre.toLowerCase().includes(q))
-                                                            );
-                                                        });
+                                            <div className={`w-full max-h-48 overflow-y-auto p-3 rounded-2xl border space-y-2 ${isDarkMode ? 'border-gray-700 bg-black/50' : 'border-gray-200 bg-gray-50/50'}`}>
+                                                {(() => {
+                                                    const filteredStaff = assignStaff.filter(s => {
+                                                        if (!assignStaffSearch.trim()) return true;
+                                                        const q = assignStaffSearch.toLowerCase();
+                                                        return (
+                                                            (s.name && s.name.toLowerCase().includes(q)) ||
+                                                            (s.role && s.role.toLowerCase().includes(q)) ||
+                                                            (s.primaryCentre && s.primaryCentre.toLowerCase().includes(q))
+                                                        );
+                                                    });
 
-                                                        if (filteredStaff.length === 0) {
-                                                            return (
-                                                                <div className="text-[11px] text-gray-400 italic p-2 text-center">
-                                                                    {assignStaff.length === 0 ? "No staff members available" : "No matching staff members"}
+                                                    if (filteredStaff.length === 0) {
+                                                        return (
+                                                            <div className="text-xs text-gray-400 font-semibold p-3 text-center">
+                                                                {assignStaff.length === 0 ? "No staff members available" : "No matching staff members"}
+                                                            </div>
+                                                        );
+                                                    }
+
+                                                    return filteredStaff.map(s => {
+                                                        const isChecked = Array.isArray(assignForm.assignedTo) && assignForm.assignedTo.includes(s._id);
+                                                        return (
+                                                            <label
+                                                                key={s._id}
+                                                                className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all border ${isChecked ? (isDarkMode ? 'bg-purple-950/40 border-purple-700/50 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-950') : (isDarkMode ? 'border-transparent hover:bg-gray-800/60 text-gray-300' : 'border-transparent hover:bg-white text-gray-800')}`}
+                                                            >
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isChecked}
+                                                                    onChange={e => {
+                                                                        const current = Array.isArray(assignForm.assignedTo) ? assignForm.assignedTo : [];
+                                                                        if (e.target.checked) {
+                                                                            setAssignForm({ ...assignForm, assignedTo: [...current, s._id] });
+                                                                        } else {
+                                                                            setAssignForm({ ...assignForm, assignedTo: current.filter(id => id !== s._id) });
+                                                                        }
+                                                                    }}
+                                                                    className="rounded border-gray-400 text-purple-600 focus:ring-purple-500 h-4 w-4"
+                                                                />
+                                                                <div className="flex flex-col min-w-0 flex-1">
+                                                                    <span className="text-xs font-black leading-tight truncate">
+                                                                        {s.name} {s.primaryCentre ? `(${s.primaryCentre})` : ""}
+                                                                    </span>
+                                                                    <span className="text-[10px] text-gray-400 font-bold leading-tight mt-0.5">
+                                                                        {s.role}
+                                                                    </span>
                                                                 </div>
-                                                            );
-                                                        }
+                                                            </label>
+                                                        );
+                                                    });
+                                                })()}
+                                            </div>
+                                            {Array.isArray(assignForm.assignedTo) && assignForm.assignedTo.length > 0 && (
+                                                <span className="text-xs font-black text-purple-500">
+                                                    ✓ {assignForm.assignedTo.length} staff member{assignForm.assignedTo.length > 1 ? 's' : ''} selected
+                                                </span>
+                                            )}
+                                        </div>
 
-                                                        return filteredStaff.map(s => {
-                                                            const isChecked = Array.isArray(assignForm.assignedTo) && assignForm.assignedTo.includes(s._id);
-                                                            return (
-                                                                <label
-                                                                    key={s._id}
-                                                                    className={`flex items-center gap-2.5 p-2 rounded-lg cursor-pointer transition-all ${isChecked ? (isDarkMode ? 'bg-purple-950/40 text-purple-300' : 'bg-purple-50 text-purple-900') : (isDarkMode ? 'hover:bg-gray-800/60 text-gray-300' : 'hover:bg-gray-50 text-gray-700')}`}
-                                                                >
-                                                                    <input
-                                                                        type="checkbox"
-                                                                        checked={isChecked}
-                                                                        onChange={e => {
-                                                                            const current = Array.isArray(assignForm.assignedTo) ? assignForm.assignedTo : [];
-                                                                            if (e.target.checked) {
-                                                                                setAssignForm({ ...assignForm, assignedTo: [...current, s._id] });
-                                                                            } else {
-                                                                                setAssignForm({ ...assignForm, assignedTo: current.filter(id => id !== s._id) });
-                                                                            }
-                                                                        }}
-                                                                        className="rounded border-gray-400 text-purple-600 focus:ring-purple-500 h-3.5 w-3.5"
-                                                                    />
-                                                                    <div className="flex flex-col min-w-0 flex-1">
-                                                                        <span className="text-[11px] font-bold leading-tight truncate">
-                                                                            {s.name} {s.primaryCentre ? `(${s.primaryCentre})` : ""}
-                                                                        </span>
-                                                                        <span className="text-[9px] text-gray-400 font-medium leading-tight">
-                                                                            {s.role}
-                                                                        </span>
-                                                                    </div>
-                                                                </label>
-                                                            );
-                                                        });
-                                                    })()}
-                                                </div>
-                                                {Array.isArray(assignForm.assignedTo) && assignForm.assignedTo.length > 0 && (
-                                                    <span className="text-[9px] font-bold text-purple-500">
-                                                        {assignForm.assignedTo.length} staff member{assignForm.assignedTo.length > 1 ? 's' : ''} selected
-                                                    </span>
+                                        {/* School Search + Master Filters + Select */}
+                                        <div className="flex flex-col gap-2.5">
+                                            <div className="flex justify-between items-center">
+                                                <label className="text-xs font-black uppercase tracking-wider text-purple-500 dark:text-purple-400">School (from Master Data) *</label>
+                                                {(assignSchoolSearch || assignSchoolFilters.centerName || assignSchoolFilters.tier || assignSchoolFilters.schoolAccess || assignSchoolFilters.status) && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const cleared = { centerName: "", tier: "", schoolAccess: "", status: "" };
+                                                            setAssignSchoolSearch("");
+                                                            setAssignSchoolFilters(cleared);
+                                                            fetchAssignSchools("", cleared);
+                                                        }}
+                                                        className="text-xs font-black text-amber-500 hover:underline"
+                                                    >
+                                                        Reset Master Filters
+                                                    </button>
                                                 )}
                                             </div>
 
-                                            {/* School Search + Master Filters + Select */}
-                                            <div className="flex flex-col gap-2">
-                                                <div className="flex justify-between items-center">
-                                                    <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">School (from Master Data) *</label>
-                                                    {(assignSchoolSearch || assignSchoolFilters.centerName || assignSchoolFilters.tier || assignSchoolFilters.schoolAccess || assignSchoolFilters.status) && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const cleared = { centerName: "", tier: "", schoolAccess: "", status: "" };
-                                                                setAssignSchoolSearch("");
-                                                                setAssignSchoolFilters(cleared);
-                                                                fetchAssignSchools("", cleared);
-                                                            }}
-                                                            className="text-[9px] font-bold text-amber-500 hover:underline"
-                                                        >
-                                                            Reset Filters
-                                                        </button>
-                                                    )}
-                                                </div>
-
-                                                {/* Filter controls row */}
-                                                <div className="grid grid-cols-2 gap-2">
-                                                    <select
-                                                        value={assignSchoolFilters.centerName}
-                                                        onChange={e => {
-                                                            const newFilters = { ...assignSchoolFilters, centerName: e.target.value };
-                                                            setAssignSchoolFilters(newFilters);
-                                                            fetchAssignSchools(assignSchoolSearch, newFilters);
-                                                        }}
-                                                        className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold outline-none focus:border-purple-500 ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                                                    >
-                                                        <option value="">All Centres</option>
-                                                        {assignMasterData.centres.map(c => (
-                                                            <option key={c._id} value={c._id}>{c.centreName}</option>
-                                                        ))}
-                                                    </select>
-
-                                                    <select
-                                                        value={assignSchoolFilters.tier}
-                                                        onChange={e => {
-                                                            const newFilters = { ...assignSchoolFilters, tier: e.target.value };
-                                                            setAssignSchoolFilters(newFilters);
-                                                            fetchAssignSchools(assignSchoolSearch, newFilters);
-                                                        }}
-                                                        className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold outline-none focus:border-purple-500 ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                                                    >
-                                                        <option value="">All Tiers</option>
-                                                        {assignMasterData.tiers.map(t => (
-                                                            <option key={t} value={t}>{t}</option>
-                                                        ))}
-                                                    </select>
-
-                                                    <select
-                                                        value={assignSchoolFilters.schoolAccess}
-                                                        onChange={e => {
-                                                            const newFilters = { ...assignSchoolFilters, schoolAccess: e.target.value };
-                                                            setAssignSchoolFilters(newFilters);
-                                                            fetchAssignSchools(assignSchoolSearch, newFilters);
-                                                        }}
-                                                        className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold outline-none focus:border-purple-500 ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                                                    >
-                                                        <option value="">All Access Levels</option>
-                                                        {assignMasterData.accessLevels.map(a => (
-                                                            <option key={a} value={a}>{a}</option>
-                                                        ))}
-                                                    </select>
-
-                                                    <select
-                                                        value={assignSchoolFilters.status}
-                                                        onChange={e => {
-                                                            const newFilters = { ...assignSchoolFilters, status: e.target.value };
-                                                            setAssignSchoolFilters(newFilters);
-                                                            fetchAssignSchools(assignSchoolSearch, newFilters);
-                                                        }}
-                                                        className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold outline-none focus:border-purple-500 ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                                                    >
-                                                        <option value="">All Statuses</option>
-                                                        {assignMasterData.statuses.map(st => (
-                                                            <option key={st} value={st}>{st}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                <div className="flex gap-2">
-                                                    <input
-                                                        type="text"
-                                                        placeholder="Search school name or remarks..."
-                                                        value={assignSchoolSearch}
-                                                        onChange={e => {
-                                                            setAssignSchoolSearch(e.target.value);
-                                                            fetchAssignSchools(e.target.value, assignSchoolFilters);
-                                                        }}
-                                                        className={`flex-1 px-3 py-2 rounded-xl border text-[11px] font-bold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
-                                                    />
-                                                    {assignTaskLoading && (
-                                                        <div className="flex items-center px-3">
-                                                            <svg className="animate-spin h-4 w-4 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                                            </svg>
-                                                        </div>
-                                                    )}
-                                                </div>
-
+                                            {/* Master Filter controls grid */}
+                                            <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
                                                 <select
-                                                    value={assignForm.school}
-                                                    onChange={e => setAssignForm({ ...assignForm, school: e.target.value })}
-                                                    className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                                                    size={Math.min(assignSchools.length + 1, 6)}
+                                                    value={assignSchoolFilters.centerName}
+                                                    onChange={e => {
+                                                        const newFilters = { ...assignSchoolFilters, centerName: e.target.value };
+                                                        setAssignSchoolFilters(newFilters);
+                                                        fetchAssignSchools(assignSchoolSearch, newFilters);
+                                                    }}
+                                                    className={`px-3 py-2.5 rounded-xl border text-xs font-bold outline-none focus:border-purple-500 ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
                                                 >
-                                                    <option value="">— Select School ({assignSchools.length} available) —</option>
-                                                    {assignSchools.map(sc => (
-                                                        <option key={sc._id} value={sc._id}>
-                                                            {sc.schoolName} {sc.tier ? `[Tier ${sc.tier}]` : ""} — {sc.status || ""} {sc.centerName?.centreName ? `(${sc.centerName.centreName})` : ""}
-                                                        </option>
+                                                    <option value="">All Centres</option>
+                                                    {assignMasterData.centres.map(c => (
+                                                        <option key={c._id} value={c._id}>{c.centreName}</option>
                                                     ))}
                                                 </select>
 
-                                                {/* Preview selected school */}
-                                                {assignForm.school && (() => {
-                                                    const sel = assignSchools.find(s => s._id === assignForm.school);
-                                                    if (!sel) return null;
-                                                    return (
-                                                        <div className={`flex flex-wrap gap-2 mt-1 p-3 rounded-xl border ${isDarkMode ? 'bg-purple-950/20 border-purple-800/30' : 'bg-purple-50 border-purple-100'}`}>
-                                                            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-purple-500/10 text-purple-500 border border-purple-500/20">{sel.schoolName}</span>
-                                                            {sel.tier && <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-500 border border-blue-500/20">Tier {sel.tier}</span>}
-                                                            {sel.status && <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-600 border border-amber-500/20">{sel.status}</span>}
-                                                            {sel.centerName?.centreName && <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">{sel.centerName.centreName}</span>}
-                                                        </div>
-                                                    );
-                                                })()}
+                                                <select
+                                                    value={assignSchoolFilters.tier}
+                                                    onChange={e => {
+                                                        const newFilters = { ...assignSchoolFilters, tier: e.target.value };
+                                                        setAssignSchoolFilters(newFilters);
+                                                        fetchAssignSchools(assignSchoolSearch, newFilters);
+                                                    }}
+                                                    className={`px-3 py-2.5 rounded-xl border text-xs font-bold outline-none focus:border-purple-500 ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                >
+                                                    <option value="">All Tiers</option>
+                                                    {assignMasterData.tiers.map(t => (
+                                                        <option key={t} value={t}>Tier {t}</option>
+                                                    ))}
+                                                </select>
+
+                                                <select
+                                                    value={assignSchoolFilters.schoolAccess}
+                                                    onChange={e => {
+                                                        const newFilters = { ...assignSchoolFilters, schoolAccess: e.target.value };
+                                                        setAssignSchoolFilters(newFilters);
+                                                        fetchAssignSchools(assignSchoolSearch, newFilters);
+                                                    }}
+                                                    className={`px-3 py-2.5 rounded-xl border text-xs font-bold outline-none focus:border-purple-500 ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                >
+                                                    <option value="">All Access Levels</option>
+                                                    {assignMasterData.accessLevels.map(a => (
+                                                        <option key={a} value={a}>{a}</option>
+                                                    ))}
+                                                </select>
+
+                                                <select
+                                                    value={assignSchoolFilters.status}
+                                                    onChange={e => {
+                                                        const newFilters = { ...assignSchoolFilters, status: e.target.value };
+                                                        setAssignSchoolFilters(newFilters);
+                                                        fetchAssignSchools(assignSchoolSearch, newFilters);
+                                                    }}
+                                                    className={`px-3 py-2.5 rounded-xl border text-xs font-bold outline-none focus:border-purple-500 ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                >
+                                                    <option value="">All Statuses</option>
+                                                    {assignMasterData.statuses.map(st => (
+                                                        <option key={st} value={st}>{st}</option>
+                                                    ))}
+                                                </select>
                                             </div>
 
-                                            {/* Plan Date */}
+                                            {/* Search input */}
+                                            <div className="flex gap-2">
+                                                <input
+                                                    type="text"
+                                                    placeholder="Search school name or remarks..."
+                                                    value={assignSchoolSearch}
+                                                    onChange={e => {
+                                                        setAssignSchoolSearch(e.target.value);
+                                                        fetchAssignSchools(e.target.value, assignSchoolFilters);
+                                                    }}
+                                                    className={`flex-1 px-4 py-2.5 rounded-xl border text-xs font-semibold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
+                                                />
+                                                {assignTaskLoading && (
+                                                    <div className="flex items-center px-3">
+                                                        <svg className="animate-spin h-4 w-4 text-purple-500" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                        </svg>
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Filtered School Select Dropdown */}
+                                            <select
+                                                value={assignForm.school}
+                                                onChange={e => setAssignForm({ ...assignForm, school: e.target.value })}
+                                                className={`w-full px-4 py-3 rounded-xl border text-xs font-bold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                            >
+                                                <option value="">— Select School ({assignSchools.length} available) —</option>
+                                                {assignSchools.map(sc => (
+                                                    <option key={sc._id} value={sc._id}>
+                                                        {sc.schoolName} {sc.tier ? `[Tier ${sc.tier}]` : ""} {sc.status ? `— ${sc.status}` : ""} {sc.centerName?.centreName ? `(${sc.centerName.centreName})` : ""}
+                                                    </option>
+                                                ))}
+                                            </select>
+
+                                            {/* Preview selected school badges */}
+                                            {assignForm.school && (() => {
+                                                const sel = assignSchools.find(s => s._id === assignForm.school);
+                                                if (!sel) return null;
+                                                return (
+                                                    <div className={`flex flex-wrap gap-2 mt-1 p-3 rounded-xl border ${isDarkMode ? 'bg-purple-950/20 border-purple-800/30' : 'bg-purple-50 border-purple-100'}`}>
+                                                        <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-500 border border-purple-500/20">{sel.schoolName}</span>
+                                                        {sel.tier && <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-500 border border-blue-500/20">Tier {sel.tier}</span>}
+                                                        {sel.status && <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 border border-amber-500/20">{sel.status}</span>}
+                                                        {sel.centerName?.centreName && <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">{sel.centerName.centreName}</span>}
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+
+                                        {/* Plan Date & Time & Activity Type in Grid */}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                             <div className="flex flex-col gap-1.5">
-                                                <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Plan Date (Task is for this date) *</label>
+                                                <label className="text-xs font-black uppercase tracking-wider text-purple-500 dark:text-purple-400">Plan Date *</label>
                                                 <input
                                                     type="date"
                                                     value={assignForm.planDate}
                                                     onChange={e => setAssignForm({ ...assignForm, planDate: e.target.value })}
-                                                    className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                    className={`w-full px-4 py-3 rounded-xl border text-xs font-semibold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
                                                 />
                                             </div>
 
-                                            {/* Activity Type + Time in row */}
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div className="flex flex-col gap-1.5">
-                                                    <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Activity Type</label>
-                                                    <select
-                                                        value={assignForm.activityType}
-                                                        onChange={e => setAssignForm({ ...assignForm, activityType: e.target.value })}
-                                                        className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                                                    >
-                                                        {activitySources.length > 0
-                                                            ? activitySources.map((s, i) => <option key={i} value={s}>{s}</option>)
-                                                            : ["School Visit", "Tuition Visit", "Shikkha Bondhu", "Referral Drive", "Market Activity"].map((s, i) => <option key={i} value={s}>{s}</option>)
-                                                        }
-                                                    </select>
-                                                </div>
-                                                <div className="flex flex-col gap-1.5">
-                                                    <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Time</label>
-                                                    <input
-                                                        type="time"
-                                                        value={assignForm.time}
-                                                        onChange={e => setAssignForm({ ...assignForm, time: e.target.value })}
-                                                        className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                                                    />
-                                                </div>
-                                            </div>
-
-                                            {/* Duration + Priority in row */}
-                                            <div className="grid grid-cols-2 gap-3">
-                                                <div className="flex flex-col gap-1.5">
-                                                    <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Duration</label>
-                                                    <input
-                                                        type="text"
-                                                        placeholder="e.g. 2 hours"
-                                                        value={assignForm.estimatedDuration}
-                                                        onChange={e => setAssignForm({ ...assignForm, estimatedDuration: e.target.value })}
-                                                        className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
-                                                    />
-                                                </div>
-                                                <div className="flex flex-col gap-1.5">
-                                                    <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Priority</label>
-                                                    <select
-                                                        value={assignForm.priority}
-                                                        onChange={e => setAssignForm({ ...assignForm, priority: e.target.value })}
-                                                        className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                                                    >
-                                                        <option value="High">High</option>
-                                                        <option value="Medium">Medium</option>
-                                                        <option value="Low">Low</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-
-                                            {/* Notes */}
                                             <div className="flex flex-col gap-1.5">
-                                                <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Notes / Instructions (Optional)</label>
-                                                <input
-                                                    type="text"
-                                                    placeholder="Any specific instructions..."
-                                                    value={assignForm.notes}
-                                                    onChange={e => setAssignForm({ ...assignForm, notes: e.target.value })}
-                                                    className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
-                                                />
-                                            </div>
-
-                                            {/* Submit */}
-                                            <button
-                                                type="submit"
-                                                disabled={assignFormSubmitting}
-                                                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white text-[11px] font-black uppercase tracking-widest shadow-lg shadow-purple-500/20 hover:-translate-y-0.5 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                                            >
-                                                {assignFormSubmitting ? (
-                                                    <>
-                                                        <svg className="animate-spin h-3.5 w-3.5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                                                        </svg>
-                                                        Assigning...
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                        </svg>
-                                                        Assign Task to Staff
-                                                    </>
-                                                )}
-                                            </button>
-                                        </form>
-                                    </div>
-
-                                    {/* ── RIGHT: Assigned Tasks List ──────────────────── */}
-                                    <div className={`p-8 rounded-3xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                                        <div className="flex items-center justify-between mb-5">
-                                            <h3 className={`text-sm font-black uppercase tracking-widest flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-purple-500">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
-                                                </svg>
-                                                Assigned Tasks
-                                                <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-500 text-[9px] font-black">{assignedTasksTotal}</span>
-                                            </h3>
-                                            <button onClick={fetchAssignedTasksList} className="p-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 transition-all">
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5 text-gray-500">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                                                </svg>
-                                            </button>
-                                        </div>
-
-                                        {/* Filters row */}
-                                        <div className="flex flex-wrap gap-2 mb-4">
-                                            <div className="flex flex-col gap-1 flex-1 min-w-[130px]">
-                                                <label className="text-[8px] font-bold uppercase tracking-widest text-gray-400">From Date</label>
-                                                <input type="date" value={assignTaskFilterDate} onChange={e => setAssignTaskFilterDate(e.target.value)}
-                                                    className={`px-3 py-2 rounded-xl border text-[10px] font-bold outline-none ${isDarkMode ? 'border-gray-700 bg-black/40 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                                                />
-                                            </div>
-                                            <div className="flex flex-col gap-1 flex-1 min-w-[130px]">
-                                                <label className="text-[8px] font-bold uppercase tracking-widest text-gray-400">To Date</label>
-                                                <input type="date" value={assignTaskFilterEndDate} onChange={e => setAssignTaskFilterEndDate(e.target.value)}
-                                                    className={`px-3 py-2 rounded-xl border text-[10px] font-bold outline-none ${isDarkMode ? 'border-gray-700 bg-black/40 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
-                                                />
-                                            </div>
-                                            <div className="flex flex-col gap-1">
-                                                <label className="text-[8px] font-bold uppercase tracking-widest text-gray-400">Status</label>
-                                                <select value={assignTaskFilterStatus} onChange={e => setAssignTaskFilterStatus(e.target.value)}
-                                                    className={`px-3 py-2 rounded-xl border text-[10px] font-bold outline-none ${isDarkMode ? 'border-gray-700 bg-black/40 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                <label className="text-xs font-black uppercase tracking-wider text-purple-500 dark:text-purple-400">Activity Type</label>
+                                                <select
+                                                    value={assignForm.activityType}
+                                                    onChange={e => setAssignForm({ ...assignForm, activityType: e.target.value })}
+                                                    className={`w-full px-4 py-3 rounded-xl border text-xs font-semibold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
                                                 >
-                                                    {["All", "Pending", "Completed", "Cancelled"].map(s => <option key={s}>{s}</option>)}
+                                                    {activitySources.length > 0
+                                                        ? activitySources.map((s, i) => <option key={i} value={s}>{s}</option>)
+                                                        : ["School Visit", "Tuition Visit", "Shikkha Bondhu", "Referral Drive", "Market Activity"].map((s, i) => <option key={i} value={s}>{s}</option>)
+                                                    }
                                                 </select>
                                             </div>
+
+                                            <div className="flex flex-col gap-1.5">
+                                                <label className="text-xs font-black uppercase tracking-wider text-purple-500 dark:text-purple-400">Time</label>
+                                                <input
+                                                    type="time"
+                                                    value={assignForm.time}
+                                                    onChange={e => setAssignForm({ ...assignForm, time: e.target.value })}
+                                                    className={`w-full px-4 py-3 rounded-xl border text-xs font-semibold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                />
+                                            </div>
                                         </div>
 
-                                        {/* List */}
-                                        {assignedTasksLoading ? (
-                                            <div className="space-y-3">
-                                                {[1, 2, 3].map(i => (
-                                                    <div key={i} className={`h-20 rounded-2xl animate-pulse ${isDarkMode ? 'bg-gray-800/60' : 'bg-gray-100'}`} />
-                                                ))}
-                                            </div>
-                                        ) : assignedTasksList.length === 0 ? (
-                                            <div className={`py-12 rounded-2xl border border-dashed flex flex-col items-center justify-center gap-3 ${isDarkMode ? 'border-gray-700 bg-gray-800/20' : 'border-gray-200 bg-gray-50'}`}>
-                                                <div className="text-3xl">📋</div>
-                                                <p className="text-[11px] font-black uppercase tracking-widest text-gray-500">No assigned tasks</p>
-                                                <p className="text-[10px] text-gray-400">Use the form to assign a task to a staff member.</p>
-                                            </div>
-                                        ) : (
-                                            <div className="space-y-3 max-h-[540px] overflow-y-auto custom-scrollbar pr-1">
-                                                {assignedTasksList.map((task, idx) => {
-                                                    const statusColor = task.status === "Completed"
-                                                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
-                                                        : task.status === "Cancelled"
-                                                            ? "bg-red-500/10 text-red-400 border-red-500/20"
-                                                            : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
-                                                    const priorityColor = task.priority === "High"
-                                                        ? "text-red-500"
-                                                        : task.priority === "Low"
-                                                            ? "text-gray-400"
-                                                            : "text-orange-500";
-                                                    const tierBadge = task.schoolTier
-                                                        ? <span className="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase bg-blue-500/10 text-blue-500 border border-blue-500/20">Tier {task.schoolTier}</span>
-                                                        : null;
+                                        {/* Notes / Instructions */}
+                                        <div className="flex flex-col gap-1.5">
+                                            <label className="text-xs font-black uppercase tracking-wider text-purple-500 dark:text-purple-400">Notes / Instructions (Optional)</label>
+                                            <input
+                                                type="text"
+                                                placeholder="Any specific instructions..."
+                                                value={assignForm.notes}
+                                                onChange={e => setAssignForm({ ...assignForm, notes: e.target.value })}
+                                                className={`w-full px-4 py-3 rounded-xl border text-xs font-semibold outline-none focus:border-purple-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
+                                            />
+                                        </div>
 
-                                                    return (
-                                                        <div key={task._id || idx} className={`p-4 rounded-2xl border transition-all hover:border-purple-300 dark:hover:border-purple-800 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                                            <div className="flex items-start justify-between gap-3">
-                                                                <div className="flex-1 min-w-0">
-                                                                    {/* School name + tier + status */}
-                                                                    <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                                                                        <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest bg-purple-500/10 text-purple-500 border border-purple-500/20 truncate max-w-[160px]">
-                                                                            🏫 {task.schoolName}
-                                                                        </span>
-                                                                        {tierBadge}
-                                                                        {task.schoolStatus && (
-                                                                            <span className="px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase bg-amber-500/10 text-amber-600 border border-amber-500/20 truncate max-w-[120px]">
-                                                                                {task.schoolStatus}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
+                                        {/* Submit Button */}
+                                        <button
+                                            type="submit"
+                                            disabled={assignFormSubmitting}
+                                            className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-600 via-indigo-600 to-purple-600 hover:from-purple-500 hover:to-indigo-500 text-white text-xs font-black uppercase tracking-widest shadow-xl shadow-purple-500/20 hover:-translate-y-0.5 active:scale-[0.99] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                        >
+                                            {assignFormSubmitting ? (
+                                                <>
+                                                    <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                                                    </svg>
+                                                    Assigning Task...
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                    </svg>
+                                                    Assign Task to Staff
+                                                </>
+                                            )}
+                                        </button>
+                                    </form>
+                                </div>
+                            </div>
+                        )}
 
-                                                                    {/* Assignee */}
-                                                                    <p className={`text-[11px] font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                                        → {task.assignedTo?.name || task.assignedToName || "—"}
-                                                                        <span className="text-[9px] font-bold text-gray-500 ml-1">({task.assignedTo?.role || ""})</span>
-                                                                    </p>
+                        {/* ── ASSIGNED TASKS VIEW (superadmin only) ── */}
+                        {(userRoleLower === "superadmin" || userRoleLower === "super admin") && activeTab === "Assigned Tasks" && (
+                            <div className="max-w-6xl mx-auto space-y-6 animate-fadeIn">
+                                <div className={`p-8 md:p-10 rounded-3xl border shadow-xl ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-indigo-100 shadow-indigo-500/5'}`}>
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div>
+                                            <h2 className="text-2xl font-black tracking-tight flex items-center gap-2">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6 text-indigo-500">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" />
+                                                </svg>
+                                                Assigned Tasks List
+                                                <span className="px-3 py-1 rounded-full bg-indigo-500/10 text-indigo-500 text-xs font-black">{assignedTasksTotal}</span>
+                                            </h2>
+                                            <p className="text-gray-500 text-xs font-semibold mt-1">View and manage tasks assigned to staff members.</p>
+                                        </div>
+                                        <button onClick={fetchAssignedTasksList} className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-bold transition-all flex items-center gap-2">
+                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4 text-gray-500">
+                                                <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                                            </svg>
+                                            Refresh List
+                                        </button>
+                                    </div>
 
-                                                                    {/* Meta row */}
-                                                                    <div className="flex flex-wrap items-center gap-3 mt-1.5">
-                                                                        <span className="text-[9px] font-bold text-gray-500">
-                                                                            📅 {task.planDate ? new Date(task.planDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
-                                                                        </span>
-                                                                        {task.time && <span className="text-[9px] font-bold text-gray-500">🕐 {task.time}</span>}
-                                                                        {task.estimatedDuration && <span className="text-[9px] font-bold text-gray-500">⏱ {task.estimatedDuration}</span>}
-                                                                        <span className={`text-[9px] font-black uppercase ${priorityColor}`}>{task.priority}</span>
-                                                                    </div>
+                                    {/* Filters row */}
+                                    <div className="flex flex-wrap gap-4 mb-6">
+                                        <div className="flex flex-col gap-1.5 flex-1 min-w-[160px]">
+                                            <label className="text-xs font-black uppercase tracking-wider text-gray-400">From Date</label>
+                                            <input type="date" value={assignTaskFilterDate} onChange={e => setAssignTaskFilterDate(e.target.value)}
+                                                className={`px-4 py-2.5 rounded-xl border text-xs font-semibold outline-none ${isDarkMode ? 'border-gray-700 bg-black/40 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5 flex-1 min-w-[160px]">
+                                            <label className="text-xs font-black uppercase tracking-wider text-gray-400">To Date</label>
+                                            <input type="date" value={assignTaskFilterEndDate} onChange={e => setAssignTaskFilterEndDate(e.target.value)}
+                                                className={`px-4 py-2.5 rounded-xl border text-xs font-semibold outline-none ${isDarkMode ? 'border-gray-700 bg-black/40 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                            />
+                                        </div>
+                                        <div className="flex flex-col gap-1.5 min-w-[160px]">
+                                            <label className="text-xs font-black uppercase tracking-wider text-gray-400">Status</label>
+                                            <select value={assignTaskFilterStatus} onChange={e => setAssignTaskFilterStatus(e.target.value)}
+                                                className={`px-4 py-2.5 rounded-xl border text-xs font-semibold outline-none ${isDarkMode ? 'border-gray-700 bg-black/40 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                            >
+                                                {["All", "Pending", "Completed", "Cancelled"].map(s => <option key={s}>{s}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
 
-                                                                    {task.notes && (
-                                                                        <p className="text-[9px] text-gray-400 mt-1 font-medium italic">"{task.notes}"</p>
-                                                                    )}
-                                                                </div>
+                                    {/* List */}
+                                    {assignedTasksLoading ? (
+                                        <div className="space-y-4">
+                                            {[1, 2, 3].map(i => (
+                                                <div key={i} className={`h-24 rounded-2xl animate-pulse ${isDarkMode ? 'bg-gray-800/60' : 'bg-gray-100'}`} />
+                                            ))}
+                                        </div>
+                                    ) : assignedTasksList.length === 0 ? (
+                                        <div className={`py-16 rounded-2xl border border-dashed flex flex-col items-center justify-center gap-3 ${isDarkMode ? 'border-gray-700 bg-gray-800/20' : 'border-gray-200 bg-gray-50'}`}>
+                                            <div className="text-4xl">📋</div>
+                                            <p className="text-xs font-black uppercase tracking-widest text-gray-500">No assigned tasks found</p>
+                                            <p className="text-xs text-gray-400">Use the Assign Task tab to assign a school visit task to staff members.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {assignedTasksList.map((task, idx) => {
+                                                const statusColor = task.status === "Completed"
+                                                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                                    : task.status === "Cancelled"
+                                                        ? "bg-red-500/10 text-red-400 border-red-500/20"
+                                                        : "bg-yellow-500/10 text-yellow-600 border-yellow-500/20";
+                                                const tierBadge = task.schoolTier
+                                                    ? <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-500/10 text-blue-500 border border-blue-500/20">Tier {task.schoolTier}</span>
+                                                    : null;
 
-                                                                {/* Status + Delete */}
-                                                                <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                                                                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest border ${statusColor}`}>
-                                                                        {task.status}
+                                                return (
+                                                    <div key={task._id || idx} className={`p-5 rounded-2xl border transition-all hover:border-indigo-300 dark:hover:border-indigo-800 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                                        <div className="flex items-start justify-between gap-4">
+                                                            <div className="flex-1 min-w-0 space-y-2">
+                                                                {/* School name + tier + status */}
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-purple-500/10 text-purple-500 border border-purple-500/20">
+                                                                        🏫 {task.schoolName}
                                                                     </span>
-                                                                    {task.status !== "Cancelled" && (
-                                                                        <button
-                                                                            onClick={() => handleDeleteAssignedTask(task._id)}
-                                                                            className="p-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 transition-all"
-                                                                            title="Cancel Task"
-                                                                        >
-                                                                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3 h-3">
-                                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                                                                            </svg>
-                                                                        </button>
+                                                                    {tierBadge}
+                                                                    {task.schoolStatus && (
+                                                                        <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                                                                            {task.schoolStatus}
+                                                                        </span>
                                                                     )}
                                                                 </div>
+
+                                                                {/* Assignee */}
+                                                                <p className={`text-xs font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                                    Assigned To: <span className="text-purple-400">{task.assignedTo?.name || task.assignedToName || "—"}</span>
+                                                                    <span className="text-xs font-bold text-gray-500 ml-1">({task.assignedTo?.role || ""})</span>
+                                                                </p>
+
+                                                                {/* Meta row */}
+                                                                <div className="flex flex-wrap items-center gap-4 text-xs font-semibold text-gray-500">
+                                                                    <span>📅 {task.planDate ? new Date(task.planDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</span>
+                                                                    {task.time && <span>🕐 {task.time}</span>}
+                                                                    {task.activityType && <span>🎯 {task.activityType}</span>}
+                                                                </div>
+
+                                                                {task.notes && (
+                                                                    <p className="text-xs text-gray-400 font-medium italic">"{task.notes}"</p>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Status + Delete */}
+                                                            <div className="flex flex-col items-end gap-3 flex-shrink-0">
+                                                                <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${statusColor}`}>
+                                                                    {task.status}
+                                                                </span>
+                                                                {task.status !== "Cancelled" && (
+                                                                    <button
+                                                                        onClick={() => handleDeleteAssignedTask(task._id)}
+                                                                        className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 hover:bg-red-500/20 text-xs font-bold transition-all flex items-center gap-1"
+                                                                        title="Cancel Task"
+                                                                    >
+                                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                                                        </svg>
+                                                                        Cancel Task
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </div>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
-                                    </div>
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         )}

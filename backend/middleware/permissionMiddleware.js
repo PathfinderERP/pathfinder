@@ -185,6 +185,15 @@ export const requireGranularPermission = (module, section, action) => {
                 return next();
             }
 
+            // Digital role has superadmin-like access by default unless specific permissions are set in user.granularPermissions
+            if (user.role?.toLowerCase() === "digital") {
+                const hasCustomPerms = user.granularPermissions && typeof user.granularPermissions === 'object' && Object.keys(user.granularPermissions).length > 0;
+                if (!hasCustomPerms) {
+                    req.user = user;
+                    return next();
+                }
+            }
+
             // Granular Permission Check
             let hasAccess = false;
 
@@ -218,11 +227,6 @@ export const requireGranularPermission = (module, section, action) => {
                 if (isTargetRole || user.granularPermissions?.['marketingCRM']) {
                     hasAccess = true;
                 }
-            }
-
-            // Grant automatic access to courseManagement module actions for digital role
-            if (!hasAccess && module === 'courseManagement' && user.role?.toLowerCase() === 'digital') {
-                hasAccess = true;
             }
 
             if (!hasAccess) {

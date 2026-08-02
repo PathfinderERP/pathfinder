@@ -288,6 +288,19 @@ export const buildLeadQuery = async (queryParams, user) => {
         const values = Array.isArray(schoolName) ? normalizeValue(schoolName) : [normalizeValue(schoolName)];
         query.schoolName = { $in: values };
     }
+    if (queryParams.campaign && (!Array.isArray(queryParams.campaign) || queryParams.campaign.length > 0)) {
+        const values = Array.isArray(queryParams.campaign) ? normalizeValue(queryParams.campaign) : [normalizeValue(queryParams.campaign)];
+        const cleanValues = values.filter(v => v);
+        if (cleanValues.length > 0) {
+            query.$and = query.$and || [];
+            query.$and.push({
+                $or: [
+                    { campaign: { $in: cleanValues } },
+                    { campaignFrom: { $in: cleanValues } }
+                ]
+            });
+        }
+    }
 
     if (queryParams.isPriority !== undefined && queryParams.isPriority !== '') {
         if (queryParams.isPriority === 'true' || queryParams.isPriority === true) {

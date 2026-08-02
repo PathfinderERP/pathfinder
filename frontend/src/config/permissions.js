@@ -621,8 +621,24 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         return true; // SuperAdmin has all permissions
     }
 
-    if (role && role.toLowerCase() === 'digital' && module === 'courseManagement') {
-        return true;
+    const granularPermissions = granularPermissionsOrUser?.granularPermissions ||
+        (typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
+
+    // Digital role: default superadmin-like full access; if custom granular permissions are set in User Management, enforce them strictly
+    if (role && role.toLowerCase() === 'digital') {
+        if (granularPermissions && typeof granularPermissions === 'object' && Object.keys(granularPermissions).length > 0) {
+            if (module === 'academics' && ['upcomingClass', 'ongoingClass', 'previousClass', 'subjects', 'chapters', 'topics'].includes(section)) {
+                if (granularPermissions[module]?.['classManagement']?.[operation] === true ||
+                    granularPermissions[module]?.['classes']?.[operation] === true) {
+                    return true;
+                }
+            }
+            if (granularPermissions[module]?.[section]?.[operation] === true) {
+                return true;
+            }
+            return false;
+        }
+        return true; // Default to full access like SuperAdmin if no custom permissions configured
     }
 
     const ALL_ROLES_FOR_CLASS = [
@@ -647,15 +663,11 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
 
     // Grant automatic access to dailyTrackingLog module actions for marketing role or users with marketingCRM access
     if (module === 'dailyTrackingLog') {
-        const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
         const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
         if (isMktTargetRole || granularPermissions?.['marketingCRM']) {
             return true;
         }
     }
-
-    // Otherwise treat it as granularPermissions object
-    const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
 
     if (!granularPermissions) return false;
 
@@ -680,9 +692,20 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
         return true; // SuperAdmin has access to all modules
     }
     const normalizedRole = role ? role.toLowerCase() : "";
-    if (module === 'courseManagement' && normalizedRole === 'digital') {
-        return true;
+
+    const granularPermissions = granularPermissionsOrUser?.granularPermissions ||
+        (typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
+
+    // Digital role: default superadmin-like module access; if custom permissions exist in User Management, enforce them strictly
+    if (normalizedRole === 'digital') {
+        if (granularPermissions && typeof granularPermissions === 'object' && Object.keys(granularPermissions).length > 0) {
+            const sections = granularPermissions[module];
+            if (!sections) return false;
+            return Object.keys(sections).length > 0;
+        }
+        return true; // Default to full module access like SuperAdmin
     }
+
     if (module === 'academics' && (normalizedRole === 'class_coordinator' || normalizedRole === 'coordinator')) {
         return true;
     }
@@ -697,7 +720,6 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
         if (isMktTargetRole) return true;
     }
 
-    const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
     if (!granularPermissions || !granularPermissions[module]) return false;
     const sections = granularPermissions[module];
     return Object.keys(sections).length > 0;
@@ -710,7 +732,15 @@ export const getAccessibleModules = (granularPermissionsOrUser) => {
         return Object.keys(PERMISSION_MODULES); // SuperAdmin has access to all modules
     }
 
-    const granularPermissions = granularPermissionsOrUser?.granularPermissions || granularPermissionsOrUser;
+    const granularPermissions = granularPermissionsOrUser?.granularPermissions ||
+        (typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
+
+    if (role && role.toLowerCase() === 'digital') {
+        if (!granularPermissions || (typeof granularPermissions === 'object' && Object.keys(granularPermissions).length === 0)) {
+            return Object.keys(PERMISSION_MODULES); // Full access like SuperAdmin
+        }
+    }
+
     if (!granularPermissions) return [];
     return Object.keys(granularPermissions).filter(module =>
         hasModuleAccess(granularPermissionsOrUser, module)

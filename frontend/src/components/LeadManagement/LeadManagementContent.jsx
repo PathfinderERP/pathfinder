@@ -116,7 +116,8 @@ const LeadManagementContent = () => {
         schoolName: [],
         showDuplicates: "",
         zone: [],
-        uploadedBy: []
+        uploadedBy: [],
+        campaign: []
     });
 
     // Dropdown data for filters
@@ -130,6 +131,7 @@ const LeadManagementContent = () => {
     const [zones, setZones] = useState([]);
     const [schoolsList, setSchoolsList] = useState([]);
     const [uploaders, setUploaders] = useState([]);
+    const [campaigns, setCampaigns] = useState([]);
 
     const fetchLeadStats = useCallback(async () => {
         try {
@@ -471,6 +473,15 @@ const LeadManagementContent = () => {
             if (uploadersResponse.ok) {
                 const uploaderData = await uploadersResponse.json();
                 setUploaders(uploaderData.uploaders || []);
+            }
+
+            // Fetch campaigns
+            const campaignResponse = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/campaigns`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (campaignResponse.ok) {
+                const campaignData = await campaignResponse.json();
+                setCampaigns(campaignData.campaigns || []);
             }
         } catch (error) {
             console.error("Error fetching filter data:", error);
@@ -1487,6 +1498,16 @@ const LeadManagementContent = () => {
                                 value={filters.source}
                                 onChange={(selected) => handleFilterChange('source', selected)}
                                 placeholder="Select Source"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Campaign</label>
+                            <CustomMultiSelect
+                                options={campaigns.map(c => ({ value: c._id, label: c.adName }))}
+                                value={filters.campaign || []}
+                                onChange={(selected) => handleFilterChange('campaign', selected)}
+                                placeholder="Select Campaign"
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>

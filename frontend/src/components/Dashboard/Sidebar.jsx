@@ -70,6 +70,9 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         ? user.role.some(r => typeof r === "string" && (r.toLowerCase() === "digital"))
         : typeof user.role === "string" && (user.role.toLowerCase() === "digital");
 
+    const hasDigitalDefaultAccess = isDigital && (!granularPermissions || Object.keys(granularPermissions).length === 0);
+    const hasFullAccess = isSuperAdmin || hasDigitalDefaultAccess;
+
     useEffect(() => {
         const fetchUnviewedCount = async () => {
             if (location.pathname === "/task-workflow/tasks") {
@@ -462,8 +465,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
     const filteredMenuItems = menuItems.filter(item => {
         if (item.name === "Dashboard" || item.name === "Community" || item.name === "Employee Center" || item.name === "PNTSE") return true;
         if (item.restrictedToSuperAdmin && !isSuperAdmin) return false;
-        if (isSuperAdmin) return true;
-        // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
+        if (hasFullAccess) return true;
 
         if (item.permissionModule) {
             if (item.permissionSection) {
@@ -476,7 +478,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             else if (hasModuleAccess(user, item.permissionModule)) {
                 if (item.subItems) {
                     const accessibleSubItems = item.subItems.filter(sub => {
-                        if (isDigital && item.permissionModule === 'courseManagement') return true;
                         if (sub.permissionAction) {
                             return hasPermission(user, item.permissionModule, sub.permissionSection, sub.permissionAction);
                         }
@@ -484,7 +485,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         return !!section;
                     });
                     if (accessibleSubItems.length > 0) return true;
-                    // if (item.permissionModule === 'employeeCenter') return true; // Removed legacy override
                     return false;
                 }
                 return true;
@@ -498,14 +498,13 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         }
         return userPermissions.includes(item.name);
     }).map(item => {
-        if (item.subItems && !isSuperAdmin) {
+        if (item.subItems && !hasFullAccess) {
             const filteredSubItems = item.subItems.filter(sub => {
                 if (sub.restrictedToSuperAdmin && !isSuperAdmin) return false;
                 if (sub.name === "Reimbursement Management") return true;
                 const permModule = sub.permissionModule || item.permissionModule;
                 if (permModule) {
                     if (sub.permissionSection) {
-                        if (isDigital && permModule === 'courseManagement') return true;
                         if (sub.permissionAction) {
                             return hasPermission(user, permModule, sub.permissionSection, sub.permissionAction);
                         }
@@ -516,7 +515,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 }
                 return userPermissions.includes(sub.name);
             }).map(sub => {
-                if (sub.subItems && !isSuperAdmin) {
+                if (sub.subItems && !hasFullAccess) {
                     const filteredNestedSubItems = sub.subItems.filter(nestedSub => {
                         if (nestedSub.name === "Add Reimbursement") return true;
                         const nestedPermModule = nestedSub.permissionModule || sub.permissionModule || item.permissionModule;

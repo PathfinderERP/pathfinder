@@ -101,6 +101,7 @@ import studentPortalRoutes from "./routes/studentPortal.routes.js";
 import taskWorkflowRoutes from "./routes/taskWorkflow/taskWorkflow.routes.js";
 import schoolForTaskRoutes from "./routes/masterData/schoolForTask.routes.js";
 import assignedTaskRoutes from "./routes/assignedTask.routes.js";
+import mediaProxyRoutes from "./routes/mediaProxy.routes.js";
 import { startPaymentReminderCron } from "./services/cronService.js";
 
 
@@ -224,6 +225,7 @@ app.use("/api/pntse", pntseRoutes);
 app.use("/api/task-workflow", taskWorkflowRoutes);
 app.use("/api/school-for-task", schoolForTaskRoutes);
 app.use("/api/assigned-tasks", assignedTaskRoutes);
+app.use("/api/media", mediaProxyRoutes);
 // app.use("/api/system-logs", systemLogRoutes);
 
 

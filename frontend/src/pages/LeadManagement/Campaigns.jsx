@@ -66,6 +66,13 @@ export default function Campaigns() {
     const [leadsCentreFilter, setLeadsCentreFilter] = useState("ALL");
     const [leadsClassFilter, setLeadsClassFilter] = useState("ALL");
 
+    // ── Campaign Admissions Modal State ──────────────────────────────────────────
+    const [selectedCampaignForAdmissions, setSelectedCampaignForAdmissions] = useState(null);
+    const [isAdmissionsModalOpen, setIsAdmissionsModalOpen] = useState(false);
+    const [campaignAdmissionsList, setCampaignAdmissionsList] = useState([]);
+    const [loadingAdmissionsList, setLoadingAdmissionsList] = useState(false);
+    const [admissionsSearch, setAdmissionsSearch] = useState("");
+
     // ── Lead Journey Modal State ──────────────────────────────────────────
     const [showJourneyModal, setShowJourneyModal] = useState(false);
     const [journeyLeadId, setJourneyLeadId] = useState(null);
@@ -108,6 +115,65 @@ export default function Campaigns() {
         } finally {
             setLoadingLeadsList(false);
         }
+    };
+
+    const handleOpenCampaignAdmissionsModal = async (campaign) => {
+        setSelectedCampaignForAdmissions(campaign);
+        setIsAdmissionsModalOpen(true);
+        setLoadingAdmissionsList(true);
+        setAdmissionsSearch("");
+        setCampaignAdmissionsList([]);
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_URL}/lead-management/campaigns/${campaign._id}/admissions`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setCampaignAdmissionsList(data.admissions || []);
+            } else {
+                toast.error(data.message || "Failed to load admission details");
+            }
+        } catch (err) {
+            console.error("Error fetching campaign admissions:", err);
+            toast.error("Error fetching admission details");
+        } finally {
+            setLoadingAdmissionsList(false);
+        }
+    };
+
+    const filteredCampaignAdmissions = useMemo(() => {
+        if (!admissionsSearch.trim()) return campaignAdmissionsList;
+        const q = admissionsSearch.toLowerCase();
+        return campaignAdmissionsList.filter(item =>
+            (item.studentName && item.studentName.toLowerCase().includes(q)) ||
+            (item.admissionNumber && item.admissionNumber.toLowerCase().includes(q)) ||
+            (item.centre && item.centre.toLowerCase().includes(q)) ||
+            (item.courseName && item.courseName.toLowerCase().includes(q)) ||
+            (item.admittedBy && item.admittedBy.toLowerCase().includes(q))
+        );
+    }, [campaignAdmissionsList, admissionsSearch]);
+
+    const totalAdmissionsDownPayment = useMemo(() => {
+        return filteredCampaignAdmissions.reduce((acc, item) => acc + (Number(item.downPayment) || 0), 0);
+    }, [filteredCampaignAdmissions]);
+
+    const handleExportCampaignAdmissions = () => {
+        if (!campaignAdmissionsList || campaignAdmissionsList.length === 0) {
+            toast.warn("No admissions to export.");
+            return;
+        }
+        const exportData = campaignAdmissionsList.map((row, idx) => ({
+            "Sl No": idx + 1,
+            "Student Name": row.studentName || "—",
+            "Enrollment No.": row.admissionNumber || "—",
+            "Centre": row.centre || "—",
+            "Course Name": row.courseName || "—",
+            "Down Payment": row.downPayment || 0,
+            "Admission Date": row.admissionDate ? new Date(row.admissionDate).toLocaleDateString('en-IN') : "—",
+            "Admitted By": row.admittedBy || "—"
+        }));
+        downloadExcel(exportData, `${selectedCampaignForAdmissions?.adName || 'Campaign'}_Admissions_${new Date().toISOString().slice(0, 10)}.xlsx`);
     };
 
     const uniqueCentres = useMemo(() => {
@@ -823,6 +889,8 @@ export default function Campaigns() {
                                     <th className="pb-3 px-2 text-right">SHARES</th>
                                     <th className="pb-3 px-2 text-right">LEADS</th>
                                     <th className="pb-3 px-2 text-right">CPL</th>
+                                    <th className="pb-3 px-2 text-right">CONTACTED</th>
+                                    <th className="pb-3 px-2 text-right">UNCONTACTED</th>
                                     <th className="pb-3 px-2 text-right">ADMISSION</th>
                                     {/* NEW STATUS COLUMN */}
                                     <th className="pb-3 px-2">STATUS / RUN</th>
@@ -832,13 +900,13 @@ export default function Campaigns() {
                             <tbody>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="15" className="text-center py-8">
+                                        <td colSpan="17" className="text-center py-8">
                                             <div className="w-8 h-8 border-4 border-cyan-500/20 border-t-cyan-500 rounded-full animate-spin mx-auto" />
                                         </td>
                                     </tr>
                                 ) : campaigns.length === 0 ? (
                                     <tr>
-                                        <td colSpan="15" className="text-center py-8 font-semibold opacity-40 text-xs uppercase tracking-widest">
+                                        <td colSpan="17" className="text-center py-8 font-semibold opacity-40 text-xs uppercase tracking-widest">
                                             No Campaigns Registered
                                         </td>
                                     </tr>
@@ -904,7 +972,18 @@ export default function Campaigns() {
                                                     </button>
                                                 </td>
                                                 <td className="py-4 px-2 text-right font-mono">{formatCurrency(cpl)}</td>
-                                                <td className="py-4 px-2 text-right font-bold text-green-500">{c.admission}</td>
+                                                <td className="py-4 px-2 text-right font-bold text-blue-400">{c.contacted || 0}</td>
+                                                <td className="py-4 px-2 text-right font-bold text-amber-400">{c.uncontacted || 0}</td>
+                                                <td className="py-4 px-2 text-right">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenCampaignAdmissionsModal(c)}
+                                                        className="px-2 py-1 rounded bg-emerald-500/10 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-400 font-extrabold hover:text-emerald-300 hover:underline transition-all active:scale-95 cursor-pointer text-xs"
+                                                        title="Click to view admission details for this ad"
+                                                    >
+                                                        {c.admission || 0}
+                                                    </button>
+                                                </td>
 
                                                 {/* ── STATUS / RUN COLUMN ── */}
                                                 <td className="py-4 px-2">
@@ -1508,6 +1587,147 @@ export default function Campaigns() {
                     }}
                     isDarkMode={isDark}
                 />
+            )}
+
+            {/* ── CAMPAIGN ADMISSIONS DETAILS MODAL ── */}
+            {isAdmissionsModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+                    <div className={`relative w-full max-w-6xl max-h-[90vh] rounded-2xl shadow-2xl flex flex-col overflow-hidden transition-all duration-300 ${isDark ? "bg-[#14171a] border border-gray-800 text-white" : "bg-white border border-gray-200 text-gray-900"}`}>
+                        
+                        {/* Modal Header */}
+                        <div className={`p-6 border-b flex flex-col md:flex-row md:items-center justify-between gap-4 ${isDark ? "border-gray-800 bg-[#1a1e23]" : "border-gray-150 bg-gray-50"}`}>
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 flex-shrink-0">
+                                    <FaBullhorn size={18} />
+                                </div>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h3 className="text-lg font-black tracking-tight">{selectedCampaignForAdmissions?.adName || "Campaign"} Admissions</h3>
+                                        <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                            {campaignAdmissionsList.length} Total Admitted
+                                        </span>
+                                    </div>
+                                    <p className="text-xs text-gray-400 mt-0.5">
+                                        Converted student admissions via phone matching from campaign leads
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center gap-3 flex-wrap">
+                                <button
+                                    onClick={handleExportCampaignAdmissions}
+                                    disabled={campaignAdmissionsList.length === 0}
+                                    className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-emerald-600/20 transition-all active:scale-95 cursor-pointer"
+                                >
+                                    <FaFileExcel size={14} />
+                                    Export Excel
+                                </button>
+                                <button
+                                    onClick={() => setIsAdmissionsModalOpen(false)}
+                                    className={`p-2.5 rounded-xl transition-all ${isDark ? "hover:bg-gray-800 text-gray-400 hover:text-white" : "hover:bg-gray-200 text-gray-500 hover:text-gray-900"}`}
+                                >
+                                    <FaTimes size={18} />
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Filter / Search Bar */}
+                        <div className={`p-4 border-b flex flex-wrap items-center justify-between gap-3 ${isDark ? "border-gray-800/80 bg-[#111316]" : "border-gray-100 bg-white"}`}>
+                            <div className="relative flex-1 min-w-[240px] max-w-md">
+                                <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
+                                <input
+                                    type="text"
+                                    placeholder="Search student, enrollment no., centre, course, or admitted by..."
+                                    value={admissionsSearch}
+                                    onChange={(e) => setAdmissionsSearch(e.target.value)}
+                                    className={`w-full pl-9 pr-4 py-2 text-xs rounded-xl border outline-none font-medium transition-all ${isDark ? "bg-[#181c20] border-gray-700 text-white placeholder-gray-500 focus:border-emerald-500" : "bg-gray-50 border-gray-200 text-gray-800 focus:border-emerald-500"}`}
+                                />
+                            </div>
+
+                            <div className="flex items-center gap-4 text-xs font-bold">
+                                <span className="text-gray-400">Total Down Payment:</span>
+                                <span className="text-emerald-400 font-extrabold text-sm">
+                                    ₹{totalAdmissionsDownPayment.toLocaleString("en-IN")}
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Table Content */}
+                        <div className="flex-1 overflow-y-auto p-4">
+                            {loadingAdmissionsList ? (
+                                <div className="flex flex-col items-center justify-center py-20">
+                                    <div className="w-10 h-10 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin mb-4" />
+                                    <p className="text-xs font-bold text-gray-400 uppercase tracking-widest">Loading admission details...</p>
+                                </div>
+                            ) : filteredCampaignAdmissions.length === 0 ? (
+                                <div className="text-center py-16">
+                                    <p className="text-xs font-black uppercase tracking-widest text-gray-400">No admissions found matching criteria</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto border rounded-xl border-gray-800/40">
+                                    <table className="w-full text-left border-collapse min-w-[900px]">
+                                        <thead>
+                                            <tr className={`text-[10px] font-black uppercase tracking-wider border-b ${isDark ? "bg-[#0b0d0f] border-gray-800 text-gray-400" : "bg-gray-100 border-gray-200 text-gray-600"}`}>
+                                                <th className="p-3">#</th>
+                                                <th className="p-3">Student Name</th>
+                                                <th className="p-3">Enrollment No.</th>
+                                                <th className="p-3">Centre</th>
+                                                <th className="p-3">Course Name</th>
+                                                <th className="p-3 text-right">Down Payment</th>
+                                                <th className="p-3">Admission Date</th>
+                                                <th className="p-3">Admitted By</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-800/20 text-[11px] font-semibold">
+                                            {filteredCampaignAdmissions.map((row, idx) => (
+                                                <tr key={row._id || idx} className={`hover:bg-black/5 dark:hover:bg-white/5 transition-colors ${isDark ? "text-gray-300" : "text-gray-700"}`}>
+                                                    <td className="p-3 font-mono text-[10px] text-gray-500">{idx + 1}</td>
+                                                    <td className="p-3 font-bold text-white">{row.studentName}</td>
+                                                    <td className="p-3 font-mono text-[10px]">
+                                                        <span className={`px-2 py-0.5 rounded font-bold ${isDark ? "bg-gray-800 text-gray-300" : "bg-gray-100 text-gray-700"}`}>
+                                                            {row.admissionNumber}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-3 font-medium">{row.centre}</td>
+                                                    <td className="p-3 font-medium text-cyan-400">{row.courseName}</td>
+                                                    <td className="p-3 text-right font-black font-mono text-emerald-400">
+                                                        ₹{Number(row.downPayment || 0).toLocaleString("en-IN")}
+                                                    </td>
+                                                    <td className="p-3 font-mono text-[10px] text-gray-400">
+                                                        {row.admissionDate ? new Date(row.admissionDate).toLocaleDateString('en-IN') : "—"}
+                                                    </td>
+                                                    <td className="p-3 font-medium text-purple-400">{row.admittedBy}</td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                        <tfoot>
+                                            <tr className={`border-t-2 font-black text-xs ${isDark ? "border-gray-800 bg-[#0b0d0f] text-white" : "border-gray-200 bg-gray-50 text-gray-900"}`}>
+                                                <td colSpan={5} className="p-3 uppercase tracking-widest text-right">Total</td>
+                                                <td className="p-3 text-right font-mono text-emerald-400 text-sm">
+                                                    ₹{totalAdmissionsDownPayment.toLocaleString("en-IN")}
+                                                </td>
+                                                <td colSpan={2} className="p-3 font-mono text-gray-400 text-[10px]">
+                                                    {filteredCampaignAdmissions.length} Admission(s)
+                                                </td>
+                                            </tr>
+                                        </tfoot>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className={`px-6 py-3 border-t flex items-center justify-between text-[10px] font-bold text-gray-500 uppercase tracking-widest ${isDark ? "border-gray-800 bg-[#0b0d0f]" : "border-gray-100 bg-gray-50"}`}>
+                            <span>Showing {filteredCampaignAdmissions.length} of {campaignAdmissionsList.length} admissions</span>
+                            <button
+                                onClick={() => setIsAdmissionsModalOpen(false)}
+                                className="px-4 py-1.5 rounded-lg bg-gray-800 text-white hover:bg-gray-700 transition-all font-black cursor-pointer"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
         </Layout>
     );

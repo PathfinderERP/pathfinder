@@ -23,7 +23,9 @@ const loadEnv = () => {
 loadEnv();
 
 const defaultEndpoint = "https://3c9d12dd00618b00795184bc5ff0c333.r2.cloudflarestorage.com";
-const r2Endpoint = (process.env.S3API || defaultEndpoint).trim();
+let rawEndpoint = (process.env.S3API || defaultEndpoint).trim();
+// Strip trailing bucket name or slash from S3API endpoint (e.g. /telecalleraudio) to avoid duplicate paths in AWS S3Client
+const r2Endpoint = rawEndpoint.replace(/\/telecalleraudio\/?$/, "").replace(/\/$/, "");
 const r2AccessKeyId = (process.env.R2_ACCESS_KEY_ID || "").trim();
 const r2SecretAccessKey = (process.env.R2_SECRET_ACCESS_KEY || "").trim();
 const r2Bucket = (process.env.R2_BUCKET_NAME || "telecalleraudio").trim();

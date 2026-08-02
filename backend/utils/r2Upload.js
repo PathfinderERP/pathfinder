@@ -1,4 +1,4 @@
-import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { PutObjectCommand, DeleteObjectCommand, GetObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import s3Client from "../config/r2Config.js";
@@ -25,7 +25,8 @@ export const uploadToR2 = async (file, folder = "general") => {
         if (process.env.AccountID) {
             publicUrl = `https://pub-${process.env.AccountID}.r2.dev`;
         } else if (process.env.S3API) {
-            publicUrl = `${process.env.S3API.replace(/\/$/, "")}/${process.env.R2_BUCKET_NAME}`;
+            const cleanEndpoint = process.env.S3API.replace(/\/telecalleraudio\/?$/, "").replace(/\/$/, "");
+            publicUrl = `${cleanEndpoint}/${process.env.R2_BUCKET_NAME || 'telecalleraudio'}`;
         } else {
             publicUrl = "https://pub-3c9d12dd00618b00795184bc5ff0c333.r2.dev";
         }
@@ -64,17 +65,8 @@ export const uploadToR2 = async (file, folder = "general") => {
 
         await parallelUploads3.done();
 
-        let finalUrl;
-        try {
-            finalUrl = await getSignedUrl(
-                s3Client,
-                new GetObjectCommand({ Bucket: bucketName, Key: fileName }),
-                { expiresIn: 604800 }
-            );
-        } catch (e) {
-            finalUrl = `${publicUrl}/${fileName}`;
-        }
-        console.log(`R2 Upload: Success. URL: ${finalUrl}`);
+        let finalUrl = `${publicUrl}/${fileName}`;
+        console.log(`R2 Upload: Success. Clean URL: ${finalUrl}`);
         return finalUrl;
     } catch (error) {
         console.error("R2 Upload: Error:", error);
@@ -120,16 +112,61 @@ export const deleteFromR2 = async (fileUrl) => {
 };
 
 /**
- * Generates a signed URL for a file in R2
- * @param {String} fileUrl - The public URL or key of the file
- * @returns {Promise<String>} - The signed URL
+ * Extracts clean R2 object key from any URL (stripping expired query parameters)
+ * @param {String} fileUrl
+ * @returns {String} key
+ */
+export const extractR2Key = (fileUrl) => {
+    if (!fileUrl) return "";
+
+    let cleanUrl = String(fileUrl).split('?')[0];
+
+    const publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
+    if (publicUrl && cleanUrl.startsWith(publicUrl)) {
+        cleanUrl = cleanUrl.replace(`${publicUrl}/`, "");
+    }
+
+    // 1. Check known folder prefixes FIRST to extract exact clean key regardless of repeated bucket names
+    const prefixes = [
+        "employees/", "letters/", "regularization/", "posts/", "community/",
+        "petty_cash/", "marketing_planner/", "campaigns/", "training/",
+        "cheque/", "general/", "documents/", "photos/", "audio/", "recordings/"
+    ];
+    for (const prefix of prefixes) {
+        const index = cleanUrl.indexOf(prefix);
+        if (index !== -1) {
+            return cleanUrl.substring(index);
+        }
+    }
+
+    // 2. Fallback key extraction & stripping of all repeated bucket prefixes
+    const bucketName = process.env.R2_BUCKET_NAME || "telecalleraudio";
+    let key = cleanUrl;
+    try {
+        if (cleanUrl.startsWith("http://") || cleanUrl.startsWith("https://")) {
+            const parsed = new URL(cleanUrl);
+            key = parsed.pathname.replace(/^\//, '');
+        }
+    } catch (e) { }
+
+    while (key.startsWith(`${bucketName}/`) || key.startsWith("telecalleraudio/")) {
+        if (key.startsWith(`${bucketName}/`)) {
+            key = key.substring(bucketName.length + 1);
+        } else if (key.startsWith("telecalleraudio/")) {
+            key = key.substring("telecalleraudio/".length);
+        }
+    }
+
+    return key;
+};
+
+/**
+ * Generates a fresh signed URL for a file in R2 (resolves ExpiredRequest errors)
+ * @param {String} fileUrl - The public URL, expired presigned URL, or key of the file
+ * @returns {Promise<String>} - The fresh signed URL
  */
 export const getSignedFileUrl = async (fileUrl) => {
     if (!fileUrl) return null;
-
-    if (fileUrl.includes("X-Amz-Signature") || fileUrl.includes("X-Amz-Algorithm")) {
-        return fileUrl;
-    }
 
     if (!process.env.R2_ACCESS_KEY_ID || !process.env.R2_SECRET_ACCESS_KEY) {
         console.warn("getSignedFileUrl: Missing R2 credentials, returning original URL");
@@ -137,35 +174,40 @@ export const getSignedFileUrl = async (fileUrl) => {
     }
 
     try {
-        const publicUrl = process.env.R2_PUBLIC_URL?.replace(/\/$/, "");
-        let key = "";
-
-        if (publicUrl && fileUrl.startsWith(publicUrl)) {
-            key = fileUrl.replace(`${publicUrl}/`, "");
-        } else {
-            const prefixes = ["employees/", "letters/", "regularization/", "posts/", "community/", "petty_cash/", "marketing_planner/", "campaigns/"];
-            for (const prefix of prefixes) {
-                const index = fileUrl.indexOf(prefix);
-                if (index !== -1) {
-                    key = fileUrl.substring(index);
-                    break;
-                }
-            }
-
-            if (!key) return fileUrl;
-        }
-
-        key = key.split('?')[0];
+        const primaryKey = extractR2Key(fileUrl);
+        if (!primaryKey) return fileUrl;
 
         const bucketName = process.env.R2_BUCKET_NAME || "telecalleraudio";
 
+        // Candidate keys to check in Cloudflare R2
+        const candidates = [primaryKey];
+        if (!primaryKey.startsWith("telecalleraudio/")) {
+            candidates.push(`telecalleraudio/${primaryKey}`);
+        }
+
+        let validKey = primaryKey;
+
+        // Verify which key actually exists in R2
+        for (const candidateKey of candidates) {
+            try {
+                await s3Client.send(new HeadObjectCommand({
+                    Bucket: bucketName,
+                    Key: candidateKey,
+                }));
+                validKey = candidateKey;
+                break;
+            } catch (err) {
+                // Key not found at candidateKey, try next candidate
+            }
+        }
+
         const command = new GetObjectCommand({
             Bucket: bucketName,
-            Key: key,
+            Key: validKey,
             ResponseContentDisposition: "inline",
         });
 
-        // Sign for 7 days (604800 seconds)
+        // Sign freshly for 7 days (604800 seconds)
         const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 604800 });
         return signedUrl;
     } catch (error) {

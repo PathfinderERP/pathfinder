@@ -9,6 +9,8 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import s3Client from "../../config/r2Config.js";
 import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
 import Student from "../../models/Students.js";
+import Admission from "../../models/Admission/Admission.js";
+import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 
 
 // Helper function to refresh presigned URLs for recordings
@@ -116,18 +118,48 @@ export const getLeads = async (req, res) => {
         if (counselledQuery.$and) {
             counselledQuery.$and = counselledQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
         }
-        counselledQuery.isCounseled = true;
+        counselledQuery.$or = [
+            { isCounseled: true },
+            { leadType: { $in: ['HOT LEAD', 'WARM LEAD', 'COLD LEAD', 'NEUTRAL LEAD', 'INVALID LEAD'] } }
+        ];
         const counselledCount = await LeadManagement.countDocuments(counselledQuery);
 
-        const admittedStudents = await Student.find({ isEnrolled: true }).distinct("studentsDetails.mobileNum");
+        // Gather all admitted student mobile numbers from Student (isEnrolled), Admission, and BoardCourseAdmission
+        const [normalStudentIds, boardStudentIds, directEnrolledMobiles, directEnrolledWhatsapp, boardMobiles] = await Promise.all([
+            Admission.distinct("student"),
+            BoardCourseAdmission.distinct("studentId"),
+            Student.find({ isEnrolled: true }).distinct("studentsDetails.mobileNum"),
+            Student.find({ isEnrolled: true }).distinct("studentsDetails.whatsappNumber"),
+            BoardCourseAdmission.distinct("mobileNum")
+        ]);
+
+        const allAdmittedStudentIds = [...new Set([...normalStudentIds, ...boardStudentIds])];
+
+        const admittedStudentsFromDetails = await Student.find({
+            _id: { $in: allAdmittedStudentIds }
+        }).select("studentsDetails.mobileNum studentsDetails.whatsappNumber").lean();
+
+        const phonesFromDetails = admittedStudentsFromDetails.flatMap(s => (s.studentsDetails || []).flatMap(d => [d.mobileNum, d.whatsappNumber])).filter(Boolean);
+
+        const allAdmittedPhoneNumbers = [...new Set([
+            ...directEnrolledMobiles,
+            ...directEnrolledWhatsapp,
+            ...boardMobiles,
+            ...phonesFromDetails
+        ])].filter(Boolean);
+
         const admittedLeadQuery = { ...statsQuery };
         delete admittedLeadQuery.isCounseled;
         if (admittedLeadQuery.$and) {
             admittedLeadQuery.$and = admittedLeadQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
         }
+
         const admittedCount = await LeadManagement.countDocuments({
             ...admittedLeadQuery,
-            phoneNumber: { $in: admittedStudents }
+            $or: [
+                { phoneNumber: { $in: allAdmittedPhoneNumbers } },
+                { secondPhoneNumber: { $in: allAdmittedPhoneNumbers } }
+            ]
         });
 
         let sortOption = {};

@@ -1,6 +1,7 @@
 import User from "../../../models/User.js";
 import Employee from "../../../models/HR/Employee.js";
 import Designation from "../../../models/Master_data/Designation.js";
+import CentreSchema from "../../../models/Master_data/Centre.js";
 import bcrypt from "bcryptjs";
 
 // Helper for deep comparison of granularPermissions

@@ -3,6 +3,8 @@ import LeadManagement from "../../models/LeadManagement.js";
 import CampaignLead from "../../models/CampaignLead.js";
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
+import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
+import Payment from "../../models/Payment/Payment.js";
 import { uploadToR2, getSignedFileUrl, getPresignedUploadUrl } from "../../utils/r2Upload.js";
 import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -18,6 +20,25 @@ export const getCampaigns = async (req, res) => {
             const lmLeadsCount = await LeadManagement.countDocuments({ campaign: campaign._id });
             const clUnpushedCount = await CampaignLead.countDocuments({ campaign: campaign._id, isPushed: false });
             const totalLeadsCount = lmLeadsCount + clUnpushedCount;
+
+            // Count contacted vs uncontacted leads linked to this campaign
+            const lmContactedCount = await LeadManagement.countDocuments({
+                campaign: campaign._id,
+                $or: [
+                    { 'followUps.0': { $exists: true } },
+                    { isCounseled: true },
+                    { lastFollowUpDate: { $ne: null } }
+                ]
+            });
+            const lmUncontactedCount = await LeadManagement.countDocuments({
+                campaign: campaign._id,
+                'followUps.0': { $exists: false },
+                isCounseled: { $ne: true },
+                $or: [{ lastFollowUpDate: null }, { lastFollowUpDate: { $exists: false } }]
+            });
+
+            const contactedCount = lmContactedCount;
+            const uncontactedCount = lmUncontactedCount + clUnpushedCount;
 
             // Get all lead phone numbers for this campaign
             const [lmLeads, clLeads] = await Promise.all([
@@ -43,10 +64,12 @@ export const getCampaigns = async (req, res) => {
                 const studentIds = matchingStudents.map(s => s._id);
 
                 if (studentIds.length > 0) {
-                    // Count admissions for these students
-                    admissionsCount = await Admission.countDocuments({
-                        student: { $in: studentIds }
-                    });
+                    // Count admissions for these students from both Admission and BoardCourseAdmission
+                    const [normalCount, boardCount] = await Promise.all([
+                        Admission.countDocuments({ student: { $in: studentIds } }),
+                        BoardCourseAdmission.countDocuments({ studentId: { $in: studentIds } })
+                    ]);
+                    admissionsCount = normalCount + boardCount;
                 }
             }
 
@@ -71,6 +94,8 @@ export const getCampaigns = async (req, res) => {
                 videoLink: signedVideoLink,
                 uploadedMedia: signedMedia,
                 leads: totalLeadsCount,
+                contacted: contactedCount,
+                uncontacted: uncontactedCount,
                 admission: admissionsCount
             };
         }));
@@ -534,4 +559,188 @@ export const replaceCampaignMedia = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+export const getCampaignAdmissionsDetails = async (req, res) => {
+    try {
+        const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ message: "Campaign ID is required." });
+        }
+
+        const campaign = await Campaign.findById(id).lean();
+        if (!campaign) {
+            return res.status(404).json({ message: "Campaign not found." });
+        }
+
+        // Get all lead phone numbers for this campaign
+        const [lmLeads, clLeads] = await Promise.all([
+            LeadManagement.find({ campaign: id }).select('phoneNumber secondPhoneNumber').lean(),
+            CampaignLead.find({ campaign: id, isPushed: false }).select('phoneNumber secondPhoneNumber').lean()
+        ]);
+        const campaignLeads = [...lmLeads, ...clLeads];
+
+        const phoneNumbers = campaignLeads.map(l => l.phoneNumber).filter(Boolean);
+        const secondPhoneNumbers = campaignLeads.map(l => l.secondPhoneNumber).filter(Boolean);
+        const allPhones = [...new Set([...phoneNumbers, ...secondPhoneNumbers])];
+
+        if (allPhones.length === 0) {
+            return res.status(200).json({
+                message: "Campaign admissions fetched successfully",
+                campaign: { _id: campaign._id, adName: campaign.adName },
+                summary: { total: 0 },
+                admissions: []
+            });
+        }
+
+        // Find student IDs matching these phone numbers
+        const matchingStudents = await Student.find({
+            $or: [
+                { 'studentsDetails.mobileNum': { $in: allPhones } },
+                { 'studentsDetails.whatsappNumber': { $in: allPhones } }
+            ]
+        }).select('_id studentsDetails.fullName name').lean();
+
+        const studentIds = matchingStudents.map(s => s._id);
+
+        if (studentIds.length === 0) {
+            return res.status(200).json({
+                message: "Campaign admissions fetched successfully",
+                campaign: { _id: campaign._id, adName: campaign.adName },
+                summary: { total: 0 },
+                admissions: []
+            });
+        }
+
+        // Fetch Normal Admissions
+        const normalAdmissions = await Admission.find({ student: { $in: studentIds } })
+            .populate('student', 'studentsDetails')
+            .populate('course', 'name courseName')
+            .populate('class', 'name')
+            .populate('examTag', 'name examName')
+            .populate('createdBy', 'name email')
+            .sort({ admissionDate: -1 })
+            .lean();
+
+        // Fetch Board Admissions
+        const boardAdmissions = await BoardCourseAdmission.find({ studentId: { $in: studentIds } })
+            .populate('studentId', 'studentsDetails')
+            .populate('boardId', 'name boardName boardCourse')
+            .populate('createdBy', 'name email')
+            .sort({ admissionDate: -1 })
+            .lean();
+
+        const allAdmissionIds = [
+            ...normalAdmissions.map(a => a._id),
+            ...boardAdmissions.map(a => a._id)
+        ];
+
+        // Lookup Payment records for these admissions
+        const paymentRecords = await Payment.find({
+            admission: { $in: allAdmissionIds },
+            status: { $nin: ["REJECTED", "CANCELLED"] }
+        }).lean();
+
+        const paymentsByAdmission = {};
+        paymentRecords.forEach(p => {
+            const key = p.admission.toString();
+            if (!paymentsByAdmission[key]) paymentsByAdmission[key] = [];
+            paymentsByAdmission[key].push(p);
+        });
+
+        // Format Normal Admissions
+        const formattedNormal = normalAdmissions.map(a => {
+            const sDetails = (Array.isArray(a.student?.studentsDetails) ? a.student?.studentsDetails[0] : a.student?.studentsDetails) || {};
+            const studentName = sDetails.studentName || a.student?.name || '—';
+            const courseName = a.course?.courseName || a.course?.name || a.examTag?.name || a.examTag?.examName || '—';
+            const admittedBy = a.createdBy?.name || a.createdBy?.email || 'System';
+
+            const admPayments = paymentsByAdmission[a._id.toString()] || [];
+            const initialPaymentSum = admPayments
+                .filter(p => p.installmentNumber === 0)
+                .reduce((sum, p) => sum + (p.paidAmount || 0), 0);
+
+            const allPaymentSum = admPayments.reduce((sum, p) => sum + (p.paidAmount || 0), 0);
+
+            const downPayment = initialPaymentSum > 0 
+                ? initialPaymentSum 
+                : (a.downPayment > 0 ? a.downPayment : allPaymentSum);
+
+            return {
+                _id: a._id,
+                admissionNumber: a.admissionNumber || '—',
+                studentName,
+                centre: a.centre || sDetails.centre || '—',
+                courseName,
+                downPayment,
+                admissionDate: a.admissionDate,
+                admittedBy,
+                type: 'NORMAL'
+            };
+        });
+
+        // Format Board Admissions (CRP and NCRP)
+        const formattedBoard = boardAdmissions.map(a => {
+            const sDetails = (Array.isArray(a.studentId?.studentsDetails) ? a.studentId?.studentsDetails[0] : a.studentId?.studentsDetails) || {};
+            const studentName = sDetails.studentName || a.studentName || '—';
+            const courseName = a.boardCourseName || a.boardId?.boardCourse || a.boardId?.boardName || 'Board Course';
+            const admittedBy = a.createdBy?.name || a.createdBy?.email || 'System';
+
+            const admPayments = paymentsByAdmission[a._id.toString()] || [];
+            
+            // Initial payment sum (installmentNumber === 0)
+            const initialPaymentSum = admPayments
+                .filter(p => p.installmentNumber === 0)
+                .reduce((sum, p) => sum + (p.paidAmount || 0), 0);
+
+            const allPaymentSum = admPayments.reduce((sum, p) => sum + (p.paidAmount || 0), 0);
+
+            // Document fields sum: admissionFee + examFeePaid + additionalThingsPaid
+            const docFeeSum = (a.admissionFee || 0) + (a.examFeePaid || 0) + (a.additionalThingsPaid || 0);
+
+            let downPayment = 0;
+            if (initialPaymentSum > 0) {
+                downPayment = initialPaymentSum;
+            } else if (docFeeSum > 0) {
+                downPayment = docFeeSum;
+            } else if (allPaymentSum > 0) {
+                downPayment = allPaymentSum;
+            } else {
+                downPayment = a.totalPaidAmount || 0;
+            }
+
+            return {
+                _id: a._id,
+                admissionNumber: a.admissionNumber || '—',
+                studentName,
+                centre: a.centre || sDetails.centre || '—',
+                courseName,
+                downPayment,
+                admissionDate: a.admissionDate,
+                admittedBy,
+                type: 'BOARD'
+            };
+        });
+
+        const allAdmissions = [...formattedNormal, ...formattedBoard].sort(
+            (a, b) => new Date(b.admissionDate) - new Date(a.admissionDate)
+        );
+
+        return res.status(200).json({
+            message: "Campaign admissions fetched successfully",
+            campaign: {
+                _id: campaign._id,
+                adName: campaign.adName
+            },
+            summary: {
+                total: allAdmissions.length
+            },
+            admissions: allAdmissions
+        });
+
+    } catch (err) {
+        console.error("Error fetching campaign admissions details:", err);
+        return res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
 

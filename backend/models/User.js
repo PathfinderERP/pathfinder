@@ -48,7 +48,7 @@ const userSchema = new mongoose.Schema({
     boardType: { type: String }, // e.g. JEE, NEET, CBSE
     teacherType: {
         type: String,
-        enum: ['Full Time', 'Part Time', 'Full-time', 'Part-time'],
+        enum: ['Full Time', 'Part Time', 'Full-time', 'Part-time', 'Intern', 'Trainee', 'Guest', 'Contract', 'Contractual', 'Other'],
         default: null
     },
     onlineOfflineType: {
