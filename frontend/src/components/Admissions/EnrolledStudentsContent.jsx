@@ -3019,11 +3019,11 @@ const EnrolledStudentsContent = () => {
                                     <div className="p-2 bg-purple-500/10 text-purple-500 rounded-[4px]">
                                         <FaBook size={18} />
                                     </div>
-                                    Enrollment Registry ({studentAdmissions.length})
+                                    Enrollment Registry ({studentAdmissions.filter(a => a.admissionType !== 'BOARD').length})
                                 </h4>
 
                                 <div className="space-y-8">
-                                    {[...studentAdmissions].sort((a, b) => new Date(b.admissionDate) - new Date(a.admissionDate)).map((admission, index) => (
+                                    {[...studentAdmissions].filter(a => a.admissionType !== 'BOARD').sort((a, b) => new Date(b.admissionDate) - new Date(a.admissionDate)).map((admission, index) => (
                                         <div key={admission._id} className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden`}>
                                             {/* Course Header */}
                                             <div className={`p-5 flex flex-col lg:flex-row justify-between lg:items-center gap-4 ${isDarkMode ? 'bg-[#1a1f24] border-b border-gray-800' : 'bg-white border-b border-gray-100'}`}>
