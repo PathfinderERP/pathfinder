@@ -223,6 +223,8 @@ const AdmissionCourseReport = () => {
     // Each row: { examTagId, examTagName, centreName, courseName, month, count }
     const [rows,    setRows]    = useState([]);
     const [availableCourses, setAvailableCourses] = useState([]);
+    const [targetsMap, setTargetsMap] = useState({});
+    const [centreNameToIdMap, setCentreNameToIdMap] = useState({});
     const [summary, setSummary] = useState({ total: 0, departments: 0, centres: 0, courses: 0 });
     const [loading, setLoading] = useState(false);
 
@@ -382,6 +384,8 @@ const AdmissionCourseReport = () => {
             }
 
             setRows(mapped);
+            setTargetsMap(data.targetsMap || {});
+            setCentreNameToIdMap(data.centreNameToIdMap || {});
 
             const total   = mapped.reduce((a, r) => a + r.count, 0);
             const depts   = new Set(mapped.map(r => r.departmentName).filter(d => DEPARTMENTS_LIST.includes((d || "").trim().toUpperCase()))).size;
@@ -965,18 +969,29 @@ const AdmissionCourseReport = () => {
                                                     const cellData = pivotData[centre]?.[tag];
                                                     const count = cellData?.count || 0;
                                                     rowTotal += count;
+
+                                                    const cId = centreNameToIdMap[(centre || "").trim().toLowerCase()] || (centres.find(c => (c.centreName || "").trim().toLowerCase() === (centre || "").trim().toLowerCase())?._id?.toString());
+                                                    const targetKey = cId ? `${cId}_${(tag || "").trim().toUpperCase()}` : null;
+                                                    const targetVal = targetKey ? targetsMap[targetKey] : undefined;
+
                                                     return (
                                                         <td key={tag} className={`${tdCls} text-center`}>
-                                                            {count > 0 ? (
-                                                                <button 
-                                                                    onClick={() => openCellDetails(centre, tag, cellData.details)}
-                                                                    className={`px-3 py-1 rounded-md text-sm font-bold transition-all hover:scale-105 active:scale-95 ${isDark ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
-                                                                >
-                                                                    {count.toLocaleString("en-IN")}
-                                                                </button>
-                                                            ) : (
-                                                                <span className={`text-xs font-medium ${isDark ? 'text-gray-700' : 'text-gray-300'}`}>-</span>
-                                                            )}
+                                                            <div className="flex items-center justify-center gap-1">
+                                                                {count > 0 ? (
+                                                                    <button 
+                                                                        onClick={() => openCellDetails(centre, tag, cellData.details)}
+                                                                        className={`px-2 py-0.5 rounded-md text-sm font-bold transition-all hover:scale-105 active:scale-95 ${isDark ? 'bg-blue-500/20 text-blue-400 hover:bg-blue-500/30' : 'bg-blue-50 text-blue-600 hover:bg-blue-100'}`}
+                                                                    >
+                                                                        {count.toLocaleString("en-IN")}
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className={`text-xs font-medium ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>0</span>
+                                                                )}
+                                                                <span className={`text-xs font-semibold ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>/</span>
+                                                                <span className={`text-xs font-bold ${targetVal ? (isDark ? 'text-amber-400' : 'text-amber-600') : (isDark ? 'text-gray-600' : 'text-gray-400')}`}>
+                                                                    {targetVal !== undefined && targetVal !== null ? targetVal.toLocaleString("en-IN") : '-'}
+                                                                </span>
+                                                            </div>
                                                         </td>
                                                     );
                                                 })}

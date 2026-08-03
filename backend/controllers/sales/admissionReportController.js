@@ -7,7 +7,8 @@ import Course from "../../models/Master_data/Courses.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
 import ClassModel from "../../models/Master_data/Class.js";
 import Boards from "../../models/Master_data/Boards.js";
-import Payment from "../../models/Payment/Payment.js";
+import Department from "../../models/Master_data/Department.js";
+import CourseTarget from "../../models/Sales/CourseTarget.js";
 import mongoose from "mongoose";
 
 export const getAdmissionReport = async (req, res) => {
@@ -841,11 +842,84 @@ export const getAdmissionReport = async (req, res) => {
 
         boardAnalysis.dailyTrend = boardDailyTrend;
 
+        // 7. Fetch Course Targets for Department Matrix Target display
+        const targetYear = start.getFullYear();
+        const monthNamesFull = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+
+        // Check if query is for a specific single month
+        const isSameMonth = start.getFullYear() === end.getFullYear() && start.getMonth() === end.getMonth();
+        const monthName = isSameMonth ? monthNamesFull[start.getMonth()] : null;
+
+        const targetFilter = { year: targetYear };
+
+        let rawCourseTargets = [];
+        if (isSameMonth) {
+            // Find MONTHLY and WEEKLY targets for this month
+            rawCourseTargets = await CourseTarget.find({
+                year: targetYear,
+                month: monthName,
+                targetType: { $in: ['MONTHLY', 'WEEKLY'] }
+            }).populate("department", "departmentName").lean();
+        } else {
+            // YEARLY target fallback
+            rawCourseTargets = await CourseTarget.find({
+                year: targetYear,
+                targetType: 'YEARLY'
+            }).populate("department", "departmentName").lean();
+        }
+
+        const targetsMap = {};
+        if (isSameMonth) {
+            const monthlyMap = {};
+            const weeklySumMap = {};
+            rawCourseTargets.forEach(t => {
+                const cId = t.centre?.toString();
+                const dName = (t.department?.departmentName || "").trim().toUpperCase();
+                if (!cId || !dName) return;
+                const key = `${cId}_${dName}`;
+
+                if (t.targetType === 'MONTHLY') {
+                    if (!monthlyMap[key] || t.targetCount > monthlyMap[key]) {
+                        monthlyMap[key] = t.targetCount;
+                    }
+                } else if (t.targetType === 'WEEKLY') {
+                    weeklySumMap[key] = (weeklySumMap[key] || 0) + (t.targetCount || 0);
+                }
+            });
+
+            const allKeys = new Set([...Object.keys(monthlyMap), ...Object.keys(weeklySumMap)]);
+            allKeys.forEach(key => {
+                targetsMap[key] = (monthlyMap[key] && monthlyMap[key] > 0) ? monthlyMap[key] : (weeklySumMap[key] || 0);
+            });
+        } else {
+            rawCourseTargets.forEach(t => {
+                const cId = t.centre?.toString();
+                const dName = (t.department?.departmentName || "").trim().toUpperCase();
+                if (!cId || !dName) return;
+                const key = `${cId}_${dName}`;
+                if (!targetsMap[key] || t.targetCount > targetsMap[key]) {
+                    targetsMap[key] = t.targetCount;
+                }
+            });
+        }
+
+        // Also build a centre lookup map by centreName for easy matching
+        const allCentresDocs = await Centre.find({ status: { $ne: "deactive" } }).select("centreName").lean();
+        const centreNameToIdMap = {};
+        allCentresDocs.forEach(c => {
+            centreNameToIdMap[c.centreName.trim().toLowerCase()] = c._id.toString();
+        });
+
         res.status(200).json({
             trend: trendData,
             detailedTrend: detailedTrend,
             boardAnalysis,
             subjectAnalysis,
+            targetsMap,
+            centreNameToIdMap,
             status: {
                 admitted: totalAdmitted,
                 inCounselling: totalCounselling
