@@ -101,7 +101,10 @@ export const getProfile = async (req, res) => {
             .populate("course", "courseName")
             .populate("class", "className");
 
-        const formattedAdmissions = admissions.map(adm => ({
+        // Filter out board admissions
+        const normalAdmissions = admissions.filter(adm => adm.admissionType !== 'BOARD');
+
+        const formattedAdmissions = normalAdmissions.map(adm => ({
             _id: adm._id,
             admissionNumber: adm.admissionNumber,
             courseName: adm.course?.courseName || "N/A",
@@ -547,6 +550,9 @@ export const getSingleStudentReport = async (req, res) => {
             .populate("course")
             .populate("class");
 
+        // Filter out board admissions
+        const normalAdmissions = admissions.filter(adm => adm.admissionType !== 'BOARD');
+
         // 3. Fetch Detailed Attendance & Schedule
         const batchIds = student.batches || [];
         const classes = await ClassSchedule.find({
@@ -593,7 +599,7 @@ export const getSingleStudentReport = async (req, res) => {
                 courseName: student.course?.courseName || "N/A",
                 batchNames: student.batches?.map(b => b.batchName) || []
             },
-            admissions: admissions.map(adm => ({
+            admissions: normalAdmissions.map(adm => ({
                 _id: adm._id,
                 admissionNumber: adm.admissionNumber,
                 courseName: adm.course?.courseName || "N/A",
