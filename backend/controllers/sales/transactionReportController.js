@@ -14,7 +14,7 @@ export const getTransactionReport = async (req, res) => {
 
         const amountWithoutGstExpr = {
             $cond: {
-                if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", ""] }, regex: "phsps", options: "i" } },
+                if: { $regexMatch: { input: { $ifNull: ["$centre", "$admissionInfo.centre", ""] }, regex: "phsps", options: "i" } },
                 then: "$paidAmount",
                 else: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] }
             }
@@ -159,11 +159,11 @@ export const getTransactionReport = async (req, res) => {
 
                 if (!isSuperAdmin) {
                     const finalNames = requestedNames.filter(name => allowedCentreNames.includes(name));
-                    admissionMatch["admissionInfo.centre"] = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
+                    admissionMatch["effectiveCentre"] = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
                 } else if (requestedNames.length > 0) {
-                    admissionMatch["admissionInfo.centre"] = { $in: requestedNames };
+                    admissionMatch["effectiveCentre"] = { $in: requestedNames };
                 } else {
-                    admissionMatch["admissionInfo.centre"] = { $in: ["__NO_MATCH__"] };
+                    admissionMatch["effectiveCentre"] = { $in: ["__NO_MATCH__"] };
                 }
             }
         } else if (zoneCentreNames !== null) {
@@ -171,11 +171,11 @@ export const getTransactionReport = async (req, res) => {
             if (!isSuperAdmin) {
                 filteredByZone = filteredByZone.filter(name => allowedCentreNames.includes(name));
             }
-            admissionMatch["admissionInfo.centre"] = { $in: filteredByZone.length > 0 ? filteredByZone : ["__NO_MATCH__"] };
+            admissionMatch["effectiveCentre"] = { $in: filteredByZone.length > 0 ? filteredByZone : ["__NO_MATCH__"] };
         } else {
             // Default: Exclude franchise and RKM
             const defaultCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/rkm/i.test(name));
-            admissionMatch["admissionInfo.centre"] = { $in: defaultCentreNames.length > 0 ? defaultCentreNames : ["__NO_MATCH__"] };
+            admissionMatch["effectiveCentre"] = { $in: defaultCentreNames.length > 0 ? defaultCentreNames : ["__NO_MATCH__"] };
         }
 
         if (courseIds) {
@@ -268,6 +268,7 @@ export const getTransactionReport = async (req, res) => {
                 { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
                 { $lookup: { from: "centreschemas", localField: "admissionInfo.centre", foreignField: "_id", as: "pntseCentreInfo" } },
                 { $addFields: { "admissionInfo.centre": { $cond: { if: { $gt: [{ $size: "$pntseCentreInfo" }, 0] }, then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] }, else: "$admissionInfo.centre" } } } },
+                { $addFields: { effectiveCentre: { $ifNull: ["$centre", "$admissionInfo.centre"] } } },
                 { $match: admissionMatch }
             );
 
@@ -297,7 +298,7 @@ export const getTransactionReport = async (req, res) => {
             $facet: {
                 monthlyRevenue: [{ $group: { _id: { $month: "$reportDate" }, revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }],
                 paymentMethods: [{ $group: { _id: "$paymentMethod", value: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }],
-                centreRevenue: needsAdmissionLookup ? [{ $group: { _id: "$admissionInfo.centre", revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $sort: { revenue: -1 } }] : [{ $match: { _id: "__SKIP__" } }],
+                centreRevenue: needsAdmissionLookup ? [{ $group: { _id: "$effectiveCentre", revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $sort: { revenue: -1 } }] : [{ $match: { _id: "__SKIP__" } }],
                 courseRevenue: needsAdmissionLookup ? [{ $group: { _id: { $ifNull: ["$admissionInfo.course", "$boardCourseName"] }, revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $lookup: { from: "courses", localField: "_id", foreignField: "_id", as: "courseDetails" } }, { $project: { name: { $ifNull: [{ $arrayElemAt: ["$courseDetails.courseName", 0] }, "$_id"] }, revenue: 1, revenueWithoutGst: 1, count: 1 } }, { $sort: { revenue: -1 } }] : [{ $match: { _id: "__SKIP__" } }]
             }
         });
@@ -374,6 +375,13 @@ export const getTransactionReport = async (req, res) => {
                             then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] },
                             else: "$admissionInfo.centre"
                         }
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    effectiveCentre: {
+                        $ifNull: ["$centre", "$admissionInfo.centre"]
                     }
                 }
             },
@@ -530,7 +538,7 @@ export const getTransactionReport = async (req, res) => {
                         ]
                     },
 
-                    centre: "$admissionInfo.centre",
+                    centre: "$effectiveCentre",
                     course: { $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName", "$admissionInfo.course", "$boardCourseName"] },
                     department: { $ifNull: ["$departmentDetails.departmentName", "BOARD", "PNTSE"] },
                     session: "$admissionInfo.academicSession",
@@ -541,7 +549,7 @@ export const getTransactionReport = async (req, res) => {
                     revenueWithoutGst: amountWithoutGstExpr,
                     gstAmount: {
                         $cond: {
-                            if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", ""] }, regex: "phsps", options: "i" } },
+                            if: { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
                             then: 0,
                             else: { $ifNull: [{ $add: ["$cgst", "$sgst"] }, { $subtract: ["$paidAmount", { $divide: ["$paidAmount", 1.18] }] }] }
                         }
@@ -621,6 +629,7 @@ export const getTransactionReport = async (req, res) => {
                 { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
                 { $lookup: { from: "centreschemas", localField: "admissionInfo.centre", foreignField: "_id", as: "pntseCentreInfo" } },
                 { $addFields: { "admissionInfo.centre": { $cond: { if: { $gt: [{ $size: "$pntseCentreInfo" }, 0] }, then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] }, else: "$admissionInfo.centre" } } } },
+                { $addFields: { effectiveCentre: { $ifNull: ["$centre", "$admissionInfo.centre"] } } },
                 { $match: admissionMatch }
             );
 

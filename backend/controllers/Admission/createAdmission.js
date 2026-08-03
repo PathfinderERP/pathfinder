@@ -445,6 +445,7 @@ export const createAdmission = async (req, res) => {
                 boardCourseName: boardCourseNameString || null,
                 remarks: "Down Payment at Admission",
                 recordedBy: req.user._id,
+                centre: centre,
                 // Bill Details
                 cgst: parseFloat(dpCgst.toFixed(2)),
                 sgst: parseFloat(dpSgst.toFixed(2)),
