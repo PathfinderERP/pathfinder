@@ -319,6 +319,7 @@ export const updatePaymentInstallment = async (req, res) => {
                     bankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined,
                     remarks: remarks,
                     recordedBy: req.user?._id,
+                    centre: admission.centre,
                     cgst: parseFloat(cgst.toFixed(2)),
                     sgst: parseFloat(sgst.toFixed(2)),
                     courseFee: parseFloat(courseFee.toFixed(2)),
@@ -330,6 +331,7 @@ export const updatePaymentInstallment = async (req, res) => {
             } else {
                 console.log(`Updating EXISTING payment record ${payment._id}. Method: ${paymentMethod}, TxnID: ${finalTransactionId}`);
                 // Update existing payment record
+                if (!payment.centre) payment.centre = admission.centre;
                 payment.paidAmount = paidAmount;
                 payment.paidDate = installment.paidDate;
                 payment.receivedDate = installment.receivedDate;

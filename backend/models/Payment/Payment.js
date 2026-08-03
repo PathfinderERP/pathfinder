@@ -99,6 +99,10 @@ const paymentSchema = new mongoose.Schema({
         unique: true,
         sparse: true // Allows null/undefined values to not conflict
     },
+    centre: {
+        type: String,
+        default: null
+    },
     cgst: {
         type: Number,
         default: 0

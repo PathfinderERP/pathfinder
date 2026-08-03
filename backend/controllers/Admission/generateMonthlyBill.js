@@ -341,6 +341,7 @@ export const generateMonthlyBill = async (req, res) => {
                     boardCourseName: specificBoardCourseName,
                     remarks: `Monthly Payment for ${billingMonth}`,
                     recordedBy: req.user._id,
+                    centre: admission.centre,
                     cgst: cgstAmount,
                     sgst: sgstAmount,
                     courseFee: baseFees,

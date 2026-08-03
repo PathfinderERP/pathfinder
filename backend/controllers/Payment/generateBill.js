@@ -273,6 +273,7 @@ export const generateBill = async (req, res) => {
                     transactionId: installment.transactionId || (isBoardAdmission && installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].transactionId : ""),
                     remarks: installment.remarks || (isBoardAdmission ? `Board Installment Month ${installment.monthNumber}` : ""),
                     recordedBy: req.user?.id || req.user?._id,
+                    centre: centre.centreName || admission.centre,
                     cgst,
                     sgst,
                     courseFee,
@@ -284,6 +285,11 @@ export const generateBill = async (req, res) => {
 
                 await payment.save();
                 console.log(`✅ Created missing payment record: ${payment._id}`);
+            }
+
+            if (!payment.centre) {
+                payment.centre = centre.centreName || admission.centre;
+                await payment.save();
             }
 
             // If payment exists but doesn't have a bill ID (or has an old MIG- ID), generate/fix it
