@@ -402,12 +402,13 @@ const GetAllExpense = () => {
     };
 
     const handleDownloadTemplate = () => {
-        const headers = ["Expense Name", "Category", "Month", "Week", "Amount", "Bank Account No.", "IFSC Code"];
+        const todayStr = new Date().toISOString().split("T")[0];
+        const headers = ["Expense Name", "Category", "Month", "Current Date", "Amount", "Bank Account No.", "IFSC Code"];
         const sampleRow = {
             "Expense Name": "Office Stationery",
             Category: "Office Expenses",
             Month: "May",
-            Week: "Week 1",
+            "Current Date": todayStr,
             Amount: 1500,
             "Bank Account No.": "1234567890",
             "IFSC Code": "ABCD0123456",
@@ -764,6 +765,7 @@ const GetAllExpense = () => {
                 "Bank Account No.": expense.accountNumber || "—",
                 "IFSC Code": expense.ifscCode || "—",
                 "Month / Period": buildMonthPeriodLabel(expense),
+                "Current Date": expense.currentDate ? new Date(expense.currentDate).toLocaleDateString('en-GB') : "—",
                 Amount: amount ?? "",
                 "Paid Amount": expense.paidAmount || 0,
                 "Remaining Amount": expense.remainingAmount ?? "",

@@ -255,6 +255,8 @@ const bulkImportExpenses = async (req, res) => {
             const accountNumber = row["Bank Account No."] || row["Bank Account Number"] || row["Account Number"];
             const ifscCode = row["IFSC Code"] || row["IFSC"];
 
+            const currentDateVal = row["Current Date"] || row["CurrentDate"];
+
             // Validations
             if (!name) {
                 errors.push(`Row ${i + 2}: Expense Name is required.`);
@@ -266,10 +268,6 @@ const bulkImportExpenses = async (req, res) => {
             }
             if (!months) {
                 errors.push(`Row ${i + 2}: Month is required.`);
-                continue;
-            }
-            if (!week) {
-                errors.push(`Row ${i + 2}: Week is required.`);
                 continue;
             }
 
@@ -294,12 +292,11 @@ const bulkImportExpenses = async (req, res) => {
                 continue;
             }
 
-            // Week enum validation
-            const validWeeks = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"];
-            const matchedWeek = validWeeks.find(w => w.toLowerCase() === week.toLowerCase());
-            if (!matchedWeek) {
-                errors.push(`Row ${i + 2}: Invalid Week "${week}".`);
-                continue;
+            // Week enum validation (optional)
+            let matchedWeek = undefined;
+            if (week) {
+                const validWeeks = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"];
+                matchedWeek = validWeeks.find(w => w.toLowerCase() === week.toLowerCase());
             }
 
             // Resolve Category
@@ -334,6 +331,7 @@ const bulkImportExpenses = async (req, res) => {
             };
 
             const expenseDate = parseExcelDate(expenseDateVal) || new Date();
+            const currentDate = parseExcelDate(currentDateVal) || new Date();
             const approvedDate = parseExcelDate(approvedDateVal);
 
             const modeOfPaymentVal = row["Mode of Payment"] || row["Mode Of Payment"] || row["modeOfPayment"] || "Bank";
@@ -346,6 +344,7 @@ const bulkImportExpenses = async (req, res) => {
                 months: matchedMonth,
                 week: matchedWeek,
                 expenseDate,
+                currentDate,
                 approvedBy,
                 approvedDate,
                 amount,
