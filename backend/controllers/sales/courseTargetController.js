@@ -311,32 +311,59 @@ export const getCourseTargetAnalysis = async (req, res) => {
         allExamTags.forEach(t => examTagMap[t._id.toString()] = t.tagName || t.name);
 
         // Fetch Course Targets
-        const targetFilter = {
-            centre: { $in: centreIds },
-            year: parsedYear
-        };
-        if (targetType === 'MONTHLY') {
-            targetFilter.targetType = 'MONTHLY';
-            targetFilter.month = month;
-        } else if (targetType === 'QUARTERLY') {
-            targetFilter.targetType = 'QUARTERLY';
-            targetFilter.quarter = quarter;
-        } else if (targetType === 'WEEKLY') {
-            targetFilter.targetType = 'WEEKLY';
-            targetFilter.week = parseInt(week, 10);
-            targetFilter.month = month; // required: same week number can exist in different months
-        } else if (targetType === 'YEARLY') {
-            targetFilter.targetType = 'YEARLY';
-        }
-
-        const courseTargets = await CourseTarget.find(targetFilter).lean();
         const targetMap = {};
-        courseTargets.forEach(t => {
-            const key = `${t.centre.toString()}_${t.department.toString()}`;
-            if (!targetMap[key] || t.targetCount > targetMap[key]) {
-                targetMap[key] = t.targetCount;
+        if (targetType === 'MONTHLY') {
+            // Find both MONTHLY and WEEKLY targets for the specified month & year
+            const courseTargets = await CourseTarget.find({
+                centre: { $in: centreIds },
+                year: parsedYear,
+                month: month,
+                targetType: { $in: ['MONTHLY', 'WEEKLY'] }
+            }).lean();
+
+            const monthlyMap = {};
+            const weeklySumMap = {};
+
+            courseTargets.forEach(t => {
+                const key = `${t.centre.toString()}_${t.department.toString()}`;
+                if (t.targetType === 'MONTHLY') {
+                    if (!monthlyMap[key] || t.targetCount > monthlyMap[key]) {
+                        monthlyMap[key] = t.targetCount;
+                    }
+                } else if (t.targetType === 'WEEKLY') {
+                    weeklySumMap[key] = (weeklySumMap[key] || 0) + (t.targetCount || 0);
+                }
+            });
+
+            // For each key, prefer direct monthly target if set and > 0, otherwise fallback to sum of weekly targets
+            const allKeys = new Set([...Object.keys(monthlyMap), ...Object.keys(weeklySumMap)]);
+            allKeys.forEach(key => {
+                targetMap[key] = (monthlyMap[key] && monthlyMap[key] > 0) ? monthlyMap[key] : (weeklySumMap[key] || 0);
+            });
+        } else {
+            const targetFilter = {
+                centre: { $in: centreIds },
+                year: parsedYear
+            };
+            if (targetType === 'QUARTERLY') {
+                targetFilter.targetType = 'QUARTERLY';
+                targetFilter.quarter = quarter;
+            } else if (targetType === 'WEEKLY') {
+                targetFilter.targetType = 'WEEKLY';
+                targetFilter.week = parseInt(week, 10);
+                targetFilter.month = month; // required: same week number can exist in different months
+            } else if (targetType === 'YEARLY') {
+                targetFilter.targetType = 'YEARLY';
             }
-        });
+
+            const courseTargets = await CourseTarget.find(targetFilter).lean();
+            courseTargets.forEach(t => {
+                const key = `${t.centre.toString()}_${t.department.toString()}`;
+                if (!targetMap[key] || t.targetCount > targetMap[key]) {
+                    targetMap[key] = t.targetCount;
+                }
+            });
+        }
 
         const programList = programme ? (typeof programme === 'string' ? programme.split(',').map(s => s.trim()) : programme) : [];
         const sessionList = sessions ? (typeof sessions === 'string' ? sessions.split(',').map(s => s.trim()) : sessions) : [];
