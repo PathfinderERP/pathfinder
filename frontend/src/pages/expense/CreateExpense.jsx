@@ -79,14 +79,12 @@ const CreateExpense = () => {
         if (!formData.name.trim()) { toast.error("Expense Name is required."); return; }
         if (!formData.category) { toast.error("Category is required."); return; }
         if (!formData.months) { toast.error("Month is required."); return; }
-        if (!formData.week) { toast.error("Week is required."); return; }
         if (!formData.amount || Number(formData.amount) <= 0) { toast.error("A valid Amount is required."); return; }
 
         const payload = {
             name: formData.name.trim(),
             category: formData.category,
             months: formData.months,
-            week: formData.week,
             amount: Number(formData.amount),
             accountNumber: formData.accountNumber ? formData.accountNumber.trim() : "N/A",
             ifscCode: formData.ifscCode ? formData.ifscCode.trim() : "N/A",
@@ -215,24 +213,22 @@ const CreateExpense = () => {
                                     </select>
                                 </FieldWrapper>
 
-                                {/* Week — Required */}
+                                {/* Current Date — Non-editable */}
                                 <FieldWrapper>
                                     <label className={labelClass}>
-                                        <FaCalendarAlt className="inline mr-1 text-cyan-500" size={10} />
-                                        Week <RequiredBadge />
+                                        <FaCalendarAlt className="inline mr-1 text-slate-400" size={10} />
+                                        Current Date
                                     </label>
-                                    <select
-                                        name="week"
-                                        value={formData.week}
-                                        onChange={handleInputChange}
-                                        className={inputClass}
-                                        required
-                                    >
-                                        <option value="">— Select Week —</option>
-                                        {WEEKS.map((w) => (
-                                            <option key={w} value={w}>{w}</option>
-                                        ))}
-                                    </select>
+                                    <input
+                                        type="text"
+                                        value={new Date().toLocaleDateString('en-GB')}
+                                        disabled
+                                        className={`w-full rounded-lg border px-4 py-3 outline-none cursor-not-allowed opacity-60 ${
+                                            isDarkMode
+                                                ? "bg-slate-900 border-slate-700 text-slate-400"
+                                                : "bg-slate-50 border-slate-200 text-slate-500"
+                                        }`}
+                                    />
                                 </FieldWrapper>
 
                                 {/* Amount — Required */}

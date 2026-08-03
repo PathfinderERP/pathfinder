@@ -20,10 +20,10 @@ const createExpense = async (req, res) => {
             modeOfPayment
         } = req.body;
 
-        if (!name || !category || !months || !week || !amount || !createdBy) {
+        if (!name || !category || !months || !amount || !createdBy) {
             return res.status(400).json({
                 success: false,
-                message: "Expense Name, Category, Month, Week, Amount, and Created By fields are required",
+                message: "Expense Name, Category, Month, Amount, and Created By fields are required",
             });
         }
 
@@ -36,6 +36,7 @@ const createExpense = async (req, res) => {
             approvedBy,
             approvedDate,
             expenseDate,
+            currentDate: new Date(),
             createdBy,
             accountNumber: accountNumber || "N/A",
             ifscCode: ifscCode || "N/A",

@@ -28,8 +28,7 @@ const expenseSchema = new mongoose.Schema(
         },
         week: {
             type: String,
-            enum: ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"],
-            required: function () { return this.expenseType === 'General'; }
+            enum: ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"]
         },
         approvedBy: {
             type: mongoose.Schema.Types.ObjectId,
@@ -39,6 +38,10 @@ const expenseSchema = new mongoose.Schema(
             type: Date,
         },
         expenseDate: {
+            type: Date,
+            default: Date.now,
+        },
+        currentDate: {
             type: Date,
             default: Date.now,
         },
