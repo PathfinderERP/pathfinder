@@ -6,8 +6,7 @@ import {
     bulkImportExpenses,
     deleteExpense,
     bulkDeleteExpenses,
-    bulkEditExpenses,
-    bulkApproveExpenses
+    bulkEditExpenses
 } from "../../controllers/Finance/expense.js";
 
 import express from "express";
@@ -19,7 +18,6 @@ router.post("/", createExpense);
 router.post("/bulk-import", protect, bulkImportExpenses);
 router.post("/bulk-delete", protect, bulkDeleteExpenses);
 router.post("/bulk-edit", protect, bulkEditExpenses);
-router.post("/bulk-approve", protect, bulkApproveExpenses);
 
 router.get("/", getAllExpence);
 

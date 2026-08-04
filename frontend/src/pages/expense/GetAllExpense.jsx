@@ -184,19 +184,6 @@ const GetAllExpense = () => {
         return "—";
     };
 
-    // Approval Modal State
-    const [showApproveModal, setShowApproveModal] = useState(false);
-    const [selectedExpense, setSelectedExpense] = useState(null);
-    const [approvalData, setApprovalData] = useState({
-        reason: "",
-        givenBy: "",
-    });
-
-    // Given-By user search
-    const [allUsers, setAllUsers] = useState([]);
-    const [givenBySearch, setGivenBySearch] = useState("");
-    const [showGivenByDropdown, setShowGivenByDropdown] = useState(false);
-
     // Bulk upload states
     const [importing, setImporting] = useState(false);
     const [importErrors, setImportErrors] = useState([]);
@@ -224,7 +211,6 @@ const GetAllExpense = () => {
     // Bulk Action States
     const [selectedExpenseIds, setSelectedExpenseIds] = useState([]);
     const [showBulkEditModal, setShowBulkEditModal] = useState(false);
-    const [showBulkApproveModal, setShowBulkApproveModal] = useState(false);
     const [bulkEditFormData, setBulkEditFormData] = useState({
         category: "",
         months: "",
@@ -235,13 +221,8 @@ const GetAllExpense = () => {
         reason: "",
         givenBy: "",
     });
-    const [bulkApproveFormData, setBulkApproveFormData] = useState({
-        givenBy: "",
-        reason: "",
-    });
     const [bulkDeleting, setBulkDeleting] = useState(false);
     const [bulkUpdating, setBulkUpdating] = useState(false);
-    const [bulkApproving, setBulkApproving] = useState(false);
 
     // Pagination States
     const [currentPage, setCurrentPage] = useState(1);
@@ -254,24 +235,8 @@ const GetAllExpense = () => {
 
     useEffect(() => {
         fetchExpenses();
-        fetchUsers();
         fetchCategories();
     }, []);
-
-    const fetchUsers = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const res = await axios.get(`${API_URL}/hr/employee/dropdown`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            const data = res.data;
-            // endpoint may return array directly or { employees: [] }
-            const list = Array.isArray(data) ? data : data.employees || data.users || [];
-            setAllUsers(list);
-        } catch {
-            // silently ignore – users list is optional
-        }
-    };
 
     const fetchCategories = async () => {
         try {
@@ -467,64 +432,6 @@ const GetAllExpense = () => {
             setImporting(false);
         }
     };
-
-    const handleApproveClick = (expense) => {
-        setSelectedExpense(expense);
-        const remaining = expense.remainingAmount !== undefined ? expense.remainingAmount : expense.amount;
-        const currentUserName = user.name || "";
-        setApprovalData({ reason: "", givenBy: currentUserName, amountPaid: String(remaining) });
-        setGivenBySearch(currentUserName);
-        setShowGivenByDropdown(false);
-        setShowApproveModal(true);
-    };
-
-    const submitApproval = async () => {
-        const remaining = selectedExpense.remainingAmount !== undefined ? selectedExpense.remainingAmount : selectedExpense.amount;
-        const amtToPay = Number(approvalData.amountPaid);
-        if (!amtToPay || amtToPay <= 0) {
-            toast.error("Please enter a valid amount to pay");
-            return;
-        }
-        if (amtToPay > remaining) {
-            toast.error(`Amount to pay cannot exceed the remaining balance of ₹${remaining}`);
-            return;
-        }
-
-        try {
-            const token = localStorage.getItem("token");
-
-            const payload = {
-                ...selectedExpense, // Send back existing data
-                category: selectedExpense.category?._id,
-                approvedBy: selectedExpense.approvedBy?._id,
-                createdBy: selectedExpense.createdBy?._id,
-                employeeId: selectedExpense.employeeId?._id,
-                hrApprovedBy: selectedExpense.hrApprovedBy?._id,
-                financeStatus: "Approved",
-                financeApprovedBy: user._id,
-                financeApprovedDate: new Date(),
-                reason: approvalData.reason,
-                givenBy: approvalData.givenBy, // In reality this might be an ID if linked to User
-                amountPaid: amtToPay,
-            };
-
-            const response = await axios.put(`${API_URL}/finance/expense/${selectedExpense._id}`, payload, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-
-            if (response.data.success) {
-                toast.success("Expense approved successfully!");
-                setShowApproveModal(false);
-                fetchExpenses();
-            } else {
-                toast.error(response.data.message || "Failed to approve");
-            }
-        } catch (error) {
-            console.error("Approval error:", error);
-            toast.error("Error approving expense");
-        }
-    };
-
     const formatDate = (value) => {
         if (!value) return "-";
         const date = new Date(value);
@@ -656,37 +563,6 @@ const GetAllExpense = () => {
             setBulkUpdating(false);
         }
     };
-
-    const handleBulkApproveSubmit = async (e) => {
-        e.preventDefault();
-        if (selectedExpenseIds.length === 0) return;
-
-        setBulkApproving(true);
-        try {
-            const token = localStorage.getItem("token");
-            const response = await axios.post(
-                `${API_URL}/finance/expense/bulk-approve`,
-                {
-                    ids: selectedExpenseIds,
-                    givenBy: bulkApproveFormData.givenBy || user.name || "",
-                    reason: bulkApproveFormData.reason || "",
-                },
-                { headers: { Authorization: `Bearer ${token}` } },
-            );
-            toast.success(response.data?.message || `Successfully approved ${selectedExpenseIds.length} expense(s)`);
-            setShowBulkApproveModal(false);
-            setSelectedExpenseIds([]);
-            setBulkApproveFormData({ givenBy: "", reason: "" });
-            fetchExpenses();
-        } catch (err) {
-            console.error("Bulk approve expense error:", err);
-            toast.error(err.response?.data?.message || "Failed to bulk approve expenses");
-        } finally {
-            setBulkApproving(false);
-        }
-    };
-
-    // Reset pagination when filters change
     useEffect(() => {
         setCurrentPage(1);
         setPageInput("1");
@@ -786,19 +662,17 @@ const GetAllExpense = () => {
         toast.success(`Exported ${filteredExpenses.length} record(s) to Excel.`);
     };
 
-    const inputClass = `w-full rounded-lg border py-2.5 px-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 ${
-        isDarkMode
+    const inputClass = `w-full rounded-lg border py-2.5 px-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 ${isDarkMode
             ? "bg-[#131619] border-slate-600 text-slate-100 placeholder-slate-500"
             : "bg-white border-slate-300 text-slate-800 placeholder-slate-400"
-    }`;
+        }`;
 
     const labelClass = `block text-[11px] font-semibold uppercase tracking-wide mb-1.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`;
 
     const cardClass = isDarkMode ? "bg-[#1a1f24] border-slate-700/80" : "bg-white border-slate-200 shadow-sm";
 
-    const thClass = `px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider whitespace-nowrap align-top ${
-        isDarkMode ? "text-slate-400 bg-[#131619]" : "text-slate-500 bg-slate-50"
-    }`;
+    const thClass = `px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider whitespace-nowrap align-top ${isDarkMode ? "text-slate-400 bg-[#131619]" : "text-slate-500 bg-slate-50"
+        }`;
 
     const tdClass = "px-4 py-3 text-sm align-top";
 
@@ -820,9 +694,8 @@ const GetAllExpense = () => {
                         {expense.payments.map((pmt, index) => (
                             <div
                                 key={index}
-                                className={`rounded-md px-2 py-1.5 text-xs ${
-                                    isDarkMode ? "bg-[#131619] border border-slate-700" : "bg-slate-50 border border-slate-200"
-                                }`}
+                                className={`rounded-md px-2 py-1.5 text-xs ${isDarkMode ? "bg-[#131619] border border-slate-700" : "bg-slate-50 border border-slate-200"
+                                    }`}
                             >
                                 <div className={`font-semibold ${isDarkMode ? "text-slate-200" : "text-slate-800"}`}>
                                     ₹{pmt.amountPaid}
@@ -871,11 +744,10 @@ const GetAllExpense = () => {
                                     <button
                                         type="button"
                                         onClick={handleDownloadTemplate}
-                                        className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition ${
-                                            isDarkMode
+                                        className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition ${isDarkMode
                                                 ? "border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700"
                                                 : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
-                                        }`}
+                                            }`}
                                     >
                                         <FaFileExport /> Download Template
                                     </button>
@@ -892,9 +764,8 @@ const GetAllExpense = () => {
                                         />
                                         <label
                                             htmlFor="bulk-import-file-input"
-                                            className={`inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 cursor-pointer ${
-                                                importing ? "opacity-50 cursor-not-allowed" : ""
-                                            }`}
+                                            className={`inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-500 cursor-pointer ${importing ? "opacity-50 cursor-not-allowed" : ""
+                                                }`}
                                         >
                                             {importing ? (
                                                 <>
@@ -913,11 +784,10 @@ const GetAllExpense = () => {
                                 type="button"
                                 onClick={handleExportToExcel}
                                 disabled={loading}
-                                className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${
-                                    isDarkMode
+                                className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${isDarkMode
                                         ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
                                         : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-                                }`}
+                                    }`}
                             >
                                 <FaDownload /> Export Excel
                             </button>
@@ -941,9 +811,8 @@ const GetAllExpense = () => {
                             </div>
                             <div className="flex flex-wrap items-center gap-2">
                                 <span
-                                    className={`rounded-full px-3 py-1 text-xs font-medium ${
-                                        isDarkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"
-                                    }`}
+                                    className={`rounded-full px-3 py-1 text-xs font-medium ${isDarkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-600"
+                                        }`}
                                 >
                                     Showing {filteredExpenses.length} of {expenses.length}
                                 </span>
@@ -951,11 +820,10 @@ const GetAllExpense = () => {
                                     <button
                                         type="button"
                                         onClick={clearFilters}
-                                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${
-                                            isDarkMode
+                                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${isDarkMode
                                                 ? "border-slate-600 text-slate-300 hover:bg-slate-800"
                                                 : "border-slate-300 text-slate-600 hover:bg-slate-100"
-                                        }`}
+                                            }`}
                                     >
                                         <FaEraser /> Clear filters
                                     </button>
@@ -968,9 +836,8 @@ const GetAllExpense = () => {
                                 <label className={labelClass}>Search</label>
                                 <div className="relative">
                                     <FaSearch
-                                        className={`absolute left-3 top-1/2 -translate-y-1/2 text-xs ${
-                                            isDarkMode ? "text-slate-500" : "text-slate-400"
-                                        }`}
+                                        className={`absolute left-3 top-1/2 -translate-y-1/2 text-xs ${isDarkMode ? "text-slate-500" : "text-slate-400"
+                                            }`}
                                     />
                                     <input
                                         type="text"
@@ -1082,7 +949,7 @@ const GetAllExpense = () => {
                                         <th className={thClass}>IFSC Code</th>
                                         <th className={thClass}>Month / Period</th>
                                         <th className={thClass}>Amount</th>
-                                        <th className={thClass}>Status</th>
+                                        {/* <th className={thClass}>Status</th> */}
                                         <th className={`${thClass} min-w-[200px]`}>Approved By (HR/Gen)</th>
                                         <th className={thClass}>Mode of Payment</th>
                                         <th className={thClass}>Date</th>
@@ -1112,15 +979,14 @@ const GetAllExpense = () => {
                                         paginatedExpenses.map((expense) => (
                                             <tr
                                                 key={expense._id}
-                                                className={`border-b transition-colors ${
-                                                    selectedExpenseIds.includes(expense._id)
+                                                className={`border-b transition-colors ${selectedExpenseIds.includes(expense._id)
                                                         ? isDarkMode
                                                             ? "bg-cyan-950/40 border-cyan-700/60"
                                                             : "bg-cyan-50/60 border-cyan-200"
                                                         : isDarkMode
-                                                          ? "border-slate-700/80 hover:bg-slate-800/40"
-                                                          : "border-slate-100 hover:bg-slate-50"
-                                                }`}
+                                                            ? "border-slate-700/80 hover:bg-slate-800/40"
+                                                            : "border-slate-100 hover:bg-slate-50"
+                                                    }`}
                                             >
                                                 <td className={`${tdClass} text-center`}>
                                                     <input
@@ -1213,31 +1079,23 @@ const GetAllExpense = () => {
                                                     </div>
                                                 </td>
 
-                                                <td className={tdClass}>
-                                                    <span
-                                                        className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${getStatusBadgeClass(expense, isDarkMode)}`}
-                                                    >
-                                                        {getSalaryFinanceStatusLabel(expense)}
-                                                    </span>
-                                                </td>
 
                                                 <td className={tdClass}>{renderApprovedBy(expense)}</td>
 
                                                 <td className={tdClass}>
                                                     <span
-                                                        className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${
-                                                            expense.modeOfPayment === "Cash"
+                                                        className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${expense.modeOfPayment === "Cash"
                                                                 ? isDarkMode
                                                                     ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
                                                                     : "bg-amber-100 text-amber-800 border border-amber-200"
                                                                 : expense.modeOfPayment === "Bank+Cash"
-                                                                  ? isDarkMode
-                                                                      ? "bg-purple-500/15 text-purple-300 border border-purple-500/30"
-                                                                      : "bg-purple-100 text-purple-800 border border-purple-200"
-                                                                  : isDarkMode
-                                                                    ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-                                                                    : "bg-blue-100 text-blue-800 border border-blue-200"
-                                                        }`}
+                                                                    ? isDarkMode
+                                                                        ? "bg-purple-500/15 text-purple-300 border border-purple-500/30"
+                                                                        : "bg-purple-100 text-purple-800 border border-purple-200"
+                                                                    : isDarkMode
+                                                                        ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                                                                        : "bg-blue-100 text-blue-800 border border-blue-200"
+                                                            }`}
                                                     >
                                                         {expense.modeOfPayment || "Bank"}
                                                     </span>
@@ -1290,17 +1148,6 @@ const GetAllExpense = () => {
                                                         >
                                                             <FaTrash size={10} /> Delete
                                                         </button>
-                                                        {(expense.financeStatus === "Pending" ||
-                                                            (expense.remainingAmount !== undefined && expense.remainingAmount > 0)) && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleApproveClick(expense)}
-                                                                className="inline-flex items-center gap-1 rounded bg-emerald-600 hover:bg-emerald-500 text-white px-2.5 py-1 text-[11px] font-bold transition-all"
-                                                                title="Approve expense"
-                                                            >
-                                                                <FaCheck size={10} /> Approve
-                                                            </button>
-                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -1313,9 +1160,8 @@ const GetAllExpense = () => {
                         {/* Pagination Bar */}
                         {filteredExpenses.length > 0 && (
                             <div
-                                className={`px-6 py-4 flex flex-wrap items-center justify-between gap-4 border-t ${
-                                    isDarkMode ? "bg-[#111318] border-slate-700/80 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
-                                }`}
+                                className={`px-6 py-4 flex flex-wrap items-center justify-between gap-4 border-t ${isDarkMode ? "bg-[#111318] border-slate-700/80 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
+                                    }`}
                             >
                                 {/* Items Per Page Selector */}
                                 <div className="flex items-center gap-2">
@@ -1323,9 +1169,8 @@ const GetAllExpense = () => {
                                     <select
                                         value={itemsPerPage}
                                         onChange={handleItemsPerPageChange}
-                                        className={`rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none border transition focus:ring-2 focus:ring-cyan-500/20 ${
-                                            isDarkMode ? "bg-[#1a1f24] border-slate-700 text-white" : "bg-white border-slate-300 text-slate-800"
-                                        }`}
+                                        className={`rounded-lg px-2.5 py-1.5 text-xs font-bold outline-none border transition focus:ring-2 focus:ring-cyan-500/20 ${isDarkMode ? "bg-[#1a1f24] border-slate-700 text-white" : "bg-white border-slate-300 text-slate-800"
+                                            }`}
                                     >
                                         <option value={10}>10</option>
                                         <option value={25}>25</option>
@@ -1342,11 +1187,10 @@ const GetAllExpense = () => {
                                         type="button"
                                         onClick={() => handlePageChange(currentPage - 1)}
                                         disabled={currentPage === 1}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border disabled:opacity-40 disabled:cursor-not-allowed ${
-                                            isDarkMode
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode
                                                 ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200"
                                                 : "bg-white border-slate-300 hover:bg-slate-100 text-slate-700"
-                                        }`}
+                                            }`}
                                     >
                                         Previous
                                     </button>
@@ -1357,9 +1201,8 @@ const GetAllExpense = () => {
                                             type="text"
                                             value={pageInput}
                                             onChange={handlePageInputChange}
-                                            className={`w-12 text-center py-1 rounded-md border text-xs font-bold outline-none ${
-                                                isDarkMode ? "bg-[#1a1f24] border-slate-700 text-white" : "bg-white border-slate-300 text-slate-800"
-                                            }`}
+                                            className={`w-12 text-center py-1 rounded-md border text-xs font-bold outline-none ${isDarkMode ? "bg-[#1a1f24] border-slate-700 text-white" : "bg-white border-slate-300 text-slate-800"
+                                                }`}
                                         />
                                         <span>of {totalPages}</span>
                                     </form>
@@ -1368,11 +1211,10 @@ const GetAllExpense = () => {
                                         type="button"
                                         onClick={() => handlePageChange(currentPage + 1)}
                                         disabled={currentPage === totalPages}
-                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border disabled:opacity-40 disabled:cursor-not-allowed ${
-                                            isDarkMode
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode
                                                 ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200"
                                                 : "bg-white border-slate-300 hover:bg-slate-100 text-slate-700"
-                                        }`}
+                                            }`}
                                     >
                                         Next
                                     </button>
@@ -1388,256 +1230,12 @@ const GetAllExpense = () => {
                         )}
                     </div>
 
-                    {/* Approval Modal */}
-                    {showApproveModal && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-                            <div
-                                className={`w-full max-w-md rounded-xl p-6 shadow-2xl ${
-                                    isDarkMode ? "bg-[#1a1f24] text-slate-100 border border-slate-700" : "bg-white text-slate-800"
-                                }`}
-                            >
-                                <h2 className={`mb-4 border-b pb-3 text-xl font-bold ${isDarkMode ? "border-slate-700" : "border-slate-200"}`}>
-                                    {selectedExpense?.expenseType === "Salary" ? "Approve Salary Expense" : "Approve General Expense"}
-                                </h2>
-
-                                <div className="mb-4">
-                                    <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
-                                        {selectedExpense?.expenseType === "Salary" ? "Employee" : "Expense Name"}
-                                    </label>
-                                    <div className="font-semibold">
-                                        {selectedExpense?.expenseType === "Salary" ? selectedExpense?.employeeId?.name : selectedExpense?.name}
-                                    </div>
-                                </div>
-                                <div className="mb-4">
-                                    <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
-                                        {selectedExpense?.expenseType === "Salary" ? "Salary Month" : "Category"}
-                                    </label>
-                                    <div className="font-semibold">
-                                        {selectedExpense?.expenseType === "Salary"
-                                            ? selectedExpense?.months || "—"
-                                            : getCategoryName(selectedExpense)}
-                                    </div>
-                                </div>
-                                <div className="mb-4">
-                                    <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
-                                        {selectedExpense?.expenseType === "Salary" ? "Payout Week" : "Period"}
-                                    </label>
-                                    <div className="font-semibold">
-                                        {selectedExpense?.expenseType === "Salary"
-                                            ? selectedExpense?.salaryPeriod || "—"
-                                            : `${selectedExpense?.months || "—"} · ${selectedExpense?.week || "—"}`}
-                                    </div>
-                                </div>
-                                <div className="mb-4">
-                                    <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
-                                        Bank Account No.
-                                    </label>
-                                    <div className="font-semibold">{selectedExpense?.accountNumber || "—"}</div>
-                                </div>
-                                <div className="mb-4">
-                                    <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>IFSC Code</label>
-                                    <div className="font-semibold">{selectedExpense?.ifscCode || "—"}</div>
-                                </div>
-                                <div
-                                    className={`mb-4 grid grid-cols-3 gap-2 rounded-lg border p-3 ${
-                                        isDarkMode ? "bg-[#131619] border-slate-700" : "bg-slate-50 border-slate-200"
-                                    }`}
-                                >
-                                    <div>
-                                        <label
-                                            className={`block text-[10px] uppercase font-semibold ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}
-                                        >
-                                            Requested
-                                        </label>
-                                        <div className="font-bold text-sm text-slate-500">
-                                            ₹
-                                            {selectedExpense?.originalAmount !== undefined ? selectedExpense.originalAmount : selectedExpense?.amount}
-                                        </div>
-                                    </div>
-                                    <div>
-                                        <label
-                                            className={`block text-[10px] uppercase font-semibold ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}
-                                        >
-                                            Paid
-                                        </label>
-                                        <div className="font-bold text-sm text-green-500">₹{selectedExpense?.paidAmount || 0}</div>
-                                    </div>
-                                    <div>
-                                        <label
-                                            className={`block text-[10px] uppercase font-semibold ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}
-                                        >
-                                            Remaining
-                                        </label>
-                                        <div className="font-bold text-base text-blue-500">
-                                            ₹
-                                            {selectedExpense?.remainingAmount !== undefined
-                                                ? selectedExpense.remainingAmount
-                                                : selectedExpense?.amount}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="mb-4">
-                                    <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
-                                        Amount to Pay (₹)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        value={approvalData.amountPaid || ""}
-                                        onChange={(e) => setApprovalData({ ...approvalData, amountPaid: e.target.value })}
-                                        max={
-                                            selectedExpense?.remainingAmount !== undefined ? selectedExpense.remainingAmount : selectedExpense?.amount
-                                        }
-                                        min="1"
-                                        className={inputClass}
-                                        placeholder="Enter payment amount..."
-                                    />
-                                </div>
-
-                                <div className="mb-4">
-                                    <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
-                                        Reason (Optional)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={approvalData.reason}
-                                        onChange={(e) => setApprovalData({ ...approvalData, reason: e.target.value })}
-                                        className={inputClass}
-                                        placeholder="Enter reason..."
-                                    />
-                                </div>
-                                <div className="mb-6" style={{ position: "relative" }}>
-                                    <label className={`block text-sm mb-1 ${isDarkMode ? "text-slate-400" : "text-slate-600"}`}>
-                                        Approved By (Optional)
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={givenBySearch}
-                                        onChange={(e) => {
-                                            setGivenBySearch(e.target.value);
-                                            setApprovalData({ ...approvalData, givenBy: e.target.value });
-                                            setShowGivenByDropdown(true);
-                                        }}
-                                        onFocus={() => setShowGivenByDropdown(true)}
-                                        onBlur={() => setTimeout(() => setShowGivenByDropdown(false), 180)}
-                                        className={inputClass}
-                                        placeholder="Search user name..."
-                                        autoComplete="off"
-                                    />
-                                    {showGivenByDropdown &&
-                                        (() => {
-                                            const q = givenBySearch.trim().toLowerCase();
-                                            const matches = allUsers.filter((u) => (u.name || "").toLowerCase().includes(q)).slice(0, 8);
-                                            return matches.length > 0 ? (
-                                                <ul
-                                                    style={{
-                                                        position: "absolute",
-                                                        top: "100%",
-                                                        left: 0,
-                                                        right: 0,
-                                                        zIndex: 999,
-                                                        background: isDarkMode ? "#1a1f24" : "#fff",
-                                                        border: `1px solid ${isDarkMode ? "#334155" : "#e2e8f0"}`,
-                                                        borderRadius: 8,
-                                                        marginTop: 4,
-                                                        boxShadow: "0 8px 24px rgba(0,0,0,0.2)",
-                                                        listStyle: "none",
-                                                        padding: 4,
-                                                        margin: 0,
-                                                        maxHeight: 200,
-                                                        overflowY: "auto",
-                                                    }}
-                                                >
-                                                    {matches.map((u) => (
-                                                        <li
-                                                            key={u._id}
-                                                            onMouseDown={() => {
-                                                                setGivenBySearch(u.name);
-                                                                setApprovalData({ ...approvalData, givenBy: u.name });
-                                                                setShowGivenByDropdown(false);
-                                                            }}
-                                                            style={{
-                                                                padding: "8px 12px",
-                                                                cursor: "pointer",
-                                                                borderRadius: 6,
-                                                                fontSize: "0.85rem",
-                                                                color: isDarkMode ? "#e2e8f0" : "#1e293b",
-                                                                display: "flex",
-                                                                alignItems: "center",
-                                                                gap: 8,
-                                                            }}
-                                                            onMouseEnter={(e) =>
-                                                                (e.currentTarget.style.background = isDarkMode ? "#334155" : "#f1f5f9")
-                                                            }
-                                                            onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
-                                                        >
-                                                            <div
-                                                                style={{
-                                                                    width: 28,
-                                                                    height: 28,
-                                                                    borderRadius: "50%",
-                                                                    background: "linear-gradient(135deg,#6366f1,#818cf8)",
-                                                                    display: "flex",
-                                                                    alignItems: "center",
-                                                                    justifyContent: "center",
-                                                                    color: "#fff",
-                                                                    fontWeight: 800,
-                                                                    fontSize: "0.75rem",
-                                                                    flexShrink: 0,
-                                                                }}
-                                                            >
-                                                                {(u.name || "?")[0].toUpperCase()}
-                                                            </div>
-                                                            <div>
-                                                                <div style={{ fontWeight: 600 }}>{u.name}</div>
-                                                                {u.role && (
-                                                                    <div
-                                                                        style={{
-                                                                            fontSize: "0.72rem",
-                                                                            color: isDarkMode ? "#94a3b8" : "#64748b",
-                                                                            textTransform: "capitalize",
-                                                                        }}
-                                                                    >
-                                                                        {u.role}
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </li>
-                                                    ))}
-                                                </ul>
-                                            ) : null;
-                                        })()}
-                                </div>
-
-                                <div className="flex justify-end gap-3">
-                                    <button
-                                        onClick={() => setShowApproveModal(false)}
-                                        className={`px-4 py-2 border rounded-lg text-sm font-medium transition ${
-                                            isDarkMode
-                                                ? "border-slate-600 text-slate-300 hover:bg-slate-700"
-                                                : "border-slate-300 text-slate-600 hover:bg-slate-100"
-                                        }`}
-                                    >
-                                        Cancel
-                                    </button>
-                                    <button
-                                        onClick={submitApproval}
-                                        className="px-4 py-2 bg-green-500 text-white rounded-lg text-sm font-semibold hover:bg-green-600 flex items-center gap-2 transition"
-                                    >
-                                        <FaCheck /> Approve
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
                     {/* Import Errors Modal */}
                     {showErrorsModal && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
                             <div
-                                className={`w-full max-w-2xl rounded-xl p-6 shadow-2xl ${
-                                    isDarkMode ? "bg-[#1a1f24] text-slate-100 border border-slate-700" : "bg-white text-slate-800"
-                                }`}
+                                className={`w-full max-w-2xl rounded-xl p-6 shadow-2xl ${isDarkMode ? "bg-[#1a1f24] text-slate-100 border border-slate-700" : "bg-white text-slate-800"
+                                    }`}
                             >
                                 <div className="flex items-center justify-between border-b pb-3 mb-4 border-slate-200 dark:border-slate-700">
                                     <h3 className="text-lg font-black text-red-500 uppercase tracking-wider flex items-center gap-2">
@@ -1645,9 +1243,8 @@ const GetAllExpense = () => {
                                     </h3>
                                     <button
                                         onClick={() => setShowErrorsModal(false)}
-                                        className={`transition p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${
-                                            isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-800"
-                                        }`}
+                                        className={`transition p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500 hover:text-slate-800"
+                                            }`}
                                     >
                                         <FaTimes size={18} />
                                     </button>
@@ -1656,9 +1253,8 @@ const GetAllExpense = () => {
                                     {importErrors.map((err, idx) => (
                                         <div
                                             key={idx}
-                                            className={`p-3 rounded-lg border text-sm font-semibold flex items-center gap-2 ${
-                                                isDarkMode ? "bg-red-950/20 border-red-900/50 text-red-300" : "bg-red-50 border-red-200 text-red-800"
-                                            }`}
+                                            className={`p-3 rounded-lg border text-sm font-semibold flex items-center gap-2 ${isDarkMode ? "bg-red-950/20 border-red-900/50 text-red-300" : "bg-red-50 border-red-200 text-red-800"
+                                                }`}
                                         >
                                             <span className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>
                                             <span>{err}</span>
@@ -1681,17 +1277,15 @@ const GetAllExpense = () => {
                     {showViewModal && viewExpense && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
                             <div
-                                className={`w-full max-w-lg rounded-xl p-6 shadow-2xl ${
-                                    isDarkMode ? "bg-[#1a1f24] text-slate-100 border border-slate-700" : "bg-white text-slate-800"
-                                }`}
+                                className={`w-full max-w-lg rounded-xl p-6 shadow-2xl ${isDarkMode ? "bg-[#1a1f24] text-slate-100 border border-slate-700" : "bg-white text-slate-800"
+                                    }`}
                             >
                                 <div className="flex items-center justify-between border-b pb-3 mb-4 border-slate-200 dark:border-slate-700">
                                     <h3 className="text-lg font-black uppercase tracking-wider flex items-center gap-2">Expense Details</h3>
                                     <button
                                         onClick={() => setShowViewModal(false)}
-                                        className={`transition p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${
-                                            isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500"
-                                        }`}
+                                        className={`transition p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500"
+                                            }`}
                                     >
                                         <FaTimes size={18} />
                                     </button>
@@ -1825,11 +1419,10 @@ const GetAllExpense = () => {
                                 <div className="mt-6 flex justify-end">
                                     <button
                                         onClick={() => setShowViewModal(false)}
-                                        className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition ${
-                                            isDarkMode
+                                        className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition ${isDarkMode
                                                 ? "border-slate-600 text-slate-300 hover:bg-slate-700"
                                                 : "border-slate-300 text-slate-600 hover:bg-slate-100"
-                                        }`}
+                                            }`}
                                     >
                                         Close
                                     </button>
@@ -1843,18 +1436,16 @@ const GetAllExpense = () => {
                         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
                             <form
                                 onSubmit={handleEditSubmit}
-                                className={`w-full max-w-lg rounded-xl p-6 shadow-2xl ${
-                                    isDarkMode ? "bg-[#1a1f24] text-slate-100 border border-slate-700" : "bg-white text-slate-800"
-                                }`}
+                                className={`w-full max-w-lg rounded-xl p-6 shadow-2xl ${isDarkMode ? "bg-[#1a1f24] text-slate-100 border border-slate-700" : "bg-white text-slate-800"
+                                    }`}
                             >
                                 <div className="flex items-center justify-between border-b pb-3 mb-4 border-slate-200 dark:border-slate-700">
                                     <h3 className="text-lg font-black uppercase tracking-wider">Edit Expense</h3>
                                     <button
                                         type="button"
                                         onClick={() => setShowEditModal(false)}
-                                        className={`transition p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${
-                                            isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500"
-                                        }`}
+                                        className={`transition p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 ${isDarkMode ? "text-slate-400 hover:text-white" : "text-slate-500"
+                                            }`}
                                     >
                                         <FaTimes size={18} />
                                     </button>
@@ -2019,11 +1610,10 @@ const GetAllExpense = () => {
                                     <button
                                         type="button"
                                         onClick={() => setShowEditModal(false)}
-                                        className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition ${
-                                            isDarkMode
+                                        className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition ${isDarkMode
                                                 ? "border-slate-600 text-slate-300 hover:bg-slate-700"
                                                 : "border-slate-300 text-slate-600 hover:bg-slate-100"
-                                        }`}
+                                            }`}
                                     >
                                         Cancel
                                     </button>
@@ -2041,25 +1631,15 @@ const GetAllExpense = () => {
                     {/* Floating Bulk Action Bar */}
                     {selectedExpenseIds.length > 0 && (
                         <div
-                            className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 p-4 rounded-2xl border shadow-2xl backdrop-blur-md transition-all ${
-                                isDarkMode
+                            className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 p-4 rounded-2xl border shadow-2xl backdrop-blur-md transition-all ${isDarkMode
                                     ? "bg-[#1a1f24]/95 border-cyan-500/30 text-white shadow-cyan-500/10"
                                     : "bg-white/95 border-cyan-200 text-slate-900 shadow-slate-300"
-                            }`}
+                                }`}
                         >
                             <div className="flex items-center gap-2 pr-2 border-r border-gray-600/30">
                                 <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 animate-pulse" />
                                 <span className="text-xs font-black uppercase tracking-wider">{selectedExpenseIds.length} Selected</span>
                             </div>
-                            <button
-                                onClick={() => {
-                                    setBulkApproveFormData({ givenBy: user.name || "", reason: "" });
-                                    setShowBulkApproveModal(true);
-                                }}
-                                className="px-4 py-2 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white text-xs font-black uppercase tracking-wider rounded-xl flex items-center gap-2 shadow-lg shadow-emerald-500/20 transition-all hover:scale-105"
-                            >
-                                <FaCheck /> Bulk Approve
-                            </button>
                             <button
                                 onClick={() => setShowBulkEditModal(true)}
                                 className="px-4 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white text-xs font-black uppercase tracking-wider rounded-xl flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all hover:scale-105"
@@ -2082,85 +1662,14 @@ const GetAllExpense = () => {
                         </div>
                     )}
 
-                    {/* Bulk Approve Modal */}
-                    {showBulkApproveModal && (
-                        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                            <div
-                                className={`w-full max-w-md rounded-2xl border shadow-2xl overflow-hidden transition-all ${
-                                    isDarkMode ? "bg-[#1a1f24] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"
-                                }`}
-                            >
-                                <div
-                                    className={`flex items-center justify-between p-5 border-b ${isDarkMode ? "border-gray-800" : "border-gray-100"}`}
-                                >
-                                    <div>
-                                        <h3 className="text-lg font-bold">Bulk Approve Expenses</h3>
-                                        <p className="text-xs text-emerald-400 font-semibold uppercase tracking-wider">
-                                            Approving {selectedExpenseIds.length} selected record(s)
-                                        </p>
-                                    </div>
-                                    <button
-                                        onClick={() => setShowBulkApproveModal(false)}
-                                        className="p-2 rounded-lg hover:bg-gray-700/20 text-gray-400"
-                                    >
-                                        <FaTimes />
-                                    </button>
-                                </div>
-                                <form onSubmit={handleBulkApproveSubmit} className="p-6 space-y-4">
-                                    <p className="text-xs text-slate-400 font-medium">
-                                        This will approve all {selectedExpenseIds.length} selected expense(s) and record payment in full.
-                                    </p>
 
-                                    <div>
-                                        <label className={labelClass}>Reason (Optional)</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Enter approval reason..."
-                                            value={bulkApproveFormData.reason}
-                                            onChange={(e) => setBulkApproveFormData((prev) => ({ ...prev, reason: e.target.value }))}
-                                            className={inputClass}
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className={labelClass}>Approved By (Optional)</label>
-                                        <input
-                                            type="text"
-                                            placeholder="Approved by name..."
-                                            value={bulkApproveFormData.givenBy}
-                                            onChange={(e) => setBulkApproveFormData((prev) => ({ ...prev, givenBy: e.target.value }))}
-                                            className={inputClass}
-                                        />
-                                    </div>
-
-                                    <div className="flex gap-3 pt-4 border-t border-inherit">
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowBulkApproveModal(false)}
-                                            className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-white rounded-xl text-xs font-bold uppercase"
-                                        >
-                                            Cancel
-                                        </button>
-                                        <button
-                                            type="submit"
-                                            disabled={bulkApproving}
-                                            className="flex-1 py-3 bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-500 hover:to-green-500 text-white rounded-xl text-xs font-black uppercase flex items-center justify-center gap-2"
-                                        >
-                                            {bulkApproving ? "Approving..." : "Approve Selected"}
-                                        </button>
-                                    </div>
-                                </form>
-                            </div>
-                        </div>
-                    )}
 
                     {/* Bulk Edit Modal */}
                     {showBulkEditModal && (
                         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                             <div
-                                className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden transition-all ${
-                                    isDarkMode ? "bg-[#1a1f24] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"
-                                }`}
+                                className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden transition-all ${isDarkMode ? "bg-[#1a1f24] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"
+                                    }`}
                             >
                                 <div
                                     className={`flex items-center justify-between p-5 border-b ${isDarkMode ? "border-gray-800" : "border-gray-100"}`}
