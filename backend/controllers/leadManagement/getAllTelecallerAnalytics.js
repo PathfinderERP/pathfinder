@@ -59,8 +59,8 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         // Filters - Synchronize with Lead Management Dashboard for consistency
         const user = req.user;
         const userRoleStr = (user.role || "").toLowerCase().replace(/\s+/g, "");
-        const isFullAccess = ['superadmin', 'super admin', 'admin'].includes(userRoleStr);
-        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod", "assistantzonalmanager", "assistantcenterincharge"];
+        const isFullAccess = ['superadmin', 'super admin', 'admin', 'digital'].includes(userRoleStr);
+        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "rm", "hod", "assistantzonalmanager", "assistantcenterincharge", "digital"];
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         const baseLeadFilters = {};
@@ -129,7 +129,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             isActive: true
         };
 
-        if (userRoleStr !== "superadmin" && userRoleStr !== "super admin") {
+        if (userRoleStr !== "superadmin" && userRoleStr !== "super admin" && userRoleStr !== "digital") {
             if (isPrivileged) {
                 const loggedInEmployee = await Employee.findOne({ user: req.user._id });
                 const userCentreIds = [];

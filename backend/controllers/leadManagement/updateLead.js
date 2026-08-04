@@ -109,11 +109,11 @@ export const toggleLeadPriority = async (req, res) => {
     try {
         const { id } = req.params;
 
-        // Check if user is SuperAdmin or Zonal Manager
+        // Check if user is SuperAdmin, Zonal Manager, or Digital role
         const userRole = req.user.role?.toLowerCase()?.replace(/\s+/g, '') || '';
-        const allowedRoles = ['superadmin', 'zonalmanager', 'assistantzonalmanager'];
+        const allowedRoles = ['superadmin', 'zonalmanager', 'assistantzonalmanager', 'digital'];
         if (!allowedRoles.includes(userRole)) {
-            return res.status(403).json({ message: "Access denied. Only SuperAdmin or Zonal Manager can toggle lead priority." });
+            return res.status(403).json({ message: "Access denied. Only SuperAdmin, Zonal Manager or Digital role can toggle lead priority." });
         }
 
         const lead = await LeadManagement.findById(id);

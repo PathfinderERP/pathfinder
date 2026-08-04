@@ -393,7 +393,8 @@ export const getAdmissionReport = async (req, res) => {
                     admissionType: 1,
                     examTag: 1,
                     department: 1,
-                    admissionNumber: 1
+                    admissionNumber: 1,
+                    student: 1
                 }
             },
             {
@@ -411,12 +412,23 @@ export const getAdmissionReport = async (req, res) => {
                                 admissionType: { $literal: "BOARD" },
                                 examTag: { $literal: null },
                                 department: 1,
-                                admissionNumber: 1
+                                admissionNumber: 1,
+                                student: "$studentId",
+                                studentName: 1
                             }
                         }
                     ]
                 }
             },
+            {
+                $lookup: {
+                    from: "students",
+                    localField: "student",
+                    foreignField: "_id",
+                    as: "studentDoc"
+                }
+            },
+            { $unwind: { path: "$studentDoc", preserveNullAndEmptyArrays: true } },
             {
                 $lookup: {
                     from: "payments",
@@ -572,7 +584,14 @@ export const getAdmissionReport = async (req, res) => {
                         examTag: "$examTagObjectId",
                         departmentName: "$resolvedDeptName",
                         admissionNumber: "$admissionNumber",
-                        admissionId: "$_id"
+                        admissionId: "$_id",
+                        studentName: {
+                            $ifNull: [
+                                "$studentName",
+                                { $arrayElemAt: ["$studentDoc.studentsDetails.studentName", 0] },
+                                "—"
+                            ]
+                        }
                     },
                     count: { $sum: 1 },
                     downPaymentTotal: { $sum: { $ifNull: ["$downPayment", 0] } }
@@ -617,6 +636,7 @@ export const getAdmissionReport = async (req, res) => {
                     className: { $ifNull: ["$classInfo.name", { $ifNull: ["$_id.class", "N/A"] }] },
                     departmentName: "$_id.departmentName",
                     admissionNumber: "$_id.admissionNumber",
+                    studentName: "$_id.studentName",
                     count: "$count",
                     downPayment: "$downPaymentTotal",
                     _id: 0

@@ -374,6 +374,7 @@ const AdmissionCourseReport = () => {
                 downPayment: r.downPayment || 0,
                 departmentName: r.departmentName || "Unknown",
                 admissionNumber: r.admissionNumber || "—",
+                studentName: r.studentName || "—",
             }));
 
             if (selCentres.length === 0) {
@@ -601,6 +602,7 @@ const AdmissionCourseReport = () => {
                         "#":               counter++,
                         "Date":            r.date,
                         "Enrollment No.":  r.admissionNumber || "—",
+                        "Student Name":    r.studentName || "—",
                         "Department":      r.departmentName || "—",
                         "Centre":          r.centreName,
                         "Course":          r.courseName,
@@ -957,6 +959,7 @@ const AdmissionCourseReport = () => {
                                 <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
                                     {filteredCentres.map((centre, idx) => {
                                         let rowTotal = 0;
+                                        let rowTargetTotal = 0;
                                         return (
                                             <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/25" : "hover:bg-blue-50/20"}`}>
                                                 <td className={`${tdCls} sticky left-0 z-10 ${isDark ? "bg-[#1a1f24]" : "bg-white"} border-r ${isDark ? 'border-gray-800' : 'border-gray-200'}`}>
@@ -973,6 +976,9 @@ const AdmissionCourseReport = () => {
                                                     const cId = centreNameToIdMap[(centre || "").trim().toLowerCase()] || (centres.find(c => (c.centreName || "").trim().toLowerCase() === (centre || "").trim().toLowerCase())?._id?.toString());
                                                     const targetKey = cId ? `${cId}_${(tag || "").trim().toUpperCase()}` : null;
                                                     const targetVal = targetKey ? targetsMap[targetKey] : undefined;
+                                                    if (targetVal) {
+                                                        rowTargetTotal += targetVal;
+                                                    }
 
                                                     return (
                                                         <td key={tag} className={`${tdCls} text-center`}>
@@ -996,7 +1002,13 @@ const AdmissionCourseReport = () => {
                                                     );
                                                 })}
                                                 <td className={`${tdCls} text-center font-black ${isDark ? 'text-white' : 'text-gray-900'} bg-blue-500/5`}>
-                                                    {rowTotal.toLocaleString("en-IN")}
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span>{rowTotal.toLocaleString("en-IN")}</span>
+                                                        <span className={`text-xs font-semibold ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>/</span>
+                                                        <span className={`text-xs font-bold ${rowTargetTotal > 0 ? (isDark ? 'text-amber-400' : 'text-amber-600') : (isDark ? 'text-gray-600' : 'text-gray-400')}`}>
+                                                            {rowTargetTotal > 0 ? rowTargetTotal.toLocaleString("en-IN") : '-'}
+                                                        </span>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
@@ -1011,14 +1023,46 @@ const AdmissionCourseReport = () => {
                                         </td>
                                         {uniqueTags.map(tag => {
                                             const colTotal = filteredCentres.reduce((sum, centre) => sum + (pivotData[centre]?.[tag]?.count || 0), 0);
+                                            const colTargetTotal = filteredCentres.reduce((sum, centre) => {
+                                                const cId = centreNameToIdMap[(centre || "").trim().toLowerCase()] || (centres.find(c => (c.centreName || "").trim().toLowerCase() === (centre || "").trim().toLowerCase())?._id?.toString());
+                                                const targetKey = cId ? `${cId}_${(tag || "").trim().toUpperCase()}` : null;
+                                                const targetVal = targetKey ? targetsMap[targetKey] : undefined;
+                                                return sum + (targetVal || 0);
+                                            }, 0);
+
                                             return (
                                                 <td key={tag} className={`${tdCls} text-center text-sm font-black ${isDark ? "text-gray-300" : "text-gray-700"}`}>
-                                                    {colTotal > 0 ? colTotal.toLocaleString("en-IN") : '-'}
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span>{colTotal > 0 ? colTotal.toLocaleString("en-IN") : '0'}</span>
+                                                        <span className={`text-xs font-semibold ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>/</span>
+                                                        <span className={`text-xs font-bold ${colTargetTotal > 0 ? (isDark ? 'text-amber-400' : 'text-amber-600') : (isDark ? 'text-gray-600' : 'text-gray-400')}`}>
+                                                            {colTargetTotal > 0 ? colTargetTotal.toLocaleString("en-IN") : '-'}
+                                                        </span>
+                                                    </div>
                                                 </td>
                                             );
                                         })}
                                         <td className={`${tdCls} text-center text-lg font-black ${isDark ? "text-white" : "text-gray-900"} bg-blue-500/10`}>
-                                            {grandTotal.toLocaleString("en-IN")}
+                                            {(() => {
+                                                const grandTargetTotal = filteredCentres.reduce((sum, centre) => {
+                                                    const cId = centreNameToIdMap[(centre || "").trim().toLowerCase()] || (centres.find(c => (c.centreName || "").trim().toLowerCase() === (centre || "").trim().toLowerCase())?._id?.toString());
+                                                    if (!cId) return sum;
+                                                    return sum + uniqueTags.reduce((tSum, tag) => {
+                                                        const targetKey = `${cId}_${(tag || "").trim().toUpperCase()}`;
+                                                        return tSum + (targetsMap[targetKey] || 0);
+                                                    }, 0);
+                                                }, 0);
+
+                                                return (
+                                                    <div className="flex items-center justify-center gap-1">
+                                                        <span>{grandTotal.toLocaleString("en-IN")}</span>
+                                                        <span className={`text-xs font-semibold ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>/</span>
+                                                        <span className={`text-xs font-bold ${grandTargetTotal > 0 ? (isDark ? 'text-amber-400' : 'text-amber-600') : (isDark ? 'text-gray-600' : 'text-gray-400')}`}>
+                                                            {grandTargetTotal > 0 ? grandTargetTotal.toLocaleString("en-IN") : '-'}
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })()}
                                         </td>
                                     </tr>
                                 </tfoot>
@@ -1042,6 +1086,7 @@ const AdmissionCourseReport = () => {
                                 <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
                                     <th className={thCls}>Date</th>
                                     <th className={thCls}>Enrollment No.</th>
+                                    <th className={thCls}>Student Name</th>
                                     <th className={thCls}>Course Name</th>
                                     <th className={thCls}>Class</th>
                                     <th className={thCls}>Month</th>
@@ -1061,7 +1106,12 @@ const AdmissionCourseReport = () => {
                                             </span>
                                         </td>
                                         <td className={tdCls}>
-                                            <span className={`font-medium block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                            <span className={`text-xs font-bold uppercase ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                {detail.studentName || "—"}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls} title={detail.courseName}>
+                                            <span className={`font-medium block ${isDark ? "text-gray-200 hover:text-blue-400" : "text-gray-800 hover:text-blue-600"} cursor-pointer`} title={detail.courseName}>
                                                 {detail.courseName}
                                             </span>
                                         </td>
@@ -1084,7 +1134,7 @@ const AdmissionCourseReport = () => {
                             </tbody>
                             <tfoot>
                                 <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
-                                    <td colSpan={5} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                    <td colSpan={6} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
                                     <td className={`${tdCls} text-right text-sm font-black ${isDark ? "text-white" : "text-gray-900"}`}>
                                         {fmt(selectedCell.details.reduce((a, d) => a + (d.downPayment || 0), 0))}
                                     </td>
@@ -1111,6 +1161,7 @@ const AdmissionCourseReport = () => {
                             <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
                                 <th className={thCls}>Date</th>
                                 <th className={thCls}>Enrollment No.</th>
+                                <th className={thCls}>Student Name</th>
                                 <th className={thCls}>Centre</th>
                                 <th className={thCls}>Exam Tag</th>
                                 <th className={thCls}>Course Name</th>
@@ -1132,6 +1183,11 @@ const AdmissionCourseReport = () => {
                                             </span>
                                         </td>
                                         <td className={tdCls}>
+                                            <span className={`text-xs font-bold uppercase ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                {detail.studentName || "—"}
+                                            </span>
+                                        </td>
+                                        <td className={tdCls}>
                                             <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
                                                 {detail.centreName}
                                             </span>
@@ -1141,8 +1197,8 @@ const AdmissionCourseReport = () => {
                                                 {detail.examTagName}
                                             </span>
                                         </td>
-                                        <td className={tdCls}>
-                                            <span className={`font-medium block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                        <td className={tdCls} title={detail.courseName}>
+                                            <span className={`font-medium block ${isDark ? "text-gray-200 hover:text-blue-400" : "text-gray-800 hover:text-blue-600"} cursor-pointer`} title={detail.courseName}>
                                                 {detail.courseName}
                                             </span>
                                         </td>
@@ -1161,7 +1217,7 @@ const AdmissionCourseReport = () => {
                                 ))
                             ) : (
                                 <tr>
-                                    <td colSpan={8} className={`${tdCls} text-center text-gray-500 py-8`}>
+                                    <td colSpan={9} className={`${tdCls} text-center text-gray-500 py-8`}>
                                         No admissions data available.
                                     </td>
                                 </tr>
@@ -1169,7 +1225,7 @@ const AdmissionCourseReport = () => {
                         </tbody>
                         <tfoot>
                             <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
-                                <td colSpan={6} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                <td colSpan={7} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
                                 <td className={`${tdCls} text-right text-sm font-black ${isDark ? "text-white" : "text-gray-900"}`}>
                                     {fmt(sortedAdmissions.reduce((a, d) => a + (d.downPayment || 0), 0))}
                                 </td>

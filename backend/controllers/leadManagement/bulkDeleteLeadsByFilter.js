@@ -13,7 +13,7 @@ export const bulkDeleteLeadsByFilter = async (req, res) => {
         // Security check: Don't allow empty filter deletion (would delete everything)
         // Unless it's a superadmin and they really meant it? No, keep it safe.
         const filterCount = Object.keys(query).filter(k => k !== 'isCounseled').length;
-        if (filterCount === 0 && !['superadmin', 'super admin'].includes(req.user.role?.toLowerCase()?.replace(/\s+/g, ''))) {
+        if (filterCount === 0 && !['superadmin', 'super admin', 'digital'].includes(req.user.role?.toLowerCase()?.replace(/\s+/g, ''))) {
             return res.status(400).json({ message: "Cannot perform bulk delete without filters for security reasons." });
         }
 

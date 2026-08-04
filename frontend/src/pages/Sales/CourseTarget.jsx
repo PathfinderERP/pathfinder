@@ -739,6 +739,11 @@ const CourseTarget = () => {
         return centreData.departments.reduce((sum, d) => sum + (d.achieved || 0), 0);
     };
 
+    const getCentreTotalTarget = (centreData) => {
+        if (!centreData || !centreData.departments) return 0;
+        return centreData.departments.reduce((sum, d) => sum + (d.target || 0), 0);
+    };
+
     const getTotalAchieved = (centreData) => {
         return centreData.departments.reduce((sum, dept) => sum + (dept.achieved || 0), 0);
     };
@@ -762,7 +767,8 @@ const CourseTarget = () => {
                 }
                 row[`${deptName} Amount (₹)`] = totalAmount || 0;
             });
-            row["Grand Total"] = getCentreTotalAchieved(centre);
+            const centreTotalTargetSum = getCentreTotalTarget(centre);
+            row["Grand Total"] = `${getCentreTotalAchieved(centre)} / ${centreTotalTargetSum > 0 ? centreTotalTargetSum : "-"}`;
             row["Grand Total Amount (₹)"] = centreTotalAmount;
             return row;
         });
@@ -788,7 +794,9 @@ const CourseTarget = () => {
             }
             totalRow[`${deptName} Amount (₹)`] = deptAmountSum;
         });
-        totalRow["Grand Total"] = data.reduce((sum, centre) => sum + getCentreTotalAchieved(centre), 0);
+        const grandTotalAchievedSum = data.reduce((sum, centre) => sum + getCentreTotalAchieved(centre), 0);
+        const grandTotalTargetSum = data.reduce((sum, centre) => sum + getCentreTotalTarget(centre), 0);
+        totalRow["Grand Total"] = `${grandTotalAchievedSum} / ${grandTotalTargetSum > 0 ? grandTotalTargetSum : "-"}`;
         totalRow["Grand Total Amount (₹)"] = grandTotalAmountSum;
         rows.push(totalRow);
 
@@ -1449,7 +1457,19 @@ const CourseTarget = () => {
                                                 })}
 
                                                 <td className="px-6 py-5 text-center border-r border-inherit bg-amber-500/5">
-                                                    <span className={`text-2xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{getCentreTotalAchieved(centre)}</span>
+                                                    {(() => {
+                                                        const centreAchievedSum = getCentreTotalAchieved(centre);
+                                                        const centreTargetSum = getCentreTotalTarget(centre);
+                                                        return (
+                                                            <span className="text-xl font-black text-amber-500">
+                                                                {centreAchievedSum}
+                                                                <span className="text-gray-500 font-normal mx-1">/</span>
+                                                                <span className={centreTargetSum > 0 ? (isDarkMode ? 'text-cyan-400' : 'text-cyan-600') : 'text-gray-600 opacity-40 font-normal'}>
+                                                                    {centreTargetSum > 0 ? centreTargetSum : "-"}
+                                                                </span>
+                                                            </span>
+                                                        );
+                                                    })()}
                                                 </td>
                                             </tr>
                                         );
@@ -1475,22 +1495,28 @@ const CourseTarget = () => {
                                                 <td key={deptName} className="px-6 py-5 text-center border-r border-inherit">
                                                     <span className="text-base font-black text-emerald-500">
                                                         {deptAchievedSum}
-                                                        {(viewMode === "YEARLY" || viewMode === "WEEKLY") && (
-                                                            <>
-                                                                <span className="text-gray-500 font-normal mx-1">/</span>
-                                                                <span className={deptTargetSum > 0 ? (isDarkMode ? 'text-cyan-400' : 'text-cyan-600') : 'text-gray-600 opacity-40 font-normal'}>
-                                                                    {deptTargetSum > 0 ? deptTargetSum : "-"}
-                                                                </span>
-                                                            </>
-                                                        )}
+                                                        <span className="text-gray-500 font-normal mx-1">/</span>
+                                                        <span className={deptTargetSum > 0 ? (isDarkMode ? 'text-cyan-400' : 'text-cyan-600') : 'text-gray-600 opacity-40 font-normal'}>
+                                                            {deptTargetSum > 0 ? deptTargetSum : "-"}
+                                                        </span>
                                                     </span>
                                                 </td>
                                             );
                                         })}
                                         <td className="px-6 py-5 text-center border-r border-inherit bg-amber-500/10">
-                                            <span className="text-lg font-black text-amber-500">
-                                                {visibleData.reduce((sum, centre) => sum + getCentreTotalAchieved(centre), 0)}
-                                            </span>
+                                            {(() => {
+                                                const grandTotalAchieved = visibleData.reduce((sum, centre) => sum + getCentreTotalAchieved(centre), 0);
+                                                const grandTotalTarget = visibleData.reduce((sum, centre) => sum + getCentreTotalTarget(centre), 0);
+                                                return (
+                                                    <span className="text-lg font-black text-amber-500">
+                                                        {grandTotalAchieved}
+                                                        <span className="text-gray-500 font-normal mx-1">/</span>
+                                                        <span className={grandTotalTarget > 0 ? (isDarkMode ? 'text-cyan-400' : 'text-cyan-600') : 'text-gray-600 opacity-40 font-normal'}>
+                                                            {grandTotalTarget > 0 ? grandTotalTarget : "-"}
+                                                        </span>
+                                                    </span>
+                                                );
+                                            })()}
                                         </td>
                                     </tr>
                                 </tfoot>

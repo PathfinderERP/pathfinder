@@ -17,7 +17,8 @@ export const getMyUploads = async (req, res) => {
         const skip  = (page - 1) * limit;
 
         const query = { isBulkUpload: true };
-        if (req.user?.role !== 'superAdmin') {
+        const userRoleStr = (req.user?.role || '').toLowerCase().replace(/\s+/g, '');
+        if (userRoleStr !== 'superadmin' && userRoleStr !== 'super admin' && userRoleStr !== 'digital') {
             query.createdBy = userId;
         }
 

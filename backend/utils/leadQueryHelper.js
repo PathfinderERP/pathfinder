@@ -358,9 +358,9 @@ export const buildLeadQuery = async (queryParams, user) => {
 
     // Access Control Logic
     const userRole = (user.role || "").toLowerCase().replace(/\s+/g, "");
-    const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hr', 'class_coordinator', 'rm', 'hod', 'assistantzonalmanager', 'assistantcenterincharge'];
+    const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hr', 'class_coordinator', 'rm', 'hod', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'];
     const isPrivileged = privilegedRoles.includes(userRole);
-    const isSuperAdmin = ['superadmin', 'super admin'].includes(userRole);
+    const isSuperAdmin = ['superadmin', 'super admin', 'digital'].includes(userRole);
 
     if (!isSuperAdmin) {
         const userDoc = await User.findById(user.id).select('centres role name');
