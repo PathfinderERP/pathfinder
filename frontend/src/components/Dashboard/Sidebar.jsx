@@ -506,7 +506,6 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         if (item.subItems && !hasFullAccess) {
             const filteredSubItems = item.subItems.filter(sub => {
                 if (sub.restrictedToSuperAdmin && !isSuperAdmin) return false;
-                if (sub.name === "Reimbursement Management") return true;
                 const permModule = sub.permissionModule || item.permissionModule;
                 if (permModule) {
                     if (sub.permissionSection) {
@@ -521,15 +520,13 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             }).map(sub => {
                 if (sub.subItems && !hasFullAccess) {
                     const filteredNestedSubItems = sub.subItems.filter(nestedSub => {
-                        if (nestedSub.name === "Add Reimbursement") return true;
                         const nestedPermModule = nestedSub.permissionModule || sub.permissionModule || item.permissionModule;
                         if (nestedPermModule) {
                             if (nestedSub.permissionSection) {
                                 if (nestedSub.permissionAction) {
                                     return hasPermission(user, nestedPermModule, nestedSub.permissionSection, nestedSub.permissionAction);
                                 }
-                                const section = granularPermissions[nestedPermModule]?.[nestedSub.permissionSection];
-                                return !!section;
+                                return hasPermission(user, nestedPermModule, nestedSub.permissionSection, "view");
                             }
                             return hasModuleAccess(user, nestedPermModule);
                         }

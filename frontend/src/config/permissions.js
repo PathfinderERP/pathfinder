@@ -687,6 +687,15 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
 
     if (!granularPermissions[module]) return false;
     if (!granularPermissions[module][section]) return false;
+
+    // If the operation is 'view' but the section has no explicit 'view' key,
+    // fall back to granting access if ANY other permission (create/edit/delete) is true.
+    // This handles modules like employeeCenter that only store create/edit/delete.
+    if (operation === 'view' && granularPermissions[module][section]['view'] === undefined) {
+        const sectionPerms = granularPermissions[module][section];
+        return Object.values(sectionPerms).some(v => v === true);
+    }
+
     return granularPermissions[module][section][operation] === true;
 };
 
