@@ -273,3 +273,126 @@ export const deleteRegularization = async (req, res) => {
         res.status(500).json({ message: error.message });
     }
 };
+
+export const bulkUpdateRegularizationStatus = async (req, res) => {
+    try {
+        const { ids, status, reviewRemark } = req.body;
+
+        if (!ids || !Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "No regularization IDs provided" });
+        }
+
+        if (!['Approved', 'Rejected'].includes(status)) {
+            return res.status(400).json({ message: "Invalid status value. Must be Approved or Rejected." });
+        }
+
+        const results = [];
+        for (const id of ids) {
+            const updateData = {
+                status,
+                reviewRemark: reviewRemark || `Bulk ${status}`,
+                reviewedBy: req.user.id
+            };
+
+            const regularization = await Regularization.findByIdAndUpdate(
+                id,
+                updateData,
+                { new: true }
+            );
+
+            if (regularization && status === 'Approved') {
+                const regDate = new Date(regularization.date);
+                const startOfRegDay = new Date(regDate);
+                startOfRegDay.setHours(0, 0, 0, 0);
+
+                const endOfRegDay = new Date(regDate);
+                endOfRegDay.setHours(23, 59, 59, 999);
+
+                let attendance = await EmployeeAttendance.findOne({
+                    employeeId: regularization.employeeId,
+                    date: {
+                        $gte: startOfRegDay,
+                        $lte: endOfRegDay
+                    }
+                });
+
+                let calculatedWorkingHours = 9;
+                let checkInDate = null;
+                let checkOutDate = null;
+
+                if (regularization.fromTime && regularization.toTime) {
+                    const [fromHours, fromMinutes] = regularization.fromTime.split(':').map(Number);
+                    const [toHours, toMinutes] = regularization.toTime.split(':').map(Number);
+
+                    checkInDate = new Date(regDate);
+                    checkInDate.setHours(fromHours, fromMinutes, 0, 0);
+
+                    checkOutDate = new Date(regDate);
+                    checkOutDate.setHours(toHours, toMinutes, 0, 0);
+
+                    const diffMs = checkOutDate - checkInDate;
+                    if (diffMs > 0) {
+                        calculatedWorkingHours = Number((diffMs / (1000 * 60 * 60)).toFixed(2));
+                    }
+                }
+
+                if (attendance) {
+                    attendance.status = 'Present';
+                    attendance.workingHours = Number(((attendance.workingHours || 0) + calculatedWorkingHours).toFixed(2));
+
+                    if (!attendance.checkIn?.time && checkInDate) {
+                        attendance.checkIn = { 
+                            time: checkInDate, 
+                            address: 'Regularized',
+                            latitude: regularization.latitude,
+                            longitude: regularization.longitude
+                        };
+                    }
+                    if (!attendance.checkOut?.time && checkOutDate) {
+                        attendance.checkOut = { 
+                            time: checkOutDate, 
+                            address: 'Regularized'
+                        };
+                    }
+
+                    const newRemark = `Regularized Added ${calculatedWorkingHours}h (${regularization.type}): ${regularization.reason}`;
+                    attendance.remarks = attendance.remarks
+                        ? `${attendance.remarks} | ${newRemark}`
+                        : newRemark;
+
+                    await attendance.save();
+                } else {
+                    const employee = await Employee.findById(regularization.employeeId);
+                    if (employee) {
+                        const newAttendance = new EmployeeAttendance({
+                            user: employee.user,
+                            employeeId: regularization.employeeId,
+                            centreId: employee.primaryCentre,
+                            date: startOfRegDay,
+                            status: 'Present',
+                            workingHours: calculatedWorkingHours,
+                            remarks: `Regularization (${regularization.type}): ${regularization.reason}`,
+                            checkIn: { 
+                                time: checkInDate, 
+                                address: 'Regularized',
+                                latitude: regularization.latitude,
+                                longitude: regularization.longitude
+                            },
+                            checkOut: { 
+                                time: checkOutDate, 
+                                address: 'Regularized'
+                            }
+                        });
+                        await newAttendance.save();
+                    }
+                }
+            }
+            if (regularization) results.push(regularization._id);
+        }
+
+        res.status(200).json({ message: `Successfully ${status.toLowerCase()} ${results.length} regularization requests`, count: results.length });
+    } catch (error) {
+        console.error("Error bulk updating regularization status:", error);
+        res.status(500).json({ message: error.message });
+    }
+};

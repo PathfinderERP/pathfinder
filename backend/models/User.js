@@ -185,6 +185,24 @@ userSchema.pre('save', async function () {
         this.permissions.push("Dashboard");
     }
 
+    // Ensure all non-teacher roles get default My Daily Log permission
+    if (this.role && this.role.toLowerCase() !== 'teacher') {
+        if (!this.granularPermissions) {
+            this.granularPermissions = {};
+        }
+        if (!this.granularPermissions.dailyTrackingLog) {
+            this.granularPermissions.dailyTrackingLog = {};
+        }
+        if (!this.granularPermissions.dailyTrackingLog.myDailyLog) {
+            this.granularPermissions.dailyTrackingLog.myDailyLog = {
+                create: true,
+                edit: true,
+                delete: true
+            };
+            this.markModified('granularPermissions');
+        }
+    }
+
     if (this.isNew || !this.granularPermissions || Object.keys(this.granularPermissions).length === 0) {
         if (this.role === 'counsellor' || this.role === 'marketing' || this.role === 'centerIncharge' || this.role === 'zonalManager' || this.role === 'HOD' || this.role === 'hr' || this.role === 'assistantCenterIncharge' || this.role === 'assistantZonalManager') {
             this.granularPermissions = {

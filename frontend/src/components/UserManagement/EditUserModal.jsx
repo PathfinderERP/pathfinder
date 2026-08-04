@@ -91,6 +91,20 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 }
             }
 
+            // Ensure non-teacher users have My Daily Log permissions
+            if (user.role && user.role.toLowerCase() !== 'teacher') {
+                if (!granularPermissions.dailyTrackingLog) {
+                    granularPermissions.dailyTrackingLog = {};
+                }
+                if (!granularPermissions.dailyTrackingLog.myDailyLog) {
+                    granularPermissions.dailyTrackingLog.myDailyLog = {
+                        create: true,
+                        edit: true,
+                        delete: true
+                    };
+                }
+            }
+
             // If user is superAdmin, force all permissions to true if config is loaded
             if (user.role === "superAdmin" && permissionsConfig) {
                 const allPerms = {};

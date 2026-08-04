@@ -22,6 +22,7 @@ import {
     createRegularization,
     getRegularizations,
     updateRegularizationStatus,
+    bulkUpdateRegularizationStatus,
     updateRegularization,
     deleteRegularization
 } from '../../controllers/Attendance/regularizationController.js';
@@ -54,6 +55,7 @@ router.delete('/leave-requests/:id', deleteLeaveRequest);
 router.post('/regularizations', upload.array('photos', 5), createRegularization);
 router.get('/regularizations', getRegularizations);
 router.put('/regularizations/:id', upload.array('photos', 5), updateRegularization);
+router.patch('/regularizations/bulk-status', bulkUpdateRegularizationStatus);
 router.patch('/regularizations/:id/status', updateRegularizationStatus);
 router.delete('/regularizations/:id', deleteRegularization);
 

@@ -51,9 +51,8 @@ const DailyTrackingLog = () => {
             ? currentUser.role.includes('superAdmin') || currentUser.role.includes('superadmin')
             : currentUser.role === 'superAdmin' || currentUser.role === 'superadmin';
 
-        const gp = currentUser?.granularPermissions;
-        const hasMyLogAccess = isSuperAdminUser || !!(gp?.dailyTrackingLog?.myDailyLog);
-        const hasLogTrackingAccess = isSuperAdminUser || !!(gp?.dailyTrackingLog?.logTracking);
+        const hasMyLogAccess = isSuperAdminUser || hasPermission(currentUser, 'dailyTrackingLog', 'myDailyLog', 'view');
+        const hasLogTrackingAccess = isSuperAdminUser || hasPermission(currentUser, 'dailyTrackingLog', 'logTracking', 'view');
 
         if (tabParam === "deptBoard") {
             if (!hasLogTrackingAccess) {

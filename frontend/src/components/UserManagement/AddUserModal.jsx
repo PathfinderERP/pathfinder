@@ -188,6 +188,23 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                 newData.granularPermissions = defaultPerms;
             }
 
+            // Ensure all non-teacher roles default to having My Daily Log permissions checked
+            if (newData.role && newData.role.toLowerCase() !== 'teacher') {
+                if (!newData.granularPermissions) {
+                    newData.granularPermissions = {};
+                }
+                if (!newData.granularPermissions.dailyTrackingLog) {
+                    newData.granularPermissions.dailyTrackingLog = {};
+                }
+                if (!newData.granularPermissions.dailyTrackingLog.myDailyLog) {
+                    newData.granularPermissions.dailyTrackingLog.myDailyLog = {
+                        create: true,
+                        edit: true,
+                        delete: true
+                    };
+                }
+            }
+
             return newData;
         });
     };
