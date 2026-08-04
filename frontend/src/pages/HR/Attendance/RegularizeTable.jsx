@@ -14,9 +14,20 @@ const RegularizeTable = () => {
     const [previewImage, setPreviewImage] = useState(null);
     const [showPreviewModal, setShowPreviewModal] = useState(false);
 
+    // Bulk action states
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [showBulkModal, setShowBulkModal] = useState(false);
+    const [bulkStatus, setBulkStatus] = useState("Approved");
+    const [bulkRemark, setBulkRemark] = useState("");
+    const [bulkLoading, setBulkLoading] = useState(false);
+
     useEffect(() => {
         fetchRequests();
-    }, []);
+    }, [filters.status]);
+
+    useEffect(() => {
+        setSelectedIds([]);
+    }, [filters.status, localFilters]);
 
     const fetchRequests = async () => {
         try {
@@ -61,6 +72,81 @@ const RegularizeTable = () => {
             }
         } catch (error) {
             toast.error("Error updating status");
+        }
+    };
+
+    const filteredRequests = requests.filter(request => {
+        const reqDate = new Date(request.date).toISOString().split('T')[0];
+        if (localFilters.date && reqDate !== localFilters.date) return false;
+        if (localFilters.center) {
+            const pCenter = request.employeeId?.primaryCentre?.centreName;
+            const cArray = request.employeeId?.centerArray || [];
+            if (pCenter !== localFilters.center && !cArray.includes(localFilters.center)) return false;
+        }
+        if (localFilters.name && !request.employeeId?.name?.toLowerCase().includes(localFilters.name.toLowerCase())) return false;
+        if (localFilters.empId && !request.employeeId?.employeeId?.toLowerCase().includes(localFilters.empId.toLowerCase())) return false;
+        return true;
+    });
+
+    const isAllSelected = filteredRequests.length > 0 && selectedIds.length === filteredRequests.length;
+
+    const handleSelectAll = (e) => {
+        if (e.target.checked) {
+            setSelectedIds(filteredRequests.map(r => r._id));
+        } else {
+            setSelectedIds([]);
+        }
+    };
+
+    const handleToggleSelect = (id) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const openBulkModal = (status) => {
+        if (selectedIds.length === 0) {
+            toast.warn("Please select at least one request");
+            return;
+        }
+        setBulkStatus(status);
+        setBulkRemark("");
+        setShowBulkModal(true);
+    };
+
+    const handleBulkStatusUpdate = async (e) => {
+        e.preventDefault();
+        if (selectedIds.length === 0) return;
+        try {
+            setBulkLoading(true);
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/regularizations/bulk-status`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    ids: selectedIds,
+                    status: bulkStatus,
+                    reviewRemark: bulkRemark
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                toast.success(data.message || `Bulk ${bulkStatus.toLowerCase()} successful!`);
+                setShowBulkModal(false);
+                setSelectedIds([]);
+                fetchRequests();
+            } else {
+                const err = await response.json();
+                toast.error(err.message || "Failed to perform bulk update");
+            }
+        } catch (error) {
+            toast.error("Error updating bulk status");
+        } finally {
+            setBulkLoading(false);
         }
     };
 
@@ -141,12 +227,55 @@ const RegularizeTable = () => {
                     <button onClick={fetchRequests} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm whitespace-nowrap">Refresh DB</button>
                 </div>
 
+                {/* Bulk Actions Banner */}
+                {selectedIds.length > 0 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-4 bg-blue-50 dark:bg-blue-900/30 border border-blue-200 dark:border-blue-800 rounded-xl shadow-sm animate-fade-in">
+                        <div className="flex items-center gap-3">
+                            <span className="px-3 py-1 bg-blue-600 text-white rounded-full text-xs font-black">
+                                {selectedIds.length} Selected
+                            </span>
+                            <span className="text-xs text-gray-700 dark:text-gray-300 font-medium">
+                                Change status for selected regularization requests in bulk
+                            </span>
+                        </div>
+                        <div className="flex items-center gap-2 w-full sm:w-auto">
+                            <button
+                                onClick={() => openBulkModal("Approved")}
+                                className="flex-1 sm:flex-none px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 transition-all"
+                            >
+                                <FaCheck size={12} /> Bulk Approve ({selectedIds.length})
+                            </button>
+                            <button
+                                onClick={() => openBulkModal("Rejected")}
+                                className="flex-1 sm:flex-none px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-sm flex items-center justify-center gap-1.5 transition-all"
+                            >
+                                <FaTimes size={12} /> Bulk Reject ({selectedIds.length})
+                            </button>
+                            <button
+                                onClick={() => setSelectedIds([])}
+                                className="px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg text-xs font-bold hover:bg-gray-300 dark:hover:bg-gray-600 transition-all"
+                            >
+                                Deselect All
+                            </button>
+                        </div>
+                    </div>
+                )}
+
                 <div className="bg-white dark:bg-[#1a1f24] rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800 overflow-hidden">
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
-                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Sl No.</th>
+                                    <th className="px-4 py-4 text-center w-12">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={isAllSelected}
+                                            onChange={handleSelectAll}
+                                            className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+                                            title="Select All Filtered Requests"
+                                        />
+                                    </th>
+                                    <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Sl No.</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Employee Name</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Date</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Type</th>
@@ -161,33 +290,19 @@ const RegularizeTable = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {loading ? (
-                                    <tr><td colSpan="11" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td></tr>
-                                ) : requests.filter(request => {
-                                    const reqDate = new Date(request.date).toISOString().split('T')[0];
-                                    if (localFilters.date && reqDate !== localFilters.date) return false;
-                                    if (localFilters.center) {
-                                        const pCenter = request.employeeId?.primaryCentre?.centreName;
-                                        const cArray = request.employeeId?.centerArray || [];
-                                        if (pCenter !== localFilters.center && !cArray.includes(localFilters.center)) return false;
-                                    }
-                                    if (localFilters.name && !request.employeeId?.name?.toLowerCase().includes(localFilters.name.toLowerCase())) return false;
-                                    if (localFilters.empId && !request.employeeId?.employeeId?.toLowerCase().includes(localFilters.empId.toLowerCase())) return false;
-                                    return true;
-                                }).length > 0 ? (
-                                    requests.filter(request => {
-                                        const reqDate = new Date(request.date).toISOString().split('T')[0];
-                                        if (localFilters.date && reqDate !== localFilters.date) return false;
-                                        if (localFilters.center) {
-                                            const pCenter = request.employeeId?.primaryCentre?.centreName;
-                                            const cArray = request.employeeId?.centerArray || [];
-                                            if (pCenter !== localFilters.center && !cArray.includes(localFilters.center)) return false;
-                                        }
-                                        if (localFilters.name && !request.employeeId?.name?.toLowerCase().includes(localFilters.name.toLowerCase())) return false;
-                                        if (localFilters.empId && !request.employeeId?.employeeId?.toLowerCase().includes(localFilters.empId.toLowerCase())) return false;
-                                        return true;
-                                    }).map((request, index) => (
-                                        <tr key={request._id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20">
-                                            <td className="px-6 py-4 text-sm text-gray-500 font-medium">{index + 1}</td>
+                                    <tr><td colSpan="12" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td></tr>
+                                ) : filteredRequests.length > 0 ? (
+                                    filteredRequests.map((request, index) => (
+                                        <tr key={request._id} className={`hover:bg-gray-50/50 dark:hover:bg-gray-800/20 ${selectedIds.includes(request._id) ? 'bg-blue-50/40 dark:bg-blue-900/10' : ''}`}>
+                                            <td className="px-4 py-4 text-center">
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={selectedIds.includes(request._id)}
+                                                    onChange={() => handleToggleSelect(request._id)}
+                                                    className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
+                                                />
+                                            </td>
+                                            <td className="px-4 py-4 text-sm text-gray-500 font-medium">{index + 1}</td>
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-gray-800 dark:text-white uppercase text-sm tracking-tight">{request.employeeId?.name || "N/A"}</div>
                                                 <div className="text-[10px] text-gray-500 font-medium tracking-widest">{request.employeeId?.employeeId || "UNKNOWN ID"}</div>
@@ -288,13 +403,64 @@ const RegularizeTable = () => {
                                         </tr>
                                     ))
                                 ) : (
-                                    <tr><td colSpan="7" className="px-6 py-10 text-center text-gray-400 text-sm italic">No regularization requests found</td></tr>
+                                    <tr><td colSpan="12" className="px-6 py-10 text-center text-gray-400 text-sm italic">No regularization requests found</td></tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
                 </div>
             </div>
+
+            {/* Bulk Status Modal */}
+            {showBulkModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+                    <div className="bg-white dark:bg-[#1a1f24] w-full max-w-md rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-800 overflow-hidden">
+                        <div className="p-6 border-b border-gray-200 dark:border-gray-800 flex items-center justify-between">
+                            <h2 className="text-lg font-bold text-gray-800 dark:text-white uppercase tracking-tight">
+                                Bulk {bulkStatus} ({selectedIds.length} Requests)
+                            </h2>
+                            <button onClick={() => setShowBulkModal(false)} className="text-gray-400 hover:text-white">
+                                <FaPlus size={20} className="rotate-45" />
+                            </button>
+                        </div>
+                        <form onSubmit={handleBulkStatusUpdate} className="p-6 space-y-4">
+                            <p className="text-xs text-gray-500 dark:text-gray-400">
+                                You are about to <span className={`font-bold ${bulkStatus === 'Approved' ? 'text-green-500' : 'text-red-500'}`}>{bulkStatus.toLowerCase()}</span> {selectedIds.length} selected regularization request(s).
+                            </p>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Review Remark (Optional)</label>
+                                <textarea 
+                                    rows="3" 
+                                    value={bulkRemark} 
+                                    onChange={(e) => setBulkRemark(e.target.value)} 
+                                    className="w-full px-4 py-3 bg-gray-50 dark:bg-gray-800 border dark:border-gray-700 rounded-xl outline-none dark:text-white text-sm resize-none" 
+                                    placeholder={`Reason for bulk ${bulkStatus.toLowerCase()}...`} 
+                                />
+                            </div>
+
+                            <div className="pt-2 flex gap-3">
+                                <button 
+                                    type="button" 
+                                    onClick={() => setShowBulkModal(false)} 
+                                    className="flex-1 px-4 py-3 bg-gray-100 dark:bg-gray-800 text-gray-600 rounded-xl font-bold border dark:border-gray-700"
+                                >
+                                    Cancel
+                                </button>
+                                <button 
+                                    type="submit" 
+                                    disabled={bulkLoading}
+                                    className={`flex-1 px-4 py-3 text-white rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 ${
+                                        bulkStatus === 'Approved' ? 'bg-green-600 hover:bg-green-700 shadow-green-600/20' : 'bg-red-600 hover:bg-red-700 shadow-red-600/20'
+                                    }`}
+                                >
+                                    {bulkLoading ? <FaSpinner className="animate-spin" size={16} /> : `Confirm Bulk ${bulkStatus}`}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
 
             {/* Modal */}
             {showStatusModal && (

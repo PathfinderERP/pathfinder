@@ -221,11 +221,18 @@ export const requireGranularPermission = (module, section, action) => {
                 }
             }
 
-            // Grant automatic access to dailyTrackingLog module actions for marketing, centerIncharge, or zonalManager roles or users with marketingCRM access
+            // Grant automatic access to dailyTrackingLog module actions (myDailyLog for all non-teacher roles)
             if (!hasAccess && module === 'dailyTrackingLog') {
-                const isTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'assistantzonalmanager', 'assistantcenterincharge'].includes(user.role?.toLowerCase()?.replace(/\s+/g, ''));
-                if (isTargetRole || user.granularPermissions?.['marketingCRM']) {
-                    hasAccess = true;
+                if (section === 'myDailyLog') {
+                    const isTeacher = user.role?.toLowerCase() === 'teacher';
+                    if (!isTeacher) {
+                        hasAccess = true;
+                    }
+                } else {
+                    const isTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'assistantzonalmanager', 'assistantcenterincharge', 'superadmin', 'admin'].includes(user.role?.toLowerCase()?.replace(/\s+/g, ''));
+                    if (isTargetRole || user.granularPermissions?.['marketingCRM']) {
+                        hasAccess = true;
+                    }
                 }
             }
 

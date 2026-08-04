@@ -661,11 +661,16 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         if (isMktTargetRole) return true;
     }
 
-    // Grant automatic access to dailyTrackingLog module actions for marketing role or users with marketingCRM access
+    // Grant automatic access to dailyTrackingLog module actions (myDailyLog for all non-teacher roles)
     if (module === 'dailyTrackingLog') {
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
-        if (isMktTargetRole || granularPermissions?.['marketingCRM']) {
-            return true;
+        if (section === 'myDailyLog') {
+            const isTeacher = role?.toLowerCase() === 'teacher';
+            if (!isTeacher) return true;
+        } else {
+            const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
+            if (isMktTargetRole || granularPermissions?.['marketingCRM']) {
+                return true;
+            }
         }
     }
 
@@ -716,8 +721,7 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     }
 
     if (module === 'dailyTrackingLog') {
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(normalizedRole.replace(/\s+/g, ''));
-        if (isMktTargetRole) return true;
+        if (normalizedRole !== 'teacher') return true;
     }
 
     if (!granularPermissions || !granularPermissions[module]) return false;
