@@ -472,8 +472,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 if (item.permissionAction) {
                     return hasPermission(user, item.permissionModule, item.permissionSection, item.permissionAction);
                 }
-                const section = granularPermissions[item.permissionModule]?.[item.permissionSection];
-                return !!section;
+                return hasPermission(user, item.permissionModule, item.permissionSection, "view");
             }
             else if (hasModuleAccess(user, item.permissionModule)) {
                 if (item.subItems) {
@@ -486,8 +485,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         if (permSection) {
                             return hasPermission(user, permModule, permSection, "view");
                         }
-                        const section = granularPermissions[permModule]?.[permSection];
-                        return !!section;
+                        return hasModuleAccess(user, permModule);
                     });
                     if (accessibleSubItems.length > 0) return true;
                     return false;
