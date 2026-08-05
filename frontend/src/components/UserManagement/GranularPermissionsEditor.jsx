@@ -38,7 +38,7 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
                     const ops = {};
                     const operations = sectionData.operations || ['create', 'edit', 'delete'];
                     operations.forEach(op => {
-                        ops[op] = false;
+                        ops[op] = true;
                     });
                     newPermissions[moduleKey][sectionKey] = ops;
                 });
@@ -65,7 +65,7 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
             const ops = {};
             const operations = moduleData?.sections?.[sectionKey]?.operations || ['create', 'edit', 'delete'];
             operations.forEach(op => {
-                ops[op] = false;
+                ops[op] = true;
             });
             newPermissions[moduleKey][sectionKey] = ops;
             setExpandedSections(prev => ({ ...prev, [sectionExpandKey]: true }));

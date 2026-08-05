@@ -637,8 +637,11 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
                 if (granularPermissions[module][section][operation] === true) {
                     return true;
                 }
-                if (operation === 'view' && granularPermissions[module][section]['view'] === undefined) {
-                    return Object.values(granularPermissions[module][section]).some(v => v === true);
+                if (operation === 'view') {
+                    if (granularPermissions[module][section]['view'] !== undefined) {
+                        return granularPermissions[module][section]['view'] === true;
+                    }
+                    return true;
                 }
             }
             return false;
