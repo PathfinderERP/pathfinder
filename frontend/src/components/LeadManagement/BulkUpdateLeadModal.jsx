@@ -120,13 +120,14 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, isAllFilteredSelected, filters, 
                 setCentres(list);
             }
 
-            const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
+            const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course?isActive=true`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (courseResponse.ok) {
                 const data = await courseResponse.json();
                 const allCourses = Array.isArray(data) ? data : [];
-                setCourses(allCourses.sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")));
+                const activeCourses = allCourses.filter(c => c.isActive !== false);
+                setCourses(activeCourses.sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")));
             }
 
             const sourceResponse = await fetch(`${import.meta.env.VITE_API_URL}/source`, {

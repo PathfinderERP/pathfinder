@@ -12,7 +12,8 @@ const BulkUpdateCourseModal = ({ selectedCourseIds, onClose, onSuccess, classes,
         coursePeriod: false,
         mode: false,
         courseType: false,
-        programme: false
+        programme: false,
+        isActive: false
     });
 
     const [formData, setFormData] = useState({
@@ -24,7 +25,8 @@ const BulkUpdateCourseModal = ({ selectedCourseIds, onClose, onSuccess, classes,
         coursePeriod: "",
         mode: "",
         courseType: "",
-        programme: ""
+        programme: "",
+        isActive: "true"
     });
 
     const [loading, setLoading] = useState(false);
@@ -49,7 +51,11 @@ const BulkUpdateCourseModal = ({ selectedCourseIds, onClose, onSuccess, classes,
 
         Object.keys(enabledFields).forEach(field => {
             if (enabledFields[field]) {
-                updateData[field] = formData[field];
+                if (field === "isActive") {
+                    updateData[field] = formData[field] === "true";
+                } else {
+                    updateData[field] = formData[field];
+                }
                 hasAtLeastOneField = true;
             }
         });
@@ -308,6 +314,25 @@ const BulkUpdateCourseModal = ({ selectedCourseIds, onClose, onSuccess, classes,
                                 <option value="">Select Programme</option>
                                 <option value="CRP">CRP</option>
                                 <option value="NCRP">NCRP</option>
+                            </select>
+                        </div>
+
+                        {/* Course Status */}
+                        <div className={`p-3 rounded-lg border transition-all ${enabledFields.isActive ? (isDarkMode ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-cyan-50 border-cyan-200') : (isDarkMode ? 'border-gray-800' : 'border-gray-250')}`}>
+                            <div className="flex items-center gap-2 mb-2 cursor-pointer select-none" onClick={() => toggleField('isActive')}>
+                                {enabledFields.isActive ? <FaCheckSquare className="text-cyan-500" /> : <FaSquare className="text-gray-500" />}
+                                <span className="text-[10px] font-bold uppercase tracking-wider text-white">Enable Status</span>
+                            </div>
+                            <label className={labelClasses(enabledFields.isActive)}>Course Status</label>
+                            <select
+                                name="isActive"
+                                disabled={!enabledFields.isActive}
+                                value={formData.isActive}
+                                onChange={handleChange}
+                                className={selectClasses(enabledFields.isActive)}
+                            >
+                                <option value="true">Active</option>
+                                <option value="false">Deactive</option>
                             </select>
                         </div>
 

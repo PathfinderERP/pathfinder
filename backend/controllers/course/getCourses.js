@@ -2,7 +2,7 @@ import Course from "../../models/Master_data/Courses.js";
 
 export const getCourses = async (req, res) => {
     try {
-        const { mode, courseType, class: classId, examTag } = req.query;
+        const { mode, courseType, class: classId, examTag, isActive, status } = req.query;
         
         // Build filter object
         const filter = {};
@@ -10,6 +10,19 @@ export const getCourses = async (req, res) => {
         if (courseType) filter.courseType = courseType;
         if (classId) filter.class = classId;
         if (examTag) filter.examTag = examTag;
+        if (isActive !== undefined) {
+            if (isActive === "true") {
+                filter.isActive = { $ne: false };
+            } else if (isActive === "false") {
+                filter.isActive = false;
+            }
+        } else if (status) {
+            if (status.toLowerCase() === "active") {
+                filter.isActive = { $ne: false };
+            } else if (status.toLowerCase() === "inactive" || status.toLowerCase() === "deactive") {
+                filter.isActive = false;
+            }
+        }
         
         const courses = await Course.find(filter)
             .populate("examTag", "name")

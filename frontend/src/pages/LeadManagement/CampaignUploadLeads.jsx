@@ -69,7 +69,8 @@ export default function CampaignUploadLeads() {
                 }
                 if(courseRes.ok) {
                     const courseData = await courseRes.json();
-                    setCourses(Array.isArray(courseData) ? courseData : courseData.data || []);
+                    const list = Array.isArray(courseData) ? courseData : courseData.data || [];
+                    setCourses(list.filter(c => c.isActive !== false));
                 }
                 if (userRes.ok) {
                     const userData = await userRes.json();
