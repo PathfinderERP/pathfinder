@@ -3,6 +3,7 @@ import User from "../../models/User.js";
 import mongoose from "mongoose";
 import DraftPlanner from "../../models/DraftPlanner.js";
 import { uploadToR2, getSignedFileUrl } from "../../utils/r2Upload.js";
+import SchoolForTask from "../../models/Master_data/SchoolForTask.js";
 
 const isBase64 = (str) => {
     if (!str || typeof str !== "string") return false;
@@ -116,9 +117,18 @@ export const createPlanner = async (req, res) => {
                 captureDateTime: act.captureDateTime || "",
                 submittedAt: act.submittedAt || new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
                 status: "Pending",
-                remarks: ""
+                remarks: "",
+                schoolRef: act.schoolRef || null,
+                schoolStatus: act.schoolStatus || ""
             });
             await newRecord.save();
+            if (act.schoolRef && act.schoolStatus) {
+                try {
+                    await SchoolForTask.findByIdAndUpdate(act.schoolRef, { status: act.schoolStatus });
+                } catch (schoolErr) {
+                    console.error("Error updating SchoolForTask status during submit:", schoolErr);
+                }
+            }
             const recObj = newRecord.toObject();
             if (recObj.photo) {
                 recObj.photo = await getSignedFileUrl(recObj.photo);
@@ -200,7 +210,7 @@ export const getPlanners = async (req, res) => {
         const limit = isExport ? 0 : (parseInt(req.query.limit) || 10);
         const skip = isExport ? 0 : (page - 1) * limit;
 
-        const { search, type, owner, status, startDate, endDate, centres } = req.query;
+        const { search, type, owner, status, startDate, endDate, centres, school } = req.query;
 
         // Build matching filters
         const filterMatch = {};
@@ -223,6 +233,13 @@ export const getPlanners = async (req, res) => {
             const filteredStatusList = statusList.filter(s => s && s !== "All");
             if (filteredStatusList.length > 0) {
                 filterMatch.status = { $in: filteredStatusList };
+            }
+        }
+        if (school) {
+            const schoolList = Array.isArray(school) ? school : (school.includes(',') ? school.split(',') : [school]);
+            const filteredSchoolList = schoolList.filter(s => s && s !== "All");
+            if (filteredSchoolList.length > 0) {
+                filterMatch.institution = { $in: filteredSchoolList.map(s => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) };
             }
         }
         if (search) {

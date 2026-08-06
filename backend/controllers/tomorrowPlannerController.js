@@ -44,7 +44,7 @@ const mapRoleToDepartment = (role) => {
 // ─── Add a task to tomorrow's planner ───────────────────────────────────────
 export const addTask = async (req, res) => {
     try {
-        const { taskDetails, activityType, place, time, priority, estimatedDuration, notes, planDate } = req.body;
+        const { taskDetails, activityType, place, schoolRef, schoolStatus, time, priority, estimatedDuration, notes, planDate } = req.body;
         if (!taskDetails && !activityType) {
             return res.status(400).json({ message: "Task details or Activity Type is required." });
         }
@@ -59,7 +59,10 @@ export const addTask = async (req, res) => {
 
         let plan = await TomorrowPlanner.findOne({
             user: req.user._id,
-            planDate: { $gte: startRange, $lt: endRange }
+            $or: [
+                { planDate: { $gte: startRange, $lt: endRange } },
+                { plantDate: { $gte: startRange, $lt: endRange } }
+            ]
         });
 
         if (!plan) {
@@ -76,6 +79,8 @@ export const addTask = async (req, res) => {
             taskDetails: taskDetails || `${activityType || 'Activity'} at ${place || 'Unspecified Place'}`,
             activityType: activityType || "",
             place: place || "",
+            schoolRef: schoolRef || null,
+            schoolStatus: schoolStatus || "",
             time: time || "",
             priority: priority || "Medium",
             estimatedDuration: estimatedDuration || "",
@@ -99,9 +104,17 @@ export const getMyPlan = async (req, res) => {
         const startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
         const endRange   = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
 
+        // Query both planDate and plantDate to handle legacy documents saved with the old field name
         const plan = await TomorrowPlanner.findOne({
             user: req.user._id,
-            planDate: { $gte: startRange, $lt: endRange }
+            $or: [
+                { planDate: { $gte: startRange, $lt: endRange } },
+                { plantDate: { $gte: startRange, $lt: endRange } }
+            ]
+        }).populate({
+            path: "tasks.schoolRef",
+            select: "schoolName centerName tier status",
+            populate: { path: "centerName", select: "centreName" }
         });
 
         // Fetch assigned tasks for this user on this date and merge them in
@@ -329,7 +342,10 @@ export const getBoardPlans = async (req, res) => {
         }
 
         const plans = await TomorrowPlanner.find({
-            planDate: { $gte: startRange, $lt: endRange },
+            $or: [
+                { planDate: { $gte: startRange, $lt: endRange } },
+                { plantDate: { $gte: startRange, $lt: endRange } }
+            ],
             user: { $in: users.map(u => u._id) }
         }).populate("user", "name role designation profileImage");
 
@@ -427,7 +443,7 @@ export const getBoardPlans = async (req, res) => {
 export const updateTask = async (req, res) => {
     try {
         const { planId, taskId } = req.params;
-        const { taskDetails, activityType, place, time, priority, estimatedDuration, notes, status } = req.body;
+        const { taskDetails, activityType, place, schoolRef, schoolStatus, time, priority, estimatedDuration, notes, status } = req.body;
 
         const plan = await TomorrowPlanner.findById(planId);
         if (!plan) return res.status(404).json({ message: "Planner not found." });
@@ -444,6 +460,8 @@ export const updateTask = async (req, res) => {
         if (taskDetails !== undefined) task.taskDetails = taskDetails;
         if (activityType !== undefined) task.activityType = activityType;
         if (place !== undefined) task.place = place;
+        if (schoolRef !== undefined) task.schoolRef = schoolRef;
+        if (schoolStatus !== undefined) task.schoolStatus = schoolStatus;
         if (time !== undefined) task.time = time;
         if (priority !== undefined) task.priority = priority;
         if (estimatedDuration !== undefined) task.estimatedDuration = estimatedDuration;
@@ -496,7 +514,10 @@ export const savePlan = async (req, res) => {
 
         let plan = await TomorrowPlanner.findOne({
             user: req.user._id,
-            planDate: { $gte: startRange, $lt: endRange }
+            $or: [
+                { planDate: { $gte: startRange, $lt: endRange } },
+                { plantDate: { $gte: startRange, $lt: endRange } }
+            ]
         });
 
         // Filter and map tasks to clean up temporary client-side IDs
@@ -504,6 +525,8 @@ export const savePlan = async (req, res) => {
             taskDetails: t.taskDetails || `${t.activityType || 'Activity'} at ${t.place || 'Unspecified Place'}`,
             activityType: t.activityType || "",
             place: t.place || "",
+            schoolRef: t.schoolRef || t.school || null,
+            schoolStatus: t.schoolStatus || "",
             time: t.time || "",
             priority: t.priority || "Medium",
             estimatedDuration: t.estimatedDuration || "",

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../components/Layout";
 import CustomMultiSelect from "../components/common/CustomMultiSelect";
+import CustomSearchSelect from "../components/common/CustomSearchSelect";
 import {
     FaBullhorn, FaUsers, FaChartLine, FaMoneyBillWave, FaChartPie, FaChartBar,
     FaFileExcel, FaSync, FaSun, FaMoon, FaFilter, FaSearch, FaArrowLeft,
@@ -59,6 +60,8 @@ const MarketingCRM = () => {
     const [auditFilterOwner, setAuditFilterOwner] = useState([]);
     const [auditFilterStatus, setAuditFilterStatus] = useState([]);
     const [auditFilterCentres, setAuditFilterCentres] = useState([]);
+    const [auditFilterSchools, setAuditFilterSchools] = useState([]);
+    const [auditMasterSchools, setAuditMasterSchools] = useState([]);
 
     // Command Centre filter states
     const [cmdCentreSearch, setCmdCentreSearch] = useState("");
@@ -184,6 +187,13 @@ const MarketingCRM = () => {
     useEffect(() => {
         if (activeTab === "Today Task") {
             fetchTodayPlanActivities();
+            fetchPlannerMasterOptions(); // also load schools for the place dropdown
+        }
+        if (activeTab === "Tomorrow Planner") {
+            fetchPlannerMasterOptions();
+        }
+        if (activeTab === "Activity Audit") {
+            fetchAuditMasterSchools();
         }
         // eslint-disable-next-line
     }, [activeTab]);
@@ -402,6 +412,100 @@ const MarketingCRM = () => {
     });
     const [editingTaskId, setEditingTaskId] = useState(null);
     const [editTaskForm, setEditTaskForm] = useState({});
+
+    // ── Tomorrow Planner School Selector States ────────────────────────────────
+    const [plannerSchools, setPlannerSchools] = useState([]);
+    const [plannerSchoolLoading, setPlannerSchoolLoading] = useState(false);
+    const [showPlannerSchoolPicker, setShowPlannerSchoolPicker] = useState(false);
+    const [editingTargetForm, setEditingTargetForm] = useState("new"); // "new" | "edit"
+    const [plannerSchoolFilters, setPlannerSchoolFilters] = useState({
+        centerName: "",
+        tier: "",
+        search: "",
+    });
+    const [plannerMasterCentres, setPlannerMasterCentres] = useState([]);
+    const [plannerMasterTiers, setPlannerMasterTiers] = useState(["A", "B", "C", "D", "E"]);
+
+    const fetchPlannerMasterOptions = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const cRes = await fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers: { Authorization: `Bearer ${token}` } });
+            let centres = [];
+            if (cRes.ok) {
+                const cData = await cRes.json();
+                centres = (Array.isArray(cData) ? cData : (cData.centres || [])).filter(c => c.status !== "deactive");
+                setPlannerMasterCentres(centres);
+            }
+
+            const u = JSON.parse(localStorage.getItem("user") || "{}");
+            const isSuper = Array.isArray(u.role)
+                ? u.role.some(r => typeof r === "string" && ["superadmin", "admin"].includes(r.toLowerCase().replace(/\s+/g, "")))
+                : typeof u.role === "string" && ["superadmin", "admin"].includes(u.role.toLowerCase().replace(/\s+/g, ""));
+
+            let centreIds = [];
+            if (!isSuper) {
+                // Extract all centre IDs associated with current user
+                const userCentresRaw = u.centres || u.centers || (u.centre ? [u.centre] : (u.center ? [u.center] : []));
+                const list = Array.isArray(userCentresRaw) ? userCentresRaw : [userCentresRaw];
+                centreIds = list.map(c => {
+                    if (typeof c === "string") return c;
+                    if (typeof c === "object" && c._id) return c._id;
+                    if (typeof c === "object" && c.centreName && centres.length > 0) {
+                        const m = centres.find(mc => mc.centreName?.toLowerCase().trim() === c.centreName?.toLowerCase().trim());
+                        if (m) return m._id;
+                    }
+                    return null;
+                }).filter(Boolean);
+            }
+
+            const initialCentreFilter = centreIds.length > 0 ? centreIds.join(",") : "";
+            const initialFilters = { centerName: initialCentreFilter, tier: "", search: "" };
+            setPlannerSchoolFilters(initialFilters);
+            fetchPlannerSchools(initialFilters);
+        } catch (err) {
+            console.error("Error fetching planner master options:", err);
+        }
+    };
+
+    // ── Activity Audit: fetch all schools from SchoolForTask master data ────────
+    const fetchAuditMasterSchools = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task?limit=2000`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const schools = data.data || data.schools || [];
+                setAuditMasterSchools(schools);
+            }
+        } catch (err) {
+            console.error("Error fetching audit master schools:", err);
+        }
+    };
+
+    const fetchPlannerSchools = async (overrideFilters) => {
+        setPlannerSchoolLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const activeFilters = overrideFilters || plannerSchoolFilters;
+            const params = new URLSearchParams({ limit: 1000 });
+
+            if (activeFilters.centerName) params.append("centerName", activeFilters.centerName);
+
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task?${params}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setPlannerSchools(data.data || data.schools || []);
+            }
+        } catch (err) {
+            console.error("Error fetching planner schools:", err);
+        } finally {
+            setPlannerSchoolLoading(false);
+        }
+    };
 
     // ── Assign Task Tab States (super admin) ──────────────────────────────────
     const [assignStaff, setAssignStaff] = useState([]);          // staff list
@@ -689,29 +793,7 @@ const MarketingCRM = () => {
                 }
             }
 
-            // Step 1.5: Check if draft exists
-            try {
-                const draftRes = await fetch(
-                    `${import.meta.env.VITE_API_URL}/lead-management/planner/draft?date=${todayStr}`,
-                    { headers: { Authorization: `Bearer ${token}` } }
-                );
-                if (draftRes.ok) {
-                    const draftData = await draftRes.json();
-                    if (draftData.draft && draftData.draft.activities && draftData.draft.activities.length > 0) {
-                        setTodayActivities(draftData.draft.activities);
-                        setExpectedLeadTarget(draftData.draft.expectedLeadTarget || "");
-                        setExpectedHotLeads(draftData.draft.expectedHotLeads || "");
-                        setTodayTaskSubmitted(false);
-                        setSubmittedActivities([]);
-                        setTodayTaskLoading(false);
-                        return;
-                    }
-                }
-            } catch (draftErr) {
-                console.error("Error fetching draft planner:", draftErr);
-            }
-
-            // Step 2: Not yet submitted — fetch Tomorrow Planner tasks where date = today
+            // Step 2: Fetch Tomorrow Planner tasks for today (primary source of truth)
             setTodayTaskSubmitted(false);
             setSubmittedActivities([]);
 
@@ -720,13 +802,14 @@ const MarketingCRM = () => {
                 { headers: { Authorization: `Bearer ${token}` } }
             );
 
+            let plannerActivities = null;
             if (planRes.ok) {
                 const data = await planRes.json();
                 if (data.plan && data.plan.tasks && data.plan.tasks.length > 0) {
-                    // Pre-populate from Tomorrow Planner tasks (evidence fields are blank — user fills in field)
-                    const mapped = data.plan.tasks.map(task => ({
+                    plannerActivities = data.plan.tasks.map(task => ({
                         type: task.activityType || "",
                         place: task.place || "",
+                        schoolRef: task.schoolRef?._id?.toString() || (typeof task.schoolRef === 'string' ? task.schoolRef : null),
                         time: task.time || "",
                         expectedLeads: "",
                         isSaved: false,
@@ -743,28 +826,75 @@ const MarketingCRM = () => {
                         priority: task.priority || "Medium",
                         _id: task._id
                     }));
-                    setTodayActivities(mapped);
-                } else {
-                    // No plan found for today — start with one blank row
-                    setTodayActivities([{
-                        type: activitySources[0] || "School Visit",
-                        place: "",
-                        time: "",
-                        expectedLeads: "",
-                        isSaved: false,
-                        geoTagged: false,
-                        latitude: null,
-                        longitude: null,
-                        locationName: "",
-                        photos: [],
-                        photo: null,
-                        actualTime: "",
-                        captureDateTime: "",
-                        estimatedDuration: "",
-                        notes: "",
-                        priority: "Medium"
-                    }]);
                 }
+            }
+
+            // Step 2.5: Overlay saved draft progress onto planner tasks (geo-tags, actual time, photos)
+            try {
+                const draftRes = await fetch(
+                    `${import.meta.env.VITE_API_URL}/lead-management/planner/draft?date=${todayStr}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (draftRes.ok) {
+                    const draftData = await draftRes.json();
+                    const draftActs = draftData.draft?.activities || [];
+
+                    if (plannerActivities && plannerActivities.length > 0 && draftActs.length > 0) {
+                        // Merge draft progress onto matched planner tasks (by _id)
+                        const draftMap = new Map(draftActs.map(a => [String(a._id), a]));
+                        plannerActivities = plannerActivities.map(act => {
+                            const saved = draftMap.get(String(act._id));
+                            if (!saved) return act;
+                            return {
+                                ...act,
+                                geoTagged: saved.geoTagged || act.geoTagged,
+                                latitude: saved.latitude ?? act.latitude,
+                                longitude: saved.longitude ?? act.longitude,
+                                locationName: saved.locationName || act.locationName,
+                                photos: saved.photos?.length ? saved.photos : act.photos,
+                                photo: saved.photo || act.photo,
+                                actualTime: saved.actualTime || act.actualTime,
+                                captureDateTime: saved.captureDateTime || act.captureDateTime,
+                                expectedLeads: saved.expectedLeads || act.expectedLeads,
+                                isSaved: saved.isSaved || act.isSaved,
+                            };
+                        });
+                        setExpectedLeadTarget(draftData.draft.expectedLeadTarget || "");
+                        setExpectedHotLeads(draftData.draft.expectedHotLeads || "");
+                    } else if (!plannerActivities && draftActs.length > 0) {
+                        // No planner for today — fall back to draft
+                        setTodayActivities(draftActs);
+                        setExpectedLeadTarget(draftData.draft.expectedLeadTarget || "");
+                        setExpectedHotLeads(draftData.draft.expectedHotLeads || "");
+                        return;
+                    }
+                }
+            } catch (draftErr) {
+                console.error("Error fetching draft planner:", draftErr);
+            }
+
+            if (plannerActivities && plannerActivities.length > 0) {
+                setTodayActivities(plannerActivities);
+            } else {
+                // No planner and no draft — start with one blank row
+                setTodayActivities([{
+                    type: activitySources[0] || "School Visit",
+                    place: "",
+                    time: "",
+                    expectedLeads: "",
+                    isSaved: false,
+                    geoTagged: false,
+                    latitude: null,
+                    longitude: null,
+                    locationName: "",
+                    photos: [],
+                    photo: null,
+                    actualTime: "",
+                    captureDateTime: "",
+                    estimatedDuration: "",
+                    notes: "",
+                    priority: "Medium"
+                }]);
             }
         } catch (error) {
             console.error("Error fetching today's plan activities:", error);
@@ -793,6 +923,7 @@ const MarketingCRM = () => {
             _id: `temp_${Date.now()}_${Math.random()}`,
             activityType: actType,
             place: newTaskForm.place,
+            schoolRef: newTaskForm.schoolRef || null,
             time: newTaskForm.time,
             estimatedDuration: newTaskForm.estimatedDuration,
             notes: newTaskForm.notes || "",
@@ -804,6 +935,7 @@ const MarketingCRM = () => {
         setNewTaskForm({
             activityType: activitySources[0] || "School Visit",
             place: "",
+            schoolRef: null,
             time: "",
             estimatedDuration: "",
             notes: "",
@@ -829,6 +961,7 @@ const MarketingCRM = () => {
         setEditTaskForm({
             activityType: task.activityType || "",
             place: task.place || "",
+            schoolRef: task.schoolRef?._id || task.schoolRef || null,
             time: task.time || "",
             estimatedDuration: task.estimatedDuration || "",
             notes: task.notes || "",
@@ -837,7 +970,7 @@ const MarketingCRM = () => {
     };
 
     const handleUpdateTomorrowTask = (taskId) => {
-        if (!editTaskForm.place) { toast.error("Place / Institution is required."); return; }
+        if (!editTaskForm.place) { toast.error("School selection is required."); return; }
         if (!editTaskForm.time) { toast.error("Time is required."); return; }
         if (!editTaskForm.estimatedDuration) { toast.error("Duration is required."); return; }
         setTomorrowTasks(prev => prev.map(t =>
@@ -882,6 +1015,7 @@ const MarketingCRM = () => {
                         const mapped = data.plan.tasks.map(task => ({
                             type: task.activityType || "",
                             place: task.place || "",
+                            schoolRef: task.schoolRef?._id?.toString() || (typeof task.schoolRef === 'string' ? task.schoolRef : null),
                             time: task.time || "",
                             expectedLeads: "",
                             isSaved: false,
@@ -1026,6 +1160,7 @@ const MarketingCRM = () => {
                 ...(auditFilterOwner && auditFilterOwner.length > 0 ? { owner: auditFilterOwner.map(o => o.value).join(",") } : {}),
                 ...(auditFilterStatus && auditFilterStatus.length > 0 ? { status: auditFilterStatus.map(s => s.value).join(",") } : {}),
                 ...(auditFilterCentres && auditFilterCentres.length > 0 ? { centres: auditFilterCentres.map(c => c.value).join(",") } : {}),
+                ...(auditFilterSchools && auditFilterSchools.length > 0 ? { school: auditFilterSchools.map(s => s.value).join(",") } : {}),
                 startDate: dateLimits.start,
                 endDate: dateLimits.end
             });
@@ -1103,6 +1238,7 @@ const MarketingCRM = () => {
                 ...(auditFilterOwner && auditFilterOwner.length > 0 ? { owner: auditFilterOwner.map(o => o.value).join(",") } : {}),
                 ...(auditFilterStatus && auditFilterStatus.length > 0 ? { status: auditFilterStatus.map(s => s.value).join(",") } : {}),
                 ...(auditFilterCentres && auditFilterCentres.length > 0 ? { centres: auditFilterCentres.map(c => c.value).join(",") } : {}),
+                ...(auditFilterSchools && auditFilterSchools.length > 0 ? { school: auditFilterSchools.map(s => s.value).join(",") } : {}),
                 startDate: dateLimits.start,
                 endDate: dateLimits.end
             });
@@ -1169,7 +1305,7 @@ const MarketingCRM = () => {
 
         return () => clearTimeout(debounce);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, currentPage, itemsPerPage, auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditFilterCentres, auditDateRange, auditStartDate, auditEndDate]);
+    }, [activeTab, currentPage, itemsPerPage, auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditFilterCentres, auditFilterSchools, auditDateRange, auditStartDate, auditEndDate]);
 
     // Assign Task & Assigned Tasks tab data watcher
     useEffect(() => {
@@ -1187,7 +1323,7 @@ const MarketingCRM = () => {
     useEffect(() => {
         setCurrentPage(1);
         setPageInput("1");
-    }, [auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditFilterCentres, auditDateRange, auditStartDate, auditEndDate]);
+    }, [auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditFilterCentres, auditFilterSchools, auditDateRange, auditStartDate, auditEndDate]);
 
     const handleUpdateApprovalStatus = async (recordId, newStatus) => {
         try {
@@ -1300,7 +1436,9 @@ const MarketingCRM = () => {
             submittedAt,
             estimatedDuration: act.estimatedDuration || "",
             notes: act.notes || "",
-            priority: act.priority || "Medium"
+            priority: act.priority || "Medium",
+            schoolRef: act.schoolRef || null,
+            schoolStatus: act.schoolStatus || ""
         }));
 
         try {
@@ -2567,21 +2705,72 @@ const MarketingCRM = () => {
                                                                 </select>
                                                             </div>
 
-                                                            {/* Place / Institution input */}
+                                                            {/* Place / Institution — searchable school dropdown from master data */}
                                                             <div className="col-span-1 md:col-span-2">
                                                                 <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Place / Institution Name</label>
-                                                                <input
-                                                                    type="text"
-                                                                    disabled={activity.isSaved}
-                                                                    placeholder="Place / Institution"
-                                                                    value={activity.place}
-                                                                    onChange={(e) => {
-                                                                        const newActs = [...todayActivities];
-                                                                        newActs[idx].place = e.target.value;
-                                                                        setTodayActivities(newActs);
-                                                                    }}
-                                                                    className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
-                                                                />
+                                                                {activity.isSaved ? (
+                                                                    <div className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed`}>
+                                                                        <div>{activity.place || '—'}</div>
+                                                                        {activity.schoolStatus && (
+                                                                            <div className="text-[8px] text-amber-500 mt-1 font-bold">({activity.schoolStatus})</div>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="flex flex-col gap-1">
+                                                                        <CustomSearchSelect
+                                                                            options={(() => {
+                                                                                const base = (plannerSchools || []).map(s => ({ value: s._id, label: s.schoolName }));
+                                                                                const lookupKey = activity.schoolRef || activity.place;
+                                                                                const alreadyIn = base.some(o => o.value === lookupKey);
+                                                                                if (lookupKey && activity.place && !alreadyIn) {
+                                                                                    return [{ value: lookupKey, label: activity.place }, ...base];
+                                                                                }
+                                                                                return base;
+                                                                            })()}
+                                                                            value={activity.schoolRef || activity.place || ""}
+                                                                            onChange={(selectedId) => {
+                                                                                const newActs = [...todayActivities];
+                                                                                const foundSchool = (plannerSchools || []).find(s => s._id === selectedId);
+                                                                                if (foundSchool) {
+                                                                                    newActs[idx].place = foundSchool.schoolName;
+                                                                                    newActs[idx].schoolRef = foundSchool._id;
+                                                                                    newActs[idx].schoolStatus = foundSchool.status || "ONLY INFORMATION GIVEN TO STUDENTS";
+                                                                                } else if (selectedId) {
+                                                                                    newActs[idx].place = selectedId;
+                                                                                    newActs[idx].schoolRef = null;
+                                                                                    newActs[idx].schoolStatus = "";
+                                                                                } else {
+                                                                                    newActs[idx].place = "";
+                                                                                    newActs[idx].schoolRef = null;
+                                                                                    newActs[idx].schoolStatus = "";
+                                                                                }
+                                                                                setTodayActivities(newActs);
+                                                                            }}
+                                                                            placeholder={plannerSchoolLoading ? "Loading schools..." : plannerSchools.length === 0 ? "No schools for your centre" : "Search & Select School..."}
+                                                                            isDarkMode={isDarkMode}
+                                                                        />
+                                                                        {activity.schoolRef && (
+                                                                            <div className="flex flex-col gap-0.5 mt-0.5">
+                                                                                <span className="text-[8px] font-bold text-amber-500 uppercase tracking-widest">School Status:</span>
+                                                                                <select
+                                                                                    value={activity.schoolStatus || "ONLY INFORMATION GIVEN TO STUDENTS"}
+                                                                                    onChange={(e) => {
+                                                                                        const newActs = [...todayActivities];
+                                                                                        newActs[idx].schoolStatus = e.target.value;
+                                                                                        setTodayActivities(newActs);
+                                                                                    }}
+                                                                                    className={`w-full px-2 py-1.5 rounded-lg border text-[9px] font-bold outline-none ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-800'}`}
+                                                                                >
+                                                                                    <option value="MOCK TEST TIE-UP">MOCK TEST TIE-UP</option>
+                                                                                    <option value="CRP TIE-UP">CRP TIE-UP</option>
+                                                                                    <option value="(INDERICT TIE-UP) WORKSHOP /PNTSE/PMO/PSAT">(INDERICT TIE-UP) WORKSHOP /PNTSE/PMO/PSAT</option>
+                                                                                    <option value="ONLY INFORMATION GIVEN TO STUDENTS">ONLY INFORMATION GIVEN TO STUDENTS</option>
+                                                                                    <option value="OTHERS">OTHERS</option>
+                                                                                </select>
+                                                                            </div>
+                                                                        )}
+                                                                    </div>
+                                                                )}
                                                             </div>
 
                                                             {/* Time picker */}
@@ -3018,14 +3207,32 @@ const MarketingCRM = () => {
                                             </select>
                                         </div>
 
-                                        <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
-                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Place / Institution *</label>
-                                            <input
-                                                type="text"
-                                                placeholder="Place / Institution"
-                                                value={newTaskForm.place}
-                                                onChange={(e) => setNewTaskForm({ ...newTaskForm, place: e.target.value })}
-                                                className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
+                                        <div className="col-span-1 md:col-span-3 z-10 flex flex-col gap-1.5 relative">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Select School *</label>
+                                            <CustomSearchSelect
+                                                options={plannerSchools.map(s => ({
+                                                    value: s._id,
+                                                    label: `${s.schoolName}${s.centerName?.centreName ? ` (${s.centerName.centreName})` : ''}`
+                                                }))}
+                                                value={newTaskForm.schoolRef || ""}
+                                                onChange={(selectedId) => {
+                                                    const foundSchool = plannerSchools.find(s => s._id === selectedId);
+                                                    if (foundSchool) {
+                                                        setNewTaskForm(prev => ({
+                                                            ...prev,
+                                                            schoolRef: foundSchool._id,
+                                                            place: foundSchool.schoolName
+                                                        }));
+                                                    } else {
+                                                        setNewTaskForm(prev => ({
+                                                            ...prev,
+                                                            schoolRef: null,
+                                                            place: ""
+                                                        }));
+                                                    }
+                                                }}
+                                                placeholder={plannerSchoolLoading ? "Loading schools..." : plannerSchools.length === 0 ? "No schools found for your centre" : "Search & Select School..."}
+                                                isDarkMode={isDarkMode}
                                             />
                                         </div>
 
@@ -3136,14 +3343,33 @@ const MarketingCRM = () => {
                                                                     ))}
                                                                 </select>
                                                             </div>
-                                                            {/* Place */}
+                                                            {/* Place / School */}
                                                             <div className="col-span-1 md:col-span-3 flex flex-col gap-1">
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Place / Institution *</label>
-                                                                <input
-                                                                    type="text"
-                                                                    value={editTaskForm.place}
-                                                                    onChange={(e) => setEditTaskForm({ ...editTaskForm, place: e.target.value })}
-                                                                    className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/60 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Select School *</label>
+                                                                <CustomSearchSelect
+                                                                    options={plannerSchools.map(s => ({
+                                                                        value: s._id,
+                                                                        label: `${s.schoolName}${s.centerName?.centreName ? ` (${s.centerName.centreName})` : ''}`
+                                                                    }))}
+                                                                    value={editTaskForm.schoolRef || ""}
+                                                                    onChange={(selectedId) => {
+                                                                        const foundSchool = plannerSchools.find(s => s._id === selectedId);
+                                                                        if (foundSchool) {
+                                                                            setEditTaskForm(prev => ({
+                                                                                ...prev,
+                                                                                schoolRef: foundSchool._id,
+                                                                                place: foundSchool.schoolName
+                                                                            }));
+                                                                        } else {
+                                                                            setEditTaskForm(prev => ({
+                                                                                ...prev,
+                                                                                schoolRef: null,
+                                                                                place: ""
+                                                                            }));
+                                                                        }
+                                                                    }}
+                                                                    placeholder={editTaskForm.place ? `Current: ${editTaskForm.place}` : "Search & Select School..."}
+                                                                    isDarkMode={isDarkMode}
                                                                 />
                                                             </div>
                                                             {/* Time */}
@@ -3314,7 +3540,7 @@ const MarketingCRM = () => {
 
                             // Apply search + filters
                             const filteredAuditRecords = auditRecords;
-                            const filtersActive = auditSearch || auditFilterType.length > 0 || auditFilterOwner.length > 0 || auditFilterStatus.length > 0 || auditFilterCentres.length > 0 || auditDateRange !== "Today" || auditStartDate || auditEndDate;
+                            const filtersActive = auditSearch || auditFilterType.length > 0 || auditFilterOwner.length > 0 || auditFilterStatus.length > 0 || auditFilterCentres.length > 0 || auditFilterSchools.length > 0 || auditDateRange !== "Today" || auditStartDate || auditEndDate;
 
                             const selectCls = `px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-[#05080c]'
                                 }`;
@@ -3323,6 +3549,11 @@ const MarketingCRM = () => {
                             const ownerOptions = (auditOwners || []).filter(o => o && o !== "All").map(o => ({ value: o, label: o }));
                             const statusOptions = ["Pending", "Approved", "Rejected"].map(s => ({ value: s, label: s }));
                             const centreOptions = (availableCenters || []).map(c => ({ value: c._id, label: c.centreName }));
+                            const schoolOptions = (auditMasterSchools || [])
+                            .map(s => s.schoolName)
+                            .filter(Boolean)
+                            .sort((a, b) => a.localeCompare(b))
+                            .map(s => ({ value: s, label: s }));
 
                             return (
                                 <div className="space-y-5 animate-fadeIn">
@@ -3413,6 +3644,18 @@ const MarketingCRM = () => {
                                                 </>
                                             )}
 
+                                            {/* School filter (Multi Select with Search) */}
+                                            <div className="relative min-w-[180px] z-20">
+                                                <CustomMultiSelect
+                                                    options={schoolOptions}
+                                                    value={auditFilterSchools}
+                                                    onChange={setAuditFilterSchools}
+                                                    placeholder="All Schools"
+                                                    isDarkMode={isDarkMode}
+                                                />
+                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>School</span>
+                                            </div>
+
                                             {/* Type filter */}
                                             <div className="relative min-w-[160px] z-20">
                                                 <CustomMultiSelect
@@ -3474,11 +3717,12 @@ const MarketingCRM = () => {
                                                         setAuditFilterOwner([]);
                                                         setAuditFilterStatus([]);
                                                         setAuditFilterCentres([]);
+                                                        setAuditFilterSchools([]);
                                                         setAuditDateRange("Today");
                                                         setAuditStartDate("");
                                                         setAuditEndDate("");
                                                     }}
-                                                    className="px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border border-red-400/40 text-red-500 hover:bg-red-500/10 transition-all active:scale-95"
+                                                    className="px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border border-red-400/40 text-red-500 hover:bg-red-500/10 transition-all active:scale-95 cursor-pointer"
                                                 >
                                                     Clear Filters
                                                 </button>
