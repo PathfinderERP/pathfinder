@@ -3,7 +3,8 @@ import Layout from "../components/Layout";
 import {
     FaPlus, FaEdit, FaTrash, FaSearch, FaFileImport, FaFileExport,
     FaSchool, FaUserGraduate, FaChalkboard, FaBook, FaTimes, FaCheck,
-    FaFilter, FaMapMarkerAlt, FaChevronDown, FaBuilding, FaPhone, FaCalendarAlt
+    FaFilter, FaMapMarkerAlt, FaChevronDown, FaBuilding, FaPhone, FaCalendarAlt,
+    FaLayerGroup, FaChartBar, FaUsers, FaSortAmountDown, FaSortAmountUp
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
@@ -124,6 +125,8 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
 
 // ─── Main Component ────────────────────────────────────────────────────────────
 const MasterDataSchoolData = () => {
+    const [activeTab, setActiveTab] = useState("records"); // "records" | "overview"
+
     const [records, setRecords] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
@@ -154,6 +157,15 @@ const MasterDataSchoolData = () => {
     const [totalPages, setTotalPages] = useState(1);
     const [totalItems, setTotalItems] = useState(0);
     const ITEMS_PER_PAGE = 20;
+
+    // ── Schools Overview Tab state ────────────────────────────────────────────
+    const [overviewData, setOverviewData] = useState([]);
+    const [overviewLoading, setOverviewLoading] = useState(false);
+    const [overviewSearch, setOverviewSearch] = useState("");
+    const [overviewCentreFilter, setOverviewCentreFilter] = useState([]);
+    const [overviewSortBy, setOverviewSortBy] = useState("name"); // "name" | "count"
+    const [overviewSortDir, setOverviewSortDir] = useState("asc"); // "asc" | "desc"
+    const [overviewStats, setOverviewStats] = useState({ totalSchools: 0, totalStudents: 0 });
 
     const importRef = useRef(null);
     const [importing, setImporting] = useState(false);
@@ -207,6 +219,28 @@ const MasterDataSchoolData = () => {
     const token = localStorage.getItem("token");
     const headers = { Authorization: `Bearer ${token}` };
     const BASE = `${import.meta.env.VITE_API_URL}/master-data/school-data`;
+
+    // ── Fetch Schools Overview ────────────────────────────────────────────────
+    const fetchOverview = async () => {
+        setOverviewLoading(true);
+        try {
+            const params = new URLSearchParams();
+            if (overviewSearch) params.append("search", overviewSearch);
+            if (overviewCentreFilter.length > 0) params.append("centre", overviewCentreFilter.join(","));
+            const res = await fetch(`${BASE}/schools-overview?${params}`, { headers });
+            const data = await res.json();
+            if (res.ok) {
+                setOverviewData(data.schools || []);
+                setOverviewStats({ totalSchools: data.totalSchools || 0, totalStudents: data.totalStudents || 0 });
+            } else {
+                toast.error(data.message || "Failed to load overview");
+            }
+        } catch {
+            toast.error("Error loading schools overview");
+        } finally {
+            setOverviewLoading(false);
+        }
+    };
 
     // ── Fetch master class, board & active centres lists ──────────────────────
     const fetchMasterData = async () => {
@@ -283,6 +317,10 @@ const MasterDataSchoolData = () => {
         fetchMasterData();
         fetchAllForFilterOptions();
     }, []);
+
+    useEffect(() => {
+        if (activeTab === "overview") fetchOverview();
+    }, [activeTab, overviewSearch, overviewCentreFilter]);
 
     useEffect(() => {
         clearSelection();
@@ -568,12 +606,55 @@ const MasterDataSchoolData = () => {
         saveAs(new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }), "SchoolData_Template.xlsx");
     };
 
+    const handleExportOverview = () => {
+        try {
+            if (sortedOverview.length === 0) {
+                toast.warn("No data to export");
+                return;
+            }
+            const exportData = sortedOverview.map((school, idx) => ({
+                "#": idx + 1,
+                "School Name": school.schoolName,
+                "Total Students": school.totalStudents,
+                "Centre(s)": school.centres.join(" | "),
+                "Area(s)": school.areas.join(" | "),
+                "Classes": school.classes.sort().join(", "),
+                "Boards": school.boards.sort().join(", ")
+            }));
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+                wch: Math.max(key.length, ...exportData.map(r => String(r[key] || "").length))
+            }));
+            ws["!cols"] = colWidths;
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Schools Overview");
+            const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+            saveAs(
+                new Blob([buf], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
+                `SchoolsOverview_${new Date().toISOString().split("T")[0]}.xlsx`
+            );
+            toast.success(`Exported ${sortedOverview.length} unique schools`);
+        } catch {
+            toast.error("Export failed");
+        }
+    };
+
     const resetFilters = () => { setFilterSearch(""); setFilterSchools([]); setFilterClasses([]); setFilterBoards([]); setFilterAreas([]); setFilterCentres([]); setFilterDuplicates(false); };
     const activeCount = [filterSearch, filterSchools.length > 0, filterClasses.length > 0, filterBoards.length > 0, filterAreas.length > 0, filterCentres.length > 0, filterDuplicates].filter(Boolean).length;
 
     // Derived class/board name lists for filters (from master data)
     const classNames = masterClasses.map(c => c.name);
     const boardNames = masterBoards.map(b => b.boardCourse);
+
+    // Overview sorted data
+    const sortedOverview = [...overviewData].sort((a, b) => {
+        if (overviewSortBy === "count") {
+            return overviewSortDir === "asc" ? a.totalStudents - b.totalStudents : b.totalStudents - a.totalStudents;
+        }
+        return overviewSortDir === "asc"
+            ? a.schoolName.localeCompare(b.schoolName)
+            : b.schoolName.localeCompare(a.schoolName);
+    });
 
     return (
         <Layout activePage="Master Data">
@@ -598,8 +679,16 @@ const MasterDataSchoolData = () => {
                             {importing ? (importStatusMessage || "Importing...") : "Bulk Import"}
                             <input ref={importRef} type="file" accept=".xlsx,.xls,.csv" onChange={handleImportFile} className="hidden" disabled={importing} />
                         </label>
-                        <button onClick={handleExport} className="flex items-center gap-2 px-4 py-2 bg-blue-600/10 text-blue-600 dark:text-blue-400 border border-blue-500/30 rounded-lg font-medium text-sm hover:bg-blue-600 hover:text-white transition-all">
-                            <FaFileExport className="text-xs" /> Export Excel
+                        <button
+                            onClick={activeTab === "overview" ? handleExportOverview : handleExport}
+                            className={`flex items-center gap-2 px-4 py-2 border rounded-lg font-medium text-sm transition-all ${
+                                activeTab === "overview"
+                                    ? "bg-emerald-600/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-600 hover:text-white"
+                                    : "bg-blue-600/10 text-blue-600 dark:text-blue-400 border-blue-500/30 hover:bg-blue-600 hover:text-white"
+                            }`}
+                        >
+                            <FaFileExport className="text-xs" />
+                            {activeTab === "overview" ? "Export Schools" : "Export Excel"}
                         </button>
                         <button
                             onClick={() => { setFormData(EMPTY_FORM); setEditingId(null); setShowModal(true); }}
@@ -609,6 +698,228 @@ const MasterDataSchoolData = () => {
                         </button>
                     </div>
                 </div>
+
+                {/* ── Tabs ── */}
+                <div className="flex items-center gap-1 border-b border-gray-200 dark:border-gray-800">
+                    <button
+                        id="tab-records"
+                        onClick={() => setActiveTab("records")}
+                        className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold transition-all border-b-2 -mb-px ${
+                            activeTab === "records"
+                                ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        }`}
+                    >
+                        <FaLayerGroup className="text-xs" /> All Records
+                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                            activeTab === "records"
+                                ? "bg-blue-100 dark:bg-blue-600/20 text-blue-600 dark:text-blue-400"
+                                : "bg-gray-100 dark:bg-gray-800 text-gray-500"
+                        }`}>{totalItems.toLocaleString()}</span>
+                    </button>
+                    <button
+                        id="tab-overview"
+                        onClick={() => setActiveTab("overview")}
+                        className={`flex items-center gap-2 px-5 py-2.5 text-sm font-bold transition-all border-b-2 -mb-px ${
+                            activeTab === "overview"
+                                ? "border-emerald-500 text-emerald-600 dark:text-emerald-400"
+                                : "border-transparent text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
+                        }`}
+                    >
+                        <FaChartBar className="text-xs" /> Schools Overview
+                        {overviewStats.totalSchools > 0 && (
+                            <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${
+                                activeTab === "overview"
+                                    ? "bg-emerald-100 dark:bg-emerald-600/20 text-emerald-600 dark:text-emerald-400"
+                                    : "bg-gray-100 dark:bg-gray-800 text-gray-500"
+                            }`}>{overviewStats.totalSchools}</span>
+                        )}
+                    </button>
+                </div>
+
+                {/* ── Schools Overview Tab ── */}
+                {activeTab === "overview" && (
+                    <div className="space-y-5">
+                        {/* Overview Stats */}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div className="bg-gradient-to-br from-emerald-500 to-teal-600 rounded-xl p-5 text-white shadow-lg shadow-emerald-500/20">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-emerald-100 text-xs font-black uppercase tracking-widest">Unique Schools</p>
+                                        <p className="text-4xl font-black mt-1">{overviewLoading ? "—" : overviewStats.totalSchools.toLocaleString()}</p>
+                                    </div>
+                                    <FaSchool className="text-5xl text-white/20" />
+                                </div>
+                            </div>
+                            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-xl p-5 text-white shadow-lg shadow-blue-500/20">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-blue-100 text-xs font-black uppercase tracking-widest">Total Students</p>
+                                        <p className="text-4xl font-black mt-1">{overviewLoading ? "—" : overviewStats.totalStudents.toLocaleString()}</p>
+                                    </div>
+                                    <FaUsers className="text-5xl text-white/20" />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Overview Filters */}
+                        <div className="bg-white dark:bg-[#1a1f24] rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm flex flex-wrap gap-3 items-center">
+                            <div className="relative flex-1 min-w-[200px]">
+                                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs z-10" />
+                                <input
+                                    id="overview-search"
+                                    type="text"
+                                    placeholder="Search school or area..."
+                                    value={overviewSearch}
+                                    onChange={e => setOverviewSearch(e.target.value)}
+                                    className="w-full pl-8 pr-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 rounded-lg bg-gray-50 dark:bg-[#131619] text-gray-800 dark:text-white focus:outline-none focus:border-emerald-500 transition-all"
+                                />
+                            </div>
+                            <div className="w-56">
+                                <MultiSelect
+                                    options={activeCentres.map(c => c.centreName).filter(Boolean)}
+                                    selected={overviewCentreFilter.map(id => activeCentres.find(c => c._id === id)?.centreName || id)}
+                                    onChange={(names) => {
+                                        const ids = names.map(n => {
+                                            const found = activeCentres.find(c => c.centreName === n);
+                                            return found ? found._id : n;
+                                        });
+                                        setOverviewCentreFilter(ids);
+                                    }}
+                                    placeholder="All Centres"
+                                />
+                            </div>
+                            {/* Sort controls + Export */}
+                            <div className="flex items-center gap-2 ml-auto">
+                                <span className="text-xs font-black text-gray-400 uppercase tracking-widest">Sort:</span>
+                                <button
+                                    onClick={() => { setOverviewSortBy("name"); setOverviewSortDir(d => overviewSortBy === "name" ? (d === "asc" ? "desc" : "asc") : "asc"); }}
+                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                        overviewSortBy === "name" ? "bg-emerald-100 dark:bg-emerald-600/20 text-emerald-700 dark:text-emerald-400" : "bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                    }`}
+                                >
+                                    Name {overviewSortBy === "name" && (overviewSortDir === "asc" ? <FaSortAmountUp className="text-[9px]" /> : <FaSortAmountDown className="text-[9px]" />)}
+                                </button>
+                                <button
+                                    onClick={() => { setOverviewSortBy("count"); setOverviewSortDir(d => overviewSortBy === "count" ? (d === "asc" ? "desc" : "asc") : "desc"); }}
+                                    className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                        overviewSortBy === "count" ? "bg-blue-100 dark:bg-blue-600/20 text-blue-700 dark:text-blue-400" : "bg-gray-100 dark:bg-gray-800 text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700"
+                                    }`}
+                                >
+                                    Students {overviewSortBy === "count" && (overviewSortDir === "asc" ? <FaSortAmountUp className="text-[9px]" /> : <FaSortAmountDown className="text-[9px]" />)}
+                                </button>
+
+                                {/* Divider */}
+                                <div className="w-px h-5 bg-gray-200 dark:bg-gray-700 mx-1" />
+
+                                {/* Export Button */}
+                                <button
+                                    id="export-overview-btn"
+                                    onClick={handleExportOverview}
+                                    disabled={sortedOverview.length === 0}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600/10 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-bold hover:bg-emerald-600 hover:text-white disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                                >
+                                    <FaFileExport className="text-[10px]" /> Export Excel
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Overview Table */}
+                        <div className="bg-white dark:bg-[#1a1f24] rounded-xl shadow-sm border border-gray-200 dark:border-gray-800 overflow-hidden">
+                            {overviewLoading ? (
+                                <div className="flex items-center justify-center h-64">
+                                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500"></div>
+                                </div>
+                            ) : sortedOverview.length === 0 ? (
+                                <div className="flex flex-col items-center justify-center h-64 gap-3 text-gray-400 dark:text-gray-600">
+                                    <FaSchool className="text-4xl" />
+                                    <p className="font-bold uppercase text-xs tracking-widest">No schools found</p>
+                                </div>
+                            ) : (
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-gray-50 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+                                            <tr>
+                                                {["#", "School Name", "Total Students", "Centre(s)", "Area(s)", "Classes", "Boards"].map((h, i) => (
+                                                    <th key={i} className="px-5 py-3.5 text-left text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-wider whitespace-nowrap">
+                                                        {h}
+                                                    </th>
+                                                ))}
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {sortedOverview.map((school, idx) => (
+                                                <tr key={school.schoolName} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
+                                                    <td className="px-5 py-4 text-gray-400 dark:text-gray-600 text-xs font-bold">{idx + 1}</td>
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-400 to-teal-500 flex items-center justify-center shrink-0">
+                                                                <FaSchool className="text-white text-xs" />
+                                                            </div>
+                                                            <span className="font-bold text-gray-900 dark:text-white text-sm">{school.schoolName}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-5 py-4">
+                                                        <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-400 border border-blue-200 dark:border-blue-700/40">
+                                                            <FaUsers className="text-[9px]" />{school.totalStudents.toLocaleString()} students
+                                                        </span>
+                                                    </td>
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {school.centres.length === 0 ? (
+                                                                <span className="text-gray-300 dark:text-gray-700 text-xs">—</span>
+                                                            ) : school.centres.map((c, ci) => (
+                                                                <span key={ci} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-400 border border-sky-200 dark:border-sky-700/40 whitespace-nowrap">
+                                                                    <FaBuilding className="text-[8px]" />{c}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {school.areas.length === 0 ? (
+                                                                <span className="text-gray-300 dark:text-gray-700 text-xs">—</span>
+                                                            ) : school.areas.map((a, ai) => (
+                                                                <span key={ai} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-700/40 whitespace-nowrap">
+                                                                    <FaMapMarkerAlt className="text-[8px]" />{a}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {school.classes.length === 0 ? (
+                                                                <span className="text-gray-300 dark:text-gray-700 text-xs">—</span>
+                                                            ) : school.classes.sort().map((cl, cli) => (
+                                                                <span key={cli} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-700/40">
+                                                                    {cl}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {school.boards.length === 0 ? (
+                                                                <span className="text-gray-300 dark:text-gray-700 text-xs">—</span>
+                                                            ) : school.boards.sort().map((b, bi) => (
+                                                                <span key={bi} className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border border-purple-200 dark:border-purple-700/40">
+                                                                    {b}
+                                                                </span>
+                                                            ))}
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {/* ── Records Tab content — only shown when activeTab === "records" ── */}
+                {activeTab === "records" && <>
 
                 {/* ── Multi-Select Filters ── */}
                 <div className="bg-white dark:bg-[#1a1f24] rounded-xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm">
@@ -954,6 +1265,8 @@ const MasterDataSchoolData = () => {
                         </div>
                     )}
                 </div>
+
+                </> /* end records tab */}
             </div>
 
             {/* ── Add / Edit Modal ── */}

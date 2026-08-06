@@ -306,4 +306,101 @@ export const getSchoolDataDistinctFields = async (req, res) => {
     }
 };
 
+// GET SCHOOLS OVERVIEW — unique school names with centres & student count
+export const getSchoolsOverview = async (req, res) => {
+    try {
+        const { search = "", centre = "" } = req.query;
+
+        const matchStage = {};
+        if (search) {
+            matchStage.$or = [
+                { schoolName: { $regex: search, $options: "i" } },
+                { area: { $regex: search, $options: "i" } }
+            ];
+        }
+        if (centre) {
+            const mongoose = (await import("mongoose")).default;
+            const ids = centre.split(",").map(v => v.trim()).filter(Boolean).map(id => {
+                try { return new mongoose.Types.ObjectId(id); } catch { return null; }
+            }).filter(Boolean);
+            if (ids.length > 0) matchStage.centre = ids.length === 1 ? ids[0] : { $in: ids };
+        }
+
+        // Step 1: aggregate without $lookup — collect centre IDs as strings
+        const pipeline = [
+            { $match: matchStage },
+            {
+                $group: {
+                    _id: "$schoolName",
+                    totalStudents: { $sum: 1 },
+                    areas: { $addToSet: "$area" },
+                    centreIds: { $addToSet: "$centre" },
+                    classes: { $addToSet: "$className" },
+                    boards: { $addToSet: "$board" }
+                }
+            },
+            {
+                $project: {
+                    _id: 0,
+                    schoolName: "$_id",
+                    totalStudents: 1,
+                    centreIds: 1,
+                    areas: {
+                        $filter: { input: "$areas", as: "a", cond: { $and: [{ $ne: ["$$a", null] }, { $ne: ["$$a", ""] }] } }
+                    },
+                    classes: {
+                        $filter: { input: "$classes", as: "cl", cond: { $and: [{ $ne: ["$$cl", null] }, { $ne: ["$$cl", ""] }] } }
+                    },
+                    boards: {
+                        $filter: { input: "$boards", as: "b", cond: { $and: [{ $ne: ["$$b", null] }, { $ne: ["$$b", ""] }] } }
+                    }
+                }
+            },
+            { $sort: { schoolName: 1 } }
+        ];
+
+        const results = await SchoolData.aggregate(pipeline);
+
+        // Step 2: collect all unique centre IDs and resolve names in one query
+        const allCentreIds = [...new Set(
+            results.flatMap(r => (r.centreIds || []).filter(Boolean).map(id => id.toString()))
+        )];
+
+        const centreMap = {};
+        if (allCentreIds.length > 0) {
+            const centreRecords = await CentreSchema.find(
+                { _id: { $in: allCentreIds } },
+                "centreName"
+            ).lean();
+            centreRecords.forEach(c => {
+                centreMap[c._id.toString()] = c.centreName;
+            });
+        }
+
+        // Step 3: attach resolved centre names to each school
+        const finalResults = results.map(school => ({
+            schoolName: school.schoolName,
+            totalStudents: school.totalStudents,
+            areas: school.areas || [],
+            classes: school.classes || [],
+            boards: school.boards || [],
+            centres: (school.centreIds || [])
+                .filter(Boolean)
+                .map(id => centreMap[id.toString()])
+                .filter(Boolean)
+        }));
+
+        const totalSchools = finalResults.length;
+        const totalStudents = finalResults.reduce((sum, r) => sum + r.totalStudents, 0);
+
+        res.status(200).json({
+            schools: finalResults,
+            totalSchools,
+            totalStudents
+        });
+    } catch (err) {
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
 
