@@ -1264,6 +1264,7 @@ const MarketingCRM = () => {
                         "Centre": row.user?.centres?.[0]?.centreName || '—',
                         "Type": row.type || '—',
                         "Institution": row.institution || '—',
+                        "School Status": row.schoolStatus || '—',
                         "Owner": row.owner || '—',
                         "Plan Time": row.plan || '—',
                         "Actual Time": row.actual || '—',
@@ -2688,7 +2689,12 @@ const MarketingCRM = () => {
                                                                     value={activity.type}
                                                                     onChange={(e) => {
                                                                         const newActs = [...todayActivities];
-                                                                        newActs[idx].type = e.target.value;
+                                                                        const val = e.target.value;
+                                                                        newActs[idx].type = val;
+                                                                        if (val !== "School Visit") {
+                                                                            newActs[idx].schoolRef = null;
+                                                                            newActs[idx].schoolStatus = "";
+                                                                        }
                                                                         setTodayActivities(newActs);
                                                                     }}
                                                                 >
@@ -2705,17 +2711,17 @@ const MarketingCRM = () => {
                                                                 </select>
                                                             </div>
 
-                                                            {/* Place / Institution — searchable school dropdown from master data */}
+                                                            {/* Place / Institution — searchable school dropdown from master data for School Visit, or input text field for others */}
                                                             <div className="col-span-1 md:col-span-2">
                                                                 <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Place / Institution Name</label>
                                                                 {activity.isSaved ? (
                                                                     <div className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed`}>
                                                                         <div>{activity.place || '—'}</div>
-                                                                        {activity.schoolStatus && (
+                                                                        {activity.type === "School Visit" && activity.schoolStatus && (
                                                                             <div className="text-[8px] text-amber-500 mt-1 font-bold">({activity.schoolStatus})</div>
                                                                         )}
                                                                     </div>
-                                                                ) : (
+                                                                ) : (activity.type === "School Visit" || (!activity.type && (activitySources[0] === "School Visit" || !activitySources[0]))) ? (
                                                                     <div className="flex flex-col gap-1">
                                                                         <CustomSearchSelect
                                                                             options={(() => {
@@ -2770,6 +2776,20 @@ const MarketingCRM = () => {
                                                                             </div>
                                                                         )}
                                                                     </div>
+                                                                ) : (
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Enter Place / Institution..."
+                                                                        value={activity.place || ""}
+                                                                        onChange={(e) => {
+                                                                            const newActs = [...todayActivities];
+                                                                            newActs[idx].place = e.target.value;
+                                                                            newActs[idx].schoolRef = null;
+                                                                            newActs[idx].schoolStatus = "";
+                                                                            setTodayActivities(newActs);
+                                                                        }}
+                                                                        className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white placeholder-gray-600 focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-cyan-500'}`}
+                                                                    />
                                                                 )}
                                                             </div>
 
@@ -3192,7 +3212,14 @@ const MarketingCRM = () => {
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Activity Type</label>
                                             <select
                                                 value={newTaskForm.activityType}
-                                                onChange={(e) => setNewTaskForm({ ...newTaskForm, activityType: e.target.value })}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setNewTaskForm(prev => ({
+                                                        ...prev,
+                                                        activityType: val,
+                                                        ...(val !== "School Visit" ? { schoolRef: null } : {})
+                                                    }));
+                                                }}
                                                 className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
                                             >
                                                 {activitySources.length > 0 ? (
@@ -3208,32 +3235,48 @@ const MarketingCRM = () => {
                                         </div>
 
                                         <div className="col-span-1 md:col-span-3 z-10 flex flex-col gap-1.5 relative">
-                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Select School *</label>
-                                            <CustomSearchSelect
-                                                options={plannerSchools.map(s => ({
-                                                    value: s._id,
-                                                    label: `${s.schoolName}${s.centerName?.centreName ? ` (${s.centerName.centreName})` : ''}`
-                                                }))}
-                                                value={newTaskForm.schoolRef || ""}
-                                                onChange={(selectedId) => {
-                                                    const foundSchool = plannerSchools.find(s => s._id === selectedId);
-                                                    if (foundSchool) {
-                                                        setNewTaskForm(prev => ({
-                                                            ...prev,
-                                                            schoolRef: foundSchool._id,
-                                                            place: foundSchool.schoolName
-                                                        }));
-                                                    } else {
-                                                        setNewTaskForm(prev => ({
-                                                            ...prev,
-                                                            schoolRef: null,
-                                                            place: ""
-                                                        }));
-                                                    }
-                                                }}
-                                                placeholder={plannerSchoolLoading ? "Loading schools..." : plannerSchools.length === 0 ? "No schools found for your centre" : "Search & Select School..."}
-                                                isDarkMode={isDarkMode}
-                                            />
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">
+                                                {newTaskForm.activityType === "School Visit" ? "Select School *" : "Place / Institution *"}
+                                            </label>
+                                            {newTaskForm.activityType === "School Visit" ? (
+                                                <CustomSearchSelect
+                                                    options={plannerSchools.map(s => ({
+                                                        value: s._id,
+                                                        label: `${s.schoolName}${s.centerName?.centreName ? ` (${s.centerName.centreName})` : ''}`
+                                                    }))}
+                                                    value={newTaskForm.schoolRef || ""}
+                                                    onChange={(selectedId) => {
+                                                        const foundSchool = plannerSchools.find(s => s._id === selectedId);
+                                                        if (foundSchool) {
+                                                            setNewTaskForm(prev => ({
+                                                                ...prev,
+                                                                schoolRef: foundSchool._id,
+                                                                place: foundSchool.schoolName
+                                                            }));
+                                                        } else {
+                                                            setNewTaskForm(prev => ({
+                                                                ...prev,
+                                                                schoolRef: null,
+                                                                place: ""
+                                                            }));
+                                                        }
+                                                    }}
+                                                    placeholder={plannerSchoolLoading ? "Loading schools..." : plannerSchools.length === 0 ? "No schools found for your centre" : "Search & Select School..."}
+                                                    isDarkMode={isDarkMode}
+                                                />
+                                            ) : (
+                                                <input
+                                                    type="text"
+                                                    placeholder="Enter Place / Institution..."
+                                                    value={newTaskForm.place || ""}
+                                                    onChange={(e) => setNewTaskForm(prev => ({
+                                                        ...prev,
+                                                        schoolRef: null,
+                                                        place: e.target.value
+                                                    }))}
+                                                    className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
+                                                />
+                                            )}
                                         </div>
 
                                         <div className="col-span-1 md:col-span-1 z-10 flex flex-col gap-1.5">
@@ -3333,7 +3376,14 @@ const MarketingCRM = () => {
                                                                 <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Activity Type</label>
                                                                 <select
                                                                     value={editTaskForm.activityType}
-                                                                    onChange={(e) => setEditTaskForm({ ...editTaskForm, activityType: e.target.value })}
+                                                                    onChange={(e) => {
+                                                                        const val = e.target.value;
+                                                                        setEditTaskForm(prev => ({
+                                                                            ...prev,
+                                                                            activityType: val,
+                                                                            ...(val !== "School Visit" ? { schoolRef: null } : {})
+                                                                        }));
+                                                                    }}
                                                                     className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/60 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
                                                                 >
                                                                     {activitySources.length > 0 ? activitySources.map((src, sIdx) => (
@@ -3345,32 +3395,48 @@ const MarketingCRM = () => {
                                                             </div>
                                                             {/* Place / School */}
                                                             <div className="col-span-1 md:col-span-3 flex flex-col gap-1">
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Select School *</label>
-                                                                <CustomSearchSelect
-                                                                    options={plannerSchools.map(s => ({
-                                                                        value: s._id,
-                                                                        label: `${s.schoolName}${s.centerName?.centreName ? ` (${s.centerName.centreName})` : ''}`
-                                                                    }))}
-                                                                    value={editTaskForm.schoolRef || ""}
-                                                                    onChange={(selectedId) => {
-                                                                        const foundSchool = plannerSchools.find(s => s._id === selectedId);
-                                                                        if (foundSchool) {
-                                                                            setEditTaskForm(prev => ({
-                                                                                ...prev,
-                                                                                schoolRef: foundSchool._id,
-                                                                                place: foundSchool.schoolName
-                                                                            }));
-                                                                        } else {
-                                                                            setEditTaskForm(prev => ({
-                                                                                ...prev,
-                                                                                schoolRef: null,
-                                                                                place: ""
-                                                                            }));
-                                                                        }
-                                                                    }}
-                                                                    placeholder={editTaskForm.place ? `Current: ${editTaskForm.place}` : "Search & Select School..."}
-                                                                    isDarkMode={isDarkMode}
-                                                                />
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">
+                                                                    {editTaskForm.activityType === "School Visit" ? "Select School *" : "Place / Institution *"}
+                                                                </label>
+                                                                {editTaskForm.activityType === "School Visit" ? (
+                                                                    <CustomSearchSelect
+                                                                        options={plannerSchools.map(s => ({
+                                                                            value: s._id,
+                                                                            label: `${s.schoolName}${s.centerName?.centreName ? ` (${s.centerName.centreName})` : ''}`
+                                                                        }))}
+                                                                        value={editTaskForm.schoolRef || ""}
+                                                                        onChange={(selectedId) => {
+                                                                            const foundSchool = plannerSchools.find(s => s._id === selectedId);
+                                                                            if (foundSchool) {
+                                                                                setEditTaskForm(prev => ({
+                                                                                    ...prev,
+                                                                                    schoolRef: foundSchool._id,
+                                                                                    place: foundSchool.schoolName
+                                                                                }));
+                                                                            } else {
+                                                                                setEditTaskForm(prev => ({
+                                                                                    ...prev,
+                                                                                    schoolRef: null,
+                                                                                    place: ""
+                                                                                }));
+                                                                            }
+                                                                        }}
+                                                                        placeholder={editTaskForm.place ? `Current: ${editTaskForm.place}` : "Search & Select School..."}
+                                                                        isDarkMode={isDarkMode}
+                                                                    />
+                                                                ) : (
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Enter Place / Institution..."
+                                                                        value={editTaskForm.place || ""}
+                                                                        onChange={(e) => setEditTaskForm(prev => ({
+                                                                            ...prev,
+                                                                            schoolRef: null,
+                                                                            place: e.target.value
+                                                                        }))}
+                                                                        className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/60 text-white placeholder-gray-600' : 'border-gray-200 bg-white text-gray-900 placeholder-gray-400'}`}
+                                                                    />
+                                                                )}
                                                             </div>
                                                             {/* Time */}
                                                             <div className="col-span-1 md:col-span-1 flex flex-col gap-1">
@@ -3755,6 +3821,7 @@ const MarketingCRM = () => {
                                                             <th className="px-5 py-4 whitespace-nowrap">Centre</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Type</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Institution</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">School Status</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Owner</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Plan Time</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Actual Time</th>
@@ -3772,13 +3839,13 @@ const MarketingCRM = () => {
                                                     <tbody className="text-[11px] font-bold divide-y divide-gray-100 dark:divide-gray-800">
                                                         {auditLoading ? (
                                                             <tr>
-                                                                <td colSpan={canApproveOrReject ? 16 : 15} className="px-5 py-12 text-center">
+                                                                <td colSpan={canApproveOrReject ? 17 : 16} className="px-5 py-12 text-center">
                                                                     <span className="text-[10px] font-bold text-orange-500 animate-pulse uppercase tracking-widest">Loading audit records...</span>
                                                                 </td>
                                                             </tr>
                                                         ) : filteredAuditRecords.length === 0 ? (
                                                             <tr>
-                                                                <td colSpan={canApproveOrReject ? 16 : 15} className="px-5 py-12 text-center">
+                                                                <td colSpan={canApproveOrReject ? 17 : 16} className="px-5 py-12 text-center">
                                                                     <div className="flex flex-col items-center gap-2 text-gray-400">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 opacity-40">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
@@ -3813,6 +3880,15 @@ const MarketingCRM = () => {
                                                                             </span>
                                                                         </td>
                                                                         <td className="px-5 py-4 whitespace-nowrap max-w-[160px] truncate" title={row.institution}>{row.institution}</td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap max-w-[180px] truncate">
+                                                                            {row.schoolStatus ? (
+                                                                                <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-500 border border-amber-500/20" title={row.schoolStatus}>
+                                                                                    {row.schoolStatus}
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="text-gray-400 font-mono text-[10px]">—</span>
+                                                                            )}
+                                                                        </td>
                                                                         <td className="px-5 py-4 whitespace-nowrap">
                                                                             <div className="flex items-center gap-2">
                                                                                 <div className="w-6 h-6 rounded-full bg-black text-white flex items-center justify-center text-[8px] font-black flex-shrink-0">
