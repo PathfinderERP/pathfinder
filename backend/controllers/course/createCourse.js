@@ -14,6 +14,7 @@ export const createCourse = async (req, res) => {
             mode,
             courseType,
             programme,
+            isActive,
         } = req.body;
 
         // Validate required fields
@@ -34,6 +35,7 @@ export const createCourse = async (req, res) => {
             class: classId && classId !== "" ? classId : undefined,
             courseType: courseType && courseType !== "" ? courseType : undefined,
             programme: programme && programme !== "" ? programme : undefined,
+            isActive: isActive !== undefined ? isActive : true,
             createdBy: req.user?._id
         };
 

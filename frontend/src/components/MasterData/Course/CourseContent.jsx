@@ -47,6 +47,7 @@ const CourseContent = () => {
         examTag: [],
         courseSession: [],
         programme: [],
+        status: "",
         searchTerm: ""
     });
 
@@ -61,6 +62,7 @@ const CourseContent = () => {
         mode: "",
         courseType: "",
         programme: "",
+        isActive: true,
         feesStructure: [{ feesType: "", value: "", discount: "" }]
     });
 
@@ -127,6 +129,13 @@ const CourseContent = () => {
         if (filters.programme && filters.programme.length > 0) {
             filtered = filtered.filter(c => filters.programme.includes(c.programme));
         }
+        if (filters.status) {
+            if (filters.status === "active") {
+                filtered = filtered.filter(c => c.isActive !== false);
+            } else if (filters.status === "deactive") {
+                filtered = filtered.filter(c => c.isActive === false);
+            }
+        }
         if (filters.searchTerm) {
             const searchLower = filters.searchTerm.toLowerCase();
             filtered = filtered.filter(c =>
@@ -156,6 +165,7 @@ const CourseContent = () => {
             examTag: [],
             courseSession: [],
             programme: [],
+            status: "",
             searchTerm: ""
         });
     };
@@ -197,6 +207,7 @@ const CourseContent = () => {
                 mode: course.mode,
                 courseType: course.courseType,
                 programme: course.programme,
+                isActive: course.isActive !== false,
                 feesStructure: course.feesStructure.length > 0 ? course.feesStructure : [{ feesType: "", value: "", discount: "" }]
             });
         } else {
@@ -212,6 +223,7 @@ const CourseContent = () => {
                 mode: "",
                 courseType: "",
                 programme: "",
+                isActive: true,
                 feesStructure: [{ feesType: "", value: "", discount: "" }]
             });
         }
@@ -231,6 +243,31 @@ const CourseContent = () => {
     const closeDetailModal = () => {
         setIsDetailModalOpen(false);
         setSelectedCourse(null);
+    };
+
+    const handleToggleStatus = async (course, e) => {
+        if (e) e.stopPropagation();
+        const newStatus = course.isActive === false ? true : false;
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/course/${course._id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ isActive: newStatus })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(`Course "${course.courseName}" set to ${newStatus ? 'Active' : 'Deactive'}`);
+                setCourses(prev => prev.map(c => c._id === course._id ? { ...c, isActive: newStatus } : c));
+            } else {
+                toast.error(data.message || "Failed to update status");
+            }
+        } catch (err) {
+            toast.error("Server error updating course status");
+        }
     };
 
     const handleSave = async (e) => {
@@ -314,6 +351,48 @@ const CourseContent = () => {
             }
         } catch (err) {
             toast.error("Server error during bulk deletion");
+        }
+    };
+
+    const handleBulkStatusChange = async (newStatus) => {
+        if (selectedIds.length === 0) return;
+        const statusLabel = newStatus ? "Activate" : "Deactivate";
+        if (!window.confirm(`Are you sure you want to set ${selectedIds.length} course(s) to ${statusLabel}?`)) return;
+
+        const token = localStorage.getItem("token");
+        try {
+            const response = await fetch(`${apiUrl}/course/bulk-update`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    ids: selectedIds,
+                    updateData: { isActive: newStatus }
+                })
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(`Successfully set ${selectedIds.length} course(s) to ${statusLabel}`);
+                setSelectedIds([]);
+                fetchData();
+            } else {
+                toast.error(data.message || "Bulk status update failed");
+            }
+        } catch (err) {
+            toast.error("Server error during bulk status update");
+        }
+    };
+
+    const handleSelectAllFiltered = () => {
+        const filteredIds = filteredCourses.map(c => c._id);
+        const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIds.includes(id));
+        if (allSelected) {
+            setSelectedIds(prev => prev.filter(id => !filteredIds.includes(id)));
+        } else {
+            setSelectedIds(prev => Array.from(new Set([...prev, ...filteredIds])));
         }
     };
 
@@ -523,20 +602,36 @@ const CourseContent = () => {
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4 sm:mb-6">
                 <h2 className="text-xl sm:text-2xl font-bold text-cyan-400">Course Master Data (All the amounts are without GST)</h2>
                 <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
+                    {canEdit && selectedIds.length > 0 && (
+                        <>
+                            <button
+                                onClick={() => handleBulkStatusChange(true)}
+                                className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white px-3 py-2 rounded-lg transition-colors text-xs sm:text-sm font-semibold justify-center shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                                title="Set selected courses to Active"
+                            >
+                                <span className="w-2 h-2 rounded-full bg-emerald-300"></span> Activate ({selectedIds.length})
+                            </button>
+                            <button
+                                onClick={() => handleBulkStatusChange(false)}
+                                className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-500 text-white px-3 py-2 rounded-lg transition-colors text-xs sm:text-sm font-semibold justify-center shadow-[0_0_15px_rgba(245,158,11,0.3)]"
+                                title="Set selected courses to Deactive"
+                            >
+                                <span className="w-2 h-2 rounded-full bg-amber-300"></span> Deactivate ({selectedIds.length})
+                            </button>
+                            <button
+                                onClick={() => setIsBulkUpdateModalOpen(true)}
+                                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 py-2 rounded-lg transition-colors text-xs sm:text-sm font-semibold justify-center shadow-[0_0_15px_rgba(37,99,235,0.3)]"
+                            >
+                                <FaEdit /> Bulk Update ({selectedIds.length})
+                            </button>
+                        </>
+                    )}
                     {(isSuperAdmin || isDigital) && canDelete && selectedIds.length > 0 && (
                         <button
                             onClick={handleBulkDelete}
-                            className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-1 sm:flex-initial justify-center shadow-[0_0_15px_rgba(220,38,38,0.3)] animate-pulse"
+                            className="flex items-center gap-2 bg-red-600 hover:bg-red-500 text-white px-3 py-2 rounded-lg transition-colors text-xs sm:text-sm font-semibold justify-center shadow-[0_0_15px_rgba(220,38,38,0.3)] animate-pulse"
                         >
                             <FaTrash /> Delete ({selectedIds.length})
-                        </button>
-                    )}
-                    {canEdit && selectedIds.length > 0 && (
-                        <button
-                            onClick={() => setIsBulkUpdateModalOpen(true)}
-                            className="flex items-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-3 sm:px-4 py-2 rounded-lg transition-colors text-sm sm:text-base flex-1 sm:flex-initial justify-center shadow-[0_0_15px_rgba(37,99,235,0.3)]"
-                        >
-                            <FaEdit /> Bulk Update ({selectedIds.length})
                         </button>
                     )}
                     {canCreate && (
@@ -562,9 +657,21 @@ const CourseContent = () => {
 
             {/* Filter Section */}
             <div className="bg-[#1a1f24] p-3 sm:p-4 rounded-lg border border-gray-800 mb-4">
-                <div className="flex items-center gap-2 mb-3">
-                    <FaFilter className="text-cyan-400 text-sm sm:text-base" />
-                    <h3 className="text-base sm:text-lg font-semibold text-white">Filters</h3>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+                    <div className="flex items-center gap-2">
+                        <FaFilter className="text-cyan-400 text-sm sm:text-base" />
+                        <h3 className="text-base sm:text-lg font-semibold text-white">Filters</h3>
+                    </div>
+                    {filteredCourses.length > 0 && (
+                        <button
+                            onClick={handleSelectAllFiltered}
+                            className="text-xs text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 rounded-md transition-all self-start sm:self-auto font-medium"
+                        >
+                            {filteredCourses.every(c => selectedIds.includes(c._id))
+                                ? `Deselect All Filtered (${filteredCourses.length})`
+                                : `Select All Filtered (${filteredCourses.length})`}
+                        </button>
+                    )}
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-1 lg:grid-cols-8 gap-2 sm:gap-3">
                     <div className="lg:col-span-2">
@@ -656,6 +763,18 @@ const CourseContent = () => {
                             isDarkMode={true}
                         />
                     </div>
+                    <div>
+                        <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Status</label>
+                        <select
+                            value={filters.status}
+                            onChange={(e) => handleFilterChange('status', e.target.value)}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
+                        >
+                            <option value="">All Statuses</option>
+                            <option value="active">Active</option>
+                            <option value="deactive">Deactive</option>
+                        </select>
+                    </div>
                 </div>
                 <div className="mt-3 flex justify-end">
                     <button
@@ -686,10 +805,11 @@ const CourseContent = () => {
                                 )}
                             </th>
 
-                            <th className="p-4 border-b border-gray-700 w-[30%]">Course Information</th>
-                            <th className="p-4 border-b border-gray-700 w-[30%]">Other Details</th>
-                            <th className="p-4 border-b border-gray-700 w-[30%]">With GST(18%)</th>
-                            <th className="p-4 border-b border-gray-700 w-[20%]">Created By</th>
+                            <th className="p-4 border-b border-gray-700 w-[25%]">Course Information</th>
+                            <th className="p-4 border-b border-gray-700 w-[25%]">Other Details</th>
+                            <th className="p-4 border-b border-gray-700 w-[20%]">With GST(18%)</th>
+                            <th className="p-4 border-b border-gray-700 w-[15%]">Status</th>
+                            <th className="p-4 border-b border-gray-700 w-[15%]">Created By</th>
                             <th className="p-4 border-b border-gray-700 text-right">Actions</th>
                         </tr>
 
@@ -782,6 +902,22 @@ const CourseContent = () => {
                                         </div>
                                     </td>
 
+                                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                                        <button
+                                            onClick={(e) => canEdit && handleToggleStatus(course, e)}
+                                            disabled={!canEdit}
+                                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                                                course.isActive !== false
+                                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+                                                    : 'bg-red-500/10 text-red-400 border-red-500/30 hover:bg-red-500/20'
+                                            } ${canEdit ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'}`}
+                                            title={canEdit ? "Click to toggle Active/Deactive" : "Status"}
+                                        >
+                                            <span className={`w-2 h-2 rounded-full ${course.isActive !== false ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}></span>
+                                            {course.isActive !== false ? "Active" : "Deactive"}
+                                        </button>
+                                    </td>
+
                                     <td className="p-4">
                                         <div className="flex flex-col gap-1">
                                             <span className="text-[10px] text-gray-500 uppercase tracking-wider">Created By</span>
@@ -864,7 +1000,20 @@ const CourseContent = () => {
                                         />
                                     </div>
                                     <div>
-                                        <h3 className="text-sm sm:text-base font-bold text-white mb-1">{course.courseName}</h3>
+                                        <div className="flex items-center gap-2 mb-1">
+                                            <h3 className="text-sm sm:text-base font-bold text-white">{course.courseName}</h3>
+                                            <button
+                                                onClick={(e) => canEdit && handleToggleStatus(course, e)}
+                                                disabled={!canEdit}
+                                                className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                                    course.isActive !== false
+                                                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                                        : 'bg-red-500/10 text-red-400 border-red-500/30'
+                                                }`}
+                                            >
+                                                {course.isActive !== false ? "Active" : "Deactive"}
+                                            </button>
+                                        </div>
                                         <p className="text-xs text-gray-400">{course.department?.departmentName || "-"}</p>
                                     </div>
                                 </div>
@@ -1127,6 +1276,18 @@ const CourseContent = () => {
                                             <option value="">Select Programme</option>
                                             <option value="CRP">CRP</option>
                                             <option value="NCRP">NCRP</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 text-sm">Course Status</label>
+                                        <select
+                                            name="isActive"
+                                            value={formData.isActive ? "true" : "false"}
+                                            onChange={(e) => setFormData({ ...formData, isActive: e.target.value === "true" })}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                        >
+                                            <option value="true">Active</option>
+                                            <option value="false">Deactive</option>
                                         </select>
                                     </div>
                                 </div>

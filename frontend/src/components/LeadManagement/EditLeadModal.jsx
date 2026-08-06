@@ -59,9 +59,10 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
             const matchesType = !courseFilters.type ||
                 (course.courseType && course.courseType.trim().toUpperCase() === courseFilters.type.trim().toUpperCase());
 
-            return matchesSearch && matchesClass && matchesMode && matchesExamTag && matchesType;
+            const isCourseActive = course.isActive !== false || (formData.course && course._id === formData.course);
+            return isCourseActive && matchesSearch && matchesClass && matchesMode && matchesExamTag && matchesType;
         });
-    }, [courses, courseFilters, courseSearch]);
+    }, [courses, courseFilters, courseSearch, formData.course]);
 
     const fetchDropdownData = useCallback(async () => {
         try {

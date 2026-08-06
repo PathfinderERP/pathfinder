@@ -113,7 +113,8 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
             const filterSessionStr = courseFilters.session?.toString().trim().toUpperCase();
             const matchesSession = !courseFilters.session || (courseSessionStr === filterSessionStr);
 
-            return matchesSearch && matchesClass && matchesMode && matchesExamTag && matchesType && matchesSession;
+            const isCourseActive = course.isActive !== false;
+            return isCourseActive && matchesSearch && matchesClass && matchesMode && matchesExamTag && matchesType && matchesSession;
         });
     }, [courses, courseFilters]);
 
@@ -157,13 +158,14 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 }
             }
 
-            const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course`, {
+            const courseResponse = await fetch(`${import.meta.env.VITE_API_URL}/course?isActive=true`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             if (courseResponse.ok) {
                 const data = await courseResponse.json();
                 const allCourses = Array.isArray(data) ? data : [];
-                setCourses(allCourses.sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")));
+                const activeCourses = allCourses.filter(c => c.isActive !== false);
+                setCourses(activeCourses.sort((a, b) => (a.courseName || "").localeCompare(b.courseName || "")));
             }
 
             const sourceResponse = await fetch(`${import.meta.env.VITE_API_URL}/source`, {
