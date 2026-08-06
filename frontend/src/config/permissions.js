@@ -693,7 +693,7 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         }
     }
 
-    if (!granularPermissions[module][section]) return false;
+    if (!granularPermissions[module] || !granularPermissions[module][section]) return false;
 
     // If checking for 'view' access and the section exists in granularPermissions:
     if (operation === 'view') {
