@@ -663,6 +663,34 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         }
     }
 
+    // Course Management module & section resolution
+    if (module === 'courseManagement' || section === 'courses' || section === 'courseManagement') {
+        const isCourseTargetRole = [
+            'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead',
+            'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge',
+            'coordinator', 'class_coordinator'
+        ].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
+
+        const explicitFalse = (
+            granularPermissions?.courseManagement?.courses?.view === false ||
+            granularPermissions?.courseManagement?.courses?.[operation] === false ||
+            granularPermissions?.academics?.courses?.view === false ||
+            granularPermissions?.academics?.courses?.[operation] === false
+        );
+
+        if (explicitFalse) return false;
+
+        const hasGranularTrue = (
+            (granularPermissions?.courseManagement?.courses && granularPermissions.courseManagement.courses.view !== false) ||
+            (granularPermissions?.courseManagement?.carryForward && granularPermissions.courseManagement.carryForward.view !== false) ||
+            (granularPermissions?.academics?.courses && granularPermissions.academics.courses.view !== false) ||
+            (granularPermissions?.academics?.courseManagement && granularPermissions.academics.courseManagement.view !== false) ||
+            (granularPermissions?.masterData?.course && granularPermissions.masterData.course.view !== false)
+        );
+
+        if (hasGranularTrue || isCourseTargetRole) return true;
+    }
+
     // Check if permission is explicitly set to false in granularPermissions first
     if (granularPermissions && granularPermissions[module]) {
         const secObj = granularPermissions[module][section];
@@ -735,6 +763,31 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
             return Object.keys(sections).length > 0;
         }
         return true; // Default to full module access like SuperAdmin
+    }
+
+    // Course Management module access resolution
+    if (module === 'courseManagement') {
+        const isCourseTargetRole = [
+            'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead',
+            'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge',
+            'coordinator', 'class_coordinator'
+        ].includes(normalizedRole.replace(/\s+/g, ''));
+
+        const explicitFalse = (
+            (granularPermissions?.courseManagement?.courses?.view === false && granularPermissions?.courseManagement?.carryForward?.view === false) ||
+            granularPermissions?.academics?.courses?.view === false
+        );
+
+        if (explicitFalse) return false;
+
+        const hasGranularTrue = (
+            (granularPermissions?.courseManagement && Object.values(granularPermissions.courseManagement).some(s => s && s.view !== false)) ||
+            (granularPermissions?.academics?.courses && (granularPermissions.academics.courses.view !== false || Object.values(granularPermissions.academics.courses).some(v => v === true))) ||
+            (granularPermissions?.academics?.courseManagement && granularPermissions.academics.courseManagement.view !== false) ||
+            (granularPermissions?.masterData?.course && granularPermissions.masterData.course.view !== false)
+        );
+
+        if (hasGranularTrue || isCourseTargetRole) return true;
     }
 
     // If granularPermissions specifies this module, ensure at least one section is enabled

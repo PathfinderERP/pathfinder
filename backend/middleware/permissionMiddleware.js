@@ -221,6 +221,18 @@ export const requireGranularPermission = (module, section, action) => {
                 }
             }
 
+            // Course Management alias check: fallback to academics module if courseManagement is checked or vice-versa
+            if (!hasAccess && module === 'courseManagement') {
+                const acadCourses = user.granularPermissions?.['academics']?.[section] || user.granularPermissions?.['academics']?.['courses'];
+                if (acadCourses) {
+                    if (action === "view") {
+                        hasAccess = acadCourses.view !== false;
+                    } else {
+                        hasAccess = acadCourses[action] === true;
+                    }
+                }
+            }
+
             // Grant automatic access to dailyTrackingLog module actions (myDailyLog for all non-teacher roles)
             if (!hasAccess && module === 'dailyTrackingLog') {
                 if (section === 'myDailyLog') {
