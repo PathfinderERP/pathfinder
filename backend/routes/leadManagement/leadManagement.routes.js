@@ -29,6 +29,7 @@ import { getCampaigns, getCampaignLeadsDetails, getCampaignAdmissionsDetails, cr
 import { pushCampaignLeads } from "../../controllers/leadManagement/pushCampaignLeads.js";
 import multer from "multer";
 import { getLeadJourney } from "../../controllers/leadManagement/getLeadJourney.js";
+import { getSchoolJourney } from "../../controllers/leadManagement/getSchoolJourney.js";
 import { checkDuplicatePhone } from "../../controllers/leadManagement/checkDuplicatePhone.js";
 
 const router = express.Router();
@@ -64,6 +65,7 @@ router.post("/planner", requireAuth, createPlanner);
 router.put("/planner/:id/approval", requireAuth, updatePlannerApproval);
 router.get("/planner/draft", requireAuth, getDraftPlanner);
 router.post("/planner/draft", requireAuth, saveDraftPlanner);
+router.get("/school-journey", requireAuth, getSchoolJourney);
 
 router.get("/my-uploads", requireAuth, getMyUploads);
 router.post("/bulk-upload", requireAuth, bulkUploadLeads);

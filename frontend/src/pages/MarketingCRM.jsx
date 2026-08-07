@@ -96,14 +96,14 @@ const MarketingCRM = () => {
         const uCentres = u.centres || u.centers || [];
         const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
         const uRole = (u.role || '').toLowerCase().replace(/\s+/g, '');
-        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'supportstaff'].includes(uRole);
+        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(uRole);
         return isTargetRole && matchesSearch && matchesCenter;
     }).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
 
     // Filtered marketing performance data for Command Centre
     const filteredCmdCentreStaff = allPerformance.filter(u => {
         const uRole = (u.role || '').toLowerCase().replace(/\s+/g, '');
-        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'supportstaff'].includes(uRole);
+        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(uRole);
         if (!isTargetRole) return false;
 
         const matchesSearch = !cmdCentreSearch || u.name.toLowerCase().includes(cmdCentreSearch.toLowerCase());
@@ -227,7 +227,7 @@ const MarketingCRM = () => {
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({
-                role: 'marketing,centerIncharge,zonalManager,superAdmin,assistantZonalManager,assistantCenterIncharge,supportStaff'
+                role: 'marketing,centerIncharge,zonalManager,superAdmin,assistantZonalManager,assistantCenterIncharge'
             });
 
             if (forcedDate) {
@@ -544,6 +544,23 @@ const MarketingCRM = () => {
     });
     const [assignFormSubmitting, setAssignFormSubmitting] = useState(false);
 
+    // ── School Journey Tab States (superadmin only) ──────────────────────────
+    const [schoolJourneyData, setSchoolJourneyData] = useState([]);
+    const [schoolJourneyLoading, setSchoolJourneyLoading] = useState(false);
+    const [schoolJourneySearch, setSchoolJourneySearch] = useState("");
+    const [schoolJourneyCenter, setSchoolJourneyCenter] = useState("All");
+    const [schoolJourneyTier, setSchoolJourneyTier] = useState("All");
+    const [schoolJourneyStatus, setSchoolJourneyStatus] = useState("All");
+    const [schoolJourneyDateRange, setSchoolJourneyDateRange] = useState("All");
+    const [schoolJourneyStartDate, setSchoolJourneyStartDate] = useState("");
+    const [schoolJourneyEndDate, setSchoolJourneyEndDate] = useState("");
+    const [schoolJourneyVisitedOnly, setSchoolJourneyVisitedOnly] = useState(false);
+    const [schoolJourneyPage, setSchoolJourneyPage] = useState(1);
+    const [schoolJourneyTotalPages, setSchoolJourneyTotalPages] = useState(1);
+    const [schoolJourneyTotalItems, setSchoolJourneyTotalItems] = useState(0);
+    const [schoolJourneyStats, setSchoolJourneyStats] = useState({ totalSchools: 0, totalVisits: 0, visitedSchoolsCount: 0 });
+    const [expandedSchoolId, setExpandedSchoolId] = useState(null);
+
 
     const fetchTomorrowPlan = async () => {
         try {
@@ -729,6 +746,42 @@ const MarketingCRM = () => {
         } catch (err) {
             console.error("Error deleting assigned task:", err);
             toast.error("Failed to remove task.");
+        }
+    };
+
+    // ── School Journey: fetch school master data with activity visit timelines ──
+    const fetchSchoolJourney = async () => {
+        setSchoolJourneyLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const dateLimits = getDateRangeLimits(schoolJourneyDateRange, schoolJourneyStartDate, schoolJourneyEndDate);
+            const params = new URLSearchParams({
+                page: schoolJourneyPage,
+                limit: 15,
+            });
+            if (schoolJourneySearch) params.append("search", schoolJourneySearch);
+            if (schoolJourneyCenter && schoolJourneyCenter !== "All") params.append("center", schoolJourneyCenter);
+            if (schoolJourneyTier && schoolJourneyTier !== "All") params.append("tier", schoolJourneyTier);
+            if (schoolJourneyStatus && schoolJourneyStatus !== "All") params.append("status", schoolJourneyStatus);
+            if (dateLimits.start) params.append("startDate", dateLimits.start);
+            if (dateLimits.end) params.append("endDate", dateLimits.end);
+            if (schoolJourneyVisitedOnly) params.append("visitedOnly", "true");
+
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/school-journey?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setSchoolJourneyData(data.data || []);
+                setSchoolJourneyTotalPages(data.totalPages || 1);
+                setSchoolJourneyTotalItems(data.totalItems || 0);
+                setSchoolJourneyStats(data.stats || { totalSchools: 0, totalVisits: 0, visitedSchoolsCount: 0 });
+            }
+        } catch (err) {
+            console.error("Error fetching school journey:", err);
+            toast.error("Failed to load school journey data.");
+        } finally {
+            setSchoolJourneyLoading(false);
         }
     };
 
@@ -1133,6 +1186,11 @@ const MarketingCRM = () => {
             case "This Month": {
                 const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
                 const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                return { start: format(firstDay), end: format(lastDay) };
+            }
+            case "Last Month": {
+                const firstDay = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                const lastDay = new Date(today.getFullYear(), today.getMonth(), 0);
                 return { start: format(firstDay), end: format(lastDay) };
             }
             case "This Year": {
@@ -1956,6 +2014,14 @@ const MarketingCRM = () => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [assignTaskFilterDate, assignTaskFilterEndDate, assignTaskFilterStatus, assignedTasksPage]);
 
+    // Re-fetch school journey data when filters or page change
+    useEffect(() => {
+        if (activeTab === "School Journey") {
+            fetchSchoolJourney();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [activeTab, schoolJourneyPage, schoolJourneySearch, schoolJourneyCenter, schoolJourneyTier, schoolJourneyStatus, schoolJourneyDateRange, schoolJourneyStartDate, schoolJourneyEndDate, schoolJourneyVisitedOnly]);
+
     return (
         <Layout activePage="Marketing & CRM">
             <div className={`flex flex-col min-h-screen transition-all duration-300 ${isDarkMode ? 'bg-[#0f1215] text-gray-400' : 'bg-gray-50 text-gray-600'}`}>
@@ -2091,6 +2157,19 @@ const MarketingCRM = () => {
                                                 {assignedTasksTotal}
                                             </span>
                                         )}
+                                    </button>
+                                    <button
+                                        onClick={() => setActiveTab("School Journey")}
+                                        className={`px-6 py-2.5 rounded-full text-[11px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${activeTab === "School Journey"
+                                            ? "bg-teal-600 text-white shadow-lg shadow-teal-500/30"
+                                            : "bg-teal-50 border border-teal-200 text-teal-600 hover:bg-teal-100"
+                                            }`}
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-3.5 h-3.5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                                        </svg>
+                                        School Journey
                                     </button>
                                 </>
                             )}
@@ -2235,7 +2314,7 @@ const MarketingCRM = () => {
                                                 options={allPerformance
                                                     .filter(u => {
                                                         const uRole = (u.role || '').toLowerCase().replace(/\s+/g, '');
-                                                        return ['marketing', 'centerincharge', 'zonalmanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'supportstaff'].includes(uRole);
+                                                        return ['marketing', 'centerincharge', 'zonalmanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(uRole);
                                                     })
                                                     .map(u => ({ value: u._id, label: u.name }))
                                                     .sort((a, b) => a.label.localeCompare(b.label))}
@@ -3681,7 +3760,7 @@ const MarketingCRM = () => {
                                                     }}
                                                     className={selectCls}
                                                 >
-                                                    {["All", "Today", "Yesterday", "Last 7 Days", "This Month", "This Year", "Custom"].map(d => <option key={d}>{d}</option>)}
+                                                    {["All", "Today", "Yesterday", "Last 7 Days", "This Month", "Last Month", "This Year", "Custom"].map(d => <option key={d}>{d}</option>)}
                                                 </select>
                                                 <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>Date Range</span>
                                             </div>
@@ -4530,6 +4609,470 @@ const MarketingCRM = () => {
                                                     </div>
                                                 );
                                             })}
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ── SCHOOL JOURNEY VIEW (superadmin only) ── */}
+                        {(userRoleLower === "superadmin" || userRoleLower === "super admin") && activeTab === "School Journey" && (
+                            <div className="max-w-7xl mx-auto space-y-6 animate-fadeIn">
+                                <div className={`p-8 md:p-10 rounded-3xl border shadow-xl ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-teal-100 shadow-teal-500/5'}`}>
+                                    <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+                                        <div>
+                                            <h2 className="text-2xl font-black tracking-tight flex items-center gap-2">
+                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-6 h-6 text-teal-500">
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" />
+                                                </svg>
+                                                School Journey & Activity History
+                                                <span className="px-3 py-1 rounded-full bg-teal-500/10 text-teal-500 text-xs font-black">
+                                                    {schoolJourneyTotalItems} Schools
+                                                </span>
+                                            </h2>
+                                            <p className="text-gray-500 text-xs font-semibold mt-1">
+                                                Track complete visit timelines, user actions, notes/remarks, and school status history per school.
+                                            </p>
+                                        </div>
+                                        <button
+                                            onClick={fetchSchoolJourney}
+                                            className="px-4 py-2 rounded-xl bg-gray-100 dark:bg-gray-800 hover:bg-gray-200 dark:hover:bg-gray-700 text-xs font-bold transition-all flex items-center gap-2"
+                                        >
+                                            <FaSync className={`w-3 h-3 text-teal-500 ${schoolJourneyLoading ? 'animate-spin' : ''}`} />
+                                            Refresh Journey
+                                        </button>
+                                    </div>
+
+                                    {/* Stat Summary Row (2 Clickable Cards) */}
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                                        {/* Card 1: Total Schools */}
+                                        <div
+                                            onClick={() => { setSchoolJourneyVisitedOnly(false); setSchoolJourneyPage(1); }}
+                                            className={`p-5 rounded-2xl border cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-sm hover:shadow-md ${
+                                                !schoolJourneyVisitedOnly
+                                                    ? 'ring-2 ring-teal-500 border-teal-500 bg-teal-500/10'
+                                                    : isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-100 hover:border-gray-200'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Schools</p>
+                                                {!schoolJourneyVisitedOnly && (
+                                                    <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-teal-500 text-white">All Schools</span>
+                                                )}
+                                            </div>
+                                            <h3 className="text-2xl font-black text-teal-500 my-1">{schoolJourneyStats.totalSchools || schoolJourneyTotalItems}</h3>
+                                            <p className="text-[10px] font-bold text-gray-500">Master Data records (Click to show all)</p>
+                                        </div>
+
+                                        {/* Card 2: Schools Visited */}
+                                        <div
+                                            onClick={() => { setSchoolJourneyVisitedOnly(true); setSchoolJourneyPage(1); }}
+                                            className={`p-5 rounded-2xl border cursor-pointer transition-all duration-200 hover:scale-[1.02] shadow-sm hover:shadow-md ${
+                                                schoolJourneyVisitedOnly
+                                                    ? 'ring-2 ring-emerald-500 border-emerald-500 bg-emerald-500/10'
+                                                    : isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-100 hover:border-gray-200'
+                                            }`}
+                                        >
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-gray-400">Schools Visited</p>
+                                                {schoolJourneyVisitedOnly && (
+                                                    <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-emerald-500 text-white">Active Filter</span>
+                                                )}
+                                            </div>
+                                            <h3 className="text-2xl font-black text-emerald-500 my-1">{schoolJourneyStats.visitedSchoolsCount || 0}</h3>
+                                            <p className="text-[10px] font-bold text-gray-500">
+                                                {schoolJourneyStats.totalSchools ? ((schoolJourneyStats.visitedSchoolsCount / schoolJourneyStats.totalSchools) * 100).toFixed(0) : 0}% Coverage • Click to filter
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Filters Row */}
+                                    <div className="flex flex-wrap items-center gap-4 mb-6">
+                                        {/* Search box */}
+                                        <div className="relative flex-1 min-w-[220px]">
+                                            <input
+                                                type="text"
+                                                placeholder="Search school name..."
+                                                value={schoolJourneySearch}
+                                                onChange={e => { setSchoolJourneySearch(e.target.value); setSchoolJourneyPage(1); }}
+                                                className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-xs font-semibold outline-none transition-all ${
+                                                    isDarkMode ? 'bg-black/40 border-gray-800 text-white placeholder-gray-500' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400'
+                                                }`}
+                                            />
+                                            <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-400" />
+                                        </div>
+
+                                        {/* Centre Filter */}
+                                        <div className="flex flex-col gap-1 min-w-[160px]">
+                                            <select
+                                                value={schoolJourneyCenter}
+                                                onChange={e => { setSchoolJourneyCenter(e.target.value); setSchoolJourneyPage(1); }}
+                                                className={`px-3 py-2 rounded-xl border text-xs font-semibold outline-none ${
+                                                    isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'
+                                                }`}
+                                            >
+                                                <option value="All">All Centres</option>
+                                                {availableCenters.map(c => (
+                                                    <option key={c._id} value={c._id}>{c.centreName}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* Tier Filter */}
+                                        <div className="flex flex-col gap-1 min-w-[120px]">
+                                            <select
+                                                value={schoolJourneyTier}
+                                                onChange={e => { setSchoolJourneyTier(e.target.value); setSchoolJourneyPage(1); }}
+                                                className={`px-3 py-2 rounded-xl border text-xs font-semibold outline-none ${
+                                                    isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'
+                                                }`}
+                                            >
+                                                <option value="All">All Tiers</option>
+                                                {["A", "B", "C", "D", "E"].map(t => (
+                                                    <option key={t} value={t}>Tier {t}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
+                                        {/* School Status Filter */}
+                                        <div className="flex flex-col gap-1 min-w-[180px]">
+                                            <select
+                                                value={schoolJourneyStatus}
+                                                onChange={e => { setSchoolJourneyStatus(e.target.value); setSchoolJourneyPage(1); }}
+                                                className={`px-3 py-2 rounded-xl border text-xs font-semibold outline-none ${
+                                                    isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'
+                                                }`}
+                                            >
+                                                <option value="All">All School Statuses</option>
+                                                <option value="MOCK TEST TIE-UP">MOCK TEST TIE-UP</option>
+                                                <option value="CRP TIE-UP">CRP TIE-UP</option>
+                                                <option value="(INDERICT TIE-UP) WORKSHOP /PNTSE/PMO/PSAT">(INDERICT TIE-UP) WORKSHOP /PNTSE/PMO/PSAT</option>
+                                                <option value="ONLY INFORMATION GIVEN TO STUDENTS">ONLY INFORMATION GIVEN TO STUDENTS</option>
+                                                <option value="OTHERS">OTHERS</option>
+                                            </select>
+                                        </div>
+
+                                        {/* Date Range Dropdown */}
+                                        <div className="relative min-w-[140px]">
+                                            <select
+                                                value={schoolJourneyDateRange}
+                                                onChange={e => {
+                                                    setSchoolJourneyDateRange(e.target.value);
+                                                    if (e.target.value !== "Custom") {
+                                                        setSchoolJourneyStartDate("");
+                                                        setSchoolJourneyEndDate("");
+                                                    }
+                                                    setSchoolJourneyPage(1);
+                                                }}
+                                                className={`w-full px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${isDarkMode
+                                                    ? 'bg-black/40 border-gray-800 text-white'
+                                                    : 'bg-white border-gray-200 text-[#05080c]'
+                                                    }`}
+                                            >
+                                                {["All", "Today", "Yesterday", "Last 7 Days", "This Month", "Last Month", "This Year", "Custom"].map(d => (
+                                                    <option key={d} className={isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}>{d}</option>
+                                                ))}
+                                            </select>
+                                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>Date Range</span>
+                                        </div>
+
+                                        {/* Custom Start/End Dates */}
+                                        {schoolJourneyDateRange === "Custom" && (
+                                            <>
+                                                <div className="relative">
+                                                    <input
+                                                        type="date"
+                                                        value={schoolJourneyStartDate}
+                                                        onChange={e => { setSchoolJourneyStartDate(e.target.value); setSchoolJourneyPage(1); }}
+                                                        className={`px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer transition-all ${isDarkMode
+                                                            ? 'bg-black/40 border-gray-800 text-white'
+                                                            : 'bg-white border-gray-200 text-[#05080c]'
+                                                            }`}
+                                                    />
+                                                    <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>From</span>
+                                                </div>
+                                                <div className="relative">
+                                                    <input
+                                                        type="date"
+                                                        value={schoolJourneyEndDate}
+                                                        onChange={e => { setSchoolJourneyEndDate(e.target.value); setSchoolJourneyPage(1); }}
+                                                        className={`px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer transition-all ${isDarkMode
+                                                            ? 'bg-black/40 border-gray-800 text-white'
+                                                            : 'bg-white border-gray-200 text-[#05080c]'
+                                                            }`}
+                                                    />
+                                                    <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>To</span>
+                                                </div>
+                                            </>
+                                        )}
+
+                                        {/* Clear Filters button */}
+                                        {(schoolJourneySearch || schoolJourneyCenter !== "All" || schoolJourneyTier !== "All" || schoolJourneyStatus !== "All" || schoolJourneyDateRange !== "All" || schoolJourneyStartDate || schoolJourneyEndDate || schoolJourneyVisitedOnly) && (
+                                            <button
+                                                onClick={() => {
+                                                    setSchoolJourneySearch("");
+                                                    setSchoolJourneyCenter("All");
+                                                    setSchoolJourneyTier("All");
+                                                    setSchoolJourneyStatus("All");
+                                                    setSchoolJourneyDateRange("All");
+                                                    setSchoolJourneyStartDate("");
+                                                    setSchoolJourneyEndDate("");
+                                                    setSchoolJourneyVisitedOnly(false);
+                                                    setSchoolJourneyPage(1);
+                                                }}
+                                                className="px-3 py-2 rounded-xl bg-red-500/10 text-red-400 text-xs font-bold hover:bg-red-500/20 transition-all flex items-center gap-1.5"
+                                            >
+                                                <FaRedo className="w-3 h-3" />
+                                                Clear Filters
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* School List with Journey Accordion */}
+                                    {schoolJourneyLoading ? (
+                                        <div className="space-y-4">
+                                            {[1, 2, 3, 4].map(i => (
+                                                <div key={i} className={`h-28 rounded-2xl animate-pulse ${isDarkMode ? 'bg-gray-800/60' : 'bg-gray-100'}`} />
+                                            ))}
+                                        </div>
+                                    ) : schoolJourneyData.length === 0 ? (
+                                        <div className={`py-16 rounded-2xl border border-dashed flex flex-col items-center justify-center gap-3 ${isDarkMode ? 'border-gray-700 bg-gray-800/20' : 'border-gray-200 bg-gray-50'}`}>
+                                            <div className="text-4xl">🏫</div>
+                                            <p className="text-xs font-black uppercase tracking-widest text-gray-500">No school journey records found</p>
+                                            <p className="text-xs text-gray-400">Try adjusting your filters or search terms.</p>
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-4">
+                                            {schoolJourneyData.map((school) => {
+                                                const isExpanded = expandedSchoolId === school._id;
+                                                const centreNameStr = school.centerName?.centreName || (typeof school.centerName === 'string' ? school.centerName : '—');
+                                                const boardNameStr = school.board?.boardName || (typeof school.board === 'string' ? school.board : '');
+                                                const visitCount = school.visitCount || 0;
+                                                const lastVisit = school.lastVisit || null;
+
+                                                return (
+                                                    <div
+                                                        key={school._id}
+                                                        className={`rounded-2xl border transition-all ${
+                                                            isExpanded
+                                                                ? 'border-teal-500/50 shadow-lg shadow-teal-500/5'
+                                                                : isDarkMode
+                                                                    ? 'bg-[#131619] border-gray-800 hover:border-gray-700'
+                                                                    : 'bg-gray-50 border-gray-100 hover:border-gray-200'
+                                                        } ${isDarkMode && isExpanded ? 'bg-[#181d22]' : isExpanded ? 'bg-white' : ''}`}
+                                                    >
+                                                        {/* School Card Header */}
+                                                        <div
+                                                            className="p-5 flex flex-wrap items-center justify-between gap-4 cursor-pointer select-none"
+                                                            onClick={() => setExpandedSchoolId(isExpanded ? null : school._id)}
+                                                        >
+                                                            <div className="flex-1 min-w-[260px] space-y-2">
+                                                                <div className="flex flex-wrap items-center gap-2">
+                                                                    <h3 className={`text-base font-black tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                                        🏫 {school.schoolName}
+                                                                    </h3>
+                                                                    <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-teal-500/10 text-teal-500 border border-teal-500/20">
+                                                                        Tier {school.tier || "A"}
+                                                                    </span>
+                                                                    {boardNameStr && (
+                                                                        <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                                            {boardNameStr}
+                                                                        </span>
+                                                                    )}
+                                                                    {school.schoolAccess && (
+                                                                        <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase bg-gray-500/10 text-gray-400 border border-gray-500/20">
+                                                                            Access: {school.schoolAccess}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+
+                                                                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-gray-400">
+                                                                    <span>📍 Centre: <strong className={isDarkMode ? 'text-gray-200' : 'text-gray-700'}>{centreNameStr}</strong></span>
+                                                                    <span>•</span>
+                                                                    <span>Status: <strong className="text-amber-500">{school.status || "ONLY INFORMATION GIVEN TO STUDENTS"}</strong></span>
+                                                                </div>
+
+                                                                {lastVisit && (
+                                                                    <p className="text-[11px] text-gray-500 font-medium flex items-center gap-1.5">
+                                                                        <span>🕒 Last Visit:</span>
+                                                                        <strong className={isDarkMode ? 'text-gray-300' : 'text-gray-800'}>
+                                                                            {lastVisit.date || (lastVisit.createdAt ? new Date(lastVisit.createdAt).toLocaleDateString('en-IN') : '—')}
+                                                                        </strong>
+                                                                        <span>by</span>
+                                                                        <span className="text-teal-400 font-bold">{lastVisit.user?.name || "User"} ({lastVisit.user?.role || "Staff"})</span>
+                                                                    </p>
+                                                                )}
+                                                            </div>
+
+                                                            {/* Action / Expand Button */}
+                                                            <div className="flex items-center gap-3">
+                                                                <span className={`px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider border ${
+                                                                    visitCount > 0
+                                                                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                                                                        : 'bg-gray-500/10 text-gray-400 border-gray-500/20'
+                                                                }`}>
+                                                                    {visitCount} {visitCount === 1 ? 'Activity' : 'Activities'}
+                                                                </span>
+
+                                                                <button
+                                                                    className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2 ${
+                                                                        isExpanded
+                                                                            ? 'bg-teal-600 text-white'
+                                                                            : isDarkMode
+                                                                                ? 'bg-gray-800 text-gray-300 hover:bg-gray-700'
+                                                                                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                                                    }`}
+                                                                >
+                                                                    {isExpanded ? 'Hide Journey ▲' : 'View Journey ▼'}
+                                                                </button>
+                                                            </div>
+                                                        </div>
+
+                                                        {/* Expanded Journey Timeline List */}
+                                                        {isExpanded && (
+                                                            <div className={`p-6 border-t ${isDarkMode ? 'border-gray-800 bg-[#0d1013]' : 'border-gray-100 bg-gray-50/50'} space-y-4`}>
+                                                                <h4 className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-2 mb-4">
+                                                                    <span className="w-2 h-2 rounded-full bg-teal-500" />
+                                                                    School Journey & Visit Log History ({visitCount})
+                                                                </h4>
+
+                                                                {visitCount === 0 ? (
+                                                                    <div className="py-8 text-center text-gray-500 text-xs font-bold uppercase tracking-wider">
+                                                                        No field visits or assigned activities logged for this school yet.
+                                                                    </div>
+                                                                ) : (
+                                                                    <div className="relative pl-6 space-y-6 before:absolute before:left-2.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-teal-500/20">
+                                                                        {school.journey.map((item, jIdx) => {
+                                                                            const isFieldVisit = item.sourceType === "Field Visit";
+                                                                            return (
+                                                                                <div key={item.id || jIdx} className="relative group">
+                                                                                    {/* Timeline dot */}
+                                                                                    <div className="absolute -left-6 top-1.5 w-3 h-3 rounded-full bg-teal-500 border-2 border-[#131619] shadow-[0_0_8px_rgba(20,184,166,0.6)]" />
+
+                                                                                    <div className={`p-5 rounded-2xl border transition-all ${
+                                                                                        isDarkMode ? 'bg-[#171c21] border-gray-800' : 'bg-white border-gray-200 shadow-sm'
+                                                                                    }`}>
+                                                                                        <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+                                                                                            {/* Visited by & User details */}
+                                                                                            <div>
+                                                                                                <div className="flex items-center gap-2 flex-wrap mb-1">
+                                                                                                    <span className="text-xs font-black uppercase text-teal-400 tracking-wider">
+                                                                                                        👤 Visited By: {item.user?.name || "Unknown User"}
+                                                                                                    </span>
+                                                                                                    <span className="px-2 py-0.5 rounded-full text-[9px] font-black uppercase bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                                                                                        {item.user?.role || "Staff"}
+                                                                                                    </span>
+                                                                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase ${
+                                                                                                        isFieldVisit
+                                                                                                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                                                                                            : 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
+                                                                                                    }`}>
+                                                                                                        {item.sourceType}
+                                                                                                    </span>
+                                                                                                </div>
+
+                                                                                                {/* Date & Time */}
+                                                                                                <div className="flex flex-wrap items-center gap-3 text-xs font-semibold text-gray-400">
+                                                                                                    <span>📅 Date: <strong className={isDarkMode ? 'text-white' : 'text-gray-900'}>{item.date || '—'}</strong></span>
+                                                                                                    {item.actualTime && item.actualTime !== '—' && <span>🕐 Actual Time: <strong>{item.actualTime}</strong></span>}
+                                                                                                    {item.planTime && <span>⏰ Plan Time: {item.planTime}</span>}
+                                                                                                    {item.captureDateTime && <span>📸 Captured: {item.captureDateTime}</span>}
+                                                                                                </div>
+                                                                                            </div>
+
+                                                                                            {/* Activity type & Status tag */}
+                                                                                            <div className="flex flex-col items-end gap-1.5">
+                                                                                                <span className="px-3 py-1 rounded-full text-xs font-black uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                                                                    🎯 {item.activityType}
+                                                                                                </span>
+                                                                                                {item.schoolStatus && (
+                                                                                                    <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                                                                                                        School Status: {item.schoolStatus}
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+
+                                                                                        {/* Remarks / User Notes */}
+                                                                                        <div className={`p-3 rounded-xl border my-3 text-xs ${
+                                                                                            isDarkMode ? 'bg-black/30 border-gray-800 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-800'
+                                                                                        }`}>
+                                                                                            <span className="font-black uppercase tracking-wider text-[9px] text-teal-400 block mb-0.5">
+                                                                                                💬 User Remarks / Notes:
+                                                                                            </span>
+                                                                                            <p className="font-medium italic text-xs leading-relaxed">
+                                                                                                "{item.notes || item.remarks || 'No notes added'}"
+                                                                                            </p>
+                                                                                        </div>
+
+                                                                                        {/* Footer: Leads & Proof Photos */}
+                                                                                        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
+                                                                                            <div className="flex items-center gap-3">
+                                                                                                {item.leads && item.leads !== "0" && (
+                                                                                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                                                                        🎯 {item.leads} Leads Achieved
+                                                                                                    </span>
+                                                                                                )}
+                                                                                                {item.locationName && (
+                                                                                                    <span className="text-[10px] font-semibold text-gray-400 flex items-center gap-1">
+                                                                                                        📍 {item.locationName}
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </div>
+
+                                                                                            {/* Proof Photos Thumbnail */}
+                                                                                            {item.photos && item.photos.length > 0 && (
+                                                                                                <div className="flex items-center gap-2">
+                                                                                                    <span className="text-[10px] font-black uppercase tracking-wider text-gray-400">Proof:</span>
+                                                                                                    {item.photos.map((photoUrl, pIdx) => (
+                                                                                                        <img
+                                                                                                            key={pIdx}
+                                                                                                            src={photoUrl}
+                                                                                                            alt="Proof"
+                                                                                                            onClick={() => setPreviewImage(photoUrl)}
+                                                                                                            className="w-9 h-9 object-cover rounded-lg border border-teal-500/30 cursor-pointer hover:scale-110 transition-transform shadow-sm"
+                                                                                                        />
+                                                                                                    ))}
+                                                                                                </div>
+                                                                                            )}
+                                                                                        </div>
+                                                                                    </div>
+                                                                                </div>
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
+
+                                    {/* Pagination Controls */}
+                                    {schoolJourneyTotalPages > 1 && (
+                                        <div className="flex items-center justify-between pt-6 border-t border-gray-200 dark:border-gray-800 mt-6">
+                                            <span className="text-xs font-semibold text-gray-500">
+                                                Page {schoolJourneyPage} of {schoolJourneyTotalPages} ({schoolJourneyTotalItems} total schools)
+                                            </span>
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    disabled={schoolJourneyPage <= 1}
+                                                    onClick={() => setSchoolJourneyPage(prev => Math.max(prev - 1, 1))}
+                                                    className="px-4 py-2 rounded-xl text-xs font-bold bg-gray-100 dark:bg-gray-800 disabled:opacity-40 transition-all"
+                                                >
+                                                    Previous
+                                                </button>
+                                                <button
+                                                    disabled={schoolJourneyPage >= schoolJourneyTotalPages}
+                                                    onClick={() => setSchoolJourneyPage(prev => Math.min(prev + 1, schoolJourneyTotalPages))}
+                                                    className="px-4 py-2 rounded-xl text-xs font-bold bg-teal-600 text-white disabled:opacity-40 transition-all"
+                                                >
+                                                    Next
+                                                </button>
+                                            </div>
                                         </div>
                                     )}
                                 </div>

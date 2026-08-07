@@ -171,7 +171,8 @@ export default function MasterDataSchoolForTaskContent() {
 
     const token = localStorage.getItem("token");
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const isSuperAdmin = user.role === "superAdmin";
+    const userRoleLower = (user.role || "").toLowerCase();
+    const isSuperAdmin = userRoleLower === "superadmin" || userRoleLower === "super admin" || user.role === "superAdmin";
     const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "create");
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "edit");
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "delete");
@@ -286,12 +287,23 @@ export default function MasterDataSchoolForTaskContent() {
         setIsModalOpen(true);
     };
 
-    const handleSave = async () => {
+    const openModal = (record = null) => {
+        handleOpenModal(record);
+    };
+
+    const closeModal = () => {
+        setIsModalOpen(false);
+        setCurrentRecord(null);
+    };
+
+    const handleSave = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
         if (!formData.schoolName.trim() || !formData.centerName) {
             toast.error("Please fill required fields (School Name & Center Name)");
             return;
         }
 
+        setIsSubmitting(true);
         const payload = {
             ...formData,
             board: formData.board || null,
@@ -316,7 +328,7 @@ export default function MasterDataSchoolForTaskContent() {
             const resData = await res.json();
             if (res.ok) {
                 toast.success(resData.message || "Record saved successfully");
-                setIsModalOpen(false);
+                closeModal();
                 fetchSchools();
                 fetchDistinctFields();
             } else {
@@ -324,6 +336,8 @@ export default function MasterDataSchoolForTaskContent() {
             }
         } catch (err) {
             toast.error("Error connecting to server");
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
