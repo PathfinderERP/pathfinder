@@ -257,11 +257,7 @@ const DailyCenterTracking = () => {
             const data = await response.json();
             if (response.ok) {
                 const filteredData = Array.isArray(data)
-                    ? data.filter(c =>
-                        !isSpecialCentre(c.name) &&
-                        (user.role === 'superAdmin' || user.role === 'superadmin' ||
-                        (user.centres && user.centres.some(uc => uc._id === c.id || uc.centreName === c.name)))
-                    )
+                    ? data.filter(c => !isSpecialCentre(c.name))
                     : [];
                 filteredData.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
                 setCenters(filteredData);

@@ -245,7 +245,11 @@ const getLogsDataHelper = async (req) => {
                 allowedCentreIds = uniqueUserCentreIds;
             }
         } else {
-            return { combinedLogs: [], targetDate };
+            // User has no specific centre restrictions (unrestricted / central access)
+            if (centresFilter.length > 0 && !centresFilter.includes("All")) {
+                shouldFilterCentres = true;
+                allowedCentreIds = centresFilter;
+            }
         }
     } else {
         // SuperAdmin
@@ -264,12 +268,29 @@ const getLogsDataHelper = async (req) => {
             }
         }).filter(Boolean);
 
-        // Always filter by primaryCentre only (as requested)
-        const empQuery = { primaryCentre: { $in: objectIdCentres } };
+        const employees = await Employee.find({
+            $or: [
+                { primaryCentre: { $in: objectIdCentres } },
+                { centres: { $in: objectIdCentres } }
+            ]
+        }).select("user");
+        const allowedUserIdsFromEmp = employees.map(emp => emp.user).filter(Boolean);
 
-        const employees = await Employee.find(empQuery).select("user");
-        const allowedUserIds = employees.map(emp => emp.user).filter(Boolean);
-        userQuery._id = { $in: allowedUserIds };
+        const usersWithCentres = await User.find({
+            $or: [
+                { centres: { $in: objectIdCentres } },
+                { centre: { $in: objectIdCentres } }
+            ]
+        }).select("_id");
+
+        const combinedUserIds = [
+            ...new Set([
+                ...allowedUserIdsFromEmp.map(id => id.toString()),
+                ...usersWithCentres.map(u => u._id.toString())
+            ])
+        ];
+
+        userQuery._id = { $in: combinedUserIds };
     }
 
     const users = await User.find(userQuery).select("name role designation profileImage centres centre");

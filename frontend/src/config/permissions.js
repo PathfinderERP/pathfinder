@@ -663,20 +663,29 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         }
     }
 
+    // Check if permission is explicitly set to false in granularPermissions first
+    if (granularPermissions && granularPermissions[module]) {
+        const secObj = granularPermissions[module][section];
+        if (secObj && typeof secObj === 'object') {
+            if (operation === 'view' && secObj.view === false) return false;
+            if (operation !== 'view' && secObj[operation] === false) return false;
+        }
+    }
+
     // Grant automatic access to marketingCRM module
     if (module === 'marketingCRM') {
         const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
-        if (isMktTargetRole) return true;
+        if (isMktTargetRole && (!granularPermissions?.[module]?.[section] || granularPermissions[module][section].view !== false)) return true;
     }
 
     // Grant automatic access to dailyTrackingLog module actions (myDailyLog for all non-teacher roles)
     if (module === 'dailyTrackingLog') {
         if (section === 'myDailyLog') {
             const isTeacher = role?.toLowerCase() === 'teacher';
-            if (!isTeacher) return true;
+            if (!isTeacher && (!granularPermissions?.[module]?.[section] || granularPermissions[module][section].view !== false)) return true;
         } else {
             const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
-            if (isMktTargetRole || granularPermissions?.['marketingCRM']) {
+            if ((isMktTargetRole || granularPermissions?.['marketingCRM']) && (!granularPermissions?.[module]?.[section] || granularPermissions[module][section].view !== false)) {
                 return true;
             }
         }
@@ -728,6 +737,21 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
         return true; // Default to full module access like SuperAdmin
     }
 
+    // If granularPermissions specifies this module, ensure at least one section is enabled
+    if (granularPermissions && granularPermissions[module]) {
+        const sections = granularPermissions[module];
+        const keys = Object.keys(sections);
+        if (keys.length > 0) {
+            const hasAnyEnabled = keys.some(secKey => {
+                const sec = sections[secKey];
+                if (!sec || typeof sec !== 'object') return false;
+                if (sec.view !== undefined) return sec.view === true;
+                return Object.values(sec).some(v => v === true);
+            });
+            if (!hasAnyEnabled) return false;
+        }
+    }
+
     if (module === 'academics' && (normalizedRole === 'class_coordinator' || normalizedRole === 'coordinator')) {
         return true;
     }
@@ -743,7 +767,12 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
 
     if (!granularPermissions || !granularPermissions[module]) return false;
     const sections = granularPermissions[module];
-    return Object.keys(sections).length > 0;
+    return Object.keys(sections).some(sectionKey => {
+        const sec = sections[sectionKey];
+        if (!sec || typeof sec !== 'object') return false;
+        if (sec.view !== undefined) return sec.view === true;
+        return Object.values(sec).some(v => v === true);
+    });
 };
 
 // Helper function to get all accessible modules

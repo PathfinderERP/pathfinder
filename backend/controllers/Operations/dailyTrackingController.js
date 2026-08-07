@@ -424,20 +424,17 @@ export const getDailyTracking = async (req, res) => {
         const { date, startDate, endDate, leadType, agentIds } = req.query;
         let start, end;
         if (startDate && endDate) {
-            start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
+            const parsed = parseDateRangeIST(startDate, endDate);
+            start = parsed.start;
+            end = parsed.end;
+        } else if (date) {
+            const parsed = parseDateRangeIST(date, date);
+            start = parsed.start;
+            end = parsed.end;
         } else {
-            let today = new Date();
-            if (date) {
-                today = new Date(date);
-            }
-            today.setHours(0, 0, 0, 0);
-            
-            start = today;
-            end = new Date(today);
-            end.setHours(23, 59, 59, 999);
+            const parsed = parseDateRangeIST(null, null);
+            start = parsed.start;
+            end = parsed.end;
         }
 
         const dateFilter = { $gte: start, $lte: end };
@@ -456,10 +453,10 @@ export const getDailyTracking = async (req, res) => {
 
         const isRestricted = checkRestricted(req.user?.role);
 
-        // 1. Fetch all active centers (excluding phsps, rkm, franchise)
+        // 1. Fetch active centers matching user authorization
         let centers;
-        if (isRestricted) {
-            const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+        const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
+        if (req.user?.role !== 'superAdmin' && req.user?.role !== 'superadmin' && userCenterIds.length > 0) {
             centers = await CentreSchema.find({ _id: { $in: userCenterIds }, status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).lean();
         } else {
             centers = await CentreSchema.find({ status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).lean();

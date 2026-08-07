@@ -157,6 +157,33 @@ const CentreTarget = () => {
         return centres.filter(c => isCentreAllowedByZone(c._id, c.centreName));
     }, [centres, zoneCentreMatchInfo, isCentreAllowedByZone]);
 
+    const calculateDateWiseTarget = (target, customStart, customEnd) => {
+        if (!customStart || !customEnd) return 0;
+
+        const monthNames = [
+            "January", "February", "March", "April", "May", "June",
+            "July", "August", "September", "October", "November", "December"
+        ];
+        const monthIndex = monthNames.indexOf(target.month);
+        if (monthIndex === -1) return 0;
+
+        const targetYear = target.year;
+        const monthStart = new Date(targetYear, monthIndex, 1);
+        const monthEnd = new Date(targetYear, monthIndex + 1, 0); // Last day of month
+        const totalDaysInMonth = monthEnd.getDate();
+
+        const rangeStart = new Date(customStart);
+        const rangeEnd = new Date(customEnd);
+
+        const overlapStart = new Date(Math.max(monthStart, rangeStart));
+        const overlapEnd = new Date(Math.min(monthEnd, rangeEnd));
+
+        if (overlapStart > overlapEnd) return 0;
+
+        const overlappingDays = Math.ceil((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
+        return (target.targetAmount / totalDaysInMonth) * overlappingDays;
+    };
+
     const displayedTargets = React.useMemo(() => {
         return targets.filter(t => {
             if (viewMode === "Monthly" && selectedMonths.length > 0 && !selectedMonths.includes(t.month)) {
@@ -259,33 +286,6 @@ const CentreTarget = () => {
         setSelectedCentres(prev =>
             prev.includes(centreId) ? prev.filter(id => id !== centreId) : [...prev, centreId]
         );
-    };
-
-    const calculateDateWiseTarget = (target, customStart, customEnd) => {
-        if (!customStart || !customEnd) return 0;
-
-        const monthNames = [
-            "January", "February", "March", "April", "May", "June",
-            "July", "August", "September", "October", "November", "December"
-        ];
-        const monthIndex = monthNames.indexOf(target.month);
-        if (monthIndex === -1) return 0;
-
-        const targetYear = target.year;
-        const monthStart = new Date(targetYear, monthIndex, 1);
-        const monthEnd = new Date(targetYear, monthIndex + 1, 0); // Last day of month
-        const totalDaysInMonth = monthEnd.getDate();
-
-        const rangeStart = new Date(customStart);
-        const rangeEnd = new Date(customEnd);
-
-        const overlapStart = new Date(Math.max(monthStart, rangeStart));
-        const overlapEnd = new Date(Math.min(monthEnd, rangeEnd));
-
-        if (overlapStart > overlapEnd) return 0;
-
-        const overlappingDays = Math.ceil((overlapEnd - overlapStart) / (1000 * 60 * 60 * 24)) + 1;
-        return (target.targetAmount / totalDaysInMonth) * overlappingDays;
     };
 
     const handleExport = () => {

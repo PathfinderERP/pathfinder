@@ -295,6 +295,10 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
             startDate = new Date(parsedYear, mIdx, startDay);
             endDate = new Date(parsedYear, mIdx, endDay, 23, 59, 59, 999);
+        } else if (targetType === 'TODAY') {
+            const today = new Date();
+            startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 0, 0, 0, 0);
+            endDate = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59, 999);
         } else if (targetType === 'CUSTOM') {
             const { startDate: qStart, endDate: qEnd } = req.query;
             if (!qStart || !qEnd) {
@@ -312,12 +316,16 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
         // Fetch Course Targets
         const targetMap = {};
-        if (targetType === 'MONTHLY') {
+        if (targetType === 'MONTHLY' || targetType === 'TODAY') {
+            const currentMonthName = targetType === 'TODAY' ? monthNames[new Date().getMonth()] : month;
+            const currentMonthIndex = monthNames.indexOf(currentMonthName);
+            const daysInMonth = new Date(parsedYear, currentMonthIndex + 1, 0).getDate();
+
             // Find both MONTHLY and WEEKLY targets for the specified month & year
             const courseTargets = await CourseTarget.find({
                 centre: { $in: centreIds },
                 year: parsedYear,
-                month: month,
+                month: currentMonthName,
                 targetType: { $in: ['MONTHLY', 'WEEKLY'] }
             }).lean();
 
@@ -338,7 +346,12 @@ export const getCourseTargetAnalysis = async (req, res) => {
             // For each key, prefer direct monthly target if set and > 0, otherwise fallback to sum of weekly targets
             const allKeys = new Set([...Object.keys(monthlyMap), ...Object.keys(weeklySumMap)]);
             allKeys.forEach(key => {
-                targetMap[key] = (monthlyMap[key] && monthlyMap[key] > 0) ? monthlyMap[key] : (weeklySumMap[key] || 0);
+                const fullMonthTarget = (monthlyMap[key] && monthlyMap[key] > 0) ? monthlyMap[key] : (weeklySumMap[key] || 0);
+                if (targetType === 'TODAY') {
+                    targetMap[key] = Math.round(fullMonthTarget / daysInMonth);
+                } else {
+                    targetMap[key] = fullMonthTarget;
+                }
             });
         } else {
             const targetFilter = {

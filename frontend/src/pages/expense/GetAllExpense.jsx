@@ -15,6 +15,7 @@ import {
     FaEye,
     FaEdit,
     FaTrash,
+    FaRupeeSign
 } from "react-icons/fa";
 import { ToastContainer, toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -475,6 +476,14 @@ const GetAllExpense = () => {
         });
     }, [expenses, searchTerm, nameFilter, fromDate, toDate, typeFilter, statusFilter, modeOfPaymentFilter, createdByFilter]);
 
+    const totalExpenditureAmount = useMemo(() => {
+        return filteredExpenses.reduce((sum, expense) => {
+            const isSalary = expense.expenseType === "Salary";
+            const amt = parseFloat(isSalary ? (expense.originalAmount !== undefined ? expense.originalAmount : expense.amount) : expense.amount) || 0;
+            return sum + amt;
+        }, 0);
+    }, [filteredExpenses]);
+
     const isAllSelected = useMemo(() => {
         if (filteredExpenses.length === 0) return false;
         return filteredExpenses.every((e) => selectedExpenseIds.includes(e._id));
@@ -799,6 +808,26 @@ const GetAllExpense = () => {
                                     <FaPlus /> Add Expense
                                 </Link>
                             )}
+                        </div>
+                    </div>
+
+                    {/* Total Expenditure Amount Card */}
+                    <div className="flex">
+                        <div className={`p-5 rounded-xl border flex items-center justify-between transition-all min-w-[320px] max-w-md ${isDarkMode ? "bg-[#1a1f24] border-slate-700/80" : "bg-white border-slate-200 shadow-sm"}`}>
+                            <div>
+                                <p className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                                    Total Expenditure Amount
+                                </p>
+                                <h3 className={`text-2xl sm:text-3xl font-black mt-1.5 ${isDarkMode ? "text-cyan-400" : "text-cyan-700"}`}>
+                                    ₹{Math.round(totalExpenditureAmount).toLocaleString('en-IN')}
+                                </h3>
+                                <p className="text-[11px] font-semibold text-cyan-500/80 mt-1">
+                                    {filteredExpenses.length} expense record(s)
+                                </p>
+                            </div>
+                            <div className={`p-4 rounded-xl ml-6 ${isDarkMode ? "bg-cyan-500/10 text-cyan-400" : "bg-cyan-50 text-cyan-600"}`}>
+                                <FaRupeeSign size={26} />
+                            </div>
                         </div>
                     </div>
 

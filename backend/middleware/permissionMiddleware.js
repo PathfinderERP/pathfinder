@@ -238,8 +238,11 @@ export const requireGranularPermission = (module, section, action) => {
 
             if (!hasAccess) {
                 if (action === "view") {
-                    // If checking for view, any entry in that section means they have access to view the list
-                    hasAccess = !!user.granularPermissions?.[module]?.[section];
+                    if (user.granularPermissions?.[module]?.[section]?.view !== undefined) {
+                        hasAccess = user.granularPermissions[module][section].view === true;
+                    } else {
+                        hasAccess = !!user.granularPermissions?.[module]?.[section];
+                    }
                 } else {
                     hasAccess = user.granularPermissions?.[module]?.[section]?.[action] === true;
                 }

@@ -922,15 +922,14 @@ const InstallmentPayment = () => {
                 const totalFees = displayedBoardList.reduce((sum, inst) => sum + (parseFloat(inst.amount || inst.payableAmount || 0)), 0);
                 const totalPaid = displayedBoardList.reduce((sum, inst) => sum + (parseFloat(inst.paidAmount || 0)), 0);
                 const totalDue = totalFees - totalPaid;
-                return { totalFees, totalPaid, totalDue };
+                return { totalFees, totalPaid, totalDue: Math.max(0, totalDue) };
             } else {
                 const totalFees = displayedBoardList.reduce((sum, adm) => sum + (parseFloat(adm.totalExpectedAmount || 0)), 0);
                 const totalPaid = displayedBoardList.reduce((sum, adm) => sum + (parseFloat(adm.totalPaidAmount || 0)), 0);
                 const totalDue = totalFees - totalPaid;
-                return { totalFees, totalPaid, totalDue };
+                return { totalFees, totalPaid, totalDue: Math.max(0, totalDue) };
             }
         }
-
         if (activeTab === 'allDetails') {
             let regFees = 0, regPaid = 0, regDue = 0;
             if (isDetailedView) {
@@ -957,7 +956,7 @@ const InstallmentPayment = () => {
             return {
                 totalFees: (regFees + boardFees) / 1.18,
                 totalPaid: (regPaid + boardPaid) / 1.18,
-                totalDue: (regDue + boardDue) / 1.18
+                totalDue: Math.max(0, (regDue + boardDue) / 1.18)
             };
         }
 
@@ -965,12 +964,12 @@ const InstallmentPayment = () => {
             const totalFees = displayedList.reduce((sum, inst) => sum + (parseFloat(inst.amount) || 0), 0);
             const totalPaid = displayedList.reduce((sum, inst) => sum + (parseFloat(inst.paidAmount) || 0), 0);
             const totalDue = totalFees - totalPaid;
-            return { totalFees, totalPaid, totalDue };
+            return { totalFees, totalPaid, totalDue: Math.max(0, totalDue) };
         } else {
             const totalFees = admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalFees) || 0), 0);
             const totalPaid = admissionsList.reduce((sum, a) => sum + (parseFloat(a.totalPaid) || 0), 0);
             const totalDue = admissionsList.reduce((sum, a) => sum + (parseFloat(a.remainingAmount) || 0), 0);
-            return { totalFees, totalPaid, totalDue };
+            return { totalFees, totalPaid, totalDue: Math.max(0, totalDue) };
         }
     }, [activeTab, admissionsList, displayedList, isDetailedView, boardAdmissionsList, displayedBoardList, isBoardDetailedView, displayedBoardListAllDetails]);
 
@@ -1095,9 +1094,10 @@ const InstallmentPayment = () => {
                     }
                     const amt = parseFloat(inst.amount) || 0;
                     const paid = parseFloat(inst.paidAmount) || 0;
+                    const due = amt - paid;
                     counts[c].totalFees += amt;
                     counts[c].totalPaid += paid;
-                    counts[c].totalDue += (amt - paid);
+                    counts[c].totalDue += due;
                 });
             } else {
                 admissionsList.forEach(a => {
@@ -1138,6 +1138,8 @@ const InstallmentPayment = () => {
                     "Total Fees (₹)": inst.admissionTotalFees,
                     "Total Paid (₹)": inst.admissionTotalPaid,
                     "Remaining (₹)": inst.admissionRemaining,
+                    "Installment Amount (₹)": parseFloat(inst.amount) || 0,
+                    "Installment Paid (₹)": parseFloat(inst.paidAmount) || 0,
                     "Installment Due (₹)": Math.max(0, (parseFloat(inst.amount) || 0) - (parseFloat(inst.paidAmount) || 0)),
                     "Overall Status": inst.admissionPaymentStatus
                 };
@@ -1175,6 +1177,8 @@ const InstallmentPayment = () => {
                     "Total Fees (₹)": adm.totalFees,
                     "Total Paid (₹)": adm.totalPaid,
                     "Remaining (₹)": Math.max(0, parseFloat(adm.remainingAmount) || 0),
+                    "Installment Amount (₹)": "N/A",
+                    "Installment Paid (₹)": "N/A",
                     "Installment Due (₹)": "N/A",
                     "Overall Status": adm.paymentStatus,
                     "Installment #": "N/A",
@@ -1193,6 +1197,8 @@ const InstallmentPayment = () => {
                         "Total Fees (₹)": idx === 0 ? adm.totalFees : "",
                         "Total Paid (₹)": idx === 0 ? adm.totalPaid : "",
                         "Remaining (₹)": idx === 0 ? Math.max(0, parseFloat(adm.remainingAmount) || 0) : "",
+                        "Installment Amount (₹)": parseFloat(inst.amount) || 0,
+                        "Installment Paid (₹)": parseFloat(inst.paidAmount) || 0,
                         "Installment Due (₹)": Math.max(0, (parseFloat(inst.amount) || 0) - (parseFloat(inst.paidAmount) || 0)),
                         "Overall Status": idx === 0 ? adm.paymentStatus : "",
                         "Installment #": `Installment ${inst.installmentNumber}`,
@@ -1204,7 +1210,7 @@ const InstallmentPayment = () => {
             dataToExport.push({
                 "Admission Code": "---", "Student Name": "---", "Mobile": "---", "Course": "---",
                 "Exam Tag": "---", "Department": "---", "Centre": "---", "Total Fees (₹)": "---",
-                "Total Paid (₹)": "---", "Remaining (₹)": "---", "Installment Due (₹)": "---", "Overall Status": "---",
+                "Total Paid (₹)": "---", "Remaining (₹)": "---", "Installment Amount (₹)": "---", "Installment Paid (₹)": "---", "Installment Due (₹)": "---", "Overall Status": "---",
                 "Installment #": "---", "Due Date": "---"
             });
         });
@@ -1316,6 +1322,8 @@ const InstallmentPayment = () => {
                     "Total Fees (₹)": inst.admissionTotalFees,
                     "Total Paid (₹)": inst.admissionTotalPaid,
                     "Remaining (₹)": inst.admissionRemaining,
+                    "Installment Amount (₹)": parseFloat(inst.amount || inst.payableAmount || 0),
+                    "Installment Paid (₹)": parseFloat(inst.paidAmount || 0),
                     "Installment Due (₹)": Math.max(0, (parseFloat(inst.amount || inst.payableAmount || 0) - parseFloat(inst.paidAmount || 0))),
                     "Overall Status": inst.admissionPaymentStatus
                 };
@@ -1359,6 +1367,8 @@ const InstallmentPayment = () => {
                     "Total Fees (₹)": totalExpected,
                     "Total Paid (₹)": totalPaid,
                     "Remaining (₹)": totalDue,
+                    "Installment Amount (₹)": "N/A",
+                    "Installment Paid (₹)": "N/A",
                     "Installment Due (₹)": "N/A",
                     "Overall Status": totalDue < 1 ? "PAID" : "PENDING",
                     "Installment #": "N/A",
@@ -1378,6 +1388,8 @@ const InstallmentPayment = () => {
                         "Total Fees (₹)": idx === 0 ? totalExpected : "",
                         "Total Paid (₹)": idx === 0 ? totalPaid : "",
                         "Remaining (₹)": idx === 0 ? totalDue : "",
+                        "Installment Amount (₹)": parseFloat(inst.amount || inst.payableAmount || 0),
+                        "Installment Paid (₹)": parseFloat(inst.paidAmount || 0),
                         "Installment Due (₹)": Math.max(0, (parseFloat(inst.amount || inst.payableAmount || 0) - parseFloat(inst.paidAmount || 0))),
                         "Overall Status": idx === 0 ? (totalDue < 1 ? "PAID" : "PENDING") : "",
                         "Installment #": `Month ${inst.monthNumber}`,
@@ -1388,7 +1400,7 @@ const InstallmentPayment = () => {
             dataToExport.push({
                 "Admission Code": "---", "Student Name": "---", "Mobile": "---", "Board Course": "---",
                 "Class": "---", "Exam Tag": "---", "Department/Programme": "---", "Centre": "---", "Total Fees (₹)": "---",
-                "Total Paid (₹)": "---", "Remaining (₹)": "---", "Installment Due (₹)": "---", "Overall Status": "---",
+                "Total Paid (₹)": "---", "Remaining (₹)": "---", "Installment Amount (₹)": "---", "Installment Paid (₹)": "---", "Installment Due (₹)": "---", "Overall Status": "---",
                 "Installment #": "---", "Due Date": "---"
             });
         });
@@ -1636,18 +1648,20 @@ const InstallmentPayment = () => {
                         <div className="flex flex-col xl:flex-row gap-4">
                             {/* Financial Summary Card */}
                             <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-2xl p-5 flex flex-col justify-between flex-1 min-w-[540px] shadow-sm`}>
-                                <div className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Financial Summary</div>
+                                <div className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    Financial Summary ({activeTab === 'boardCourse' ? (boardFilters.dateRange || "This Month") : (filters.dateRange || "This Month")}){activeTab === 'allDetails' ? " • (Excl. 18% GST)" : ""}
+                                </div>
                                 <div className="flex justify-between items-center gap-2">
                                     <div className="flex-1 min-w-0">
-                                        <div className="text-[8px] font-black text-gray-500 uppercase tracking-wider mb-1 truncate" title="Total Installment Fees Amount">Total Installment Fees Amount</div>
+                                        <div className="text-[8px] font-black text-gray-500 uppercase tracking-wider mb-1 truncate" title="Total Installment Amount Needed To Be Paid">Total Installment Payable</div>
                                         <div className={`text-base xl:text-lg font-black italic truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{Math.round(stats.totalFees).toLocaleString('en-IN')}</div>
                                     </div>
                                     <div className={`flex-1 border-x px-3 min-w-0 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
-                                        <div className="text-[8px] font-black text-emerald-500/70 uppercase tracking-wider mb-1 truncate" title="Total Installment Amount Paid As Of Now">Total Installment Amount Paid As Of Now</div>
+                                        <div className="text-[8px] font-black text-emerald-500/70 uppercase tracking-wider mb-1 truncate" title="Total Installment Amount Paid">Total Installment Paid</div>
                                         <div className="text-base xl:text-lg font-black text-emerald-500 italic truncate">₹{Math.round(stats.totalPaid).toLocaleString('en-IN')}</div>
                                     </div>
                                     <div className="flex-1 text-right pl-3 min-w-0">
-                                        <div className="text-[8px] font-black text-red-500/70 uppercase tracking-wider mb-1 truncate" title="Total Installment Due As Of Now">Total Installment Due As Of Now</div>
+                                        <div className="text-[8px] font-black text-red-500/70 uppercase tracking-wider mb-1 truncate" title="Total Installment Amount Due">Total Installment Due</div>
                                         <div className="text-base xl:text-lg font-black text-red-500 italic truncate">₹{Math.round(stats.totalDue).toLocaleString('en-IN')}</div>
                                     </div>
                                 </div>

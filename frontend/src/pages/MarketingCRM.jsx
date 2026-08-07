@@ -1317,6 +1317,13 @@ const MarketingCRM = () => {
                 const exportRows = records.map(row => {
                     const approval = approvalState[row.id] || { status: row.status || "Pending", remarks: row.remarks || "", approvedBy: row.approvedBy || "" };
                     const allPhotos = row.photos?.length > 0 ? row.photos : (row.photo ? [row.photo] : []);
+                    const photoLinksStr = allPhotos.map(p => {
+                        if (typeof p === 'string' && p.startsWith('data:image')) {
+                            return '[Base64 Image Data]';
+                        }
+                        return p;
+                    }).join(', ');
+
                     return {
                         "Date": row.date || '—',
                         "Centre": row.user?.centres?.[0]?.centreName || '—',
@@ -1331,7 +1338,7 @@ const MarketingCRM = () => {
                         "Priority": row.priority || 'Medium',
                         "Leads": row.leads ?? 0,
                         "Proof Count": allPhotos.length,
-                        "Proof Links": allPhotos.join(', ') || 'No photo',
+                        "Proof Links": photoLinksStr || 'No photo',
                         "Status": approval.status || row.status || 'Pending',
                         "Approved By": approval.approvedBy || row.approvedBy || '—',
                         "Remarks": approval.remarks || row.remarks || '—'

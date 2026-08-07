@@ -57,8 +57,22 @@ export const downloadExcel = (data, headers, filename = 'export') => {
         });
     }
 
+    // Sanitize row values so no single cell string exceeds Excel limit (32,767 chars)
+    const sanitizedData = processedData.map(row => {
+        const newRow = {};
+        for (const key in row) {
+            const val = row[key];
+            if (typeof val === 'string' && val.length > 32000) {
+                newRow[key] = val.slice(0, 32000) + '... [Truncated]';
+            } else {
+                newRow[key] = val;
+            }
+        }
+        return newRow;
+    });
+
     // Create worksheet
-    const worksheet = XLSX.utils.json_to_sheet(processedData);
+    const worksheet = XLSX.utils.json_to_sheet(sanitizedData);
 
     // Create workbook
     const workbook = XLSX.utils.book_new();
@@ -81,7 +95,19 @@ export const downloadMultiSheetExcel = (sheets, filename = 'export') => {
     const workbook = XLSX.utils.book_new();
 
     sheets.forEach(sheet => {
-        const worksheet = XLSX.utils.json_to_sheet(sheet.data);
+        const sanitizedSheetData = (sheet.data || []).map(row => {
+            const newRow = {};
+            for (const key in row) {
+                const val = row[key];
+                if (typeof val === 'string' && val.length > 32000) {
+                    newRow[key] = val.slice(0, 32000) + '... [Truncated]';
+                } else {
+                    newRow[key] = val;
+                }
+            }
+            return newRow;
+        });
+        const worksheet = XLSX.utils.json_to_sheet(sanitizedSheetData);
         XLSX.utils.book_append_sheet(workbook, worksheet, sheet.name);
     });
 

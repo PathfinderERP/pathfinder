@@ -190,6 +190,22 @@ const CourseTarget = () => {
         return weeks;
     };
 
+    const getCurrentRunningWeek = (year, monthName) => {
+        const today = new Date();
+        const currentDay = today.getDate();
+        const currentMonthName = monthNames[today.getMonth()];
+        const currentYear = today.getFullYear();
+
+        const weeks = getWeeksForMonth(year, monthName);
+        if (!weeks || weeks.length === 0) return 1;
+
+        if (monthName === currentMonthName && parseInt(year, 10) === currentYear) {
+            const matchedWeek = weeks.find(w => currentDay >= w.startDay && currentDay <= w.endDay);
+            return matchedWeek ? matchedWeek.weekNumber : 1;
+        }
+        return 1;
+    };
+
     const formatDateLocal = (date) => {
         const y = date.getFullYear();
         const m = String(date.getMonth() + 1).padStart(2, '0');
@@ -200,7 +216,10 @@ const CourseTarget = () => {
     // Compute date range from current filter settings for the admissions API
     const getDateRange = () => {
         const mIdx = monthNames.indexOf(selectedMonth);
-        if (viewMode === "CUSTOM") {
+        if (viewMode === "TODAY") {
+            const todayStr = formatDateLocal(new Date());
+            return { startDate: todayStr, endDate: todayStr };
+        } else if (viewMode === "CUSTOM") {
             return { startDate: customStartDate, endDate: customEndDate };
         } else if (viewMode === "MONTHLY") {
             const s = new Date(selectedYear, mIdx, 1);
@@ -320,7 +339,7 @@ const CourseTarget = () => {
     });
     const [viewMode, setViewMode] = useState(() => {
         const saved = localStorage.getItem("courseTarget_viewMode");
-        return saved || "MONTHLY";
+        return saved || "TODAY";
     });
     const [selectedMonth, setSelectedMonth] = useState(() => {
         const saved = localStorage.getItem("courseTarget_selectedMonth");
@@ -332,7 +351,11 @@ const CourseTarget = () => {
     });
     const [selectedWeek, setSelectedWeek] = useState(() => {
         const saved = localStorage.getItem("courseTarget_selectedWeek");
-        return saved ? parseInt(saved, 10) : 1;
+        if (saved) return parseInt(saved, 10);
+        const today = new Date();
+        const curMonth = monthNames[today.getMonth()];
+        const curYear = today.getFullYear();
+        return getCurrentRunningWeek(curYear, curMonth);
     });
     const [customStartDate, setCustomStartDate] = useState(() => {
         const saved = localStorage.getItem("courseTarget_customStartDate");
@@ -352,15 +375,11 @@ const CourseTarget = () => {
 
     // Save filters to localStorage on changes
     useEffect(() => {
-        if (selectedCentres.length > 0) {
-            localStorage.setItem("courseTarget_selectedCentres", JSON.stringify(selectedCentres));
-        }
+        localStorage.setItem("courseTarget_selectedCentres", JSON.stringify(selectedCentres));
     }, [selectedCentres]);
 
     useEffect(() => {
-        if (selectedZones.length > 0) {
-            localStorage.setItem("courseTarget_selectedZones", JSON.stringify(selectedZones));
-        }
+        localStorage.setItem("courseTarget_selectedZones", JSON.stringify(selectedZones));
     }, [selectedZones]);
 
     useEffect(() => {
@@ -452,15 +471,13 @@ const CourseTarget = () => {
             setCentres(centerList);
             if (centerList.length > 0) {
                 const saved = localStorage.getItem("courseTarget_selectedCentres");
-                if (saved) {
+                if (saved !== null) {
                     try {
                         const parsed = JSON.parse(saved);
-                        if (Array.isArray(parsed) && parsed.length > 0) {
+                        if (Array.isArray(parsed)) {
                             const validIds = parsed.filter(id => centerList.some(c => c._id === id));
-                            if (validIds.length > 0) {
-                                setSelectedCentres(validIds);
-                                return;
-                            }
+                            setSelectedCentres(validIds);
+                            return;
                         }
                     } catch (e) {
                         console.error(e);
@@ -483,15 +500,13 @@ const CourseTarget = () => {
             const zoneList = res.data?.data || [];
             setZones(zoneList);
             const saved = localStorage.getItem("courseTarget_selectedZones");
-            if (saved) {
+            if (saved !== null) {
                 try {
                     const parsed = JSON.parse(saved);
-                    if (Array.isArray(parsed) && parsed.length > 0) {
+                    if (Array.isArray(parsed)) {
                         const validIds = parsed.filter(id => zoneList.some(z => z._id === id));
-                        if (validIds.length > 0) {
-                            setSelectedZones(validIds);
-                            return;
-                        }
+                        setSelectedZones(validIds);
+                        return;
                     }
                 } catch (e) {
                     console.error(e);
@@ -505,8 +520,14 @@ const CourseTarget = () => {
 
     const handleZoneChange = (selected) => {
         let newSelectedZones = [];
+        const wasAllSelected = selectedZones.length === zones.length && zones.length > 0;
         if (selected && selected.some(o => o.value === 'all')) {
-            newSelectedZones = zones.map(z => z._id);
+            if (wasAllSelected) {
+                const specificOnly = selected.filter(o => o.value !== 'all');
+                newSelectedZones = specificOnly.map(o => o.value);
+            } else {
+                newSelectedZones = zones.map(z => z._id);
+            }
         } else {
             newSelectedZones = selected ? selected.map(o => o.value) : [];
         }
@@ -1057,7 +1078,7 @@ const CourseTarget = () => {
                             <FaFilter className="text-cyan-400" /> Filters
                         </h3>
                         <div className={`flex p-1 rounded-xl border ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
-                            {["WEEKLY", "MONTHLY", "QUARTERLY", "YEARLY", "CUSTOM"].map(mode => (
+                            {["WEEKLY", "MONTHLY", "TODAY", "QUARTERLY", "YEARLY", "CUSTOM"].map(mode => (
                                 <button
                                     key={mode}
                                     onClick={() => setViewMode(mode)}
@@ -1104,8 +1125,14 @@ const CourseTarget = () => {
                                         : filteredCentreOptions.map(c => ({ value: c._id, label: c.centreName })).filter(opt => selectedCentres.includes(opt.value))
                                 }
                                 onChange={(selected) => {
+                                    const wasAllSelected = selectedCentres.length === filteredCentreOptions.length && filteredCentreOptions.length > 0;
                                     if (selected && selected.some(o => o.value === 'all')) {
-                                        setSelectedCentres(filteredCentreOptions.map(c => c._id));
+                                        if (wasAllSelected) {
+                                            const specificOnly = selected.filter(o => o.value !== 'all');
+                                            setSelectedCentres(specificOnly.map(o => o.value));
+                                        } else {
+                                            setSelectedCentres(filteredCentreOptions.map(c => c._id));
+                                        }
                                     } else {
                                         setSelectedCentres(selected ? selected.map(o => o.value) : []);
                                     }
@@ -1131,8 +1158,14 @@ const CourseTarget = () => {
                                         ].filter(opt => selectedProgrammes.includes(opt.value))
                                 }
                                 onChange={(selected) => {
+                                    const wasAllSelected = selectedProgrammes.length === 2;
                                     if (selected && selected.some(o => o.value === 'all')) {
-                                        setSelectedProgrammes(['CRP', 'NCRP']);
+                                        if (wasAllSelected) {
+                                            const specificOnly = selected.filter(o => o.value !== 'all');
+                                            setSelectedProgrammes(specificOnly.map(o => o.value));
+                                        } else {
+                                            setSelectedProgrammes(['CRP', 'NCRP']);
+                                        }
                                     } else {
                                         setSelectedProgrammes(selected ? selected.map(o => o.value) : []);
                                     }
@@ -1151,8 +1184,14 @@ const CourseTarget = () => {
                                         : sessions.map(s => ({ value: s.sessionName, label: s.sessionName })).filter(opt => selectedSessions.includes(opt.value))
                                 }
                                 onChange={(selected) => {
+                                    const wasAllSelected = selectedSessions.length === sessions.length && sessions.length > 0;
                                     if (selected && selected.some(o => o.value === 'all')) {
-                                        setSelectedSessions(sessions.map(s => s.sessionName));
+                                        if (wasAllSelected) {
+                                            const specificOnly = selected.filter(o => o.value !== 'all');
+                                            setSelectedSessions(specificOnly.map(o => o.value));
+                                        } else {
+                                            setSelectedSessions(sessions.map(s => s.sessionName));
+                                        }
                                     } else {
                                         setSelectedSessions(selected ? selected.map(o => o.value) : []);
                                     }
@@ -1171,8 +1210,14 @@ const CourseTarget = () => {
                                         : classes.map(c => ({ value: c._id, label: c.name })).filter(opt => selectedClasses.includes(opt.value))
                                 }
                                 onChange={(selected) => {
+                                    const wasAllSelected = selectedClasses.length === classes.length && classes.length > 0;
                                     if (selected && selected.some(o => o.value === 'all')) {
-                                        setSelectedClasses(classes.map(c => c._id));
+                                        if (wasAllSelected) {
+                                            const specificOnly = selected.filter(o => o.value !== 'all');
+                                            setSelectedClasses(specificOnly.map(o => o.value));
+                                        } else {
+                                            setSelectedClasses(classes.map(c => c._id));
+                                        }
                                     } else {
                                         setSelectedClasses(selected ? selected.map(o => o.value) : []);
                                     }
@@ -1219,8 +1264,14 @@ const CourseTarget = () => {
                                         : courseOptions.filter(opt => selectedCourses.includes(opt.value))
                                 }
                                 onChange={(selected) => {
+                                    const wasAllSelected = selectedCourses.length === courseOptions.length && courseOptions.length > 0;
                                     if (selected && selected.some(o => o.value === 'all')) {
-                                        setSelectedCourses(courseOptions.map(c => c.value));
+                                        if (wasAllSelected) {
+                                            const specificOnly = selected.filter(o => o.value !== 'all');
+                                            setSelectedCourses(specificOnly.map(o => o.value));
+                                        } else {
+                                            setSelectedCourses(courseOptions.map(c => c.value));
+                                        }
                                     } else {
                                         setSelectedCourses(selected ? selected.map(o => o.value) : []);
                                     }
