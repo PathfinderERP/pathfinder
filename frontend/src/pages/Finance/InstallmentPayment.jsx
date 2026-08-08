@@ -597,6 +597,64 @@ const InstallmentPayment = () => {
             setLoading(false);
         }
     };
+    const getAdjustedInstallment = (inst, start, end) => {
+        const rawAmount = parseFloat(inst.amount || inst.payableAmount || 0);
+        const rawPaid = parseFloat(inst.paidAmount || 0);
+
+        if (!start || !end) {
+            return {
+                ...inst,
+                amount: rawAmount,
+                payableAmount: rawAmount,
+                paidAmount: rawPaid,
+                dueAmount: Math.max(0, rawAmount - rawPaid)
+            };
+        }
+
+        const isPaidStatus = inst.status === "PAID";
+        const payDateRaw = inst.receivedDate || inst.paidDate || inst.updatedAt || inst.createdAt;
+        const payDate = payDateRaw ? new Date(payDateRaw) : null;
+
+        let priorPaid = 0;
+        let currentPaid = 0;
+
+        if (payDate) {
+            if (payDate < start) {
+                // Payment occurred in an EARLIER month (before start)
+                priorPaid = isPaidStatus ? rawAmount : Math.min(rawAmount, rawPaid);
+                currentPaid = 0;
+            } else if (payDate >= start && payDate <= end) {
+                // Payment occurred IN current period (between start and end)
+                priorPaid = 0;
+                currentPaid = isPaidStatus ? rawAmount : Math.min(rawAmount, rawPaid);
+            } else {
+                // Payment occurred AFTER current period
+                priorPaid = 0;
+                currentPaid = 0;
+            }
+        } else {
+            if (isPaidStatus) {
+                currentPaid = rawAmount;
+            } else {
+                currentPaid = Math.min(rawAmount, rawPaid);
+            }
+        }
+
+        const adjustedPayable = Math.max(0, rawAmount - priorPaid);
+        const adjustedPaid = Math.min(adjustedPayable, currentPaid);
+        const adjustedDue = Math.max(0, adjustedPayable - adjustedPaid);
+
+        return {
+            ...inst,
+            amount: adjustedPayable,
+            payableAmount: adjustedPayable,
+            paidAmount: adjustedPaid,
+            dueAmount: adjustedDue,
+            originalAmount: rawAmount,
+            priorPaidAmount: priorPaid
+        };
+    };
+
     const isDetailedView = filters.startDate || filters.endDate || (filters.installmentStatus && filters.installmentStatus.length > 0);
     const isBoardDetailedView = boardFilters.startDate || boardFilters.endDate || (boardFilters.installmentStatus && boardFilters.installmentStatus.length > 0);
 
@@ -616,47 +674,51 @@ const InstallmentPayment = () => {
 
         admissionsList.forEach(adm => {
             if (adm.paymentBreakdown && adm.paymentBreakdown.length > 0) {
-                adm.paymentBreakdown.forEach(inst => {
+                adm.paymentBreakdown.forEach(rawInst => {
                     // Date Match
                     let dateMatch = true;
                     if (filters.startDate || filters.endDate) {
-                        if (inst.dueDate) {
-                            const d = new Date(inst.dueDate);
+                        if (rawInst.dueDate) {
+                            const d = new Date(rawInst.dueDate);
                             dateMatch = d >= start && d <= end;
                         } else {
                             dateMatch = false;
                         }
                     }
 
-                    // Status Match
-                    let statusMatch = true;
-                    if (filters.installmentStatus && filters.installmentStatus.length > 0) {
-                        const dueDate = new Date(inst.dueDate);
-                        dueDate.setHours(0, 0, 0, 0);
-                        const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
-                        const currentStatus = isOverdue ? 'OVERDUE' : inst.status;
-                        statusMatch = filters.installmentStatus.includes(currentStatus);
-                    }
+                    if (dateMatch) {
+                        const inst = getAdjustedInstallment(rawInst, filters.startDate ? start : null, filters.endDate ? end : null);
 
-                    if (dateMatch && statusMatch) {
-                        flatInstallments.push({
-                            ...inst,
-                            admissionId: adm.admissionId,
-                            admissionNumber: adm.admissionNumber,
-                            studentId: adm.studentId,
-                            studentName: adm.studentName,
-                            email: adm.email,
-                            mobile: adm.mobile,
-                            course: adm.course,
-                            examTag: adm.examTag,
-                            department: adm.department,
-                            centre: adm.centre,
-                            admissionDate: adm.admissionDate,
-                            admissionTotalFees: adm.totalFees,
-                            admissionTotalPaid: adm.totalPaid,
-                            admissionRemaining: adm.remainingAmount,
-                            admissionPaymentStatus: adm.paymentStatus
-                        });
+                        // Status Match
+                        let statusMatch = true;
+                        if (filters.installmentStatus && filters.installmentStatus.length > 0) {
+                            const dueDate = new Date(inst.dueDate);
+                            dueDate.setHours(0, 0, 0, 0);
+                            const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
+                            const currentStatus = isOverdue ? 'OVERDUE' : inst.status;
+                            statusMatch = filters.installmentStatus.includes(currentStatus);
+                        }
+
+                        if (statusMatch) {
+                            flatInstallments.push({
+                                ...inst,
+                                admissionId: adm.admissionId,
+                                admissionNumber: adm.admissionNumber,
+                                studentId: adm.studentId,
+                                studentName: adm.studentName,
+                                email: adm.email,
+                                mobile: adm.mobile,
+                                course: adm.course,
+                                examTag: adm.examTag,
+                                department: adm.department,
+                                centre: adm.centre,
+                                admissionDate: adm.admissionDate,
+                                admissionTotalFees: adm.totalFees,
+                                admissionTotalPaid: adm.totalPaid,
+                                admissionRemaining: adm.remainingAmount,
+                                admissionPaymentStatus: adm.paymentStatus
+                            });
+                        }
                     }
                 });
             }
@@ -735,52 +797,56 @@ const InstallmentPayment = () => {
 
         filtered.forEach(adm => {
             if (adm.installments && adm.installments.length > 0) {
-                adm.installments.forEach(inst => {
+                adm.installments.forEach(rawInst => {
                     // Date Match
                     let dateMatch = true;
                     if (boardFilters.startDate || boardFilters.endDate) {
-                        if (inst.dueDate) {
-                            const d = new Date(inst.dueDate);
+                        if (rawInst.dueDate) {
+                            const d = new Date(rawInst.dueDate);
                             dateMatch = d >= start && d <= end;
                         } else {
                             dateMatch = false;
                         }
                     }
 
-                    // Status Match
-                    let statusMatch = true;
-                    if (boardFilters.installmentStatus && boardFilters.installmentStatus.length > 0) {
-                        const dueDate = new Date(inst.dueDate);
-                        dueDate.setHours(0, 0, 0, 0);
-                        const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
-                        const currentStatus = isOverdue ? 'OVERDUE' : inst.status;
-                        statusMatch = boardFilters.installmentStatus.includes(currentStatus);
-                    }
+                    if (dateMatch) {
+                        const inst = getAdjustedInstallment(rawInst, boardFilters.startDate ? start : null, boardFilters.endDate ? end : null);
 
-                    if (dateMatch && statusMatch) {
-                        const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName || 'N/A';
-                        const mobile = adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum || 'N/A';
-                        const email = adm.studentId?.studentsDetails?.[0]?.emailId || adm.email || '';
+                        // Status Match
+                        let statusMatch = true;
+                        if (boardFilters.installmentStatus && boardFilters.installmentStatus.length > 0) {
+                            const dueDate = new Date(inst.dueDate);
+                            dueDate.setHours(0, 0, 0, 0);
+                            const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
+                            const currentStatus = isOverdue ? 'OVERDUE' : inst.status;
+                            statusMatch = boardFilters.installmentStatus.includes(currentStatus);
+                        }
 
-                        flatInstallments.push({
-                            ...inst,
-                            boardCourseAdmissionId: adm._id,
-                            admissionNumber: adm.admissionNumber,
-                            studentId: adm.studentId?._id || adm.studentId,
-                            studentName: studentName,
-                            email: email,
-                            mobile: mobile,
-                            course: adm.boardCourseName || adm.programme,
-                            examTag: adm.studentId?.sessionExamCourse?.[0]?.examTag || adm.studentId?.examTag || 'N/A',
-                            lastClass: adm.lastClass || 'N/A',
-                            department: adm.programme,
-                            centre: adm.centre,
-                            admissionDate: adm.admissionDate,
-                            admissionTotalFees: adm.totalExpectedAmount,
-                            admissionTotalPaid: adm.totalPaidAmount,
-                            admissionRemaining: Math.max(0, (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0)),
-                            admissionPaymentStatus: (Math.max(0, (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0)) < 1) ? 'PAID' : 'PENDING'
-                        });
+                        if (statusMatch) {
+                            const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName || 'N/A';
+                            const mobile = adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum || 'N/A';
+                            const email = adm.studentId?.studentsDetails?.[0]?.emailId || adm.email || '';
+
+                            flatInstallments.push({
+                                ...inst,
+                                boardCourseAdmissionId: adm._id,
+                                admissionNumber: adm.admissionNumber,
+                                studentId: adm.studentId?._id || adm.studentId,
+                                studentName: studentName,
+                                email: email,
+                                mobile: mobile,
+                                course: adm.boardCourseName || adm.programme,
+                                examTag: adm.studentId?.sessionExamCourse?.[0]?.examTag || adm.studentId?.examTag || 'N/A',
+                                lastClass: adm.lastClass || 'N/A',
+                                department: adm.programme,
+                                centre: adm.centre,
+                                admissionDate: adm.admissionDate,
+                                admissionTotalFees: adm.totalExpectedAmount,
+                                admissionTotalPaid: adm.totalPaidAmount,
+                                admissionRemaining: Math.max(0, (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0)),
+                                admissionPaymentStatus: (Math.max(0, (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0)) < 1) ? 'PAID' : 'PENDING'
+                            });
+                        }
                     }
                 });
             }
@@ -864,50 +930,54 @@ const InstallmentPayment = () => {
 
         filtered.forEach(adm => {
             if (adm.installments && adm.installments.length > 0) {
-                adm.installments.forEach(inst => {
+                adm.installments.forEach(rawInst => {
                     let dateMatch = true;
                     if (filters.startDate || filters.endDate) {
-                        if (inst.dueDate) {
-                            const d = new Date(inst.dueDate);
+                        if (rawInst.dueDate) {
+                            const d = new Date(rawInst.dueDate);
                             dateMatch = d >= start && d <= end;
                         } else {
                             dateMatch = false;
                         }
                     }
 
-                    let statusMatch = true;
-                    if (filters.installmentStatus && filters.installmentStatus.length > 0) {
-                        const dueDate = new Date(inst.dueDate);
-                        dueDate.setHours(0, 0, 0, 0);
-                        const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
-                        const currentStatus = isOverdue ? 'OVERDUE' : inst.status;
-                        statusMatch = filters.installmentStatus.includes(currentStatus);
-                    }
+                    if (dateMatch) {
+                        const inst = getAdjustedInstallment(rawInst, filters.startDate ? start : null, filters.endDate ? end : null);
 
-                    if (dateMatch && statusMatch) {
-                        const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName || 'N/A';
-                        const mobile = adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum || 'N/A';
-                        const email = adm.studentId?.studentsDetails?.[0]?.emailId || adm.email || '';
+                        let statusMatch = true;
+                        if (filters.installmentStatus && filters.installmentStatus.length > 0) {
+                            const dueDate = new Date(inst.dueDate);
+                            dueDate.setHours(0, 0, 0, 0);
+                            const isOverdue = (inst.status !== "PAID" && inst.status !== "PENDING_CLEARANCE" && dueDate < today);
+                            const currentStatus = isOverdue ? 'OVERDUE' : inst.status;
+                            statusMatch = filters.installmentStatus.includes(currentStatus);
+                        }
 
-                        flatInstallments.push({
-                            ...inst,
-                            boardCourseAdmissionId: adm._id,
-                            admissionNumber: adm.admissionNumber,
-                            studentId: adm.studentId?._id || adm.studentId,
-                            studentName: studentName,
-                            email: email,
-                            mobile: mobile,
-                            course: adm.boardCourseName || adm.programme,
-                            examTag: adm.studentId?.sessionExamCourse?.[0]?.examTag || adm.studentId?.examTag || 'N/A',
-                            lastClass: adm.lastClass || 'N/A',
-                            department: adm.programme,
-                            centre: adm.centre,
-                            admissionDate: adm.admissionDate,
-                            admissionTotalFees: adm.totalExpectedAmount,
-                            admissionTotalPaid: adm.totalPaidAmount,
-                            admissionRemaining: Math.max(0, (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0)),
-                            admissionPaymentStatus: (Math.max(0, (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0)) < 1) ? 'PAID' : 'PENDING'
-                        });
+                        if (statusMatch) {
+                            const studentName = adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentName || 'N/A';
+                            const mobile = adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum || 'N/A';
+                            const email = adm.studentId?.studentsDetails?.[0]?.emailId || adm.email || '';
+
+                            flatInstallments.push({
+                                ...inst,
+                                boardCourseAdmissionId: adm._id,
+                                admissionNumber: adm.admissionNumber,
+                                studentId: adm.studentId?._id || adm.studentId,
+                                studentName: studentName,
+                                email: email,
+                                mobile: mobile,
+                                course: adm.boardCourseName || adm.programme,
+                                examTag: adm.studentId?.sessionExamCourse?.[0]?.examTag || adm.studentId?.examTag || 'N/A',
+                                lastClass: adm.lastClass || 'N/A',
+                                department: adm.programme,
+                                centre: adm.centre,
+                                admissionDate: adm.admissionDate,
+                                admissionTotalFees: adm.totalExpectedAmount,
+                                admissionTotalPaid: adm.totalPaidAmount,
+                                admissionRemaining: Math.max(0, (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0)),
+                                admissionPaymentStatus: (Math.max(0, (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0)) < 1) ? 'PAID' : 'PENDING'
+                            });
+                        }
                     }
                 });
             }
@@ -954,9 +1024,9 @@ const InstallmentPayment = () => {
             }
 
             return {
-                totalFees: (regFees + boardFees) / 1.18,
-                totalPaid: (regPaid + boardPaid) / 1.18,
-                totalDue: Math.max(0, (regDue + boardDue) / 1.18)
+                totalFees: regFees + boardFees,
+                totalPaid: regPaid + boardPaid,
+                totalDue: Math.max(0, regDue + boardDue)
             };
         }
 
@@ -1011,8 +1081,8 @@ const InstallmentPayment = () => {
                             boardFees: 0, boardPaid: 0, boardDue: 0
                         };
                     }
-                    const amt = (parseFloat(inst.amount) || 0) / 1.18;
-                    const paid = (parseFloat(inst.paidAmount) || 0) / 1.18;
+                    const amt = parseFloat(inst.amount) || 0;
+                    const paid = parseFloat(inst.paidAmount) || 0;
                     const due = amt - paid;
                     counts[c].totalFees += amt;
                     counts[c].totalPaid += paid;
@@ -1031,9 +1101,9 @@ const InstallmentPayment = () => {
                             boardFees: 0, boardPaid: 0, boardDue: 0
                         };
                     }
-                    const amt = (parseFloat(a.totalFees) || 0) / 1.18;
-                    const paid = (parseFloat(a.totalPaid) || 0) / 1.18;
-                    const due = (parseFloat(a.remainingAmount) || 0) / 1.18;
+                    const amt = parseFloat(a.totalFees) || 0;
+                    const paid = parseFloat(a.totalPaid) || 0;
+                    const due = parseFloat(a.remainingAmount) || 0;
                     counts[c].totalFees += amt;
                     counts[c].totalPaid += paid;
                     counts[c].totalDue += due;
@@ -1054,8 +1124,8 @@ const InstallmentPayment = () => {
                             boardFees: 0, boardPaid: 0, boardDue: 0
                         };
                     }
-                    const amt = (parseFloat(inst.amount || inst.payableAmount) || 0) / 1.18;
-                    const paid = (parseFloat(inst.paidAmount) || 0) / 1.18;
+                    const amt = parseFloat(inst.amount || inst.payableAmount) || 0;
+                    const paid = parseFloat(inst.paidAmount) || 0;
                     const due = amt - paid;
                     counts[c].totalFees += amt;
                     counts[c].totalPaid += paid;
@@ -1074,8 +1144,8 @@ const InstallmentPayment = () => {
                             boardFees: 0, boardPaid: 0, boardDue: 0
                         };
                     }
-                    const amt = (parseFloat(a.totalExpectedAmount) || 0) / 1.18;
-                    const paid = (parseFloat(a.totalPaidAmount) || 0) / 1.18;
+                    const amt = parseFloat(a.totalExpectedAmount) || 0;
+                    const paid = parseFloat(a.totalPaidAmount) || 0;
                     const due = Math.max(0, amt - paid);
                     counts[c].totalFees += amt;
                     counts[c].totalPaid += paid;
@@ -1649,7 +1719,7 @@ const InstallmentPayment = () => {
                             {/* Financial Summary Card */}
                             <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-2xl p-5 flex flex-col justify-between flex-1 min-w-[540px] shadow-sm`}>
                                 <div className={`text-[10px] font-black uppercase tracking-widest mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                    Financial Summary ({activeTab === 'boardCourse' ? (boardFilters.dateRange || "This Month") : (filters.dateRange || "This Month")}){activeTab === 'allDetails' ? " • (Excl. 18% GST)" : ""}
+                                    Financial Summary ({activeTab === 'boardCourse' ? (boardFilters.dateRange || "This Month") : (filters.dateRange || "This Month")}){activeTab === 'allDetails' ? " • (Incl. 18% GST)" : ""}
                                 </div>
                                 <div className="flex justify-between items-center gap-2">
                                     <div className="flex-1 min-w-0">
