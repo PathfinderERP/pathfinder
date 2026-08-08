@@ -222,15 +222,28 @@ export const requireGranularPermission = (module, section, action) => {
                 }
             }
 
-            // Course Management alias check: fallback to academics module if courseManagement is checked or vice-versa
+            // Course Management access check
             if (!hasAccess && module === 'courseManagement') {
-                const acadCourses = user.granularPermissions?.['academics']?.[section] || user.granularPermissions?.['academics']?.['courses'];
-                if (acadCourses) {
-                    if (action === "view") {
-                        hasAccess = acadCourses.view !== false;
+                const cleanUserRole = (user.role || '').toLowerCase().replace(/[\s\-_]+/g, '');
+                const isCourseTargetRole = [
+                    'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead',
+                    'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge',
+                    'coordinator', 'classcoordinator', 'class_coordinator'
+                ].includes(cleanUserRole);
+
+                if (hasCustomPerms) {
+                    if (user.granularPermissions?.['courseManagement']) {
+                        const coursePerms = user.granularPermissions['courseManagement'][section] || user.granularPermissions['courseManagement']['courses'];
+                        if (coursePerms) {
+                            hasAccess = action === "view" ? (coursePerms.view !== false) : (coursePerms[action] === true || coursePerms[action] === undefined);
+                        } else {
+                            hasAccess = true;
+                        }
                     } else {
-                        hasAccess = acadCourses[action] === true;
+                        hasAccess = false;
                     }
+                } else {
+                    hasAccess = isCourseTargetRole;
                 }
             }
 

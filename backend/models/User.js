@@ -229,6 +229,10 @@ userSchema.pre('save', async function () {
                     leads: { view: true, create: true, edit: true, delete: true },
                     dashboard: { view: true }
                 },
+                courseManagement: {
+                    courses: { create: true, edit: true, delete: true },
+                    carryForward: { create: true, edit: true, delete: true }
+                },
                 admissions: {
                     allLeads: { view: true, create: true, edit: true, delete: false },
                     enrolledStudents: { view: true, create: true, edit: true, delete: false }

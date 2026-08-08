@@ -35,7 +35,7 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
             const moduleData = PERMISSION_MODULES[moduleKey];
             if (moduleData && moduleData.sections) {
                 Object.entries(moduleData.sections).forEach(([sectionKey, sectionData]) => {
-                    const ops = {};
+                    const ops = { view: true };
                     const operations = sectionData.operations || ['create', 'edit', 'delete'];
                     operations.forEach(op => {
                         ops[op] = true;

@@ -617,11 +617,14 @@ const getUserRole = (userOrPermissions) => {
     }
 };
 
+const cleanRole = (r) => (r || "").toLowerCase().replace(/[\s\-_]+/g, '');
+
 // Helper function to check if user has permission
 // Accepts either (granularPermissions, module, section, operation) or (user, module, section, operation)
 export const hasPermission = (granularPermissionsOrUser, module, section, operation) => {
     const role = getUserRole(granularPermissionsOrUser);
-    if (role && (role.toLowerCase() === 'superadmin' || role.toLowerCase() === 'super admin')) {
+    const cleanRoleStr = cleanRole(role);
+    if (role && (cleanRoleStr === 'superadmin')) {
         return true; // SuperAdmin has all permissions
     }
 
@@ -631,7 +634,7 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
     const hasGranularObject = granularPermissions && typeof granularPermissions === 'object' && Object.keys(granularPermissions).length > 0;
 
     // Digital role: default superadmin-like full access; if custom granular permissions are set in User Management, enforce them strictly
-    if (role && role.toLowerCase() === 'digital') {
+    if (cleanRoleStr === 'digital') {
         if (hasGranularObject) {
             if (module === 'academics' && ['upcomingClass', 'ongoingClass', 'previousClass', 'subjects', 'chapters', 'topics'].includes(section)) {
                 if (granularPermissions[module]?.['classManagement']?.[operation] === true ||
@@ -656,57 +659,41 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
     }
 
     const ALL_ROLES_FOR_CLASS = [
-        'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller',
-        'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing',
-        'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts',
-        'coordinator', 'digital', 'assistantZonalManager', 'assistantCenterIncharge'
+        'teacher', 'admin', 'superadmin', 'telecaller', 'centralizedtelecaller',
+        'counsellor', 'rm', 'classcoordinator', 'class_coordinator', 'hod', 'marketing',
+        'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'hr', 'accounts',
+        'coordinator', 'digital', 'assistantzonalmanager', 'assistantcenterincharge'
     ];
 
     if (!hasGranularObject && granularPermissionsOrUser && granularPermissionsOrUser.role && module === 'academics' &&
         ['classes', 'classManagement', 'upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
-        if (ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === granularPermissionsOrUser.role.toLowerCase())) {
+        if (ALL_ROLES_FOR_CLASS.some(r => cleanRole(r) === cleanRole(granularPermissionsOrUser.role))) {
             return true;
         }
     }
 
     // Course Management module & section resolution
     if (module === 'courseManagement' || section === 'courses' || section === 'courseManagement') {
+        const isCourseTargetRole = [
+            'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead',
+            'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge',
+            'coordinator', 'classcoordinator', 'class_coordinator'
+        ].includes(cleanRoleStr);
+
         if (hasGranularObject) {
             if (!granularPermissions?.courseManagement) return false;
             const secKey = (section === 'courseManagement' || section === 'courses') ? 'courses' : section;
             const secObj = granularPermissions.courseManagement[secKey] || granularPermissions.courseManagement['courses'];
-            if (!secObj || typeof secObj !== 'object') return false;
+            if (!secObj || typeof secObj !== 'object') return true;
             if (operation === 'view' && secObj.view === false) return false;
             if (operation !== 'view' && secObj[operation] === false) return false;
             if (operation === 'view') {
-                return secObj.view === true || secObj.view === undefined;
+                return secObj.view === true || secObj.view === undefined || Object.values(secObj).some(v => v === true);
             }
             return secObj[operation] === true;
         }
 
-        const isCourseTargetRole = [
-            'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead',
-            'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge',
-            'coordinator', 'class_coordinator'
-        ].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
-
-        const explicitFalse = (
-            granularPermissions?.courseManagement?.courses?.view === false ||
-            granularPermissions?.courseManagement?.courses?.[operation] === false ||
-            granularPermissions?.academics?.courses?.view === false ||
-            granularPermissions?.academics?.courses?.[operation] === false
-        );
-
-        if (explicitFalse) return false;
-
-        const hasGranularTrue = (
-            (granularPermissions?.courseManagement?.courses && granularPermissions.courseManagement.courses.view !== false) ||
-            (granularPermissions?.courseManagement?.carryForward && granularPermissions.courseManagement.carryForward.view !== false)
-        );
-
-        if (hasGranularTrue) return true;
-        if (!hasGranularObject && isCourseTargetRole) return true;
-        return false;
+        return isCourseTargetRole;
     }
 
     // Check if permission is explicitly set to false in granularPermissions first
@@ -777,10 +764,11 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
 // Helper function to check if user has any permission in a module
 export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     const role = getUserRole(granularPermissionsOrUser);
-    if (role && (role.toLowerCase() === 'superadmin' || role.toLowerCase() === 'super admin')) {
+    const cleanRoleStr = cleanRole(role);
+    if (role && (cleanRoleStr === 'superadmin')) {
         return true; // SuperAdmin has access to all modules
     }
-    const normalizedRole = role ? role.toLowerCase() : "";
+    const normalizedRole = cleanRoleStr;
 
     const granularPermissions = granularPermissionsOrUser?.granularPermissions ||
         (typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
@@ -799,24 +787,24 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
 
     // Course Management module access resolution
     if (module === 'courseManagement') {
+        const isCourseTargetRole = [
+            'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead',
+            'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge',
+            'coordinator', 'classcoordinator', 'class_coordinator'
+        ].includes(normalizedRole);
+
         if (hasGranularObject) {
             if (!granularPermissions?.courseManagement) return false;
             const sections = granularPermissions.courseManagement;
             const keys = Object.keys(sections);
-            if (keys.length === 0) return false;
+            if (keys.length === 0) return true;
             return keys.some(secKey => {
                 const sec = sections[secKey];
-                if (!sec || typeof sec !== 'object') return false;
+                if (!sec || typeof sec !== 'object') return true;
                 if (sec.view !== undefined) return sec.view === true;
                 return Object.values(sec).some(v => v === true);
             });
         }
-
-        const isCourseTargetRole = [
-            'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead',
-            'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge',
-            'coordinator', 'class_coordinator'
-        ].includes(normalizedRole.replace(/\s+/g, ''));
 
         return isCourseTargetRole;
     }
@@ -836,7 +824,7 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
         }
     }
 
-    if (!hasGranularObject && module === 'academics' && (normalizedRole === 'class_coordinator' || normalizedRole === 'coordinator')) {
+    if (!hasGranularObject && module === 'academics' && (normalizedRole === 'classcoordinator' || normalizedRole === 'class_coordinator' || normalizedRole === 'coordinator')) {
         return true;
     }
 
@@ -849,7 +837,7 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
                 return sec && (sec.view !== false || Object.values(sec).some(v => v === true));
             });
         }
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(normalizedRole.replace(/\s+/g, ''));
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(normalizedRole);
         if (isMktTargetRole) return true;
     }
 
@@ -891,8 +879,7 @@ export const getAccessibleModules = (granularPermissionsOrUser) => {
         }
     }
 
-    if (!granularPermissions) return [];
-    return Object.keys(granularPermissions).filter(module =>
+    return Object.keys(PERMISSION_MODULES).filter(module =>
         hasModuleAccess(granularPermissionsOrUser, module)
     );
 };
