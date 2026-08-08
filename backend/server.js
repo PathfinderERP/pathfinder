@@ -207,7 +207,7 @@ app.use("/api/board-course-subject", boardCourseSubjectRoutes);
 app.use("/api/subject", subjectRoutes);
 app.use("/api/zone", zoneRoutes);
 app.use("/api/dashboard", dashboardRoutes);
-app.use("/api/ceo", ceoRoutes);
+// app.use("/api/ceo", ceoRoutes);
 app.use("/api/posts", postRoutes);
 app.use("/api/community", communityRoutes);
 app.use("/api/student-portal", studentPortalRoutes);

@@ -167,7 +167,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             ]
         },
         { name: "Marketing & CRM", icon: <FaBullhorn />, path: "/marketing-crm", permissionModule: "marketingCRM" },
-        { name: "CEO Control Tower", icon: <FaChartBar />, path: "/ceo-control-tower", permissionModule: "ceoControlTower" },
+        //{ name: "CEO Control Tower", icon: <FaChartBar />, path: "/ceo-control-tower", permissionModule: "ceoControlTower" },
         {
             name: "Admissions",
             icon: <FaBullseye />,

@@ -210,8 +210,8 @@ function App() {
         <Route path="/lead-management" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
         <Route path="/lead-management/dashboard" element={<ProtectedRoute><LeadDashboard /></ProtectedRoute>} />
         <Route path="/lead-management/conversion-report" element={<ProtectedRoute><ConversionReportPage /></ProtectedRoute>} />
-        <Route path="/ceo-control-tower" element={<ProtectedRoute><CEOControlTower /></ProtectedRoute>} />
-        <Route path="/ceo-control-tower/lead-analytics" element={<ProtectedRoute><CEOLeadAnalytics /></ProtectedRoute>} />
+        {/* <Route path="/ceo-control-tower" element={<ProtectedRoute><CEOControlTower /></ProtectedRoute>} /> */}
+        {/* <Route path="/ceo-control-tower/lead-analytics" element={<ProtectedRoute><CEOLeadAnalytics /></ProtectedRoute>} /> */}
 
         <Route path="/red-flag-desk" element={<ProtectedRoute><RedFlagDesk /></ProtectedRoute>} />
         <Route path="/daily-tracking-log" element={<ProtectedRoute requiredPermissionModule="dailyTrackingLog"><DailyTrackingLog /></ProtectedRoute>} />

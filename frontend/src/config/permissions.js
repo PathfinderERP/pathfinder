@@ -43,23 +43,23 @@ export const PERMISSION_MODULES = {
             }
         }
     },
-    ceoControlTower: {
-        label: "CEO Control Tower",
-        sections: {
-            dashboard: {
-                label: "Dashboard",
-                operations: ["create", "edit", "delete"]
-            },
-            analytics: {
-                label: "Analytics",
-                operations: ["create", "edit", "delete"]
-            },
-            reports: {
-                label: "Reports",
-                operations: ["create", "edit", "delete"]
-            }
-        }
-    },
+    // ceoControlTower: {
+    //     label: "CEO Control Tower",
+    //     sections: {
+    //         dashboard: {
+    //             label: "Dashboard",
+    //             operations: ["create", "edit", "delete"]
+    //         },
+    //         analytics: {
+    //             label: "Analytics",
+    //             operations: ["create", "edit", "delete"]
+    //         },
+    //         reports: {
+    //             label: "Reports",
+    //             operations: ["create", "edit", "delete"]
+    //         }
+    //     }
+    // },
     admissions: {
         label: "Admissions",
         sections: {
