@@ -72,7 +72,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
             });
             const data = await response.json();
             if (response.ok) {
-                setCentres(data);
+                const activeCentres = Array.isArray(data) ? data.filter(c => c.status !== 'deactive') : [];
+                setCentres(activeCentres);
             } else {
                 toast.error("Failed to fetch centres");
             }

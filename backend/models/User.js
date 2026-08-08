@@ -185,8 +185,8 @@ userSchema.pre('save', async function () {
         this.permissions.push("Dashboard");
     }
 
-    // Ensure all non-teacher roles get default My Daily Log permission
-    if (this.role && this.role.toLowerCase() !== 'teacher') {
+    // Ensure all non-teacher roles get default My Daily Log permission on creation
+    if (this.isNew && this.role && this.role.toLowerCase() !== 'teacher') {
         if (!this.granularPermissions) {
             this.granularPermissions = {};
         }

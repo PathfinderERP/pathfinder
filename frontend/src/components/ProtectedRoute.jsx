@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate } from 'react-router-dom';
+import { hasPermission, hasModuleAccess } from '../config/permissions';
 
 /**
  * ProtectedRoute
@@ -35,19 +36,14 @@ const ProtectedRoute = ({ children, allowedRoles, requiredPermissionModule, requ
 
         // If a granular permission module is required, check if user has access to it / its section
         if (requiredPermissionModule) {
-            const granularPermissions = user.granularPermissions || {};
-            
             if (requiredPermissionSection) {
                 // Check access to specific section of the module
-                const sectionPerms = granularPermissions[requiredPermissionModule]?.[requiredPermissionSection];
-                if (sectionPerms) {
+                if (hasPermission(user, requiredPermissionModule, requiredPermissionSection, "view")) {
                     return children;
                 }
             } else {
-                // Check general access to the module (at least one section is active)
-                const modulePerms = granularPermissions[requiredPermissionModule];
-                const hasModuleGranularAccess = modulePerms && Object.keys(modulePerms).length > 0;
-                if (hasModuleGranularAccess) {
+                // Check general access to the module
+                if (hasModuleAccess(user, requiredPermissionModule)) {
                     return children;
                 }
             }

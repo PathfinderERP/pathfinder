@@ -11,7 +11,7 @@ import { startOfDay, endOfDay, format, eachDayOfInterval, startOfYear, endOfYear
 // Helper to safely extract single numeric working hours from array or number field
 const getTargetWorkingHours = (wh) => {
     if (Array.isArray(wh)) {
-        return wh.length > 0 ? Math.max(...wh) : 9;
+        return wh.length > 0 ? Math.min(...wh) : 9;
     }
     return (wh && wh > 0) ? wh : 9;
 };
@@ -19,11 +19,9 @@ const getTargetWorkingHours = (wh) => {
 // Helper to safely resolve role-aware dynamic shift target hours
 const getShiftTargetHours = (emp, roleStr, worked) => {
     if (!emp) return 9;
-    const role = roleStr || emp.role || "";
-    const isTeacher = role === "teacher";
-    if (isTeacher) {
-        const wh = emp.workingHours;
-        if (Array.isArray(wh) && wh.length > 0) {
+    const wh = emp.workingHours;
+    if (Array.isArray(wh) && wh.length > 0) {
+        if (worked !== undefined && worked > 0) {
             let closest = wh[0];
             let minDiff = Math.abs(worked - closest);
             for (let i = 1; i < wh.length; i++) {
@@ -35,9 +33,10 @@ const getShiftTargetHours = (emp, roleStr, worked) => {
             }
             return closest;
         }
-        if (wh && wh > 0) return wh;
+        return Math.min(...wh);
     }
-    return 9; // For normal staff, HODs, etc. always 9 hours
+    if (typeof wh === 'number' && wh > 0) return wh;
+    return 9;
 };
 
 // Helper function to calculate distance between two coordinates in meters
@@ -421,6 +420,16 @@ export const getMyAttendance = async (req, res) => {
             rec.date >= startOfMarkWeek && rec.date <= today && rec.status !== "Week Off"
         );
 
+        // Recalculate status for records according to configured employee working hours
+        attendances.forEach(rec => {
+            if (rec.workingHours > 0 && rec.checkOut?.time) {
+                const worked = rec.workingHours;
+                if (rec.status === "Early Leave" && worked >= (targetHours - 0.5)) {
+                    rec.status = worked >= (targetHours + 1.0) ? "Overtime" : "Present";
+                }
+            }
+        });
+
         let earlyCheckoutsThisWeek = 0;
         thisWeekRecords.forEach(rec => {
             const worked = rec.workingHours || 0;
@@ -569,6 +578,12 @@ export const getAllAttendance = async (req, res) => {
                 // If it's today and they are checked in but not out, status is still Present (working)
                 // but we can flag it for the "Forgot Checkout" section if the work day is nearly over
                 attObj.isCurrentlyWorking = true;
+            }
+            if (attObj.workingHours > 0 && attObj.checkOut?.time && attObj.employeeId) {
+                const target = getTargetWorkingHours(attObj.employeeId.workingHours);
+                if (attObj.status === "Early Leave" && attObj.workingHours >= (target - 0.5)) {
+                    attObj.status = attObj.workingHours >= (target + 1.0) ? "Overtime" : "Present";
+                }
             }
             return attObj;
         });

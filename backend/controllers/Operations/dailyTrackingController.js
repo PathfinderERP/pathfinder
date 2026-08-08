@@ -12,7 +12,7 @@ import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import mongoose from "mongoose";
 import XLSX from "xlsx";
 
-const RESTRICTED_ROLES = ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'centreincharge', 'centerincharge', 'admin', 'assistantcenterincharge'];
+const RESTRICTED_ROLES = ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller'];
 const checkRestricted = (role) => {
     return RESTRICTED_ROLES.includes((role || '').toLowerCase());
 };
@@ -24,7 +24,7 @@ const checkRestrictCentres = (role) => {
 
 const checkRestrictIndividual = (role) => {
     const r = (role || '').toLowerCase();
-    return ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'admin', 'centreincharge', 'centerincharge', 'assistantcenterincharge'].includes(r);
+    return ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller'].includes(r);
 };
 
 const parseDateRangeIST = (fromDateStr, toDateStr) => {
@@ -949,10 +949,12 @@ export const getDailyCenterDetails = async (req, res) => {
         const center = await CentreSchema.findById(centerId).lean();
         if (!center) return res.status(404).json({ message: "Center not found" });
 
-        const isRestricted = checkRestricted(req.user?.role);
-        if (isRestricted) {
+        const isRestrictCentres = checkRestrictCentres(req.user?.role);
+        const isRestrictIndividual = checkRestrictIndividual(req.user?.role);
+
+        if (isRestrictCentres && req.user?.role !== 'superAdmin' && req.user?.role !== 'superadmin') {
             const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
-            if (!userCenterIds.includes(centerId)) {
+            if (!userCenterIds.includes(centerId.toString())) {
                 return res.status(403).json({ message: "Access denied. Center not assigned to user." });
             }
         }
@@ -964,7 +966,7 @@ export const getDailyCenterDetails = async (req, res) => {
             isActive: true,
             role: { $in: operationalRoles }
         };
-        if (isRestricted) {
+        if (isRestrictIndividual) {
             userQuery._id = req.user._id;
         }
         const users = await User.find(userQuery).lean();
@@ -1739,10 +1741,12 @@ export const exportCenterPerformanceExcel = async (req, res) => {
         const center = await CentreSchema.findById(centerId).lean();
         if (!center) return res.status(404).json({ message: "Center not found" });
 
-        const isRestricted = checkRestricted(req.user?.role);
-        if (isRestricted) {
+        const isRestrictCentres = checkRestrictCentres(req.user?.role);
+        const isRestrictIndividual = checkRestrictIndividual(req.user?.role);
+
+        if (isRestrictCentres && req.user?.role !== 'superAdmin' && req.user?.role !== 'superadmin') {
             const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
-            if (!userCenterIds.includes(centerId)) {
+            if (!userCenterIds.includes(centerId.toString())) {
                 return res.status(403).json({ message: "Access denied. Center not assigned to user." });
             }
         }
@@ -1754,7 +1758,7 @@ export const exportCenterPerformanceExcel = async (req, res) => {
             isActive: true
         };
 
-        if (isRestricted) {
+        if (isRestrictIndividual) {
             userQuery._id = req.user._id;
         } else if (role) {
             userQuery.role = { $regex: new RegExp(`^${role}$`, 'i') };
@@ -2211,7 +2215,8 @@ export const getDailyTrackingDetails = async (req, res) => {
             agentNames = users.map(u => u.name).filter(Boolean);
         }
 
-        const isRestricted = checkRestricted(req.user?.role);
+        const isRestrictCentres = checkRestrictCentres(req.user?.role);
+        const isRestrictIndividual = checkRestrictIndividual(req.user?.role);
 
         // Resolve Center IDs & Center Names
         let centerObjectIdList = [];
@@ -2234,7 +2239,7 @@ export const getDailyTrackingDetails = async (req, res) => {
             centerObjectIdList = zoneDocs.flatMap(z => (z.centres || []));
             const cDocs = await CentreSchema.find({ _id: { $in: centerObjectIdList } }).select('centreName').lean();
             centerNamesList = cDocs.map(c => c.centreName).filter(Boolean);
-        } else if (isRestricted) {
+        } else if (isRestrictCentres || (req.user?.role !== 'superAdmin' && req.user?.role !== 'superadmin')) {
             const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
             centerObjectIdList = userCenterIds.map(id => {
                 try { return new mongoose.Types.ObjectId(id); } catch (e) { return null; }
@@ -2258,7 +2263,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                         { isWalkIn: true, walkInDate: dateFilter, walkInBy: { $in: agentObjectIdList } },
                         { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter, createdBy: { $in: agentObjectIdList } }
                     ];
-                } else if (isRestricted) {
+                } else if (isRestrictIndividual) {
                     walkinsQuery.$or = [
                         { isWalkIn: true, walkInDate: dateFilter, walkInBy: req.user._id },
                         { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter, createdBy: req.user._id }
@@ -2305,7 +2310,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                             { followUps: { $elemMatch: { updatedBy: { $in: agentNames }, date: dateFilter } } }
                         ]
                     });
-                } else if (isRestricted) {
+                } else if (isRestrictIndividual) {
                     andConditions.push({
                         $or: [
                             { createdBy: req.user._id },
@@ -2338,7 +2343,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                     admittedNormalQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
                 }
                 if (agentIds) admittedNormalQuery.createdBy = { $in: agentObjectIdList };
-                else if (isRestricted) admittedNormalQuery.createdBy = req.user._id;
+                else if (isRestrictIndividual) admittedNormalQuery.createdBy = req.user._id;
 
                 let normalAdmissions = await Admission.find(admittedNormalQuery).populate('student').populate('createdBy').lean();
                 if (leadType) {
@@ -2382,7 +2387,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                 const boardQuery = { counselledDate: dateFilter };
                 if (centerNamesList.length > 0) boardQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
                 if (agentIds) boardQuery.counselledBy = { $in: agentObjectIdList };
-                else if (isRestricted) boardQuery.counselledBy = req.user._id;
+                else if (isRestrictIndividual) boardQuery.counselledBy = req.user._id;
 
                 let boardCounsellings = await BoardCourseCounselling.find(boardQuery).populate('studentId').populate('counselledBy').lean();
                 if (leadType) {
@@ -2419,7 +2424,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                 const admittedBoardQuery = { createdAt: dateFilter };
                 if (centerNamesList.length > 0) admittedBoardQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
                 if (agentIds) admittedBoardQuery.createdBy = { $in: agentObjectIdList };
-                else if (isRestricted) admittedBoardQuery.createdBy = req.user._id;
+                else if (isRestrictIndividual) admittedBoardQuery.createdBy = req.user._id;
 
                 let boardAdmissions = await BoardCourseAdmission.find(admittedBoardQuery).populate('studentId').populate('createdBy').lean();
                 if (leadType) {
@@ -2466,7 +2471,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                 const normalQuery = { createdAt: dateFilter };
                 if (centerNamesList.length > 0) normalQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
                 if (agentIds) normalQuery.createdBy = { $in: agentObjectIdList };
-                else if (isRestricted) normalQuery.createdBy = req.user._id;
+                else if (isRestrictIndividual) normalQuery.createdBy = req.user._id;
 
                 let normalAdmissions = await Admission.find(normalQuery).populate('student').populate('course', 'courseName').populate('createdBy').lean();
                 if (leadType) {
@@ -2487,7 +2492,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                 const boardQuery = { createdAt: dateFilter };
                 if (centerNamesList.length > 0) boardQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
                 if (agentIds) boardQuery.createdBy = { $in: agentObjectIdList };
-                else if (isRestricted) boardQuery.createdBy = req.user._id;
+                else if (isRestrictIndividual) boardQuery.createdBy = req.user._id;
 
                 let boardAdmissions = await BoardCourseAdmission.find(boardQuery).populate('studentId').populate('createdBy').lean();
                 if (leadType) {
@@ -2588,7 +2593,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                 const callsQuery = { "followUps.date": dateFilter };
                 if (centerObjectIdList.length > 0) callsQuery.centre = { $in: centerObjectIdList };
                 if (agentIds) callsQuery["followUps.updatedBy"] = { $in: agentNames };
-                else if (isRestricted) callsQuery["followUps.updatedBy"] = req.user.name;
+                else if (isRestrictIndividual) callsQuery["followUps.updatedBy"] = req.user.name;
                 if (leadType) callsQuery.leadType = leadType;
 
                 const leadsWithCalls = await LeadManagement.find(callsQuery).populate('centre').lean();
@@ -2596,7 +2601,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                     const matchingFollowups = (lead.followUps || []).filter(fu => {
                         const fuDate = new Date(fu.date);
                         return fuDate >= start && fuDate <= end && 
-                            (!isRestricted || fu.updatedBy === req.user.name) &&
+                            (!isRestrictIndividual || fu.updatedBy === req.user.name) &&
                             (!agentIds || agentNames.includes(fu.updatedBy));
                     });
 
@@ -2635,7 +2640,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                 };
                 if (agentIds) {
                     queryPaymentsMatch.recordedBy = { $in: agentObjectIdList };
-                } else if (isRestricted) {
+                } else if (isRestrictIndividual) {
                     queryPaymentsMatch.recordedBy = req.user._id;
                 }
 
@@ -2767,7 +2772,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                     { createdBy: { $in: agentObjectIdList } },
                     { followUps: { $elemMatch: { updatedBy: { $in: agentNames }, date: dateFilter } } }
                 ];
-            } else if (isRestricted) {
+            } else if (isRestrictIndividual) {
                 normalCounselQuery.$or = [
                     { createdBy: req.user._id },
                     { followUps: { $elemMatch: { updatedBy: req.user.name, date: dateFilter } } }
@@ -2781,7 +2786,7 @@ export const getDailyTrackingDetails = async (req, res) => {
             const normalAdmQuery = { createdAt: dateFilter };
             if (centerNamesList.length > 0) normalAdmQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
             if (agentIds) normalAdmQuery.createdBy = { $in: agentObjectIdList };
-            else if (isRestricted) normalAdmQuery.createdBy = req.user._id;
+            else if (isRestrictIndividual) normalAdmQuery.createdBy = req.user._id;
             const normalAdmissions = await Admission.find(normalAdmQuery).populate('student').lean();
             const admittedNormalPhones = new Set(
                 normalAdmissions.map(a => normalizePhone(a.student?.studentsDetails?.[0]?.mobileNum)).filter(Boolean)
@@ -2791,14 +2796,14 @@ export const getDailyTrackingDetails = async (req, res) => {
             const boardCounselQuery = { counselledDate: dateFilter };
             if (centerNamesList.length > 0) boardCounselQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
             if (agentIds) boardCounselQuery.counselledBy = { $in: agentObjectIdList };
-            else if (isRestricted) boardCounselQuery.counselledBy = req.user._id;
+            else if (isRestrictIndividual) boardCounselQuery.counselledBy = req.user._id;
             const boardCounsellings = await BoardCourseCounselling.find(boardCounselQuery).populate('studentId').populate('counselledBy').lean();
 
             // --- Board admissions to exclude ---
             const boardAdmQuery = { createdAt: dateFilter };
             if (centerNamesList.length > 0) boardAdmQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
             if (agentIds) boardAdmQuery.createdBy = { $in: agentObjectIdList };
-            else if (isRestricted) boardAdmQuery.createdBy = req.user._id;
+            else if (isRestrictIndividual) boardAdmQuery.createdBy = req.user._id;
             const boardAdmissions = await BoardCourseAdmission.find(boardAdmQuery).populate('studentId').lean();
             const admittedBoardPhones = new Set(
                 boardAdmissions.map(a => normalizePhone(a.studentId?.studentsDetails?.[0]?.mobileNum)).filter(Boolean)
@@ -2955,8 +2960,8 @@ export const getDailyTrackingDetails = async (req, res) => {
             }
         }
 
-        if (queryCenterIds.length > 0 || isRestricted) {
-            if (isRestricted) {
+        if (queryCenterIds.length > 0 || isRestrictCentres || (req.user?.role !== 'superAdmin' && req.user?.role !== 'superadmin')) {
+            if (isRestrictCentres || (req.user?.role !== 'superAdmin' && req.user?.role !== 'superadmin')) {
                 const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
                 const allowedCenterIds = queryCenterIds.length > 0
                     ? queryCenterIds.filter(id => userCenterIds.includes(id))

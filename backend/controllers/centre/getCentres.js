@@ -9,16 +9,14 @@ export const getCentres = async (req, res) => {
         // SuperAdmins see all centres
         // Other users only see centres they are assigned to
         let query = {};
+        if (req.query.includeDeactive !== 'true') {
+            query.status = { $ne: "deactive" };
+        }
 
         if (!isSuperAdmin && req.query.fetchAll !== 'true') {
             const userCentres = user.centres || [];
             if (userCentres.length > 0) {
-                // Filter to only show active centres the user is assigned to
-                // We also include centres where status is not explicitly set (defaults to active)
-                query = {
-                    _id: { $in: userCentres },
-                    status: { $ne: "deactive" }
-                };
+                query._id = { $in: userCentres };
             } else {
                 // If user has no centres assigned, return empty array
                 return res.status(200).json([]);

@@ -951,20 +951,21 @@ const EmployeeAttendance = () => {
                                             if (status.type === "Present") {
                                                 const hours = status.workingHours || 0;
                                                 const s = status.status;
+                                                const target = workingHours || 9;
 
                                                 if (s === "Absent" || hours < 4) {
                                                     colorClass = "bg-red-500/20 text-red-500 border border-red-500/30";
                                                     dotColor = "bg-red-500";
-                                                } else if (s === "Half Day" || hours < 4.5) {
+                                                } else if (s === "Half Day" || (hours < (target / 2))) {
                                                     colorClass = "bg-orange-500/20 text-orange-400 border border-orange-500/30";
                                                     dotColor = "bg-orange-500";
-                                                } else if (s === "Early Leave" || hours < 8) {
+                                                } else if (s === "Early Leave" || (hours < (target - 0.5))) {
                                                     colorClass = "bg-pink-500/20 text-pink-400 border border-pink-500/30";
                                                     dotColor = "bg-pink-500";
-                                                } else if (hours < 9) {
+                                                } else if (hours < target) {
                                                     colorClass = "bg-lime-500/20 text-lime-400 border border-lime-500/30";
                                                     dotColor = "bg-lime-500";
-                                                } else if (s === "Overtime" || hours > 9.05) {
+                                                } else if (s === "Overtime" || hours >= (target + 1.0)) {
                                                     colorClass = "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30";
                                                     dotColor = "bg-indigo-500";
                                                     isOvertime = true;

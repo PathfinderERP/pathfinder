@@ -185,9 +185,10 @@ export const requireGranularPermission = (module, section, action) => {
                 return next();
             }
 
+            const hasCustomPerms = user.granularPermissions && typeof user.granularPermissions === 'object' && Object.keys(user.granularPermissions).length > 0;
+
             // Digital role has superadmin-like access by default unless specific permissions are set in user.granularPermissions
             if (user.role?.toLowerCase() === "digital") {
-                const hasCustomPerms = user.granularPermissions && typeof user.granularPermissions === 'object' && Object.keys(user.granularPermissions).length > 0;
                 if (!hasCustomPerms) {
                     req.user = user;
                     return next();
@@ -233,8 +234,8 @@ export const requireGranularPermission = (module, section, action) => {
                 }
             }
 
-            // Grant automatic access to dailyTrackingLog module actions (myDailyLog for all non-teacher roles)
-            if (!hasAccess && module === 'dailyTrackingLog') {
+            // Grant automatic access to dailyTrackingLog module actions ONLY if user does NOT have custom permissions configured
+            if (!hasAccess && module === 'dailyTrackingLog' && !hasCustomPerms) {
                 if (section === 'myDailyLog') {
                     const isTeacher = user.role?.toLowerCase() === 'teacher';
                     if (!isTeacher) {

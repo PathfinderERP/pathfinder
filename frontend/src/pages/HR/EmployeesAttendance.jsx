@@ -1600,6 +1600,8 @@ const EmployeesAttendance = () => {
                                                         const todayStr = format(new Date(), 'yyyy-MM-dd');
                                                         const isPastDate = recordDate < todayStr;
 
+                                                        const target = Array.isArray(r.employeeId?.workingHours) && r.employeeId.workingHours.length > 0 ? Math.min(...r.employeeId.workingHours) : (typeof r.employeeId?.workingHours === 'number' ? r.employeeId.workingHours : 9);
+
                                                         let badgeCls = 'bg-emerald-500/10 text-emerald-400';
                                                         let label = s || 'Present';
 
@@ -1607,13 +1609,13 @@ const EmployeesAttendance = () => {
                                                             badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
                                                         } else if (hours < 4 && r.checkOut) {
                                                             badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
-                                                        } else if (s === 'Half Day' || (hours < 4.5 && r.checkOut)) {
+                                                        } else if (s === 'Half Day' || (hours < (target / 2) && r.checkOut)) {
                                                             badgeCls = 'bg-orange-500/10 text-orange-400'; label = 'Half Day';
-                                                        } else if (s === 'Early Leave' || (hours < 8.5 && r.checkOut)) {
+                                                        } else if (s === 'Early Leave' || (hours < (target - 0.5) && r.checkOut)) {
                                                             badgeCls = 'bg-pink-500/10 text-pink-400'; label = 'Early Leave';
-                                                        } else if (hours < 9 && r.checkOut) {
+                                                        } else if (hours < target && r.checkOut) {
                                                             badgeCls = 'bg-lime-500/10 text-lime-400'; label = 'Short';
-                                                        } else if (s === 'Overtime' || hours > 9.05) {
+                                                        } else if (s === 'Overtime' || hours >= (target + 1.0)) {
                                                             badgeCls = 'bg-indigo-500/10 text-indigo-400'; label = 'Overtime ★';
                                                         } else if (s === 'Week Off') {
                                                             badgeCls = 'bg-gray-500/10 text-gray-500'; label = 'Day Off';

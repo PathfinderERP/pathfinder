@@ -214,7 +214,7 @@ function App() {
         <Route path="/ceo-control-tower/lead-analytics" element={<ProtectedRoute><CEOLeadAnalytics /></ProtectedRoute>} />
 
         <Route path="/red-flag-desk" element={<ProtectedRoute><RedFlagDesk /></ProtectedRoute>} />
-        <Route path="/daily-tracking-log" element={<ProtectedRoute><DailyTrackingLog /></ProtectedRoute>} />
+        <Route path="/daily-tracking-log" element={<ProtectedRoute requiredPermissionModule="dailyTrackingLog"><DailyTrackingLog /></ProtectedRoute>} />
         <Route path="/marketing-crm" element={<ProtectedRoute><MarketingCRM /></ProtectedRoute>} />
         <Route path="/marketing-crm/upload-leads" element={<ProtectedRoute><UploadLeads /></ProtectedRoute>} />
         <Route path="/admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
@@ -344,7 +344,7 @@ function App() {
         {/* <Route path="/academics/exam-leader-board" element={<ProtectedRoute><ExamLeaderBoard /></ProtectedRoute>} /> */}
         <Route path="/academics/teacher-routine" element={<ProtectedRoute><TeacherRoutineSchedule /></ProtectedRoute>} />
         <Route path="/academics/students-schedule" element={<ProtectedRoute><TeacherStudentSchedule /></ProtectedRoute>} />
-        <Route path="/lead-management/teacher-schedule" element={<ProtectedRoute><TeacherSchedulePage /></ProtectedRoute>} />
+        <Route path="/lead-management/teacher-schedule" element={<ProtectedRoute requiredPermissionModule="leadManagement" requiredPermissionSection="teacherSchedule"><TeacherSchedulePage /></ProtectedRoute>} />
         <Route path="/lead-management/campaigns" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
         <Route path="/lead-management/campaigns/:campaignId/upload-leads" element={<ProtectedRoute><CampaignUploadLeads /></ProtectedRoute>} />
 

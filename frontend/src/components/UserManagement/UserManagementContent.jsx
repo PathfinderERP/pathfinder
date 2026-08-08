@@ -82,7 +82,10 @@ const UserManagementContent = () => {
                 fetch(`${apiUrl}/board`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
 
-            if (centresRes.ok) setAllCentres(await centresRes.json());
+            if (centresRes.ok) {
+                const cData = await centresRes.json();
+                setAllCentres(Array.isArray(cData) ? cData.filter(c => c.status !== 'deactive') : []);
+            }
             if (scriptsRes.ok) setAllScripts(await scriptsRes.json());
             if (departmentsRes.ok) setAllDepartments(await departmentsRes.json());
             if (boardsRes.ok) setAllBoards(await boardsRes.json());
