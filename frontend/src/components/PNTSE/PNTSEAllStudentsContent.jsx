@@ -183,6 +183,7 @@ const PNTSEAllStudentsContent = () => {
     const [editSubmitting, setEditSubmitting] = useState(false);
 
     const courses = [
+        'PNTSE CLASS 5',
         'PNTSE CLASS 6',
         'PNTSE CLASS 7',
         'PNTSE CLASS 8',

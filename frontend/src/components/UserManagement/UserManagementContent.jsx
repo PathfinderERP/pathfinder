@@ -35,11 +35,14 @@ const UserManagementContent = () => {
         );
     };
 
-    const toggleSelectAll = (users) => {
-        if (selectedUserIds.length === users.length) {
-            setSelectedUserIds([]);
+    const toggleSelectAll = (targetUsers) => {
+        const targetList = targetUsers || filteredUsers;
+        const targetIds = targetList.map(u => u._id);
+        const allSelected = targetIds.length > 0 && targetIds.every(id => selectedUserIds.includes(id));
+        if (allSelected) {
+            setSelectedUserIds(prev => prev.filter(id => !targetIds.includes(id)));
         } else {
-            setSelectedUserIds(users.map(u => u._id));
+            setSelectedUserIds(prev => Array.from(new Set([...prev, ...targetIds])));
         }
     };
     const [filterRole, setFilterRole] = useState([]);
@@ -671,6 +674,40 @@ const UserManagementContent = () => {
                         >
                             <FaUndo />
                         </button>
+                    </div>
+
+                    {/* Selection & Bulk Access Toolbar */}
+                    <div className={`mt-4 pt-3 border-t flex flex-wrap items-center justify-between gap-3 ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                        <div className="flex items-center gap-3">
+                            <button
+                                type="button"
+                                onClick={() => toggleSelectAll(filteredUsers)}
+                                className={`px-3.5 py-1.5 rounded-lg border text-xs font-bold transition-all flex items-center gap-2 ${filteredUsers.length > 0 && filteredUsers.every(u => selectedUserIds.includes(u._id))
+                                    ? 'bg-cyan-500/20 text-cyan-400 border-cyan-500/40'
+                                    : isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white' : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
+                                }`}
+                            >
+                                <FaCheckSquare className={filteredUsers.length > 0 && filteredUsers.every(u => selectedUserIds.includes(u._id)) ? 'text-cyan-400' : 'text-gray-400'} />
+                                {filteredUsers.length > 0 && filteredUsers.every(u => selectedUserIds.includes(u._id))
+                                    ? `Deselect Filtered (${filteredUsers.length})`
+                                    : `Select All Filtered (${filteredUsers.length})`}
+                            </button>
+
+                            {selectedUserIds.length > 0 && (
+                                <span className="text-xs font-black tracking-wider text-cyan-400 bg-cyan-500/10 px-2.5 py-1 rounded-md border border-cyan-500/20">
+                                    {selectedUserIds.length} User(s) Selected
+                                </span>
+                            )}
+                        </div>
+
+                        {canEditUsers && selectedUserIds.length > 0 && (
+                            <button
+                                onClick={() => setShowBulkUpdateModal(true)}
+                                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white font-bold text-xs rounded-lg hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-500/20 animate-pulse"
+                            >
+                                <FaLayerGroup /> Bulk Module Access & Update ({selectedUserIds.length})
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
