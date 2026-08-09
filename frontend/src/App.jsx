@@ -72,6 +72,7 @@ import MasterDataSchoolForTask from "./pages/MasterDataSchoolForTask";
 import EditBoardSubjects from "./pages/EditBoardSubjects";
 import MasterDataBoardCourseSubject from "./pages/MasterDataBoardCourseSubject.jsx";
 import MarketingCRM from "./pages/MarketingCRM";
+import SchoolJourney from "./pages/SchoolJourney";
 import UploadLeads from "./pages/LeadManagement/UploadLeads";
 // import SystemLogs from "./pages/Admin/SystemLogs";
 
@@ -216,6 +217,7 @@ function App() {
         <Route path="/red-flag-desk" element={<ProtectedRoute><RedFlagDesk /></ProtectedRoute>} />
         <Route path="/daily-tracking-log" element={<ProtectedRoute requiredPermissionModule="dailyTrackingLog"><DailyTrackingLog /></ProtectedRoute>} />
         <Route path="/marketing-crm" element={<ProtectedRoute><MarketingCRM /></ProtectedRoute>} />
+        <Route path="/marketing-crm/school-journey" element={<ProtectedRoute><SchoolJourney /></ProtectedRoute>} />
         <Route path="/marketing-crm/upload-leads" element={<ProtectedRoute><UploadLeads /></ProtectedRoute>} />
         <Route path="/admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
         <Route path="/board-admissions" element={<ProtectedRoute><BoardAdmissions /></ProtectedRoute>} />

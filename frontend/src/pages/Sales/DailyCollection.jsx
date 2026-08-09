@@ -9,7 +9,10 @@ import { saveAs } from "file-saver";
 const DailyCollection = () => {
     const storedUser = localStorage.getItem("user");
     const currentUser = storedUser ? JSON.parse(storedUser) : null;
-    const isSuperAdmin = currentUser?.role?.toLowerCase()?.replace(/\s+/g, '') === 'superadmin';
+    const userRoleClean = currentUser?.role?.toLowerCase()?.replace(/\s+/g, '') || '';
+    const isSuperAdmin = userRoleClean === 'superadmin';
+    const isDigital = userRoleClean === 'digital' || userRoleClean === 'digitalmarketing' || userRoleClean.includes('digital');
+    const canEditTarget = isSuperAdmin || isDigital;
 
     const getSavedFilters = () => {
         try {
@@ -1311,7 +1314,7 @@ const DailyCollection = () => {
                                                                 </div>
                                                             </td>
                                                             <td className={`px-4 py-4 text-right font-semibold text-amber-500`}>
-                                                                {isSuperAdmin ? (
+                                                                {canEditTarget ? (
                                                                     editingCentre === centre ? (
                                                                         <div className="flex items-center justify-end gap-1.5" onClick={e => e.stopPropagation()}>
                                                                             <input

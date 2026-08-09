@@ -348,18 +348,14 @@ export const PERMISSION_MODULES = {
     marketingCRM: {
         label: "Marketing & CRM",
         sections: {
-            // campaigns: {
-            //     label: "Campaigns",
-            //     operations: ["create", "edit", "delete"]
-            // },
-            leads: {
-                label: "Leads",
+            commandCentre: {
+                label: "Command Centre",
                 operations: ["create", "edit", "delete"]
             },
-            // communications: {
-            //     label: "Communications",
-            //     operations: ["create", "edit", "delete"]
-            // }
+            schoolJourney: {
+                label: "School Journey",
+                operations: ["create", "edit", "delete"]
+            }
         }
     },
     // franchiseMgmt: {
@@ -708,13 +704,17 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
     // Grant automatic access to marketingCRM module ONLY if custom granularPermissions are not set
     if (module === 'marketingCRM') {
         if (hasGranularObject) {
-            if (!granularPermissions?.marketingCRM || !granularPermissions.marketingCRM[section] || granularPermissions.marketingCRM[section].view === false) {
-                return false;
+            if (!granularPermissions?.marketingCRM) return false;
+            const targetSection = (section === 'leads' || section === 'uploadLeads') ? 'commandCentre' : section;
+            const secObj = granularPermissions.marketingCRM[targetSection];
+            if (!secObj || typeof secObj !== 'object') return false;
+            if (operation === 'view') {
+                return secObj.view === true;
             }
-        } else {
-            const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
-            if (isMktTargetRole && (!granularPermissions?.[module]?.[section] || granularPermissions[module][section].view !== false)) return true;
+            return secObj[operation] === true;
         }
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
+        return isMktTargetRole;
     }
 
     // Grant automatic access to dailyTrackingLog module actions ONLY if custom granularPermissions are not set
@@ -831,13 +831,13 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     if (module === 'marketingCRM') {
         if (hasGranularObject) {
             const sections = granularPermissions?.marketingCRM;
-            if (!sections) return false;
+            if (!sections || typeof sections !== 'object') return false;
             return Object.keys(sections).some(secKey => {
                 const sec = sections[secKey];
-                return sec && (sec.view !== false || Object.values(sec).some(v => v === true));
+                return sec && typeof sec === 'object' && sec.view === true;
             });
         }
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(normalizedRole);
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'].includes(normalizedRole);
         if (isMktTargetRole) return true;
     }
 

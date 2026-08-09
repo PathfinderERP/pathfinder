@@ -25,7 +25,13 @@ export const getSchoolJourney = async (req, res) => {
         }
 
         if (center && center.trim() && center !== "All") {
-            schoolQuery.centerName = center;
+            const centerList = center.split(",").map(c => c.trim()).filter(Boolean);
+            if (centerList.length === 1) {
+                schoolQuery.centerName = { $regex: `^${centerList[0]}$`, $options: "i" };
+            } else if (centerList.length > 1) {
+                const regexArr = centerList.map(c => new RegExp(`^${c}$`, "i"));
+                schoolQuery.centerName = { $in: regexArr };
+            }
         }
 
         if (tier && tier.trim() && tier !== "All") {
@@ -101,33 +107,66 @@ export const getSchoolJourney = async (req, res) => {
 
         // Calculate dynamic overall stats across ALL matching schools
         const visitedSchoolIdSet = new Set();
+        const thisMonthSchoolIdSet = new Set();
         let totalVisitsAcrossAll = 0;
+        let thisMonthVisitsCount = 0;
+
+        const currentMonthStr = new Date().toISOString().substring(0, 7); // YYYY-MM
 
         allPlannerRecords.forEach(p => {
             totalVisitsAcrossAll++;
+            const pDate = p.date || (p.createdAt ? new Date(p.createdAt).toISOString() : "");
+            if (pDate.startsWith(currentMonthStr)) {
+                thisMonthVisitsCount++;
+            }
+
             if (p.schoolRef) {
                 visitedSchoolIdSet.add(p.schoolRef.toString());
+                if (pDate.startsWith(currentMonthStr)) {
+                    thisMonthSchoolIdSet.add(p.schoolRef.toString());
+                }
             } else if (p.institution) {
                 const matched = allSchoolMap.get(p.institution.toLowerCase().trim());
                 if (matched) {
                     visitedSchoolIdSet.add(matched._id.toString());
+                    if (pDate.startsWith(currentMonthStr)) {
+                        thisMonthSchoolIdSet.add(matched._id.toString());
+                    }
                 }
             }
         });
 
         allAssignedRecords.forEach(a => {
             totalVisitsAcrossAll++;
+            const aDate = a.planDate || (a.createdAt ? new Date(a.createdAt).toISOString() : "");
+            if (aDate.startsWith(currentMonthStr)) {
+                thisMonthVisitsCount++;
+            }
             if (a.school) {
                 visitedSchoolIdSet.add(a.school.toString());
+                if (aDate.startsWith(currentMonthStr)) {
+                    thisMonthSchoolIdSet.add(a.school.toString());
+                }
             }
         });
 
-        // If visitedOnly filter is active, narrow down schoolQuery to only visited school IDs
+        // Count activated schools from database
+        const activatedSchoolsCount = await SchoolForTask.countDocuments({
+            ...schoolQuery,
+            $or: [
+                { status: { $regex: "activated|partner|tie-up|seminar", $options: "i" } },
+                { tier: { $regex: "activated|partner|tie-up|seminar", $options: "i" } }
+            ]
+        });
+
+        // KPI tab filter handling
+        const kpiTab = req.query.kpiTab || (visitedOnly === "true" ? "total_visited" : "all");
         const isVisitedOnlyFilter = visitedOnly === "true" || visitedOnly === true;
+        const hasDateFilter = Boolean(startDate || endDate);
         let finalSchoolQuery = { ...schoolQuery };
         let responseTotalItems = totalSchoolsCount;
 
-        if (isVisitedOnlyFilter) {
+        if (hasDateFilter || kpiTab === "total_visited" || kpiTab === "active_journeys" || isVisitedOnlyFilter) {
             const visitedIdsArr = Array.from(visitedSchoolIdSet);
             finalSchoolQuery._id = { $in: visitedIdsArr };
             responseTotalItems = visitedIdsArr.length;
@@ -260,16 +299,21 @@ export const getSchoolJourney = async (req, res) => {
             };
         });
 
+        const availableCenters = await SchoolForTask.distinct("centerName");
+
         res.status(200).json({
             success: true,
             data: schoolsWithJourney,
             totalItems: responseTotalItems,
             totalPages: Math.max(1, Math.ceil(responseTotalItems / parseInt(limit))),
             currentPage: parseInt(page),
+            availableCenters: availableCenters.filter(Boolean),
             stats: {
                 totalSchools: totalSchoolsCount,
                 totalVisits: totalVisitsAcrossAll,
-                visitedSchoolsCount: visitedSchoolIdSet.size
+                visitedSchoolsCount: visitedSchoolIdSet.size,
+                activeJourneysPercentage: totalSchoolsCount > 0 ? Math.round((visitedSchoolIdSet.size / totalSchoolsCount) * 100) : 0,
+                thisMonthVisits: thisMonthSchoolIdSet.size
             }
         });
     } catch (error) {

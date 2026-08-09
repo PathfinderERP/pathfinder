@@ -17,8 +17,11 @@ export const getDailyCollectionReport = async (req, res) => {
 export const saveDailyTarget = async (req, res) => {
     try {
         const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        if (userRole !== "superadmin") {
-            return res.status(403).json({ message: "Access denied. SuperAdmin only." });
+        const isSuperAdmin = userRole === "superadmin";
+        const isDigital = userRole === "digital" || userRole === "digitalmarketing" || userRole.includes("digital");
+
+        if (!isSuperAdmin && !isDigital) {
+            return res.status(403).json({ message: "Access denied. SuperAdmin or Digital role required." });
         }
 
         const { date, centreName, targetAmount } = req.body;

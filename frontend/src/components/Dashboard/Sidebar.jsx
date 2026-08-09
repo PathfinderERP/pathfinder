@@ -166,7 +166,15 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Campaigns/Ads", path: "/lead-management/campaigns", permissionSection: "campaignAds" },
             ]
         },
-        { name: "Marketing & CRM", icon: <FaBullhorn />, path: "/marketing-crm", permissionModule: "marketingCRM" },
+        {
+            name: "Marketing & CRM",
+            icon: <FaBullhorn />,
+            permissionModule: "marketingCRM",
+            subItems: [
+                { name: "Command Centre", path: "/marketing-crm", permissionModule: "marketingCRM", permissionSection: "commandCentre" },
+                { name: "School Journey", path: "/marketing-crm/school-journey", permissionModule: "marketingCRM", permissionSection: "schoolJourney" }
+            ]
+        },
         //{ name: "CEO Control Tower", icon: <FaChartBar />, path: "/ceo-control-tower", permissionModule: "ceoControlTower" },
         {
             name: "Admissions",

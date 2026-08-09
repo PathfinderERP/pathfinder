@@ -807,8 +807,9 @@ export const getFinalWeekendTarget = async (req, res) => {
 export const overrideWeeklyTarget = async (req, res) => {
     try {
         const userRoleLower = req.user?.role?.toLowerCase()?.replace(/\s+/g, '') || "";
-        if (userRoleLower !== "superadmin" && userRoleLower !== "zonalmanager") {
-            return res.status(403).json({ message: "Access denied. Only Super Admin and Zonal Manager can edit weekly targets." });
+        const isAllowedRole = userRoleLower === "superadmin" || userRoleLower === "zonalmanager" || userRoleLower === "digital" || userRoleLower.includes("digital");
+        if (!isAllowedRole) {
+            return res.status(403).json({ message: "Access denied. Only Super Admin, Zonal Manager, and Digital role can edit weekly targets." });
         }
 
         const { centreId, year, month, weekNumber, target } = req.body;
@@ -850,8 +851,9 @@ export const overrideWeeklyTarget = async (req, res) => {
 export const overrideWeeklyTargetBulk = async (req, res) => {
     try {
         const userRoleLower = req.user?.role?.toLowerCase()?.replace(/\s+/g, '') || "";
-        if (userRoleLower !== "superadmin" && userRoleLower !== "zonalmanager") {
-            return res.status(403).json({ message: "Access denied. Only Super Admin and Zonal Manager can edit weekly targets." });
+        const isAllowedRole = userRoleLower === "superadmin" || userRoleLower === "zonalmanager" || userRoleLower === "digital" || userRoleLower.includes("digital");
+        if (!isAllowedRole) {
+            return res.status(403).json({ message: "Access denied. Only Super Admin, Zonal Manager, and Digital role can edit weekly targets." });
         }
 
         const { overrides } = req.body;

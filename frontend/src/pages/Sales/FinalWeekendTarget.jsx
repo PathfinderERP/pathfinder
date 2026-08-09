@@ -90,7 +90,7 @@ const FinalWeekendTarget = () => {
     const [editingTargets, setEditingTargets] = useState({});
 
     const userRoleLower = user?.role?.toLowerCase()?.replace(/\s+/g, "") || "";
-    const isEditableRole = ["superadmin", "zonalmanager"].includes(userRoleLower);
+    const isEditableRole = ["superadmin", "zonalmanager", "digital", "digitalmarketing", "digitalexecutive", "digitalteam", "digitallead"].includes(userRoleLower) || userRoleLower.includes("digital");
 
     const handleSaveOverride = async (centreId, weekNumber, value) => {
         const numericVal = parseFloat(value);

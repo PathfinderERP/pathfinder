@@ -61,6 +61,7 @@ const pntseStudentSchema = new mongoose.Schema({
         type: String,
         required: true,
         enum: [
+            'PNTSE CLASS 5',
             'PNTSE CLASS 6',
             'PNTSE CLASS 7',
             'PNTSE CLASS 8',

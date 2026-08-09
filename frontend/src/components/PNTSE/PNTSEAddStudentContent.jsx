@@ -78,7 +78,7 @@ const PNTSEAddStudentContent = () => {
     const [cfStudentDetails, setCfStudentDetails] = useState(null);
 
     const courses = [
-        'PNTSE CLASS 6', 'PNTSE CLASS 7', 'PNTSE CLASS 8',
+        'PNTSE CLASS 5', 'PNTSE CLASS 6', 'PNTSE CLASS 7', 'PNTSE CLASS 8',
         'PNTSE CLASS 9', 'PNTSE CLASS 10'
     ];
     const genders = ['Male', 'Female', 'Other'];

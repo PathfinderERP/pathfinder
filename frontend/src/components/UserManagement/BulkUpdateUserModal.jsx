@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { FaTimes, FaSync, FaCheckSquare, FaSquare, FaUsers } from "react-icons/fa";
+import { FaTimes, FaSync, FaCheckSquare, FaSquare, FaUsers, FaShieldAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
+import GranularPermissionsEditor from "./GranularPermissionsEditor";
 
 const ROLES = [
     { value: "admin", label: "Admin" },
@@ -39,6 +40,7 @@ const BulkUpdateUserModal = ({ selectedUserIds, allCentres, allScripts, onClose,
         boardType: false,
         subject: false,
         assignedScript: false,
+        granularPermissions: false,
     });
 
     const [formData, setFormData] = useState({
@@ -53,6 +55,7 @@ const BulkUpdateUserModal = ({ selectedUserIds, allCentres, allScripts, onClose,
         boardType: "",
         subject: "",
         assignedScript: "",
+        granularPermissions: {},
     });
 
     const toggleField = (field) => {
@@ -96,6 +99,9 @@ const BulkUpdateUserModal = ({ selectedUserIds, allCentres, allScripts, onClose,
                     updateData[field] = val;
                     hasAtLeastOneField = true;
                 }
+            } else if (field === "granularPermissions") {
+                updateData[field] = formData.granularPermissions || {};
+                hasAtLeastOneField = true;
             } else if (val !== "") {
                 updateData[field] = val;
                 hasAtLeastOneField = true;
@@ -420,6 +426,40 @@ const BulkUpdateUserModal = ({ selectedUserIds, allCentres, allScripts, onClose,
                                 <option value="All India">All India</option>
                                 <option value="Board">Board</option>
                             </select>
+                        </div>
+
+                        {/* Bulk Granular Module Access Permissions — Spans 2 cols */}
+                        <div className={`md:col-span-2 p-4 rounded-xl border transition-all ${enabledFields.granularPermissions
+                            ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500/40 shadow-lg shadow-cyan-500/5' : 'bg-cyan-50/70 border-cyan-300 shadow-sm')
+                            : (isDarkMode ? 'border-gray-800' : 'border-gray-200')
+                        }`}>
+                            <div
+                                className="flex items-center gap-2 mb-2 cursor-pointer select-none"
+                                onClick={() => toggleField("granularPermissions")}
+                            >
+                                {enabledFields.granularPermissions
+                                    ? <FaCheckSquare className="text-cyan-500" size={16} />
+                                    : <FaSquare className={isDarkMode ? "text-gray-600" : "text-gray-400"} size={16} />
+                                }
+                                <div className="flex items-center gap-2">
+                                    <FaShieldAlt className={enabledFields.granularPermissions ? 'text-cyan-400' : 'text-gray-400'} size={14} />
+                                    <span className={`text-xs font-black uppercase tracking-wider ${enabledFields.granularPermissions ? 'text-cyan-400' : isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        Apply Bulk Module Access Permissions
+                                    </span>
+                                </div>
+                            </div>
+                            <p className="text-[11px] text-gray-500 mb-2 pl-6">
+                                Enable this to assign identical module access permissions (e.g. Marketing & CRM, Academics, Sales, Admissions) to all {selectedUserIds.length} selected users at once.
+                            </p>
+
+                            {enabledFields.granularPermissions && (
+                                <div className="mt-4 pt-4 border-t border-cyan-500/20 max-h-[450px] overflow-y-auto custom-scrollbar">
+                                    <GranularPermissionsEditor
+                                        granularPermissions={formData.granularPermissions}
+                                        onChange={(perms) => setFormData(prev => ({ ...prev, granularPermissions: perms }))}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </div>
 
