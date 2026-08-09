@@ -159,10 +159,79 @@ const getStatusBadgeClass = (expense, isDarkMode) => {
     return isDarkMode ? "bg-yellow-500/15 text-yellow-300 border border-yellow-500/30" : "bg-yellow-100 text-yellow-800 border border-yellow-200";
 };
 
+const getDatePresetRange = (preset) => {
+    const now = new Date();
+    let from = null;
+    let to = null;
+
+    switch (preset) {
+        case "today": {
+            const start = new Date(now);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(now);
+            end.setHours(23, 59, 59, 999);
+            from = start;
+            to = end;
+            break;
+        }
+        case "yesterday": {
+            const start = new Date(now);
+            start.setDate(now.getDate() - 1);
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(now);
+            end.setDate(now.getDate() - 1);
+            end.setHours(23, 59, 59, 999);
+            from = start;
+            to = end;
+            break;
+        }
+        case "this-month": {
+            const start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+            from = start;
+            to = end;
+            break;
+        }
+        case "last-month": {
+            const start = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0);
+            const end = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+            from = start;
+            to = end;
+            break;
+        }
+        case "this-year": {
+            const start = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+            const end = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
+            from = start;
+            to = end;
+            break;
+        }
+        case "last-year": {
+            const start = new Date(now.getFullYear() - 1, 0, 1, 0, 0, 0, 0);
+            const end = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
+            from = start;
+            to = end;
+            break;
+        }
+        default:
+            break;
+    }
+    return { from, to };
+};
+
+const formatDateToYYYYMMDD = (date) => {
+    if (!date) return "";
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, "0");
+    const d = String(date.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+};
+
 const GetAllExpense = () => {
     const [expenses, setExpenses] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState("");
+    const [datePreset, setDatePreset] = useState("all");
     const [fromDate, setFromDate] = useState("");
     const [toDate, setToDate] = useState("");
     const [nameFilter, setNameFilter] = useState("");
@@ -484,6 +553,41 @@ const GetAllExpense = () => {
         }, 0);
     }, [filteredExpenses]);
 
+    const thisMonthExpenditure = useMemo(() => {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        return expenses.reduce((sum, expense) => {
+            const d = getExpenseFilterDate(expense);
+            if (d && !Number.isNaN(d.getTime())) {
+                if (d.getFullYear() === currentYear && d.getMonth() === currentMonth) {
+                    const isSalary = expense.expenseType === "Salary";
+                    const amt = parseFloat(isSalary ? (expense.originalAmount !== undefined ? expense.originalAmount : expense.amount) : expense.amount) || 0;
+                    return sum + amt;
+                }
+            }
+            return sum;
+        }, 0);
+    }, [expenses]);
+
+    const thisMonthRecordsCount = useMemo(() => {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        return expenses.filter((expense) => {
+            const d = getExpenseFilterDate(expense);
+            return d && !Number.isNaN(d.getTime()) && d.getFullYear() === currentYear && d.getMonth() === currentMonth;
+        }).length;
+    }, [expenses]);
+
+    const allTimeExpenditure = useMemo(() => {
+        return expenses.reduce((sum, expense) => {
+            const isSalary = expense.expenseType === "Salary";
+            const amt = parseFloat(isSalary ? (expense.originalAmount !== undefined ? expense.originalAmount : expense.amount) : expense.amount) || 0;
+            return sum + amt;
+        }, 0);
+    }, [expenses]);
+
     const isAllSelected = useMemo(() => {
         if (filteredExpenses.length === 0) return false;
         return filteredExpenses.every((e) => selectedExpenseIds.includes(e._id));
@@ -506,6 +610,18 @@ const GetAllExpense = () => {
                 return [...prev, id];
             }
         });
+    };
+
+    const handlePresetChange = (preset) => {
+        setDatePreset(preset);
+        if (preset === "all") {
+            setFromDate("");
+            setToDate("");
+            return;
+        }
+        const { from, to } = getDatePresetRange(preset);
+        setFromDate(formatDateToYYYYMMDD(from));
+        setToDate(formatDateToYYYYMMDD(to));
     };
 
     const handleBulkDelete = async () => {
@@ -618,6 +734,7 @@ const GetAllExpense = () => {
         nameFilter ||
         fromDate ||
         toDate ||
+        datePreset !== "all" ||
         typeFilter !== "all" ||
         statusFilter !== "all" ||
         modeOfPaymentFilter !== "all" ||
@@ -627,6 +744,7 @@ const GetAllExpense = () => {
     const clearFilters = () => {
         setSearchTerm("");
         setNameFilter("");
+        setDatePreset("all");
         setFromDate("");
         setToDate("");
         setTypeFilter("all");
@@ -672,8 +790,8 @@ const GetAllExpense = () => {
     };
 
     const inputClass = `w-full rounded-lg border py-2.5 px-3 text-sm outline-none transition focus:border-cyan-500 focus:ring-2 focus:ring-cyan-500/20 ${isDarkMode
-            ? "bg-[#131619] border-slate-600 text-slate-100 placeholder-slate-500"
-            : "bg-white border-slate-300 text-slate-800 placeholder-slate-400"
+        ? "bg-[#131619] border-slate-600 text-slate-100 placeholder-slate-500"
+        : "bg-white border-slate-300 text-slate-800 placeholder-slate-400"
         }`;
 
     const labelClass = `block text-[11px] font-semibold uppercase tracking-wide mb-1.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"}`;
@@ -754,8 +872,8 @@ const GetAllExpense = () => {
                                         type="button"
                                         onClick={handleDownloadTemplate}
                                         className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition ${isDarkMode
-                                                ? "border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700"
-                                                : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
+                                            ? "border-slate-700 bg-slate-800/80 text-slate-300 hover:bg-slate-700"
+                                            : "border-slate-200 bg-white text-slate-700 hover:bg-slate-100"
                                             }`}
                                     >
                                         <FaFileExport /> Download Template
@@ -794,8 +912,8 @@ const GetAllExpense = () => {
                                 onClick={handleExportToExcel}
                                 disabled={loading}
                                 className={`inline-flex items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-semibold transition disabled:opacity-50 ${isDarkMode
-                                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
-                                        : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                                    ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20"
+                                    : "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
                                     }`}
                             >
                                 <FaDownload /> Export Excel
@@ -811,21 +929,58 @@ const GetAllExpense = () => {
                         </div>
                     </div>
 
-                    {/* Total Expenditure Amount Card */}
-                    <div className="flex">
-                        <div className={`p-5 rounded-xl border flex items-center justify-between transition-all min-w-[320px] max-w-md ${isDarkMode ? "bg-[#1a1f24] border-slate-700/80" : "bg-white border-slate-200 shadow-sm"}`}>
+                    {/* Expenditure Summary Cards */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 max-w-6xl">
+                        {/* Card 1: Total Expenditure */}
+                        <div className={`p-5 rounded-xl border flex items-center justify-between transition-all ${isDarkMode ? "bg-[#1a1f24] border-slate-700/80" : "bg-white border-slate-200 shadow-sm"}`}>
                             <div>
                                 <p className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
-                                    Total Expenditure Amount
+                                    Total Expenditure (All Time)
+                                </p>
+                                <h3 className={`text-2xl sm:text-3xl font-black mt-1.5 ${isDarkMode ? "text-indigo-400" : "text-indigo-700"}`}>
+                                    ₹{Math.round(allTimeExpenditure).toLocaleString('en-IN')}
+                                </h3>
+                                <p className="text-[11px] font-semibold text-indigo-500/80 mt-1">
+                                    {expenses.length} total expense record(s)
+                                </p>
+                            </div>
+                            <div className={`p-4 rounded-xl ml-6 ${isDarkMode ? "bg-indigo-500/10 text-indigo-400" : "bg-indigo-50 text-indigo-600"}`}>
+                                <FaRupeeSign size={26} />
+                            </div>
+                        </div>
+
+                        {/* Card 2: This Month's Expenditure */}
+                        <div className={`p-5 rounded-xl border flex items-center justify-between transition-all ${isDarkMode ? "bg-[#1a1f24] border-slate-700/80" : "bg-white border-slate-200 shadow-sm"}`}>
+                            <div>
+                                <p className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                                    This Month's Expenditure
                                 </p>
                                 <h3 className={`text-2xl sm:text-3xl font-black mt-1.5 ${isDarkMode ? "text-cyan-400" : "text-cyan-700"}`}>
-                                    ₹{Math.round(totalExpenditureAmount).toLocaleString('en-IN')}
+                                    ₹{Math.round(thisMonthExpenditure).toLocaleString('en-IN')}
                                 </h3>
                                 <p className="text-[11px] font-semibold text-cyan-500/80 mt-1">
-                                    {filteredExpenses.length} expense record(s)
+                                    {thisMonthRecordsCount} expense record(s) this month
                                 </p>
                             </div>
                             <div className={`p-4 rounded-xl ml-6 ${isDarkMode ? "bg-cyan-500/10 text-cyan-400" : "bg-cyan-50 text-cyan-600"}`}>
+                                <FaRupeeSign size={26} />
+                            </div>
+                        </div>
+
+                        {/* Card 3: Filtered Expenditure */}
+                        <div className={`p-5 rounded-xl border flex items-center justify-between transition-all ${isDarkMode ? "bg-[#1a1f24] border-slate-700/80" : "bg-white border-slate-200 shadow-sm"}`}>
+                            <div>
+                                <p className={`text-xs font-bold uppercase tracking-wider ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                                    Filtered Expenditure
+                                </p>
+                                <h3 className={`text-2xl sm:text-3xl font-black mt-1.5 ${isDarkMode ? "text-emerald-400" : "text-emerald-700"}`}>
+                                    ₹{Math.round(totalExpenditureAmount).toLocaleString('en-IN')}
+                                </h3>
+                                <p className="text-[11px] font-semibold text-emerald-500/80 mt-1">
+                                    {filteredExpenses.length} expense record(s) matching filters
+                                </p>
+                            </div>
+                            <div className={`p-4 rounded-xl ml-6 ${isDarkMode ? "bg-emerald-500/10 text-emerald-400" : "bg-emerald-50 text-emerald-600"}`}>
                                 <FaRupeeSign size={26} />
                             </div>
                         </div>
@@ -850,8 +1005,8 @@ const GetAllExpense = () => {
                                         type="button"
                                         onClick={clearFilters}
                                         className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-semibold transition ${isDarkMode
-                                                ? "border-slate-600 text-slate-300 hover:bg-slate-800"
-                                                : "border-slate-300 text-slate-600 hover:bg-slate-100"
+                                            ? "border-slate-600 text-slate-300 hover:bg-slate-800"
+                                            : "border-slate-300 text-slate-600 hover:bg-slate-100"
                                             }`}
                                     >
                                         <FaEraser /> Clear filters
@@ -878,7 +1033,7 @@ const GetAllExpense = () => {
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+                            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
                                 <div>
                                     <label className={labelClass}>Name / Employee</label>
                                     <input
@@ -890,12 +1045,45 @@ const GetAllExpense = () => {
                                     />
                                 </div>
                                 <div>
+                                    <label className={labelClass}>Date Filter</label>
+                                    <select
+                                        value={datePreset}
+                                        onChange={(e) => handlePresetChange(e.target.value)}
+                                        className={inputClass}
+                                    >
+                                        <option value="all">All Time</option>
+                                        <option value="today">Today</option>
+                                        <option value="yesterday">Yesterday</option>
+                                        <option value="this-month">This Month</option>
+                                        <option value="last-month">Last Month</option>
+                                        <option value="this-year">This Year</option>
+                                        <option value="last-year">Last Year</option>
+                                        <option value="custom">Custom Range</option>
+                                    </select>
+                                </div>
+                                <div>
                                     <label className={labelClass}>From date</label>
-                                    <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className={inputClass} />
+                                    <input
+                                        type="date"
+                                        value={fromDate}
+                                        onChange={(e) => {
+                                            setFromDate(e.target.value);
+                                            setDatePreset("custom");
+                                        }}
+                                        className={inputClass}
+                                    />
                                 </div>
                                 <div>
                                     <label className={labelClass}>To date</label>
-                                    <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className={inputClass} />
+                                    <input
+                                        type="date"
+                                        value={toDate}
+                                        onChange={(e) => {
+                                            setToDate(e.target.value);
+                                            setDatePreset("custom");
+                                        }}
+                                        className={inputClass}
+                                    />
                                 </div>
                                 <div>
                                     <label className={labelClass}>Type</label>
@@ -1009,12 +1197,12 @@ const GetAllExpense = () => {
                                             <tr
                                                 key={expense._id}
                                                 className={`border-b transition-colors ${selectedExpenseIds.includes(expense._id)
-                                                        ? isDarkMode
-                                                            ? "bg-cyan-950/40 border-cyan-700/60"
-                                                            : "bg-cyan-50/60 border-cyan-200"
-                                                        : isDarkMode
-                                                            ? "border-slate-700/80 hover:bg-slate-800/40"
-                                                            : "border-slate-100 hover:bg-slate-50"
+                                                    ? isDarkMode
+                                                        ? "bg-cyan-950/40 border-cyan-700/60"
+                                                        : "bg-cyan-50/60 border-cyan-200"
+                                                    : isDarkMode
+                                                        ? "border-slate-700/80 hover:bg-slate-800/40"
+                                                        : "border-slate-100 hover:bg-slate-50"
                                                     }`}
                                             >
                                                 <td className={`${tdClass} text-center`}>
@@ -1114,16 +1302,16 @@ const GetAllExpense = () => {
                                                 <td className={tdClass}>
                                                     <span
                                                         className={`inline-flex rounded-md px-2.5 py-1 text-xs font-semibold ${expense.modeOfPayment === "Cash"
+                                                            ? isDarkMode
+                                                                ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
+                                                                : "bg-amber-100 text-amber-800 border border-amber-200"
+                                                            : expense.modeOfPayment === "Bank+Cash"
                                                                 ? isDarkMode
-                                                                    ? "bg-amber-500/15 text-amber-300 border border-amber-500/30"
-                                                                    : "bg-amber-100 text-amber-800 border border-amber-200"
-                                                                : expense.modeOfPayment === "Bank+Cash"
-                                                                    ? isDarkMode
-                                                                        ? "bg-purple-500/15 text-purple-300 border border-purple-500/30"
-                                                                        : "bg-purple-100 text-purple-800 border border-purple-200"
-                                                                    : isDarkMode
-                                                                        ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
-                                                                        : "bg-blue-100 text-blue-800 border border-blue-200"
+                                                                    ? "bg-purple-500/15 text-purple-300 border border-purple-500/30"
+                                                                    : "bg-purple-100 text-purple-800 border border-purple-200"
+                                                                : isDarkMode
+                                                                    ? "bg-cyan-500/15 text-cyan-300 border border-cyan-500/30"
+                                                                    : "bg-blue-100 text-blue-800 border border-blue-200"
                                                             }`}
                                                     >
                                                         {expense.modeOfPayment || "Bank"}
@@ -1217,8 +1405,8 @@ const GetAllExpense = () => {
                                         onClick={() => handlePageChange(currentPage - 1)}
                                         disabled={currentPage === 1}
                                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode
-                                                ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200"
-                                                : "bg-white border-slate-300 hover:bg-slate-100 text-slate-700"
+                                            ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200"
+                                            : "bg-white border-slate-300 hover:bg-slate-100 text-slate-700"
                                             }`}
                                     >
                                         Previous
@@ -1241,8 +1429,8 @@ const GetAllExpense = () => {
                                         onClick={() => handlePageChange(currentPage + 1)}
                                         disabled={currentPage === totalPages}
                                         className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border disabled:opacity-40 disabled:cursor-not-allowed ${isDarkMode
-                                                ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200"
-                                                : "bg-white border-slate-300 hover:bg-slate-100 text-slate-700"
+                                            ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-200"
+                                            : "bg-white border-slate-300 hover:bg-slate-100 text-slate-700"
                                             }`}
                                     >
                                         Next
@@ -1449,8 +1637,8 @@ const GetAllExpense = () => {
                                     <button
                                         onClick={() => setShowViewModal(false)}
                                         className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition ${isDarkMode
-                                                ? "border-slate-600 text-slate-300 hover:bg-slate-700"
-                                                : "border-slate-300 text-slate-600 hover:bg-slate-100"
+                                            ? "border-slate-600 text-slate-300 hover:bg-slate-700"
+                                            : "border-slate-300 text-slate-600 hover:bg-slate-100"
                                             }`}
                                     >
                                         Close
@@ -1640,8 +1828,8 @@ const GetAllExpense = () => {
                                         type="button"
                                         onClick={() => setShowEditModal(false)}
                                         className={`px-5 py-2.5 rounded-lg text-sm font-bold border transition ${isDarkMode
-                                                ? "border-slate-600 text-slate-300 hover:bg-slate-700"
-                                                : "border-slate-300 text-slate-600 hover:bg-slate-100"
+                                            ? "border-slate-600 text-slate-300 hover:bg-slate-700"
+                                            : "border-slate-300 text-slate-600 hover:bg-slate-100"
                                             }`}
                                     >
                                         Cancel
@@ -1661,8 +1849,8 @@ const GetAllExpense = () => {
                     {selectedExpenseIds.length > 0 && (
                         <div
                             className={`fixed bottom-6 right-6 z-50 flex items-center gap-3 p-4 rounded-2xl border shadow-2xl backdrop-blur-md transition-all ${isDarkMode
-                                    ? "bg-[#1a1f24]/95 border-cyan-500/30 text-white shadow-cyan-500/10"
-                                    : "bg-white/95 border-cyan-200 text-slate-900 shadow-slate-300"
+                                ? "bg-[#1a1f24]/95 border-cyan-500/30 text-white shadow-cyan-500/10"
+                                : "bg-white/95 border-cyan-200 text-slate-900 shadow-slate-300"
                                 }`}
                         >
                             <div className="flex items-center gap-2 pr-2 border-r border-gray-600/30">
