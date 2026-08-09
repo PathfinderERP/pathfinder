@@ -1,6 +1,9 @@
 import SchoolForTask from "../../models/Master_data/SchoolForTask.js";
 import MarketingPlanner from "../../models/MarketingPlanner.js";
 import AssignedTask from "../../models/AssignedTask.js";
+import User from "../../models/User.js";
+import Centre from "../../models/Master_data/Centre.js";
+import Boards from "../../models/Master_data/Boards.js";
 import { getSignedFileUrl } from "../../utils/r2Upload.js";
 
 export const getSchoolJourney = async (req, res) => {
@@ -42,10 +45,10 @@ export const getSchoolJourney = async (req, res) => {
             schoolQuery.status = status;
         }
 
-        // Fetch all matching school IDs for overall stat calculations
+        // Fetch all matching school docs for mapping & statistics
         const [totalSchoolsCount, allSchoolDocs] = await Promise.all([
             SchoolForTask.countDocuments(schoolQuery),
-            SchoolForTask.find(schoolQuery).select("_id schoolName").lean()
+            SchoolForTask.find(schoolQuery).select("_id schoolName centerName tier status").lean()
         ]);
 
         if (allSchoolDocs.length === 0) {
@@ -59,40 +62,35 @@ export const getSchoolJourney = async (req, res) => {
             });
         }
 
-        const allSchoolIds = allSchoolDocs.map(s => s._id);
-        const allSchoolNames = allSchoolDocs.map(s => s.schoolName);
-        const allSchoolMap = new Map();
+        // Build normalized lookup maps
+        const schoolIdToStrMap = new Map();
+        const schoolNormalizedNameMap = new Map();
+
         allSchoolDocs.forEach(s => {
-            allSchoolMap.set(s._id.toString(), s);
-            if (s.schoolName) {
-                allSchoolMap.set(s.schoolName.toLowerCase().trim(), s);
+            const sId = s._id.toString();
+            schoolIdToStrMap.set(sId, sId);
+            if (s.schoolName && s.schoolName.trim()) {
+                const normName = s.schoolName.trim().toLowerCase();
+                schoolNormalizedNameMap.set(normName, sId);
             }
         });
 
-        // Build planner date query
-        const plannerQuery = {
-            $or: [
-                { schoolRef: { $in: allSchoolIds } },
-                { institution: { $in: allSchoolNames } }
-            ]
-        };
-
-        const assignedQuery = {
-            school: { $in: allSchoolIds }
-        };
+        // Build planner date & assigned task queries
+        const plannerQuery = {};
+        const assignedQuery = {};
 
         if (startDate && endDate) {
             plannerQuery.date = { $gte: startDate, $lte: endDate };
-            assignedQuery.planDate = { $gte: startDate, $lte: endDate };
+            assignedQuery.planDate = { $gte: new Date(`${startDate}T00:00:00.000Z`), $lte: new Date(`${endDate}T23:59:59.999Z`) };
         } else if (startDate) {
             plannerQuery.date = { $gte: startDate };
-            assignedQuery.planDate = { $gte: startDate };
+            assignedQuery.planDate = { $gte: new Date(`${startDate}T00:00:00.000Z`) };
         } else if (endDate) {
             plannerQuery.date = { $lte: endDate };
-            assignedQuery.planDate = { $lte: endDate };
+            assignedQuery.planDate = { $lte: new Date(`${endDate}T23:59:59.999Z`) };
         }
 
-        // Fetch planner records and assigned task records across ALL matching schools for dynamic stats
+        // Fetch planner records and assigned tasks
         const [allPlannerRecords, allAssignedRecords] = await Promise.all([
             MarketingPlanner.find(plannerQuery)
                 .populate("user", "name role email phone centres")
@@ -105,7 +103,7 @@ export const getSchoolJourney = async (req, res) => {
                 .lean()
         ]);
 
-        // Calculate dynamic overall stats across ALL matching schools
+        // Calculate dynamic visited school IDs and overall visit counts
         const visitedSchoolIdSet = new Set();
         const thisMonthSchoolIdSet = new Set();
         let totalVisitsAcrossAll = 0;
@@ -114,49 +112,43 @@ export const getSchoolJourney = async (req, res) => {
         const currentMonthStr = new Date().toISOString().substring(0, 7); // YYYY-MM
 
         allPlannerRecords.forEach(p => {
-            totalVisitsAcrossAll++;
-            const pDate = p.date || (p.createdAt ? new Date(p.createdAt).toISOString() : "");
-            if (pDate.startsWith(currentMonthStr)) {
-                thisMonthVisitsCount++;
+            let matchedId = null;
+            if (p.schoolRef) {
+                matchedId = p.schoolRef.toString();
+            } else if (p.institution) {
+                const normInst = p.institution.trim().toLowerCase();
+                matchedId = schoolNormalizedNameMap.get(normInst);
             }
 
-            if (p.schoolRef) {
-                visitedSchoolIdSet.add(p.schoolRef.toString());
+            if (matchedId && schoolIdToStrMap.has(matchedId)) {
+                visitedSchoolIdSet.add(matchedId);
+                totalVisitsAcrossAll++;
+                const pDate = p.date || (p.createdAt ? new Date(p.createdAt).toISOString() : "");
                 if (pDate.startsWith(currentMonthStr)) {
-                    thisMonthSchoolIdSet.add(p.schoolRef.toString());
-                }
-            } else if (p.institution) {
-                const matched = allSchoolMap.get(p.institution.toLowerCase().trim());
-                if (matched) {
-                    visitedSchoolIdSet.add(matched._id.toString());
-                    if (pDate.startsWith(currentMonthStr)) {
-                        thisMonthSchoolIdSet.add(matched._id.toString());
-                    }
+                    thisMonthVisitsCount++;
+                    thisMonthSchoolIdSet.add(matchedId);
                 }
             }
         });
 
         allAssignedRecords.forEach(a => {
-            totalVisitsAcrossAll++;
-            const aDate = a.planDate || (a.createdAt ? new Date(a.createdAt).toISOString() : "");
-            if (aDate.startsWith(currentMonthStr)) {
-                thisMonthVisitsCount++;
-            }
+            let matchedId = null;
             if (a.school) {
-                visitedSchoolIdSet.add(a.school.toString());
+                matchedId = a.school.toString();
+            } else if (a.schoolName) {
+                const normName = a.schoolName.trim().toLowerCase();
+                matchedId = schoolNormalizedNameMap.get(normName);
+            }
+
+            if (matchedId && schoolIdToStrMap.has(matchedId)) {
+                visitedSchoolIdSet.add(matchedId);
+                totalVisitsAcrossAll++;
+                const aDate = a.planDate ? new Date(a.planDate).toISOString() : (a.createdAt ? new Date(a.createdAt).toISOString() : "");
                 if (aDate.startsWith(currentMonthStr)) {
-                    thisMonthSchoolIdSet.add(a.school.toString());
+                    thisMonthVisitsCount++;
+                    thisMonthSchoolIdSet.add(matchedId);
                 }
             }
-        });
-
-        // Count activated schools from database
-        const activatedSchoolsCount = await SchoolForTask.countDocuments({
-            ...schoolQuery,
-            $or: [
-                { status: { $regex: "activated|partner|tie-up|seminar", $options: "i" } },
-                { tier: { $regex: "activated|partner|tie-up|seminar", $options: "i" } }
-            ]
         });
 
         // KPI tab filter handling
@@ -194,7 +186,8 @@ export const getSchoolJourney = async (req, res) => {
 
         const pageAssignedRecords = allAssignedRecords.filter(a => {
             const sStr = a.school ? a.school.toString() : null;
-            return sStr && currentPageSchoolIds.has(sStr);
+            const sNameLower = (a.schoolName || "").toLowerCase().trim();
+            return (sStr && currentPageSchoolIds.has(sStr)) || (sNameLower && currentPageSchoolNames.has(sNameLower));
         });
 
         // Sign photo URLs for page planner records
@@ -253,7 +246,8 @@ export const getSchoolJourney = async (req, res) => {
 
             const matchedAssigned = pageAssignedRecords.filter(a => {
                 const sIdStr = a.school ? a.school.toString() : null;
-                return sIdStr === schoolIdStr;
+                const sNameLower = (a.schoolName || "").toLowerCase().trim();
+                return sIdStr === schoolIdStr || (schoolNameLower && sNameLower === schoolNameLower);
             }).map(a => {
                 const assignedUsers = Array.isArray(a.assignedTo) ? a.assignedTo : (a.assignedTo ? [a.assignedTo] : []);
                 const primaryUser = assignedUsers[0];
