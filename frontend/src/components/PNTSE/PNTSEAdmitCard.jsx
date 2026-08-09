@@ -193,8 +193,43 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
                                 {/* Header / Logo area */}
                                 <div className="text-center mb-6">
                                     <div className="flex justify-center items-center mb-2 gap-2">
-                                        <div className="w-12 h-12 bg-black flex items-center justify-center border-2 border-black">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" className="w-8 h-8 text-white" fill="white" viewBox="0 0 24 24"><path d="M12 2L2 22h20L12 2zm0 4.5l6.5 13h-13L12 6.5z"/></svg>
+                                        <div className="w-12 h-12 flex items-center justify-center">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="w-12 h-12">
+                                                {/* Orange Background */}
+                                                <rect width="100" height="100" fill="#E65100"/>
+                                                
+                                                {/* Sun Ring */}
+                                                <circle cx="58" cy="36" r="14" stroke="white" strokeWidth="3" fill="none"/>
+                                                
+                                                {/* Sun Rays */}
+                                                <line x1="58" y1="18" x2="58" y2="6" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+                                                <line x1="71" y1="23" x2="81" y2="13" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+                                                <line x1="76" y1="36" x2="88" y2="36" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+                                                <line x1="71" y1="49" x2="81" y2="59" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+                                                <line x1="45" y1="23" x2="35" y2="13" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+                                                <line x1="40" y1="36" x2="28" y2="36" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+                                                <line x1="45" y1="49" x2="35" y2="59" stroke="white" strokeWidth="3" strokeLinecap="round"/>
+                                                
+                                                {/* Bottom Book Spine/Body */}
+                                                <path d="M15,74 Q13,76 15,78 L35,90 Q37,92 39,90 L75,70 Q77,68 75,66 L71,64 Z" fill="white" stroke="#E65100" strokeWidth="1.5"/>
+                                                {/* Bottom Book Pages */}
+                                                <path d="M37,87 L73,69 M71,67 L35,85" stroke="#E65100" strokeWidth="1"/>
+                                                {/* Bottom Book Spine Ridges */}
+                                                <line x1="17" y1="77" x2="19" y2="79" stroke="#E65100" strokeWidth="1.5"/>
+                                                <line x1="21" y1="80" x2="23" y2="82" stroke="#E65100" strokeWidth="1.5"/>
+                                                <line x1="25" y1="83" x2="27" y2="85" stroke="#E65100" strokeWidth="1.5"/>
+                                                <line x1="29" y1="86" x2="31" y2="88" stroke="#E65100" strokeWidth="1.5"/>
+
+                                                {/* Top Book Spine/Body */}
+                                                <path d="M15,62 Q13,64 15,66 L35,78 Q37,80 39,78 L75,58 Q77,56 75,54 L71,52 Z" fill="white" stroke="#E65100" strokeWidth="1.5"/>
+                                                {/* Top Book Cover Label Box */}
+                                                <path d="M28,62 L48,52 L58,58 L38,68 Z" fill="none" stroke="#E65100" strokeWidth="1.5"/>
+                                                {/* Top Book Spine Ridges */}
+                                                <line x1="17" y1="65" x2="19" y2="67" stroke="#E65100" strokeWidth="1.5"/>
+                                                <line x1="21" y1="68" x2="23" y2="70" stroke="#E65100" strokeWidth="1.5"/>
+                                                <line x1="25" y1="71" x2="27" y2="73" stroke="#E65100" strokeWidth="1.5"/>
+                                                <line x1="29" y1="74" x2="31" y2="76" stroke="#E65100" strokeWidth="1.5"/>
+                                            </svg>
                                         </div>
                                         <div>
                                             <h1 className="text-4xl font-extrabold tracking-tight m-0 leading-none">PATHFINDER<sup className="text-xl">&reg;</sup></h1>
