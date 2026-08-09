@@ -470,7 +470,9 @@ export const bulkUpdateUsers = async (req, res) => {
                             };
                             existing.marketingCRM = {
                                 commandCentre: { view: true, create: true, edit: true, delete: true },
-                                schoolJourney: { view: true, create: true, edit: true, delete: true }
+                                schoolJourney: { view: true, create: true, edit: true, delete: true },
+                                teamPerformance: { view: true, create: true, edit: true, delete: true },
+                                centrePerformance: { view: true, create: true, edit: true, delete: true }
                             };
                         }
                     }

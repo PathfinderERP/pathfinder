@@ -73,6 +73,8 @@ import EditBoardSubjects from "./pages/EditBoardSubjects";
 import MasterDataBoardCourseSubject from "./pages/MasterDataBoardCourseSubject.jsx";
 import MarketingCRM from "./pages/MarketingCRM";
 import SchoolJourney from "./pages/SchoolJourney";
+import TeamPerformance from "./pages/TeamPerformance";
+import CentrePerformance from "./pages/CentrePerformance";
 import UploadLeads from "./pages/LeadManagement/UploadLeads";
 // import SystemLogs from "./pages/Admin/SystemLogs";
 
@@ -218,6 +220,8 @@ function App() {
         <Route path="/daily-tracking-log" element={<ProtectedRoute requiredPermissionModule="dailyTrackingLog"><DailyTrackingLog /></ProtectedRoute>} />
         <Route path="/marketing-crm" element={<ProtectedRoute><MarketingCRM /></ProtectedRoute>} />
         <Route path="/marketing-crm/school-journey" element={<ProtectedRoute><SchoolJourney /></ProtectedRoute>} />
+        <Route path="/marketing-crm/team-performance" element={<ProtectedRoute><TeamPerformance /></ProtectedRoute>} />
+        <Route path="/marketing-crm/centre-performance" element={<ProtectedRoute><CentrePerformance /></ProtectedRoute>} />
         <Route path="/marketing-crm/upload-leads" element={<ProtectedRoute><UploadLeads /></ProtectedRoute>} />
         <Route path="/admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
         <Route path="/board-admissions" element={<ProtectedRoute><BoardAdmissions /></ProtectedRoute>} />

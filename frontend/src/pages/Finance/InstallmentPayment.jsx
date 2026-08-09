@@ -598,7 +598,7 @@ const InstallmentPayment = () => {
         }
     };
     const getAdjustedInstallment = (inst, start, end) => {
-        const rawAmount = parseFloat(inst.amount || inst.payableAmount || 0);
+        const rawAmount = parseFloat(inst.amount !== undefined ? inst.amount : (inst.payableAmount !== undefined ? inst.payableAmount : (inst.standardAmount || 0)));
         const rawPaid = parseFloat(inst.paidAmount || 0);
 
         if (!start || !end) {
@@ -612,31 +612,45 @@ const InstallmentPayment = () => {
         }
 
         const isPaidStatus = inst.status === "PAID";
-        const payDateRaw = inst.receivedDate || inst.paidDate || inst.updatedAt || inst.createdAt;
-        const payDate = payDateRaw ? new Date(payDateRaw) : null;
-
         let priorPaid = 0;
         let currentPaid = 0;
 
-        if (payDate) {
-            if (payDate < start) {
-                // Payment occurred in an EARLIER month (before start)
-                priorPaid = isPaidStatus ? rawAmount : Math.min(rawAmount, rawPaid);
-                currentPaid = 0;
-            } else if (payDate >= start && payDate <= end) {
-                // Payment occurred IN current period (between start and end)
-                priorPaid = 0;
-                currentPaid = isPaidStatus ? rawAmount : Math.min(rawAmount, rawPaid);
-            } else {
-                // Payment occurred AFTER current period
-                priorPaid = 0;
-                currentPaid = 0;
-            }
+        if (inst.paymentTransactions && Array.isArray(inst.paymentTransactions) && inst.paymentTransactions.length > 0) {
+            inst.paymentTransactions.forEach(tx => {
+                const txDateRaw = tx.date || tx.receivedDate || tx.createdAt;
+                const txDate = txDateRaw ? new Date(txDateRaw) : null;
+                const txAmt = parseFloat(tx.amount || 0);
+                if (txDate) {
+                    if (txDate < start) {
+                        priorPaid += txAmt;
+                    } else if (txDate >= start && txDate <= end) {
+                        currentPaid += txAmt;
+                    }
+                } else {
+                    currentPaid += txAmt;
+                }
+            });
         } else {
-            if (isPaidStatus) {
-                currentPaid = rawAmount;
+            const payDateRaw = inst.receivedDate || inst.paidDate || inst.updatedAt || inst.createdAt;
+            const payDate = payDateRaw ? new Date(payDateRaw) : null;
+
+            if (payDate) {
+                if (payDate < start) {
+                    priorPaid = isPaidStatus ? rawAmount : Math.min(rawAmount, rawPaid);
+                    currentPaid = 0;
+                } else if (payDate >= start && payDate <= end) {
+                    priorPaid = 0;
+                    currentPaid = isPaidStatus ? rawAmount : Math.min(rawAmount, rawPaid);
+                } else {
+                    priorPaid = 0;
+                    currentPaid = 0;
+                }
             } else {
-                currentPaid = Math.min(rawAmount, rawPaid);
+                if (isPaidStatus) {
+                    currentPaid = rawAmount;
+                } else {
+                    currentPaid = Math.min(rawAmount, rawPaid);
+                }
             }
         }
 
@@ -678,12 +692,17 @@ const InstallmentPayment = () => {
                     // Date Match
                     let dateMatch = true;
                     if (filters.startDate || filters.endDate) {
-                        if (rawInst.dueDate) {
-                            const d = new Date(rawInst.dueDate);
-                            dateMatch = d >= start && d <= end;
-                        } else {
-                            dateMatch = false;
-                        }
+                        const dueD = rawInst.dueDate ? new Date(rawInst.dueDate) : null;
+                        const dueMatch = dueD ? (dueD >= start && dueD <= end) : false;
+
+                        const lastTxDate = (rawInst.paymentTransactions && rawInst.paymentTransactions.length > 0)
+                            ? rawInst.paymentTransactions[rawInst.paymentTransactions.length - 1].date
+                            : null;
+                        const payDateRaw = rawInst.receivedDate || rawInst.paidDate || lastTxDate || rawInst.updatedAt;
+                        const payD = payDateRaw ? new Date(payDateRaw) : null;
+                        const payMatch = payD ? (payD >= start && payD <= end) : false;
+
+                        dateMatch = dueMatch || payMatch;
                     }
 
                     if (dateMatch) {
@@ -801,12 +820,17 @@ const InstallmentPayment = () => {
                     // Date Match
                     let dateMatch = true;
                     if (boardFilters.startDate || boardFilters.endDate) {
-                        if (rawInst.dueDate) {
-                            const d = new Date(rawInst.dueDate);
-                            dateMatch = d >= start && d <= end;
-                        } else {
-                            dateMatch = false;
-                        }
+                        const dueD = rawInst.dueDate ? new Date(rawInst.dueDate) : null;
+                        const dueMatch = dueD ? (dueD >= start && dueD <= end) : false;
+
+                        const lastTxDate = (rawInst.paymentTransactions && rawInst.paymentTransactions.length > 0)
+                            ? rawInst.paymentTransactions[rawInst.paymentTransactions.length - 1].date
+                            : null;
+                        const payDateRaw = rawInst.receivedDate || rawInst.paidDate || lastTxDate || rawInst.updatedAt;
+                        const payD = payDateRaw ? new Date(payDateRaw) : null;
+                        const payMatch = payD ? (payD >= start && payD <= end) : false;
+
+                        dateMatch = dueMatch || payMatch;
                     }
 
                     if (dateMatch) {
@@ -933,12 +957,17 @@ const InstallmentPayment = () => {
                 adm.installments.forEach(rawInst => {
                     let dateMatch = true;
                     if (filters.startDate || filters.endDate) {
-                        if (rawInst.dueDate) {
-                            const d = new Date(rawInst.dueDate);
-                            dateMatch = d >= start && d <= end;
-                        } else {
-                            dateMatch = false;
-                        }
+                        const dueD = rawInst.dueDate ? new Date(rawInst.dueDate) : null;
+                        const dueMatch = dueD ? (dueD >= start && dueD <= end) : false;
+
+                        const lastTxDate = (rawInst.paymentTransactions && rawInst.paymentTransactions.length > 0)
+                            ? rawInst.paymentTransactions[rawInst.paymentTransactions.length - 1].date
+                            : null;
+                        const payDateRaw = rawInst.receivedDate || rawInst.paidDate || lastTxDate || rawInst.updatedAt;
+                        const payD = payDateRaw ? new Date(payDateRaw) : null;
+                        const payMatch = payD ? (payD >= start && payD <= end) : false;
+
+                        dateMatch = dueMatch || payMatch;
                     }
 
                     if (dateMatch) {
@@ -2009,7 +2038,7 @@ const InstallmentPayment = () => {
                                         {/* Action Buttons */}
                                         <div className="flex gap-2">
                                             <button
-                                                onClick={() => { setBoardCurrentPage(1); }}
+                                                onClick={() => { setBoardCurrentPage(1); fetchBoardAdmissions(); }}
                                                 className="flex-1 py-3 bg-cyan-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-cyan-400 transition-all"
                                             >
                                                 Apply

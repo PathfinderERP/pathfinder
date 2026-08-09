@@ -102,6 +102,8 @@ import taskWorkflowRoutes from "./routes/taskWorkflow/taskWorkflow.routes.js";
 import schoolForTaskRoutes from "./routes/masterData/schoolForTask.routes.js";
 import assignedTaskRoutes from "./routes/assignedTask.routes.js";
 import mediaProxyRoutes from "./routes/mediaProxy.routes.js";
+import teamPerformanceRoutes from "./routes/Marketing/teamPerformance.routes.js";
+import centrePerformanceRoutes from "./routes/Marketing/centrePerformance.routes.js";
 import { startPaymentReminderCron } from "./services/cronService.js";
 
 
@@ -217,6 +219,8 @@ app.use("/api/operations/daily-tracking", dailyTrackingRoutes);
 app.use("/api/red-flags", redFlagRoutes);
 app.use("/api/daily-tracking-logs", dailyTrackingLogRoutes);
 app.use("/api/tomorrow-planner", tomorrowPlannerRoutes);
+app.use("/api/marketing/team-performance", teamPerformanceRoutes);
+app.use("/api/marketing/centre-performance", centrePerformanceRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/payment/sms", razorpaySMSRoutes);
 app.use("/api/notifications", notificationRoutes);
