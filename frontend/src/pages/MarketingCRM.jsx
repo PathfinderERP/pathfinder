@@ -8,7 +8,7 @@ import {
     FaRedo, FaDownload
 } from "react-icons/fa";
 import { useTheme } from "../context/ThemeContext";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { ToastContainer, toast } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 import * as XLSX from 'xlsx';
@@ -18,13 +18,15 @@ import {
     CartesianGrid, Legend, PieChart, Pie, Cell, LabelList
 } from 'recharts';
 import { hasModuleAccess } from "../config/permissions";
+import TeamPerformanceContent from "../components/MarketingCRM/TeamPerformanceContent";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
-const MarketingCRM = () => {
+const MarketingCRM = ({ initialTab }) => {
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
+    const location = useLocation();
 
     // Enforce module-level permission check on mount / user change
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");

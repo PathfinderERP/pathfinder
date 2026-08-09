@@ -355,6 +355,14 @@ export const PERMISSION_MODULES = {
             schoolJourney: {
                 label: "School Journey",
                 operations: ["create", "edit", "delete"]
+            },
+            teamPerformance: {
+                label: "Team Performance",
+                operations: ["create", "edit", "delete"]
+            },
+            centrePerformance: {
+                label: "Centre Performance",
+                operations: ["create", "edit", "delete"]
             }
         }
     },
