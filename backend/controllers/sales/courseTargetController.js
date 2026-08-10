@@ -47,10 +47,15 @@ const getDeptForBoard = (boardName, departments) => {
         targetDeptName = "ICSE";
     } else if (bName === "ISC") {
         targetDeptName = "ISC";
+    } else if (bName.includes("ALL INDIA") || bName.includes("ALL-INDIA")) {
+        targetDeptName = "ALL INDIA";
     }
 
     if (targetDeptName) {
-        const dept = departments.find(d => d.departmentName.toUpperCase().trim() === targetDeptName);
+        const dept = departments.find(d => 
+            d.departmentName.toUpperCase().trim() === targetDeptName ||
+            d.departmentName.toUpperCase().includes(targetDeptName)
+        );
         if (dept) return dept._id.toString();
     }
 
@@ -233,10 +238,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
         const rawDepartments = await Department.find({ showInAdmission: { $ne: false } }).lean();
         const masterDepartments = rawDepartments.filter(d => {
             const name = (d.departmentName || "").toLowerCase().trim();
-            if (name.includes("fort william")) return false;
-            if (name.includes("icse and isc") || name.includes("icse & isc")) return false;
-            if (name.includes("madhyamik and hs") || name.includes("madhyamik & hs")) return false;
-            if (name.includes("counselling desk") || name.includes("zall india") || name.includes("zall-india")) return false;
+            if (name.includes("counselling desk")) return false;
             return true;
         });
         const allCentres = await Centre.find({ _id: { $in: centreIds }, status: { $ne: 'deactive' } }).lean();
@@ -403,9 +405,11 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
             const normalMatch = {
                 centre: centreRegex,
-                admissionDate: { $gte: startDate, $lte: endDate },
-                admissionStatus: "ACTIVE",
-                admissionType: "NORMAL"
+                $or: [
+                    { admissionDate: { $gte: startDate, $lte: endDate } },
+                    { createdAt: { $gte: startDate, $lte: endDate } }
+                ],
+                admissionStatus: { $ne: "CANCELLED" }
             };
             if (sessionList.length > 0) {
                 normalMatch.academicSession = { $in: sessionList };
@@ -416,8 +420,11 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
             const boardMatch = {
                 centre: centreRegex,
-                admissionDate: { $gte: startDate, $lte: endDate },
-                status: "ACTIVE"
+                $or: [
+                    { admissionDate: { $gte: startDate, $lte: endDate } },
+                    { createdAt: { $gte: startDate, $lte: endDate } }
+                ],
+                status: { $ne: "CANCELLED" }
             };
             if (sessionList.length > 0) {
                 boardMatch.academicSession = { $in: sessionList };
@@ -428,9 +435,10 @@ export const getCourseTargetAnalysis = async (req, res) => {
 
             const [normalAdmissions, boardAdmissions] = await Promise.all([
                 Admission.find(normalMatch)
-                    .populate('course', 'courseName programme')
+                    .populate('course')
                     .populate('examTag')
                     .populate('student')
+                    .populate('department')
                     .lean(),
                 BoardCourseAdmission.find(boardMatch)
                     .populate('boardId')
@@ -511,12 +519,16 @@ export const getCourseTargetAnalysis = async (req, res) => {
                 let origTagName = studentTag || a.examTag?.name || a.examTag?.tagName || "NORMAL";
                 origTagName = getNormalizedExamTagName(origTagName, allExamTags);
                 const baseTagName = getBaseExamTag(origTagName);
+                const deptId = (a.department && (a.department._id || a.department).toString()) ||
+                    (a.course?.department && (a.course.department._id || a.course.department).toString()) ||
+                    getDeptForBoard(baseTagName, masterDepartments) ||
+                    getDeptForBoard(a.course?.courseName || "", masterDepartments);
                 combinedAdmissions.push({
                     type: "normal",
                     studentId: sId,
                     baseTagName,
                     originalTagName: origTagName,
-                    departmentId: a.department?.toString(),
+                    departmentId: deptId,
                     admissionDate: new Date(a.admissionDate),
                     tagId: a.examTag?._id?.toString(),
                     raw: a
@@ -542,18 +554,12 @@ export const getCourseTargetAnalysis = async (req, res) => {
                 });
             });
 
-            // Deduplicate by (studentId, baseTagName)
+            // Count all admission records (deduplicate by unique admission document _id)
             const uniqueMap = new Map();
             combinedAdmissions.forEach(item => {
-                if (!item.studentId) return;
-                const key = `${item.studentId}_${item.baseTagName.toUpperCase()}`;
-                if (!uniqueMap.has(key)) {
-                    uniqueMap.set(key, item);
-                } else {
-                    const existing = uniqueMap.get(key);
-                    if (item.admissionDate < existing.admissionDate) {
-                        uniqueMap.set(key, item);
-                    }
+                const admId = item.raw?._id?.toString() || `${item.type}_${item.studentId || Math.random()}_${item.admissionDate?.getTime()}`;
+                if (admId && !uniqueMap.has(admId)) {
+                    uniqueMap.set(admId, item);
                 }
             });
 
@@ -565,9 +571,15 @@ export const getCourseTargetAnalysis = async (req, res) => {
             const deptAmountMap = {};
             const deptExamTagBreakdown = {};
 
+            const masterDeptIds = new Set(masterDepartments.map(d => d._id.toString()));
+            const defaultDeptId = masterDepartments.length > 0 ? masterDepartments[0]._id.toString() : null;
+
             uniqueAdmissions.forEach(item => {
-                if (item.departmentId) {
-                    const dId = item.departmentId;
+                let dId = item.departmentId;
+                if (!dId || !masterDeptIds.has(dId)) {
+                    dId = defaultDeptId;
+                }
+                if (dId) {
                     deptAdmissionMap[dId] = (deptAdmissionMap[dId] || 0) + 1;
                     
                     const amount = item.type === "normal"
@@ -661,9 +673,11 @@ export const getAdmissionDetails = async (req, res) => {
         // Fetch Normal Admissions
         const normalQuery = {
             centre: centreRegex,
-            admissionDate: { $gte: start, $lte: end },
-            admissionStatus: "ACTIVE",
-            admissionType: "NORMAL"
+            $or: [
+                { admissionDate: { $gte: start, $lte: end } },
+                { createdAt: { $gte: start, $lte: end } }
+            ],
+            admissionStatus: { $ne: "CANCELLED" }
         };
         // If not specific tag filtering, query only for requested departmentId
         if (!isTagFiltered) {
@@ -729,8 +743,11 @@ export const getAdmissionDetails = async (req, res) => {
 
         const boardQuery = {
             centre: centreRegex,
-            admissionDate: { $gte: start, $lte: end },
-            status: "ACTIVE"
+            $or: [
+                { admissionDate: { $gte: start, $lte: end } },
+                { createdAt: { $gte: start, $lte: end } }
+            ],
+            status: { $ne: "CANCELLED" }
         };
         if (sessionList.length > 0) {
             boardQuery.academicSession = { $in: sessionList };

@@ -8,7 +8,7 @@ import {
     getQuarterlyFullReport
 } from "../../controllers/sales/centreTargetController.js";
 import { getCentreRankings } from "../../controllers/sales/centreRankController.js";
-import { getUserRankings } from "../../controllers/sales/userRankController.js";
+import { getUserRankings, getUserAdmissionDetails } from "../../controllers/sales/userRankController.js";
 import { getTargetAnalysis } from "../../controllers/sales/targetAnalysisController.js";
 import { getAdmissionReport } from "../../controllers/sales/admissionReportController.js";
 import { getCourseReport } from "../../controllers/sales/courseReportController.js";
@@ -29,6 +29,7 @@ router.get("/comparison-analysis", requireAuth, getComparisonAnalysis);
 router.post("/comparison-analysis/save", requireAuth, saveComparisonManualData);
 
 router.get("/centre-rank", requireAuth, getCentreRankings);
+router.get("/user-rank/admissions", requireAuth, getUserAdmissionDetails);
 router.get("/user-rank", requireAuth, getUserRankings);
 router.get("/target-analysis", requireAuth, getTargetAnalysis);
 router.get("/admission-report", requireAuth, getAdmissionReport);

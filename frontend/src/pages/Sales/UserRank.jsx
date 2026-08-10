@@ -4,8 +4,8 @@ import { useTheme } from "../../context/ThemeContext";
 import { toast } from "react-toastify";
 import {
     FaSync, FaTrophy, FaUser, FaHandsHelping, FaGraduationCap,
-    FaCloudUploadAlt, FaPen, FaPhoneAlt, FaRupeeSign, FaMedal,
-    FaCalendarAlt, FaFilter, FaArrowUp, FaArrowDown, FaDownload
+    FaPhoneAlt, FaRupeeSign,
+    FaCalendarAlt, FaDownload
 } from "react-icons/fa";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -35,30 +35,30 @@ const METRICS = [
         activeBg: "bg-blue-500",
         unit: "admissions"
     },
-    // {
-    //     key: "leadUploads",
-    //     label: "Lead Uploads",
-    //     icon: FaCloudUploadAlt,
-    //     color: "emerald",
-    //     gradient: "from-emerald-500 to-teal-600",
-    //     bg: "bg-emerald-500/10",
-    //     text: "text-emerald-500",
-    //     border: "border-emerald-500/20",
-    //     activeBg: "bg-emerald-500",
-    //     unit: "leads"
-    // },
-    // {
-    //     key: "leadManual",
-    //     label: "Manual Leads",
-    //     icon: FaPen,
-    //     color: "orange",
-    //     gradient: "from-orange-500 to-amber-600",
-    //     bg: "bg-orange-500/10",
-    //     text: "text-orange-500",
-    //     border: "border-orange-500/20",
-    //     activeBg: "bg-orange-500",
-    //     unit: "leads"
-    // },
+    {
+        key: "calling",
+        label: "Calling",
+        icon: FaPhoneAlt,
+        color: "emerald",
+        gradient: "from-emerald-500 to-teal-600",
+        bg: "bg-emerald-500/10",
+        text: "text-emerald-500",
+        border: "border-emerald-500/20",
+        activeBg: "bg-emerald-500",
+        unit: "calls"
+    },
+    {
+        key: "walkIn",
+        label: "Walk In",
+        icon: FaUser,
+        color: "orange",
+        gradient: "from-orange-500 to-amber-600",
+        bg: "bg-orange-500/10",
+        text: "text-orange-500",
+        border: "border-orange-500/20",
+        activeBg: "bg-orange-500",
+        unit: "visitors"
+    },
     {
         key: "followUps",
         label: "Follow Ups",
@@ -69,11 +69,11 @@ const METRICS = [
         text: "text-pink-500",
         border: "border-pink-500/20",
         activeBg: "bg-pink-500",
-        unit: "calls"
+        unit: "follow-ups"
     },
     {
         key: "revenue",
-        label: "Revenue Generated",
+        label: "Admission Amount",
         icon: FaRupeeSign,
         color: "yellow",
         gradient: "from-yellow-500 to-amber-500",
@@ -86,8 +86,6 @@ const METRICS = [
 ];
 
 const ROLE_BADGES = {
-    // superAdmin: { label: "Super Admin", style: "bg-red-500/15 text-red-400 border border-red-500/20" },
-    // admin: { label: "Admin", style: "bg-orange-500/15 text-orange-400 border border-orange-500/20" },
     centerIncharge: { label: "CI", style: "bg-purple-500/15 text-purple-400 border border-purple-500/20" },
     zonalManager: { label: "ZM", style: "bg-blue-500/15 text-blue-400 border border-blue-500/20" },
     counsellor: { label: "Counsellor", style: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/20" },
@@ -109,16 +107,11 @@ const ROLE_BADGES = {
 };
 
 const ROLE_OPTIONS = [
-    // { value: "superAdmin", label: "Super Admin" },
-    // { value: "admin", label: "Admin" },
     { value: "centerIncharge", label: "Center Incharge" },
     { value: "zonalManager", label: "Zonal Manager" },
     { value: "counsellor", label: "Counsellor" },
     { value: "telecaller", label: "Telecaller" },
     { value: "marketing", label: "Marketing" },
-    { value: "teacher", label: "Teacher" },
-    { value: "accounts", label: "Accounts" },
-    { value: "digital", label: "Digital" },
     { value: "assistantZonalManager", label: "Assistant Zonal Manager" },
     { value: "assistantCenterIncharge", label: "Assistant Center Incharge" }
 ];
@@ -201,7 +194,14 @@ const UserRank = () => {
     const [fromDate, setFromDate] = useState(fmt(new Date(new Date().getFullYear(), new Date().getMonth(), 1)));
     const [toDate, setToDate] = useState(fmt(new Date()));
     const [search, setSearch] = useState("");
-    const [selectedRoles, setSelectedRoles] = useState([]);
+    const [selectedRole, setSelectedRole] = useState(""); // "" means All Roles
+
+    // Modal state for Admission Details
+    const [selectedUserForModal, setSelectedUserForModal] = useState(null);
+    const [admissionModalOpen, setAdmissionModalOpen] = useState(false);
+    const [modalAdmissions, setModalAdmissions] = useState([]);
+    const [modalTotalDownPayment, setModalTotalDownPayment] = useState(0);
+    const [modalLoading, setModalLoading] = useState(false);
 
     const handleDateRangeTypeChange = (val) => {
         setDateRangeType(val);
@@ -239,14 +239,45 @@ const UserRank = () => {
         fetchRankings();
     }, [fetchRankings]);
 
+    const handleOpenAdmissionModal = async (user) => {
+        setSelectedUserForModal(user);
+        setAdmissionModalOpen(true);
+        setModalLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const params = new URLSearchParams({
+                userId: user.userId,
+                fromDate,
+                toDate
+            });
+            const res = await fetch(`${apiUrl}/sales/user-rank/admissions?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setModalAdmissions(data.data || []);
+                setModalTotalDownPayment(data.totalDownPayment || 0);
+            } else {
+                toast.error("Failed to load admission details");
+            }
+        } catch (err) {
+            toast.error("Network error");
+        } finally {
+            setModalLoading(false);
+        }
+    };
+
     const roleCounts = {};
     rankings.forEach(r => {
         const role = r.role || "default";
         roleCounts[role] = (roleCounts[role] || 0) + 1;
     });
 
+    const EXCLUDED_ROLES = ["superAdmin", "super admin", "teacher", "digital", "accounts"];
+
     const filtered = rankings
-        .filter(r => selectedRoles.length === 0 || selectedRoles.includes(r.role))
+        .filter(r => !EXCLUDED_ROLES.includes((r.role || "").toLowerCase()) && !EXCLUDED_ROLES.includes(r.role))
+        .filter(r => !selectedRole || r.role === selectedRole)
         .filter(r =>
             r.name.toLowerCase().includes(search.toLowerCase()) ||
             (r.role || "").toLowerCase().includes(search.toLowerCase())
@@ -255,17 +286,17 @@ const UserRank = () => {
     const activeMetricDef = METRICS.find(m => m.key === activeMetric);
 
     const handleExport = () => {
-        const rows = filtered.map(r => ({
-            Rank: r.rank,
+        const rows = filtered.map((r, index) => ({
+            Rank: index + 1,
             Name: r.name,
             Role: r.role,
             Center: r.center || "-",
             Counselling: r.counselling,
             Admissions: r.admissions,
-            // "Lead Uploads": r.leadUploads,
-            // "Manual Leads": r.leadManual,
+            Calling: r.calling || 0,
+            "Walk In": r.walkIn || 0,
             "Follow Ups": r.followUps,
-            "Revenue (₹)": r.revenue
+            "Admission Amount (₹)": r.revenue
         }));
         const ws = XLSX.utils.json_to_sheet(rows);
         const wb = XLSX.utils.book_new();
@@ -373,19 +404,19 @@ const UserRank = () => {
                     <div className="w-full mt-2">
                         <div className="flex items-center justify-between mb-2">
                             <p className={`text-[9px] font-black uppercase tracking-widest ${subText}`}>Filter Roles</p>
-                            {selectedRoles.length > 0 && (
+                            {selectedRole !== "" && (
                                 <button
-                                    onClick={() => setSelectedRoles([])}
+                                    onClick={() => setSelectedRole("")}
                                     className={`text-[9px] font-bold underline ${isDark ? "text-red-400" : "text-red-500"}`}
                                 >
-                                    Clear All
+                                    Clear Selection
                                 </button>
                             )}
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 xl:grid-cols-8 gap-3">
                             <div
-                                onClick={() => setSelectedRoles([])}
-                                className={`p-3 rounded-xl border cursor-pointer transition-all ${card} ${selectedRoles.length === 0 ? `ring-2 ring-cyan-500/50` : "hover:scale-[1.02]"
+                                onClick={() => setSelectedRole("")}
+                                className={`p-3 rounded-xl border cursor-pointer transition-all ${card} ${selectedRole === "" ? `ring-2 ring-cyan-500 shadow-md border-cyan-500/50` : "hover:scale-[1.02]"
                                     }`}
                             >
                                 <div className={`inline-flex p-2 rounded-lg ${isDark ? "bg-cyan-500/10 text-cyan-400" : "bg-cyan-50 text-cyan-600"} mb-2`}>
@@ -397,7 +428,7 @@ const UserRank = () => {
                                 </p>
                             </div>
                             {ROLE_OPTIONS.map((role) => {
-                                const isSelected = selectedRoles.includes(role.value);
+                                const isSelected = selectedRole === role.value;
                                 const count = roleCounts[role.value] || 0;
                                 const badge = getRoleBadge(role.value);
                                 const badgeStyle = badge.style.split(' ');
@@ -407,14 +438,8 @@ const UserRank = () => {
                                 return (
                                     <div
                                         key={role.value}
-                                        onClick={() => {
-                                            if (isSelected) {
-                                                setSelectedRoles(selectedRoles.filter(r => r !== role.value));
-                                            } else {
-                                                setSelectedRoles([...selectedRoles, role.value]);
-                                            }
-                                        }}
-                                        className={`p-3 rounded-xl border cursor-pointer transition-all ${card} ${isSelected ? `ring-2 ring-cyan-500/50` : "hover:scale-[1.02]"
+                                        onClick={() => setSelectedRole(role.value)}
+                                        className={`p-3 rounded-xl border cursor-pointer transition-all ${card} ${isSelected ? `ring-2 ring-cyan-500 shadow-md border-cyan-500/50` : "hover:scale-[1.02]"
                                             } ${count === 0 ? "opacity-40" : ""}`}
                                     >
                                         <div className={`inline-flex p-2 rounded-lg ${bgClass} ${textClass} mb-2`}>
@@ -488,7 +513,7 @@ const UserRank = () => {
                                     {activeMetricDef?.label} Leaderboard
                                 </h3>
                                 <p className={`text-[9px] font-bold uppercase tracking-widest ${subText}`}>
-                                    {fromDate} → {toDate} · {filtered.length} active users
+                                    {fromDate} → {toDate} · {filtered.length} ACTIVE USERS
                                 </p>
                             </div>
                         </div>
@@ -515,17 +540,18 @@ const UserRank = () => {
                                         <th className="px-5 py-3">Center</th>
                                         <th className="px-5 py-3 text-right">Counselling</th>
                                         <th className="px-5 py-3 text-right">Admissions</th>
-                                        {/* <th className="px-5 py-3 text-right">Uploads</th>
-                                        <th className="px-5 py-3 text-right">Manual Leads</th> */}
+                                        <th className="px-5 py-3 text-right">Calling</th>
+                                        <th className="px-5 py-3 text-right">Walk In</th>
                                         <th className="px-5 py-3 text-right">Follow Ups</th>
-                                        <th className="px-5 py-3 text-right">Revenue</th>
+                                        <th className="px-5 py-3 text-right">Admission Amount</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {filtered.map((user) => {
-                                        const medal = getMedalStyle(user.rank);
+                                    {filtered.map((user, index) => {
+                                        const displayRank = index + 1;
+                                        const medal = getMedalStyle(displayRank);
                                         const badge = getRoleBadge(user.role);
-                                        const isTopThree = user.rank <= 3;
+                                        const isTopThree = displayRank <= 3;
                                         return (
                                             <tr
                                                 key={user.userId}
@@ -538,7 +564,7 @@ const UserRank = () => {
                                                             <span className="text-xl leading-none">{medal.icon}</span>
                                                         ) : (
                                                             <span className={`text-[13px] font-black w-6 text-center ${isDark ? "text-gray-500" : "text-gray-400"}`}>
-                                                                {user.rank}
+                                                                {displayRank}
                                                             </span>
                                                         )}
                                                     </div>
@@ -570,16 +596,26 @@ const UserRank = () => {
                                                 {[
                                                     { key: "counselling", m: METRICS[0] },
                                                     { key: "admissions", m: METRICS[1] },
-                                                    // { key: "leadUploads", m: METRICS[2] },
-                                                    // { key: "leadManual", m: METRICS[3] },
-                                                    { key: "followUps", m: METRICS[2] },
-                                                    { key: "revenue", m: METRICS[3] }
+                                                    { key: "calling", m: METRICS[2] },
+                                                    { key: "walkIn", m: METRICS[3] },
+                                                    { key: "followUps", m: METRICS[4] },
+                                                    { key: "revenue", m: METRICS[5] }
                                                 ].map(({ key, m }) => {
                                                     const val = user[key] || 0;
                                                     const isActive = activeMetric === key;
+                                                    const isAdmissionsCol = key === "admissions";
                                                     return (
                                                         <td key={key} className="px-5 py-3.5 text-right">
-                                                            <span className={`text-[12px] font-black transition-all ${isActive ? m.text : (isDark ? "text-gray-300" : "text-gray-700")} ${isActive && val > 0 ? `px-2 py-0.5 rounded-md ${m.bg}` : ""}`}>
+                                                            <span
+                                                                onClick={(e) => {
+                                                                    if (isAdmissionsCol && val > 0) {
+                                                                        e.stopPropagation();
+                                                                        handleOpenAdmissionModal(user);
+                                                                    }
+                                                                }}
+                                                                className={`text-[12px] font-black transition-all ${isAdmissionsCol && val > 0 ? "cursor-pointer underline hover:text-cyan-400" : ""} ${isActive ? m.text : (isDark ? "text-gray-300" : "text-gray-700")} ${isActive && val > 0 ? `px-2 py-0.5 rounded-md ${m.bg}` : ""}`}
+                                                                title={isAdmissionsCol && val > 0 ? "Click to view admission details" : ""}
+                                                            >
                                                                 {formatValue(key, val)}
                                                             </span>
                                                         </td>
@@ -593,6 +629,101 @@ const UserRank = () => {
                         </div>
                     )}
                 </div>
+
+                {/* ── Admission Details Modal ───────────────────────── */}
+                {admissionModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+                        <div className={`w-full max-w-5xl rounded-xl border ${card} shadow-2xl overflow-hidden flex flex-col max-h-[90vh]`}>
+                            {/* Modal Header */}
+                            <div className={`px-6 py-4 border-b ${isDark ? "border-gray-700/50 bg-[#131619]" : "border-gray-200 bg-gray-50"} flex items-center justify-between`}>
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                                        <FaGraduationCap size={16} />
+                                    </div>
+                                    <div>
+                                        <h3 className={`text-[14px] font-black uppercase tracking-wide ${mainText}`}>
+                                            Admission Details — {selectedUserForModal?.name}
+                                        </h3>
+                                        <p className={`text-[10px] font-bold uppercase tracking-widest ${subText}`}>
+                                            {fromDate} → {toDate} · {modalAdmissions.length} Admissions Found
+                                        </p>
+                                    </div>
+                                </div>
+                                <button
+                                    onClick={() => setAdmissionModalOpen(false)}
+                                    className={`p-2 rounded-lg hover:bg-gray-700/30 ${subText} transition-all font-bold text-lg`}
+                                >
+                                    ✕
+                                </button>
+                            </div>
+
+                            {/* Modal Content */}
+                            <div className="p-6 overflow-y-auto flex-1">
+                                {modalLoading ? (
+                                    <div className="flex flex-col items-center justify-center py-16 gap-3">
+                                        <div className="w-8 h-8 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />
+                                        <p className={`text-[11px] font-bold uppercase tracking-widest ${subText}`}>Loading Admission Details…</p>
+                                    </div>
+                                ) : modalAdmissions.length === 0 ? (
+                                    <div className="flex flex-col items-center justify-center py-16 gap-2">
+                                        <FaGraduationCap size={32} className="text-gray-500 opacity-40" />
+                                        <p className={`text-[12px] font-bold ${subText}`}>No admission records found for selected period</p>
+                                    </div>
+                                ) : (
+                                    <div className="overflow-x-auto rounded-lg border border-gray-700/30">
+                                        <table className="w-full text-left">
+                                            <thead>
+                                                <tr className={`text-[10px] font-black uppercase tracking-wider ${subText} ${isDark ? "bg-[#131619]" : "bg-gray-100"} border-b ${isDark ? "border-gray-700/50" : "border-gray-200"}`}>
+                                                    <th className="px-4 py-3">DATE</th>
+                                                    <th className="px-4 py-3">ENROLLMENT NO.</th>
+                                                    <th className="px-4 py-3">STUDENT NAME</th>
+                                                    <th className="px-4 py-3">COURSE NAME</th>
+                                                    <th className="px-4 py-3">CLASS</th>
+                                                    <th className="px-4 py-3">MONTH</th>
+                                                    <th className="px-4 py-3 text-right">DOWN PAYMENT</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-800/40">
+                                                {modalAdmissions.map((item) => (
+                                                    <tr key={item.id} className={`${isDark ? "hover:bg-[#131619]/60" : "hover:bg-gray-50"}`}>
+                                                        <td className={`px-4 py-3 text-[11px] font-medium ${subText}`}>{item.date}</td>
+                                                        <td className="px-4 py-3">
+                                                            <span className="px-2 py-0.5 bg-blue-500/15 text-cyan-400 font-mono text-[11px] font-bold rounded border border-blue-500/30">
+                                                                {item.enrollmentNo}
+                                                            </span>
+                                                        </td>
+                                                        <td className={`px-4 py-3 text-[12px] font-bold ${mainText} uppercase`}>{item.studentName}</td>
+                                                        <td className={`px-4 py-3 text-[11px] font-semibold ${subText}`}>{item.courseName}</td>
+                                                        <td className="px-4 py-3">
+                                                            <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 font-bold text-[11px] rounded">
+                                                                {item.className}
+                                                            </span>
+                                                        </td>
+                                                        <td className={`px-4 py-3 text-[11px] font-medium ${subText}`}>{item.month}</td>
+                                                        <td className={`px-4 py-3 text-[12px] font-bold text-right ${mainText}`}>
+                                                            ₹{item.downPayment.toLocaleString("en-IN")}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                            <tfoot>
+                                                <tr className={`border-t ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-300 bg-gray-100"}`}>
+                                                    <td colSpan={5} className="px-4 py-3"></td>
+                                                    <td className={`px-4 py-3 text-[11px] font-black uppercase text-right tracking-wider ${mainText}`}>
+                                                        TOTAL
+                                                    </td>
+                                                    <td className={`px-4 py-3 text-[13px] font-black text-right ${mainText}`}>
+                                                        ₹{modalTotalDownPayment.toLocaleString("en-IN")}
+                                                    </td>
+                                                </tr>
+                                            </tfoot>
+                                        </table>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </Layout>
     );
