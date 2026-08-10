@@ -23,6 +23,13 @@ export const getSchoolJourney = async (req, res) => {
         // Build query for SchoolForTask
         const schoolQuery = {};
 
+        const userRoleStr = (req.user?.role || "").toLowerCase();
+        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        if (!isSuperAdmin && req.user) {
+            const userCentreIds = (req.user.centres || []).map(c => (c._id || c));
+            schoolQuery.centerName = { $in: userCentreIds };
+        }
+
         if (search && search.trim()) {
             schoolQuery.schoolName = { $regex: search.trim(), $options: "i" };
         }

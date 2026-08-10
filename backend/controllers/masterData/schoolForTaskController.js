@@ -12,9 +12,9 @@ const withPopulate = (query) =>
         .populate("board", "boardCourse name");
 
 // ─────────────────────────────────────────────
-//  Build filter query
+//  Build filter query with User Centre Restriction
 // ─────────────────────────────────────────────
-const buildFilterQuery = (filters = {}) => {
+const buildFilterQuery = (filters = {}, user = null) => {
     const { search, schoolName, tier, schoolAccess, status, board, centerName } = filters;
     const query = {};
 
@@ -48,7 +48,23 @@ const buildFilterQuery = (filters = {}) => {
     };
 
     addIdFilter("board", board);
-    addIdFilter("centerName", centerName);
+
+    // Centre restriction check based on user role & assigned centres
+    const userRoleStr = (user?.role || "").toLowerCase();
+    const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+
+    if (!isSuperAdmin && user) {
+        const userCentreIds = (user.centres || []).map((c) => (c._id || c).toString());
+        if (centerName) {
+            const requestedIds = centerName.split(",").map((v) => v.trim()).filter(Boolean);
+            const allowedRequestedIds = requestedIds.filter((id) => userCentreIds.includes(id));
+            query.centerName = { $in: allowedRequestedIds };
+        } else {
+            query.centerName = { $in: userCentreIds };
+        }
+    } else {
+        addIdFilter("centerName", centerName);
+    }
 
     return query;
 };
@@ -61,6 +77,15 @@ export const createSchoolForTask = async (req, res) => {
         const { schoolName, centerName } = req.body;
         if (!schoolName || !centerName) {
             return res.status(400).json({ message: "schoolName and centerName are required" });
+        }
+
+        const userRoleStr = (req.user?.role || "").toLowerCase();
+        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        if (!isSuperAdmin && req.user) {
+            const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
+            if (!userCentreIds.includes(centerName.toString())) {
+                return res.status(403).json({ message: "Cannot create school for a centre not assigned to your account" });
+            }
         }
 
         const school = new SchoolForTask(req.body);
@@ -85,7 +110,7 @@ export const getSchoolsForTask = async (req, res) => {
             sortOrder = "desc",
         } = req.query;
 
-        const query = buildFilterQuery(req.query);
+        const query = buildFilterQuery(req.query, req.user);
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const sort = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
 
@@ -112,7 +137,7 @@ export const getSchoolsForTask = async (req, res) => {
 // ─────────────────────────────────────────────
 export const exportAllSchoolsForTask = async (req, res) => {
     try {
-        const query = buildFilterQuery(req.query);
+        const query = buildFilterQuery(req.query, req.user);
         const records = await withPopulate(
             SchoolForTask.find(query).sort({ createdAt: -1 })
         );
@@ -127,7 +152,7 @@ export const exportAllSchoolsForTask = async (req, res) => {
 // ─────────────────────────────────────────────
 export const getAllSchoolForTaskIds = async (req, res) => {
     try {
-        const query = buildFilterQuery(req.query);
+        const query = buildFilterQuery(req.query, req.user);
         const records = await SchoolForTask.find(query).select("_id").lean();
         res.status(200).json({ ids: records.map(r => r._id) });
     } catch (err) {
@@ -142,6 +167,17 @@ export const getSchoolForTaskById = async (req, res) => {
     try {
         const school = await withPopulate(SchoolForTask.findById(req.params.id));
         if (!school) return res.status(404).json({ message: "School not found" });
+
+        const userRoleStr = (req.user?.role || "").toLowerCase();
+        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        if (!isSuperAdmin && req.user) {
+            const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
+            const schoolCentreId = (school.centerName?._id || school.centerName)?.toString();
+            if (!schoolCentreId || !userCentreIds.includes(schoolCentreId)) {
+                return res.status(403).json({ message: "Access denied to school data for unassigned centre" });
+            }
+        }
+
         res.status(200).json({ data: school });
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });
@@ -154,6 +190,22 @@ export const getSchoolForTaskById = async (req, res) => {
 export const updateSchoolForTask = async (req, res) => {
     try {
         const { id } = req.params;
+        const existing = await SchoolForTask.findById(id);
+        if (!existing) return res.status(404).json({ message: "School not found" });
+
+        const userRoleStr = (req.user?.role || "").toLowerCase();
+        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        if (!isSuperAdmin && req.user) {
+            const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
+            const currentCentreId = (existing.centerName?._id || existing.centerName)?.toString();
+            if (!currentCentreId || !userCentreIds.includes(currentCentreId)) {
+                return res.status(403).json({ message: "Access denied to update school for unassigned centre" });
+            }
+            if (req.body.centerName && !userCentreIds.includes(req.body.centerName.toString())) {
+                return res.status(403).json({ message: "Cannot reassign school to a centre not assigned to your account" });
+            }
+        }
+
         const allowedFields = ["centerName", "schoolName", "board", "tier", "schoolAccess", "status", "remarks"];
 
         const updateDoc = {};
@@ -171,7 +223,6 @@ export const updateSchoolForTask = async (req, res) => {
             )
         );
 
-        if (!record) return res.status(404).json({ message: "School not found" });
         res.status(200).json({ message: "School updated", data: record });
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });
@@ -183,8 +234,20 @@ export const updateSchoolForTask = async (req, res) => {
 // ─────────────────────────────────────────────
 export const deleteSchoolForTask = async (req, res) => {
     try {
-        const record = await SchoolForTask.findByIdAndDelete(req.params.id);
-        if (!record) return res.status(404).json({ message: "School not found" });
+        const existing = await SchoolForTask.findById(req.params.id);
+        if (!existing) return res.status(404).json({ message: "School not found" });
+
+        const userRoleStr = (req.user?.role || "").toLowerCase();
+        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        if (!isSuperAdmin && req.user) {
+            const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
+            const currentCentreId = (existing.centerName?._id || existing.centerName)?.toString();
+            if (!currentCentreId || !userCentreIds.includes(currentCentreId)) {
+                return res.status(403).json({ message: "Access denied to delete school for unassigned centre" });
+            }
+        }
+
+        await SchoolForTask.findByIdAndDelete(req.params.id);
         res.status(200).json({ message: "School deleted" });
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });
@@ -199,13 +262,20 @@ export const bulkDeleteSchoolsForTask = async (req, res) => {
         const { ids, selectAllMatching, filters } = req.body;
         let query = {};
 
+        const userRoleStr = (req.user?.role || "").toLowerCase();
+        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+
         if (selectAllMatching) {
-            query = buildFilterQuery(filters || {});
+            query = buildFilterQuery(filters || {}, req.user);
         } else {
             if (!Array.isArray(ids) || ids.length === 0) {
                 return res.status(400).json({ message: "No IDs provided for deletion" });
             }
             query = { _id: { $in: ids } };
+            if (!isSuperAdmin && req.user) {
+                const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
+                query.centerName = { $in: userCentreIds };
+            }
         }
 
         const result = await SchoolForTask.deleteMany(query);
@@ -229,6 +299,16 @@ export const bulkUpdateSchoolsForTask = async (req, res) => {
             return res.status(400).json({ message: "No update fields provided" });
         }
 
+        const userRoleStr = (req.user?.role || "").toLowerCase();
+        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+
+        if (!isSuperAdmin && req.user && updates.centerName) {
+            const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
+            if (!userCentreIds.includes(updates.centerName.toString())) {
+                return res.status(403).json({ message: "Cannot reassign schools to a centre not assigned to your account" });
+            }
+        }
+
         const allowedFields = ["centerName", "board", "tier", "schoolAccess", "status", "remarks"];
         const updateDoc = {};
         for (const field of allowedFields) {
@@ -243,12 +323,16 @@ export const bulkUpdateSchoolsForTask = async (req, res) => {
 
         let query = {};
         if (selectAllMatching) {
-            query = buildFilterQuery(filters || {});
+            query = buildFilterQuery(filters || {}, req.user);
         } else {
             if (!Array.isArray(ids) || ids.length === 0) {
                 return res.status(400).json({ message: "No IDs provided for update" });
             }
             query = { _id: { $in: ids } };
+            if (!isSuperAdmin && req.user) {
+                const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
+                query.centerName = { $in: userCentreIds };
+            }
         }
 
         const result = await SchoolForTask.updateMany(query, { $set: updateDoc });
@@ -270,6 +354,12 @@ export const bulkImportSchoolsForTask = async (req, res) => {
         if (!Array.isArray(rows) || rows.length === 0) {
             return res.status(400).json({ message: "No data provided for import" });
         }
+
+        const userRoleStr = (req.user?.role || "").toLowerCase();
+        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        const userCentreIds = (!isSuperAdmin && req.user)
+            ? (req.user.centres || []).map((c) => (c._id || c).toString())
+            : null;
 
         // Fetch active centres and boards to map names/IDs server-side
         const [allCentres, allBoards] = await Promise.all([
@@ -394,6 +484,14 @@ export const bulkImportSchoolsForTask = async (req, res) => {
                 continue;
             }
 
+            if (userCentreIds && !userCentreIds.includes(centreId.toString())) {
+                results.failed.push({
+                    row,
+                    reason: `CenterName '${rawCenter}' is not assigned to your account under User Management.`
+                });
+                continue;
+            }
+
             validRecords.push({
                 schoolName: rawSchoolName,
                 centerName: centreId,
@@ -435,11 +533,20 @@ export const bulkImportSchoolsForTask = async (req, res) => {
 // ─────────────────────────────────────────────
 export const getSchoolForTaskDistinctFields = async (req, res) => {
     try {
+        const userRoleStr = (req.user?.role || "").toLowerCase();
+        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        let filter = {};
+
+        if (!isSuperAdmin && req.user) {
+            const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
+            filter = { centerName: { $in: userCentreIds } };
+        }
+
         const [schools, tiers, accessLevels, statuses] = await Promise.all([
-            SchoolForTask.distinct("schoolName"),
-            SchoolForTask.distinct("tier"),
-            SchoolForTask.distinct("schoolAccess"),
-            SchoolForTask.distinct("status"),
+            SchoolForTask.distinct("schoolName", filter),
+            SchoolForTask.distinct("tier", filter),
+            SchoolForTask.distinct("schoolAccess", filter),
+            SchoolForTask.distinct("status", filter),
         ]);
 
         res.status(200).json({

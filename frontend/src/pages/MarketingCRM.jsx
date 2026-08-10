@@ -614,6 +614,13 @@ const MarketingCRM = ({ initialTab }) => {
             if (cRes.ok) {
                 const cData = await cRes.json();
                 centres = (Array.isArray(cData) ? cData : (cData.centres || [])).filter(c => c.status !== "deactive");
+                const userObj = JSON.parse(localStorage.getItem("user") || "{}");
+                const userRole = (userObj.role || "").toLowerCase();
+                const isSuperAdmin = userRole === "superadmin" || userRole === "super admin";
+                if (!isSuperAdmin && userObj.centres && Array.isArray(userObj.centres)) {
+                    const allowedIds = userObj.centres.map(c => (c._id || c).toString());
+                    centres = centres.filter(c => allowedIds.includes((c._id || c).toString()));
+                }
             }
             if (dRes.ok) {
                 distinct = await dRes.json();

@@ -187,7 +187,12 @@ export default function MasterDataSchoolForTaskContent() {
                 if (cRes.ok) {
                     const cData = await cRes.json();
                     const cList = Array.isArray(cData) ? cData : (cData.centres || []);
-                    setCentres(cList.filter((c) => c.status !== "deactive"));
+                    let activeCentres = cList.filter((c) => c.status !== "deactive");
+                    if (!isSuperAdmin && user.centres && Array.isArray(user.centres)) {
+                        const allowedIds = user.centres.map(c => (c._id || c).toString());
+                        activeCentres = activeCentres.filter(c => allowedIds.includes((c._id || c).toString()));
+                    }
+                    setCentres(activeCentres);
                 }
                 if (bRes.ok) {
                     const bData = await bRes.json();
