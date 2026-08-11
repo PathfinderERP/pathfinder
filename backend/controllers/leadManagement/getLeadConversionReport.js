@@ -2,7 +2,7 @@ import LeadManagement from "../../models/LeadManagement.js";
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
-import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
+import { buildLeadQuery, parseFlexibleDate } from "../../utils/leadQueryHelper.js";
 
 /**
  * Lead Conversion Report
@@ -33,11 +33,13 @@ export const getLeadConversionReport = async (req, res) => {
 
         // ── STEP 1: Query Counselling (Student creation) phone numbers in date range ──
         const studentDateQuery = {};
-        if (fromDate) studentDateQuery.$gte = new Date(fromDate);
-        if (toDate) {
-            const end = new Date(toDate);
-            end.setHours(23, 59, 59, 999);
-            studentDateQuery.$lte = end;
+        const startDate = parseFlexibleDate(fromDate);
+        const endDate = parseFlexibleDate(toDate);
+
+        if (startDate) studentDateQuery.$gte = startDate;
+        if (endDate) {
+            endDate.setHours(23, 59, 59, 999);
+            studentDateQuery.$lte = endDate;
         }
 
         const studentsInDateRange = await Student.find(
@@ -56,11 +58,9 @@ export const getLeadConversionReport = async (req, res) => {
 
         // ── STEP 2: Query Admissions in date range and get their phone numbers ──
         const admissionDateQuery = {};
-        if (fromDate) admissionDateQuery.$gte = new Date(fromDate);
-        if (toDate) {
-            const end = new Date(toDate);
-            end.setHours(23, 59, 59, 999);
-            admissionDateQuery.$lte = end;
+        if (startDate) admissionDateQuery.$gte = startDate;
+        if (endDate) {
+            admissionDateQuery.$lte = endDate;
         }
 
         const [normalAdms, boardAdms] = await Promise.all([

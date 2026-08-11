@@ -49,21 +49,19 @@ const buildFilterQuery = (filters = {}, user = null) => {
 
     addIdFilter("board", board);
 
-    // Centre restriction check based on user role & assigned centres
-    const userRoleStr = (user?.role || "").toLowerCase();
-    const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+    // Centre restriction check based on assigned user centres
+    const userCentreIds = (user?.centres || []).map((c) => (c._id || c).toString()).filter(Boolean);
 
-    if (!isSuperAdmin && user) {
-        const userCentreIds = (user.centres || []).map((c) => (c._id || c).toString());
-        if (centerName) {
-            const requestedIds = centerName.split(",").map((v) => v.trim()).filter(Boolean);
+    if (centerName) {
+        const requestedIds = centerName.split(",").map((v) => v.trim()).filter(Boolean);
+        if (userCentreIds.length > 0) {
             const allowedRequestedIds = requestedIds.filter((id) => userCentreIds.includes(id));
-            query.centerName = { $in: allowedRequestedIds };
+            query.centerName = { $in: allowedRequestedIds.length > 0 ? allowedRequestedIds : userCentreIds };
         } else {
-            query.centerName = { $in: userCentreIds };
+            query.centerName = requestedIds.length === 1 ? requestedIds[0] : { $in: requestedIds };
         }
-    } else {
-        addIdFilter("centerName", centerName);
+    } else if (userCentreIds.length > 0) {
+        query.centerName = { $in: userCentreIds };
     }
 
     return query;

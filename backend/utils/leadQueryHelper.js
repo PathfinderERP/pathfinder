@@ -3,6 +3,27 @@ import User from "../models/User.js";
 import CentreSchema from "../models/Master_data/Centre.js";
 
 /**
+ * Safely parses date inputs in ISO (YYYY-MM-DD), DD-MM-YYYY, or DD/MM/YYYY formats
+ */
+export const parseFlexibleDate = (dateStr) => {
+    if (!dateStr) return null;
+    if (dateStr instanceof Date) return isNaN(dateStr.getTime()) ? null : dateStr;
+    const str = String(dateStr).trim();
+    if (!str) return null;
+
+    // Check DD-MM-YYYY or DD/MM/YYYY format
+    const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+    if (dmyMatch) {
+        const [_, day, month, year] = dmyMatch;
+        const parsed = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+        return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
+    const d = new Date(str);
+    return isNaN(d.getTime()) ? null : d;
+};
+
+/**
  * Normalizes filter values that might be strings, IDs, or objects from CustomMultiSelect
  */
 const normalizeValue = (val) => {
@@ -177,35 +198,45 @@ export const buildLeadQuery = async (queryParams, user) => {
         }
     }
 
+
+
     // Date range filter (Created At)
     if (fromDate || toDate) {
-        query.createdAt = {};
-        if (fromDate) query.createdAt.$gte = new Date(fromDate);
-        if (toDate) {
-            const end = new Date(toDate);
-            end.setHours(23, 59, 59, 999);
-            query.createdAt.$lte = end;
+        const start = parseFlexibleDate(fromDate);
+        const end = parseFlexibleDate(toDate);
+        if (start || end) {
+            query.createdAt = {};
+            if (start) query.createdAt.$gte = start;
+            if (end) {
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
+            }
         }
     }
 
     // Follow-up Date range filter (Next Follow Up)
     if (followUpFromDate || followUpToDate) {
-        query.nextFollowUpDate = {};
-        if (followUpFromDate) query.nextFollowUpDate.$gte = new Date(followUpFromDate);
-        if (followUpToDate) {
-            const end = new Date(followUpToDate);
-            end.setHours(23, 59, 59, 999);
-            query.nextFollowUpDate.$lte = end;
+        const start = parseFlexibleDate(followUpFromDate);
+        const end = parseFlexibleDate(followUpToDate);
+        if (start || end) {
+            query.nextFollowUpDate = {};
+            if (start) query.nextFollowUpDate.$gte = start;
+            if (end) {
+                end.setHours(23, 59, 59, 999);
+                query.nextFollowUpDate.$lte = end;
+            }
         }
     }
 
     // Scheduled Date filter (Next Follow Up)
     if (scheduledDate) {
-        const start = new Date(scheduledDate);
-        start.setHours(0, 0, 0, 0);
-        const end = new Date(scheduledDate);
-        end.setHours(23, 59, 59, 999);
-        query.nextFollowUpDate = { $gte: start, $lte: end };
+        const start = parseFlexibleDate(scheduledDate);
+        if (start) {
+            start.setHours(0, 0, 0, 0);
+            const end = new Date(start);
+            end.setHours(23, 59, 59, 999);
+            query.nextFollowUpDate = { $gte: start, $lte: end };
+        }
     }
 
     // Multi-select fields

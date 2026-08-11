@@ -101,13 +101,19 @@ export const getConversionDetails = async (req, res) => {
             .populate('createdBy', 'name')
             .sort({ createdAt: -1 });
 
-        // Retrieve down payment values
+        // Retrieve down payment values and admitted course/board titles
         const [normalAdmissions, boardAdmissions] = await Promise.all([
-            Admission.find({}, { student: 1, downPayment: 1 }).lean(),
-            BoardCourseAdmission.find({}, { studentId: 1, mobileNum: 1, programme: 1, installments: { $slice: 1 }, examFeePaid: 1, additionalThingsPaid: 1 }).lean()
+            Admission.find({}, { student: 1, course: 1, board: 1, boardCourseName: 1, downPayment: 1 })
+                .populate("course", "courseName")
+                .populate("board", "boardCourse name")
+                .lean(),
+            BoardCourseAdmission.find({}, { studentId: 1, mobileNum: 1, boardId: 1, boardCourseName: 1, programme: 1, installments: { $slice: 1 }, examFeePaid: 1, additionalThingsPaid: 1 })
+                .populate("boardId", "boardCourse name")
+                .lean()
         ]);
 
         const downPaymentMap = new Map();
+        const courseNameMap = new Map();
 
         const studentIds = normalAdmissions.map(a => a.student?.toString()).filter(Boolean);
         const admittedStudents = await Student.find({ _id: { $in: studentIds } }, { "studentsDetails.mobileNum": 1, "studentsDetails.whatsappNumber": 1 }).lean();
@@ -120,11 +126,17 @@ export const getConversionDetails = async (req, res) => {
 
         normalAdmissions.forEach(adm => {
             const sid = adm.student?.toString();
+            const courseTitle = adm.course?.courseName || adm.boardCourseName || adm.board?.boardCourse || adm.board?.name || "";
             if (sid) {
                 const amount = adm.downPayment ?? 0;
                 downPaymentMap.set(sid, amount);
+                if (courseTitle) courseNameMap.set(sid, courseTitle);
+
                 const phones = studentIdToPhones.get(sid) || [];
-                phones.forEach(p => downPaymentMap.set(p, amount));
+                phones.forEach(p => {
+                    downPaymentMap.set(p, amount);
+                    if (courseTitle) courseNameMap.set(p, courseTitle);
+                });
             }
         });
 
@@ -136,24 +148,46 @@ export const getConversionDetails = async (req, res) => {
             } else {
                 amount = (adm.examFeePaid || 0) + (adm.additionalThingsPaid || 0);
             }
+            const boardTitle = adm.boardCourseName || adm.boardId?.boardCourse || adm.boardId?.name || "Board Course";
+
             if (adm.studentId) {
                 downPaymentMap.set(adm.studentId.toString(), amount);
+                if (boardTitle) courseNameMap.set(adm.studentId.toString(), boardTitle);
             }
             if (adm.mobileNum) {
-                downPaymentMap.set(adm.mobileNum.trim(), amount);
+                const phone = adm.mobileNum.trim();
+                downPaymentMap.set(phone, amount);
+                if (boardTitle) courseNameMap.set(phone, boardTitle);
             }
         });
 
         const leadsWithPayments = leads.map(lead => {
             let downPayment = 0;
-            if (lead.phoneNumber && downPaymentMap.has(lead.phoneNumber.trim())) {
-                downPayment = downPaymentMap.get(lead.phoneNumber.trim());
-            } else if (lead.secondPhoneNumber && downPaymentMap.has(lead.secondPhoneNumber.trim())) {
-                downPayment = downPaymentMap.get(lead.secondPhoneNumber.trim());
+            let admittedCourseName = "";
+
+            const p1 = lead.phoneNumber ? lead.phoneNumber.trim() : "";
+            const p2 = lead.secondPhoneNumber ? lead.secondPhoneNumber.trim() : "";
+
+            if (p1 && downPaymentMap.has(p1)) {
+                downPayment = downPaymentMap.get(p1);
+            } else if (p2 && downPaymentMap.has(p2)) {
+                downPayment = downPaymentMap.get(p2);
             }
+
+            if (p1 && courseNameMap.has(p1)) {
+                admittedCourseName = courseNameMap.get(p1);
+            } else if (p2 && courseNameMap.has(p2)) {
+                admittedCourseName = courseNameMap.get(p2);
+            }
+
+            if (!admittedCourseName) {
+                admittedCourseName = lead.course?.courseName || lead.board?.boardCourse || lead.board?.name || "";
+            }
+
             return {
                 ...lead.toObject ? lead.toObject() : lead,
-                downPayment
+                downPayment,
+                admittedCourseName
             };
         });
 

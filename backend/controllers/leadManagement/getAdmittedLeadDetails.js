@@ -2,7 +2,7 @@ import LeadManagement from "../../models/LeadManagement.js";
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
-import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
+import { buildLeadQuery, parseFlexibleDate } from "../../utils/leadQueryHelper.js";
 
 /**
  * Returns detailed admission records for leads matching the given filters + leadType.
@@ -35,11 +35,12 @@ export const getAdmittedLeadDetails = async (req, res) => {
 
         // Build the admissionDate filter query
         const admissionDateQuery = {};
-        if (fromDate) admissionDateQuery.$gte = new Date(fromDate);
-        if (toDate) {
-            const end = new Date(toDate);
-            end.setHours(23, 59, 59, 999);
-            admissionDateQuery.$lte = end;
+        const startDate = parseFlexibleDate(fromDate);
+        const endDate = parseFlexibleDate(toDate);
+        if (startDate) admissionDateQuery.$gte = startDate;
+        if (endDate) {
+            endDate.setHours(23, 59, 59, 999);
+            admissionDateQuery.$lte = endDate;
         }
 
         // Find all student IDs that had an admission within this date range
