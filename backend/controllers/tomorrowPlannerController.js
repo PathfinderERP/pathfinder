@@ -467,6 +467,8 @@ export const updateTask = async (req, res) => {
         if (estimatedDuration !== undefined) task.estimatedDuration = estimatedDuration;
         if (notes !== undefined) task.notes = notes;
         if (status !== undefined) task.status = status;
+        if (activityStatus !== undefined) task.activityStatus = activityStatus;
+        if (nextActivityDate !== undefined) task.nextActivityDate = nextActivityDate;
 
         await plan.save();
         res.status(200).json({ message: "Task updated successfully.", plan });

@@ -7,7 +7,8 @@ const EditSourceModal = ({ source, onClose, onSuccess }) => {
         sourceName: "",
         source: "",
         subSource: "",
-        sourceType: ""
+        sourceType: "",
+        status: "Active"
     });
     const [loading, setLoading] = useState(false);
 
@@ -17,7 +18,8 @@ const EditSourceModal = ({ source, onClose, onSuccess }) => {
                 sourceName: source.sourceName || "",
                 source: source.source || "",
                 subSource: source.subSource || "",
-                sourceType: source.sourceType || ""
+                sourceType: source.sourceType || "",
+                status: source.status || "Active"
             });
         }
     }, [source]);
@@ -110,6 +112,18 @@ const EditSourceModal = ({ source, onClose, onSuccess }) => {
                             onChange={handleChange}
                             className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white"
                         />
+                    </div>
+                    <div>
+                        <label className="block text-gray-400 text-sm mb-1">Status</label>
+                        <select
+                            name="status"
+                            value={formData.status}
+                            onChange={handleChange}
+                            className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                        >
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                        </select>
                     </div>
 
                     <div className="flex justify-end gap-3 pt-4 border-t border-gray-700">

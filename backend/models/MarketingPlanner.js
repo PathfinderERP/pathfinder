@@ -64,6 +64,15 @@ const marketingPlannerSchema = new mongoose.Schema({
         type: String,
         default: "Medium"
     },
+    activityStatus: {
+        type: String,
+        enum: ["Bad", "Neutral", "Good"],
+        default: "Neutral"
+    },
+    nextActivityDate: {
+        type: String, // "YYYY-MM-DD"
+        default: ""
+    },
     actual: {
         type: String,
         default: ""

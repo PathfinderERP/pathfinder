@@ -6,7 +6,8 @@ export const createSource = async (req, res) => {
             sourceName,
             source,
             subSource,
-            sourceType
+            sourceType,
+            status
         } = req.body;
 
         if (!sourceName || !source || !subSource) {
@@ -17,7 +18,8 @@ export const createSource = async (req, res) => {
             sourceName,
             source,
             subSource,
-            sourceType
+            sourceType,
+            status: status || "Active"
         });
 
         await newSource.save();

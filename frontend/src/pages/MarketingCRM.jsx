@@ -671,9 +671,9 @@ const MarketingCRM = ({ initialTab }) => {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({
                 startDate: assignTaskFilterDate,
-                endDate:   assignTaskFilterEndDate,
-                page:      assignedTasksPage,
-                limit:     20,
+                endDate: assignTaskFilterEndDate,
+                page: assignedTasksPage,
+                limit: 20,
             });
             if (assignTaskFilterStatus !== "All") params.append("status", assignTaskFilterStatus);
             const res = await fetch(`${import.meta.env.VITE_API_URL}/assigned-tasks?${params}`, {
@@ -696,8 +696,8 @@ const MarketingCRM = ({ initialTab }) => {
         e.preventDefault();
         const selectedStaff = Array.isArray(assignForm.assignedTo) ? assignForm.assignedTo : (assignForm.assignedTo ? [assignForm.assignedTo] : []);
         if (selectedStaff.length === 0) { toast.error("Please select at least one staff member."); return; }
-        if (!assignForm.school)     { toast.error("Please select a school."); return; }
-        if (!assignForm.planDate)   { toast.error("Please select a date."); return; }
+        if (!assignForm.school) { toast.error("Please select a school."); return; }
+        if (!assignForm.planDate) { toast.error("Please select a date."); return; }
 
         setAssignFormSubmitting(true);
         try {
@@ -1125,7 +1125,8 @@ const MarketingCRM = ({ initialTab }) => {
                 if (response.ok) {
                     const data = await response.json();
                     if (data.sources && data.sources.length > 0) {
-                        setActivitySources(data.sources.map(s => s.sourceName));
+                        const activeSources = data.sources.filter(s => !s.status || s.status === "Active");
+                        setActivitySources(activeSources.map(s => s.sourceName));
                     }
                 }
             } catch (err) {
@@ -1513,6 +1514,12 @@ const MarketingCRM = ({ initialTab }) => {
             return;
         }
 
+        const missingStatusOrNextDate = todayActivities.some(act => !act.activityStatus || !act.nextActivityDate);
+        if (missingStatusOrNextDate) {
+            toast.error("Activity Status and Next Activity Date (Follow-up Date) are required for all activity blocks.");
+            return;
+        }
+
         // Capture real submission datetime
         const now = new Date();
         const submittedAt = now.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
@@ -1520,6 +1527,7 @@ const MarketingCRM = ({ initialTab }) => {
 
         const activitiesPayload = todayActivities.map((act) => ({
             type: act.type,
+            activityPurpose: act.activityPurpose || "",
             place: act.place || "",
             time: act.time || "",
             actualTime: act.actualTime || submittedTime,
@@ -1534,6 +1542,8 @@ const MarketingCRM = ({ initialTab }) => {
             estimatedDuration: act.estimatedDuration || "",
             notes: act.notes || "",
             priority: act.priority || "Medium",
+            activityStatus: act.activityStatus || "Neutral",
+            nextActivityDate: act.nextActivityDate || "",
             schoolRef: act.schoolRef || null,
             schoolStatus: act.schoolStatus || ""
         }));
@@ -1969,7 +1979,9 @@ const MarketingCRM = ({ initialTab }) => {
             photo: null,
             estimatedDuration: "",
             notes: "",
-            priority: "Medium"
+            priority: "Medium",
+            activityStatus: "Neutral",
+            nextActivityDate: ""
         }
     ]);
 
@@ -1988,7 +2000,9 @@ const MarketingCRM = ({ initialTab }) => {
             photo: null,
             estimatedDuration: "",
             notes: "",
-            priority: "Medium"
+            priority: "Medium",
+            activityStatus: "Neutral",
+            nextActivityDate: ""
         }];
         setTodayActivities(newActs);
         // Auto-save draft
@@ -2772,21 +2786,48 @@ const MarketingCRM = ({ initialTab }) => {
 
                                                 <div className={`p-6 rounded-2xl border space-y-4 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-[#f4f6f8] border-gray-100'}`}>
                                                     {/* Grid Column Headers (Desktop only) */}
-                                                    <div className="hidden md:grid grid-cols-12 gap-4 px-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
-                                                        <div className="col-span-2">Activity Type</div>
+                                                    <div className="hidden md:grid grid-cols-12 gap-2 px-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
                                                         <div className="col-span-1">Purpose</div>
+                                                        <div className="col-span-2">Activity Type</div>
+
                                                         <div className="col-span-2">Place / Institution</div>
                                                         <div className="col-span-1">Time</div>
                                                         <div className="col-span-1">Duration</div>
-                                                        <div className="col-span-1">Notes</div>
-                                                        <div className="col-span-1 text-center">Priority</div>
+                                                        <div className="col-span-1">Remarks</div>
+                                                        <div className="col-span-1">Activity Status</div>
+                                                        <div className="col-span-1">Next Follow-up</div>
                                                         <div className="col-span-1 text-center">Leads</div>
                                                         <div className="col-span-1 text-center">Geo-Tag</div>
-                                                        <div className="col-span-1 text-center">Actions</div>
+                                                        {/* <div className="col-span-1 text-center">Actions</div> */}
                                                     </div>
 
                                                     {todayActivities.map((activity, idx) => (
+
                                                         <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center animate-fadeIn border-b border-gray-800/10 dark:border-gray-800/30 pb-4 md:pb-0 md:border-b-0">
+                                                            <div className="col-span-1 md:col-span-1">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Purpose</label>
+                                                                {activity.isSaved ? (
+                                                                    <div className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed`}>
+                                                                        {activity.activityPurpose || '—'}
+                                                                    </div>
+                                                                ) : (
+                                                                    <select
+                                                                        value={activity.activityPurpose || ""}
+                                                                        onChange={(e) => {
+                                                                            const newActs = [...todayActivities];
+                                                                            newActs[idx].activityPurpose = e.target.value;
+                                                                            setTodayActivities(newActs);
+                                                                        }}
+                                                                        className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                                    >
+                                                                        <option value="">-- Purpose --</option>
+                                                                        {activityPurposes.map((p, pIdx) => (
+                                                                            <option key={pIdx} value={p}>{p}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                )}
+                                                            </div>
+
                                                             {/* Activity Type select — sourced from Master Data /source */}
                                                             <div className="col-span-1 md:col-span-2">
                                                                 <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Type</label>
@@ -2819,29 +2860,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                             </div>
 
                                                             {/* Activity Purpose dropdown */}
-                                                            <div className="col-span-1 md:col-span-1">
-                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Purpose</label>
-                                                                {activity.isSaved ? (
-                                                                    <div className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed`}>
-                                                                        {activity.activityPurpose || '—'}
-                                                                    </div>
-                                                                ) : (
-                                                                    <select
-                                                                        value={activity.activityPurpose || ""}
-                                                                        onChange={(e) => {
-                                                                            const newActs = [...todayActivities];
-                                                                            newActs[idx].activityPurpose = e.target.value;
-                                                                            setTodayActivities(newActs);
-                                                                        }}
-                                                                        className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
-                                                                    >
-                                                                        <option value="">-- Purpose --</option>
-                                                                        {activityPurposes.map((p, pIdx) => (
-                                                                            <option key={pIdx} value={p}>{p}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                )}
-                                                            </div>
+
 
                                                             {/* Place / Institution — searchable school dropdown from master data for School Visit, or input text field for others */}
                                                             <div className="col-span-1 md:col-span-2">
@@ -2975,23 +2994,39 @@ const MarketingCRM = ({ initialTab }) => {
                                                                 />
                                                             </div>
 
-                                                            {/* Priority select */}
+                                                            {/* Activity Status select (Bad / Neutral / Good) */}
                                                             <div className="col-span-1 md:col-span-1">
-                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Priority</label>
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Status *</label>
                                                                 <select
                                                                     disabled={activity.isSaved}
-                                                                    value={activity.priority || "Medium"}
+                                                                    value={activity.activityStatus || "Neutral"}
                                                                     onChange={(e) => {
                                                                         const newActs = [...todayActivities];
-                                                                        newActs[idx].priority = e.target.value;
+                                                                        newActs[idx].activityStatus = e.target.value;
                                                                         setTodayActivities(newActs);
                                                                     }}
-                                                                    className={`w-full px-2 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                                    className={`w-full px-1.5 py-3 rounded-xl border text-[10px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
                                                                 >
-                                                                    <option value="High">High</option>
-                                                                    <option value="Medium">Medium</option>
-                                                                    <option value="Low">Low</option>
+                                                                    <option value="Success">Success</option>
+                                                                    <option value="Failed">Failed</option>
+                                                                    <option value="Ongoing">Ongoing</option>
                                                                 </select>
+                                                            </div>
+
+                                                            {/* Next Activity / Follow-up Date input */}
+                                                            <div className="col-span-1 md:col-span-1">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Next Date *</label>
+                                                                <input
+                                                                    type="date"
+                                                                    disabled={activity.isSaved}
+                                                                    value={activity.nextActivityDate || ""}
+                                                                    onChange={(e) => {
+                                                                        const newActs = [...todayActivities];
+                                                                        newActs[idx].nextActivityDate = e.target.value;
+                                                                        setTodayActivities(newActs);
+                                                                    }}
+                                                                    className={`w-full px-1 py-3 rounded-xl border text-[10px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                                />
                                                             </div>
 
                                                             {/* Expected Leads input */}
@@ -3788,10 +3823,10 @@ const MarketingCRM = ({ initialTab }) => {
                             const statusOptions = ["Pending", "Approved", "Rejected"].map(s => ({ value: s, label: s }));
                             const centreOptions = (availableCenters || []).map(c => ({ value: c._id, label: c.centreName }));
                             const schoolOptions = (auditMasterSchools || [])
-                            .map(s => s.schoolName)
-                            .filter(Boolean)
-                            .sort((a, b) => a.localeCompare(b))
-                            .map(s => ({ value: s, label: s }));
+                                .map(s => s.schoolName)
+                                .filter(Boolean)
+                                .sort((a, b) => a.localeCompare(b))
+                                .map(s => ({ value: s, label: s }));
 
                             return (
                                 <div className="space-y-5 animate-fadeIn">
@@ -4000,6 +4035,8 @@ const MarketingCRM = ({ initialTab }) => {
                                                             <th className="px-5 py-4 whitespace-nowrap">Duration</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Notes</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Priority</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Activity Status</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Next Activity Date</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Leads</th>
                                                             <th className="px-5 py-4 whitespace-nowrap min-w-[140px]">Proof</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Status</th>
@@ -4082,6 +4119,17 @@ const MarketingCRM = ({ initialTab }) => {
                                                                                 }`}>
                                                                                 {row.priority || 'Medium'}
                                                                             </span>
+                                                                        </td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap">
+                                                                            <span className={`px-2 py-0.5 rounded text-[9px] font-bold uppercase ${row.activityStatus === 'Good' ? 'bg-green-500/10 text-green-500 border border-green-500/20' :
+                                                                                row.activityStatus === 'Bad' ? 'bg-red-500/10 text-red-500 border border-red-500/20' :
+                                                                                    'bg-yellow-500/10 text-yellow-500 border border-yellow-500/20'
+                                                                                }`}>
+                                                                                {row.activityStatus || 'Neutral'}
+                                                                            </span>
+                                                                        </td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px] text-gray-500">
+                                                                            {row.nextActivityDate || '—'}
                                                                         </td>
                                                                         <td className="px-5 py-4 whitespace-nowrap">
                                                                             <span className="font-black">{row.leads}</span>
@@ -4707,30 +4755,30 @@ const MarketingCRM = ({ initialTab }) => {
                                 </div>
                             </div>
                         )}
-                {/* Full-Screen Image Preview Modal */}
-                {previewImage && (
-                    <div
-                        className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm transition-opacity duration-300"
-                        onClick={() => setPreviewImage(null)}
-                    >
-                        <div className="relative max-w-[90%] max-h-[90%] flex flex-col items-center">
-                            <button
-                                className="absolute -top-12 right-0 text-white hover:text-cyan-400 text-3xl font-black focus:outline-none transition-colors"
+                        {/* Full-Screen Image Preview Modal */}
+                        {previewImage && (
+                            <div
+                                className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/85 backdrop-blur-sm transition-opacity duration-300"
                                 onClick={() => setPreviewImage(null)}
                             >
-                                &times;
-                            </button>
-                            <img
-                                src={previewImage}
-                                alt="Proof Preview"
-                                className="max-w-full max-h-[80vh] rounded-lg border border-cyan-500/20 object-contain shadow-[0_0_50px_rgba(6,182,212,0.2)]"
-                                onClick={(e) => e.stopPropagation()}
-                            />
-                        </div>
-                    </div>
-                )}
+                                <div className="relative max-w-[90%] max-h-[90%] flex flex-col items-center">
+                                    <button
+                                        className="absolute -top-12 right-0 text-white hover:text-cyan-400 text-3xl font-black focus:outline-none transition-colors"
+                                        onClick={() => setPreviewImage(null)}
+                                    >
+                                        &times;
+                                    </button>
+                                    <img
+                                        src={previewImage}
+                                        alt="Proof Preview"
+                                        className="max-w-full max-h-[80vh] rounded-lg border border-cyan-500/20 object-contain shadow-[0_0_50px_rgba(6,182,212,0.2)]"
+                                        onClick={(e) => e.stopPropagation()}
+                                    />
+                                </div>
+                            </div>
+                        )}
 
-                <style>{`
+                        <style>{`
                     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
                     
                     * {
@@ -4744,10 +4792,10 @@ const MarketingCRM = ({ initialTab }) => {
 
                     .tracking-tighter { letter-spacing: -0.05em; }
                 `}</style>
+                    </div>
+                </div>
             </div>
-        </div>
-    </div>
-</Layout>
+        </Layout>
     );
 };
 

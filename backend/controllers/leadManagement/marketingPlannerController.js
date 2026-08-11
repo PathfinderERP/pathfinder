@@ -107,6 +107,8 @@ export const createPlanner = async (req, res) => {
                 estimatedDuration: act.estimatedDuration || "",
                 notes: act.notes || "",
                 priority: act.priority || "Medium",
+                activityStatus: act.activityStatus || "Neutral",
+                nextActivityDate: act.nextActivityDate || "",
                 actual: act.actualTime || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
                 leads: act.expectedLeads || "0",
                 photo: act.photos?.[0] || act.photo || null,

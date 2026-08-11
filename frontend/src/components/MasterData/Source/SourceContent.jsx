@@ -196,13 +196,14 @@ const SourceContent = () => {
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Source</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Sub Source</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Source Type</th>
+                                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Status</th>
                                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-400 uppercase">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-700">
                             {filteredSources.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="px-4 py-8 text-center text-gray-400">
+                                    <td colSpan="7" className="px-4 py-8 text-center text-gray-400">
                                         No sources found
                                     </td>
                                 </tr>
@@ -214,6 +215,15 @@ const SourceContent = () => {
                                         <td className="px-4 py-3 text-gray-400">{source.source}</td>
                                         <td className="px-4 py-3 text-gray-400">{source.subSource}</td>
                                         <td className="px-4 py-3 text-gray-400">{source.sourceType || "N/A"}</td>
+                                        <td className="px-4 py-3">
+                                            <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                                                source.status === "Inactive"
+                                                    ? "bg-red-500/20 text-red-400 border border-red-500/30"
+                                                    : "bg-green-500/20 text-green-400 border border-green-500/30"
+                                            }`}>
+                                                {source.status || "Active"}
+                                            </span>
+                                        </td>
                                         <td className="px-4 py-3">
                                             <div className="flex items-center gap-2">
                                                 {canEdit && (
