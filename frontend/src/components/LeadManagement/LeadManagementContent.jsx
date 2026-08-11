@@ -582,22 +582,25 @@ const LeadManagementContent = () => {
             const params = new URLSearchParams();
             params.append("type", type);
             if (searchTerm) params.append("search", searchTerm);
+            if (dashboardFilters.fromDate) params.append("followUpFromDate", dashboardFilters.fromDate);
+            if (dashboardFilters.toDate) params.append("followUpToDate", dashboardFilters.toDate);
 
             // Pass all active filters
             Object.entries(filters).forEach(([key, value]) => {
+                // Ignore leadType for conversion stats just like backend summary counts do
+                if (key === 'leadType') return;
+
                 if (Array.isArray(value)) {
-                    value.forEach(v => {
-                        const val = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
-                        if (val) params.append(key, val);
-                    });
-                } else if (value && !['fromDate', 'toDate'].includes(key)) {
+                    if (value.length > 0) {
+                        value.forEach(v => {
+                            const val = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
+                            if (val) params.append(key, val);
+                        });
+                    }
+                } else if (value) {
                     params.append(key, value);
                 }
             });
-
-            // ADD Dashboard specific date filters
-            if (dashboardFilters.fromDate) params.append('fromDate', dashboardFilters.fromDate);
-            if (dashboardFilters.toDate) params.append('toDate', dashboardFilters.toDate);
 
             toast.info(`Fetching ${type} leads...`, { autoClose: 1000 });
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/stats/dashboard/conversion-details?${params.toString()}`, {
