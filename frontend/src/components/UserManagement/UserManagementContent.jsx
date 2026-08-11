@@ -587,34 +587,32 @@ const UserManagementContent = () => {
                             />
                         </div>
 
-                        {/* Role filter - Only show for SuperAdmin and Admin */}
-                        {isSuperAdminOrAdmin && (
-                            <div className="min-w-[180px]">
-                                <CustomMultiSelect
-                                    options={[
-                                        { value: 'superAdmin', label: 'SuperAdmin' },
-                                        { value: 'admin', label: 'Back Office' },
-                                        { value: 'teacher', label: 'Teacher' },
-                                        { value: 'telecaller', label: 'Telecaller' },
-                                        { value: 'counsellor', label: 'Counsellor' },
-                                        { value: 'marketing', label: 'Marketing' },
-                                        { value: 'centerIncharge', label: 'Center Incharge' },
-                                        { value: 'zonalManager', label: 'Zonal Manager' },
-                                        { value: 'HOD', label: 'HOD' },
-                                        { value: 'accounts', label: 'Accounts' },
-                                        { value: 'coordinator', label: 'Coordinator' },
-                                        { value: 'digital', label: 'Digital' },
-                                        { value: 'assistantZonalManager', label: 'Assistant Zonal Manager' },
-                                        { value: 'assistantCenterIncharge', label: 'Assistant Center Incharge' },
-                                        { value: 'supportStaff', label: 'Support Staff' }
-                                    ]}
-                                    value={filterRole}
-                                    onChange={setFilterRole}
-                                    placeholder="All Roles"
-                                    isDarkMode={isDarkMode}
-                                />
-                            </div>
-                        )}
+                        {/* Role filter */}
+                        <div className="min-w-[180px]">
+                            <CustomMultiSelect
+                                options={[
+                                    { value: 'superAdmin', label: 'SuperAdmin' },
+                                    { value: 'admin', label: 'Back Office' },
+                                    { value: 'teacher', label: 'Teacher' },
+                                    { value: 'telecaller', label: 'Telecaller' },
+                                    { value: 'counsellor', label: 'Counsellor' },
+                                    { value: 'marketing', label: 'Marketing' },
+                                    { value: 'centerIncharge', label: 'Center Incharge' },
+                                    { value: 'zonalManager', label: 'Zonal Manager' },
+                                    { value: 'HOD', label: 'HOD' },
+                                    { value: 'accounts', label: 'Accounts' },
+                                    { value: 'coordinator', label: 'Coordinator' },
+                                    { value: 'digital', label: 'Digital' },
+                                    { value: 'assistantZonalManager', label: 'Assistant Zonal Manager' },
+                                    { value: 'assistantCenterIncharge', label: 'Assistant Center Incharge' },
+                                    { value: 'supportStaff', label: 'Support Staff' }
+                                ]}
+                                value={filterRole}
+                                onChange={setFilterRole}
+                                placeholder="All Roles"
+                                isDarkMode={isDarkMode}
+                            />
+                        </div>
 
                         {/* Teacher Type Filter */}
                         <div className="min-w-[180px]">

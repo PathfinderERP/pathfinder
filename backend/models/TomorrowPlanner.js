@@ -28,6 +28,10 @@ const tomorrowPlannerSchema = new mongoose.Schema({
             type: String,
             default: ""
         },
+        activityPurpose: {
+            type: String,
+            default: ""
+        },
         // place can be a free-text string (user's own task)
         // or resolved school name (assigned task from master data)
         place: {

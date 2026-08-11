@@ -395,6 +395,7 @@ const MarketingCRM = ({ initialTab }) => {
     const [expectedHotLeads, setExpectedHotLeads] = useState("0");
     const [primaryCentreName, setPrimaryCentreName] = useState("");
     const [activitySources, setActivitySources] = useState([]);
+    const [activityPurposes, setActivityPurposes] = useState([]);
     const [todayTaskSubmitted, setTodayTaskSubmitted] = useState(false);
     const [submittedActivities, setSubmittedActivities] = useState([]); // holds submitted records for rich display
     const [todayTaskLoading, setTodayTaskLoading] = useState(false);
@@ -406,6 +407,7 @@ const MarketingCRM = ({ initialTab }) => {
     const [savingTomorrowPlan, setSavingTomorrowPlan] = useState(false);
     const [newTaskForm, setNewTaskForm] = useState({
         activityType: "",
+        activityPurpose: "",
         place: "",
         time: "",
         estimatedDuration: "",
@@ -870,6 +872,7 @@ const MarketingCRM = ({ initialTab }) => {
                 if (data.plan && data.plan.tasks && data.plan.tasks.length > 0) {
                     plannerActivities = data.plan.tasks.map(task => ({
                         type: task.activityType || "",
+                        activityPurpose: task.activityPurpose || "",
                         place: task.place || "",
                         schoolRef: task.schoolRef?._id?.toString() || (typeof task.schoolRef === 'string' ? task.schoolRef : null),
                         time: task.time || "",
@@ -984,6 +987,7 @@ const MarketingCRM = ({ initialTab }) => {
         const newTask = {
             _id: `temp_${Date.now()}_${Math.random()}`,
             activityType: actType,
+            activityPurpose: newTaskForm.activityPurpose || "",
             place: newTaskForm.place,
             schoolRef: newTaskForm.schoolRef || null,
             time: newTaskForm.time,
@@ -996,6 +1000,7 @@ const MarketingCRM = ({ initialTab }) => {
         setTomorrowTasks(prev => [...prev, newTask]);
         setNewTaskForm({
             activityType: activitySources[0] || "School Visit",
+            activityPurpose: "",
             place: "",
             schoolRef: null,
             time: "",
@@ -1022,6 +1027,7 @@ const MarketingCRM = ({ initialTab }) => {
         setEditingTaskId(task._id);
         setEditTaskForm({
             activityType: task.activityType || "",
+            activityPurpose: task.activityPurpose || "",
             place: task.place || "",
             schoolRef: task.schoolRef?._id || task.schoolRef || null,
             time: task.time || "",
@@ -1076,6 +1082,7 @@ const MarketingCRM = ({ initialTab }) => {
                     if (data.plan.tasks && data.plan.tasks.length > 0) {
                         const mapped = data.plan.tasks.map(task => ({
                             type: task.activityType || "",
+                            activityPurpose: task.activityPurpose || "",
                             place: task.place || "",
                             schoolRef: task.schoolRef?._id?.toString() || (typeof task.schoolRef === 'string' ? task.schoolRef : null),
                             time: task.time || "",
@@ -1107,7 +1114,7 @@ const MarketingCRM = ({ initialTab }) => {
     };
 
 
-    // Fetch sources from Master Data
+    // Fetch sources and activity purposes from Master Data
     useEffect(() => {
         const fetchSources = async () => {
             try {
@@ -1125,7 +1132,22 @@ const MarketingCRM = ({ initialTab }) => {
                 console.error("Error fetching sources:", err);
             }
         };
+        const fetchActivityPurposes = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const response = await fetch(`${import.meta.env.VITE_API_URL}/master-data/activity-purpose`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    setActivityPurposes(Array.isArray(data) ? data.map(p => p.name) : []);
+                }
+            } catch (err) {
+                console.error("Error fetching activity purposes:", err);
+            }
+        };
         fetchSources();
+        fetchActivityPurposes();
     }, []);
 
     useEffect(() => {
@@ -1935,6 +1957,7 @@ const MarketingCRM = ({ initialTab }) => {
     const [todayActivities, setTodayActivities] = useState([
         {
             type: "",
+            activityPurpose: "",
             place: "",
             time: "",
             expectedLeads: "",
@@ -1953,6 +1976,7 @@ const MarketingCRM = ({ initialTab }) => {
     const handleAddActivity = () => {
         const newActs = [...todayActivities, {
             type: activitySources[0] || "",
+            activityPurpose: "",
             place: "",
             time: "",
             expectedLeads: "",
@@ -2750,10 +2774,11 @@ const MarketingCRM = ({ initialTab }) => {
                                                     {/* Grid Column Headers (Desktop only) */}
                                                     <div className="hidden md:grid grid-cols-12 gap-4 px-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
                                                         <div className="col-span-2">Activity Type</div>
+                                                        <div className="col-span-1">Purpose</div>
                                                         <div className="col-span-2">Place / Institution</div>
                                                         <div className="col-span-1">Time</div>
                                                         <div className="col-span-1">Duration</div>
-                                                        <div className="col-span-2">Notes</div>
+                                                        <div className="col-span-1">Notes</div>
                                                         <div className="col-span-1 text-center">Priority</div>
                                                         <div className="col-span-1 text-center">Leads</div>
                                                         <div className="col-span-1 text-center">Geo-Tag</div>
@@ -2791,6 +2816,31 @@ const MarketingCRM = ({ initialTab }) => {
                                                                         ))
                                                                     )}
                                                                 </select>
+                                                            </div>
+
+                                                            {/* Activity Purpose dropdown */}
+                                                            <div className="col-span-1 md:col-span-1">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Purpose</label>
+                                                                {activity.isSaved ? (
+                                                                    <div className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed`}>
+                                                                        {activity.activityPurpose || '—'}
+                                                                    </div>
+                                                                ) : (
+                                                                    <select
+                                                                        value={activity.activityPurpose || ""}
+                                                                        onChange={(e) => {
+                                                                            const newActs = [...todayActivities];
+                                                                            newActs[idx].activityPurpose = e.target.value;
+                                                                            setTodayActivities(newActs);
+                                                                        }}
+                                                                        className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
+                                                                    >
+                                                                        <option value="">-- Purpose --</option>
+                                                                        {activityPurposes.map((p, pIdx) => (
+                                                                            <option key={pIdx} value={p}>{p}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                )}
                                                             </div>
 
                                                             {/* Place / Institution — searchable school dropdown from master data for School Visit, or input text field for others */}
@@ -2909,7 +2959,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                             </div>
 
                                                             {/* Notes input */}
-                                                            <div className="col-span-1 md:col-span-2">
+                                                            <div className="col-span-1 md:col-span-1">
                                                                 <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Notes</label>
                                                                 <input
                                                                     type="text"
@@ -3316,6 +3366,20 @@ const MarketingCRM = ({ initialTab }) => {
                                             </select>
                                         </div>
 
+                                        <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Activity Purpose</label>
+                                            <select
+                                                value={newTaskForm.activityPurpose}
+                                                onChange={(e) => setNewTaskForm(prev => ({ ...prev, activityPurpose: e.target.value }))}
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                            >
+                                                <option value="">-- Select Purpose --</option>
+                                                {activityPurposes.map((p, pIdx) => (
+                                                    <option key={pIdx} value={p}>{p}</option>
+                                                ))}
+                                            </select>
+                                        </div>
+
                                         <div className="col-span-1 md:col-span-3 z-10 flex flex-col gap-1.5 relative">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">
                                                 {newTaskForm.activityType === "School Visit" ? "Select School *" : "Place / Institution *"}
@@ -3441,10 +3505,11 @@ const MarketingCRM = ({ initialTab }) => {
                                                 {/* Grid Column Headers (Desktop only) */}
                                                 <div className="hidden md:grid grid-cols-12 gap-4 px-4 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
                                                     <div className="col-span-2">Activity Type</div>
+                                                    <div className="col-span-1">Purpose</div>
                                                     <div className="col-span-3">Place / Institution Name</div>
                                                     <div className="col-span-1 text-center">From Time</div>
                                                     <div className="col-span-2 text-center">Duration (In Hours)</div>
-                                                    <div className="col-span-2">Notes (Optional)</div>
+                                                    <div className="col-span-1">Notes (Optional)</div>
                                                     <div className="col-span-1 text-center">Priority</div>
                                                     <div className="col-span-1 text-center">Actions</div>
                                                 </div>
@@ -3472,6 +3537,20 @@ const MarketingCRM = ({ initialTab }) => {
                                                                         <option key={sIdx} value={src}>{src}</option>
                                                                     )) : ["School Visit", "Tuition Visit", "Shikkha Bondhu", "Referral Drive", "Market Activity", "Others Activity"].map((s, sIdx) => (
                                                                         <option key={sIdx} value={s}>{s}</option>
+                                                                    ))}
+                                                                </select>
+                                                            </div>
+                                                            {/* Activity Purpose */}
+                                                            <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Activity Purpose</label>
+                                                                <select
+                                                                    value={editTaskForm.activityPurpose || ""}
+                                                                    onChange={(e) => setEditTaskForm(prev => ({ ...prev, activityPurpose: e.target.value }))}
+                                                                    className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/60 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                                                >
+                                                                    <option value="">-- Select Purpose --</option>
+                                                                    {activityPurposes.map((p, pIdx) => (
+                                                                        <option key={pIdx} value={p}>{p}</option>
                                                                     ))}
                                                                 </select>
                                                             </div>
@@ -3593,6 +3672,17 @@ const MarketingCRM = ({ initialTab }) => {
                                                             <div className="col-span-1 md:col-span-2">
                                                                 <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Type</label>
                                                                 <span className="text-[11px] font-black uppercase">{task.activityType || task.taskDetails || "Activity"}</span>
+                                                            </div>
+
+                                                            <div className="col-span-1 md:col-span-1">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Purpose</label>
+                                                                {task.activityPurpose ? (
+                                                                    <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border bg-yellow-500/10 text-yellow-500 border-yellow-500/20`}>
+                                                                        {task.activityPurpose}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>-</span>
+                                                                )}
                                                             </div>
 
                                                             <div className="col-span-1 md:col-span-3">
