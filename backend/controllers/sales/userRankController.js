@@ -169,43 +169,41 @@ export const getUserRankings = async (req, res) => {
                 { $group: { _id: { $trim: { input: "$followUps.updatedBy" } }, count: { $sum: 1 } } }
             ]),
 
-            // 8. Walk-ins by walkInBy or createdBy ObjectId
-            LeadManagement.aggregate([
-                {
-                    $match: {
-                        $or: [
-                            { isWalkIn: true },
-                            { source: { $regex: /walk[- ]?in/i } }
-                        ],
-                        $or: [
-                            { walkInDate: dateRange },
-                            { createdAt: dateRange }
-                        ],
-                        centre: { $in: allowedIds }
-                    }
-                },
-                { $group: { _id: { $ifNull: ["$walkInBy", "$createdBy"] }, count: { $sum: 1 } } }
-            ]),
-
-            // 9. Walk-ins by leadResponsibility string name
-            LeadManagement.aggregate([
-                {
-                    $match: {
-                        $or: [
-                            { isWalkIn: true },
-                            { source: { $regex: /walk[- ]?in/i } }
-                        ],
-                        $or: [
-                            { walkInDate: dateRange },
-                            { createdAt: dateRange }
-                        ],
-                        leadResponsibility: { $in: userNames },
-                        centre: { $in: allowedIds }
-                    }
-                },
-                { $group: { _id: { $trim: { input: "$leadResponsibility" } }, count: { $sum: 1 } } }
-            ])
+            // 8. Walk-ins query
+            LeadManagement.find({
+                $or: [
+                    { isWalkIn: true },
+                    { source: { $regex: /walk[- ]?in/i } }
+                ],
+                centre: { $in: allowedIds }
+            }).select("walkInBy createdBy leadResponsibility walkInDate createdAt").lean()
         ]);
+
+        // Process Walk-ins per lead to avoid double-counting
+        const walkInMap = {};
+        walkInAgg.forEach(lead => {
+            const wDate = lead.walkInDate || lead.createdAt;
+            if (!wDate) return;
+            const dObj = new Date(wDate);
+            if (dObj < startDate || dObj > endDate) return;
+
+            let assignedUid = null;
+            if (lead.walkInBy) {
+                assignedUid = lead.walkInBy.toString();
+            } else if (lead.createdBy) {
+                assignedUid = lead.createdBy.toString();
+            } else if (lead.leadResponsibility) {
+                const respLower = lead.leadResponsibility.toLowerCase().trim();
+                const matchedUser = users.find(u => (u.name || "").toLowerCase().trim() === respLower);
+                if (matchedUser) {
+                    assignedUid = matchedUser._id.toString();
+                }
+            }
+
+            if (assignedUid) {
+                walkInMap[assignedUid] = (walkInMap[assignedUid] || 0) + 1;
+            }
+        });
 
         // Build ObjectId-keyed lookup maps
         const normalAdmMap = {};
@@ -237,18 +235,12 @@ export const getUserRankings = async (req, res) => {
         const manualMap = {};
         leadManualAgg.forEach(r => { if (r._id) manualMap[r._id.toString()] = r.count; });
 
-        const walkInIdMap = {};
-        walkInAgg.forEach(r => { if (r._id) walkInIdMap[r._id.toString()] = r.count; });
-
         // Build name-keyed lookup maps (for string-based fields)
         const followUpMap = {};
         followUpsAgg.forEach(r => { if (r._id) followUpMap[r._id.toLowerCase().trim()] = r.count; });
 
         const leadCounselMap = {};
         leadCounsellingAgg.forEach(r => { if (r._id) leadCounselMap[r._id.toLowerCase().trim()] = r.count; });
-
-        const walkInNameMap = {};
-        walkInNameAgg.forEach(r => { if (r._id) walkInNameMap[r._id.toLowerCase().trim()] = r.count; });
 
         // Assemble per-user stats
         let rankData = users.map(user => {
@@ -258,7 +250,7 @@ export const getUserRankings = async (req, res) => {
             const counselling = (boardCounselMap[uid] || 0) + (leadCounselMap[nameLower] || 0);
             const admissions = (normalAdmMap[uid] || 0) + (boardAdmMap[uid] || 0);
             const calling = followUpMap[nameLower] || 0;
-            const walkIn = (walkInIdMap[uid] || 0) + (walkInNameMap[nameLower] || 0);
+            const walkIn = walkInMap[uid] || 0;
             const followUps = followUpMap[nameLower] || 0;
             const leadUploads = uploadMap[uid] || 0;
             const leadManual = manualMap[uid] || 0;
@@ -284,11 +276,8 @@ export const getUserRankings = async (req, res) => {
             };
         });
 
-        // Only include users with at least one activity
-        rankData = rankData.filter(u =>
-            u.counselling > 0 || u.admissions > 0 || u.calling > 0 || u.walkIn > 0 ||
-            u.followUps > 0 || u.revenue > 0 || u.leadUploads > 0 || u.leadManual > 0
-        );
+        // Do not filter out 0-activity users so total users for each role are returned
+        // rankData = rankData.filter(...)
 
         // Sort by the requested metric
         const metricKey = {
@@ -445,6 +434,228 @@ export const getUserAdmissionDetails = async (req, res) => {
         });
     } catch (error) {
         console.error("Error in getUserAdmissionDetails:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+export const getUserCounsellingDetails = async (req, res) => {
+    try {
+        const { userId, fromDate, toDate } = req.query;
+        if (!userId) return res.status(400).json({ message: "userId is required" });
+
+        const user = await User.findById(userId).select("name").lean();
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const now = new Date();
+        let startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        let endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        if (fromDate) { startDate = new Date(fromDate); startDate.setHours(0, 0, 0, 0); }
+        if (toDate) { endDate = new Date(toDate); endDate.setHours(23, 59, 59, 999); }
+        const dateRange = { $gte: startDate, $lte: endDate };
+
+        const userObjId = new mongoose.Types.ObjectId(userId);
+        const userNameRegex = new RegExp(`^${user.name.trim()}$`, "i");
+
+        const [boardCounsellings, leadCounsellings] = await Promise.all([
+            BoardCourseCounselling.find({
+                counselledBy: userObjId,
+                counselledDate: dateRange
+            }).populate("studentId", "name studentName mobileNum").lean(),
+
+            LeadManagement.find({
+                isCounseled: true,
+                updatedAt: dateRange,
+                leadResponsibility: userNameRegex
+            }).populate("centre", "centreName").populate("course", "courseName").populate("className", "className name").lean()
+        ]);
+
+        const list = [];
+        boardCounsellings.forEach(bc => {
+            const dateObj = new Date(bc.counselledDate || bc.createdAt);
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const monthNum = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const year = dateObj.getFullYear();
+            list.push({
+                id: bc._id,
+                type: "BOARD",
+                date: `${day}-${monthNum}-${year}`,
+                rawDate: bc.counselledDate || bc.createdAt,
+                studentName: bc.studentName || bc.studentId?.name || bc.studentId?.studentName || "N/A",
+                mobile: bc.mobileNum || bc.studentId?.mobileNum || "-",
+                courseOrClass: bc.programme || bc.lastClass || "Board Course",
+                centre: bc.centre || "-",
+                remarks: bc.remarks || bc.status || "Counselled"
+            });
+        });
+
+        leadCounsellings.forEach(lc => {
+            const dateObj = new Date(lc.updatedAt || lc.createdAt);
+            const day = String(dateObj.getDate()).padStart(2, '0');
+            const monthNum = String(dateObj.getMonth() + 1).padStart(2, '0');
+            const year = dateObj.getFullYear();
+            list.push({
+                id: lc._id,
+                type: "LEAD",
+                date: `${day}-${monthNum}-${year}`,
+                rawDate: lc.updatedAt || lc.createdAt,
+                studentName: lc.name || "N/A",
+                mobile: lc.phoneNumber || lc.secondPhoneNumber || "-",
+                courseOrClass: lc.course?.courseName || lc.courseText || lc.className?.className || lc.className?.name || "-",
+                centre: lc.centre?.centreName || lc.centre || "-",
+                remarks: lc.leadType || "Counselled Lead"
+            });
+        });
+
+        list.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
+        res.status(200).json({ data: list, totalCount: list.length });
+    } catch (error) {
+        console.error("Error in getUserCounsellingDetails:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+export const getUserCallingDetails = async (req, res) => {
+    try {
+        const { userId, fromDate, toDate } = req.query;
+        if (!userId) return res.status(400).json({ message: "userId is required" });
+
+        const user = await User.findById(userId).select("name").lean();
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const now = new Date();
+        let startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        let endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        if (fromDate) { startDate = new Date(fromDate); startDate.setHours(0, 0, 0, 0); }
+        if (toDate) { endDate = new Date(toDate); endDate.setHours(23, 59, 59, 999); }
+        const dateRange = { $gte: startDate, $lte: endDate };
+
+        const userNameLower = (user.name || "").toLowerCase().trim();
+
+        const leads = await LeadManagement.find({
+            "followUps.date": dateRange,
+            "followUps.updatedBy": { $regex: new RegExp(`^${user.name.trim()}$`, "i") }
+        }).populate("centre", "centreName").lean();
+
+        const list = [];
+        leads.forEach(lead => {
+            const allFollowUps = lead.followUps || [];
+            const totalFollowUps = allFollowUps.length;
+
+            allFollowUps.forEach((fu, index) => {
+                const fuUpdatedBy = (fu.updatedBy || "").toLowerCase().trim();
+                const fuDate = new Date(fu.date);
+                if (fuUpdatedBy === userNameLower && fuDate >= startDate && fuDate <= endDate) {
+                    const day = String(fuDate.getDate()).padStart(2, '0');
+                    const monthNum = String(fuDate.getMonth() + 1).padStart(2, '0');
+                    const year = fuDate.getFullYear();
+
+                    let prevFollowUp = null;
+                    if (index > 0) {
+                        const pFu = allFollowUps[index - 1];
+                        const pDateObj = new Date(pFu.date);
+                        const pDay = String(pDateObj.getDate()).padStart(2, '0');
+                        const pMonth = String(pDateObj.getMonth() + 1).padStart(2, '0');
+                        const pYear = pDateObj.getFullYear();
+                        prevFollowUp = {
+                            date: `${pDay}-${pMonth}-${pYear}`,
+                            status: pFu.status || "-",
+                            remarks: pFu.remarks || pFu.feedback || "-",
+                            updatedBy: pFu.updatedBy || "-"
+                        };
+                    }
+
+                    list.push({
+                        id: fu._id || `${lead._id}_${fuDate.getTime()}`,
+                        date: `${day}-${monthNum}-${year}`,
+                        rawDate: fuDate,
+                        studentName: lead.name || "N/A",
+                        mobile: lead.phoneNumber || lead.secondPhoneNumber || "-",
+                        status: fu.status || lead.leadType || "-",
+                        remarks: fu.remarks || fu.feedback || "-",
+                        duration: fu.callDuration || "-",
+                        centre: lead.centre?.centreName || lead.centre || "-",
+                        totalFollowUps,
+                        followUpSeq: index + 1,
+                        prevFollowUp
+                    });
+                }
+            });
+        });
+
+        list.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
+        res.status(200).json({ data: list, totalCount: list.length });
+    } catch (error) {
+        console.error("Error in getUserCallingDetails:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+export const getUserWalkInDetails = async (req, res) => {
+    try {
+        const { userId, fromDate, toDate } = req.query;
+        if (!userId) return res.status(400).json({ message: "userId is required" });
+
+        const user = await User.findById(userId).select("name").lean();
+        if (!user) return res.status(404).json({ message: "User not found" });
+
+        const now = new Date();
+        let startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        let endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+        if (fromDate) { startDate = new Date(fromDate); startDate.setHours(0, 0, 0, 0); }
+        if (toDate) { endDate = new Date(toDate); endDate.setHours(23, 59, 59, 999); }
+
+        const userObjId = new mongoose.Types.ObjectId(userId);
+        const userNameLower = (user.name || "").toLowerCase().trim();
+
+        const candidateLeads = await LeadManagement.find({
+            $or: [
+                { isWalkIn: true },
+                { source: { $regex: /walk[- ]?in/i } }
+            ],
+            $or: [
+                { walkInBy: userObjId },
+                { createdBy: userObjId },
+                { leadResponsibility: { $regex: new RegExp(`^${user.name.trim()}$`, "i") } }
+            ]
+        }).populate("centre", "centreName").lean();
+
+        const list = [];
+        candidateLeads.forEach(lead => {
+            const wDate = lead.walkInDate || lead.createdAt;
+            if (!wDate) return;
+            const dateObj = new Date(wDate);
+            if (dateObj < startDate || dateObj > endDate) return;
+
+            let isOwned = false;
+            if (lead.walkInBy) {
+                isOwned = lead.walkInBy.toString() === userId.toString();
+            } else if (lead.createdBy) {
+                isOwned = lead.createdBy.toString() === userId.toString();
+            } else if (lead.leadResponsibility) {
+                isOwned = lead.leadResponsibility.toLowerCase().trim() === userNameLower;
+            }
+
+            if (isOwned) {
+                const day = String(dateObj.getDate()).padStart(2, '0');
+                const monthNum = String(dateObj.getMonth() + 1).padStart(2, '0');
+                const year = dateObj.getFullYear();
+                list.push({
+                    id: lead._id,
+                    date: `${day}-${monthNum}-${year}`,
+                    rawDate: wDate,
+                    studentName: lead.name || "N/A",
+                    mobile: lead.phoneNumber || lead.secondPhoneNumber || "-",
+                    source: lead.isWalkIn ? "Walked In (Button Tagged)" : (lead.source || "Walk In"),
+                    status: lead.leadType || "Walk In Lead",
+                    centre: lead.centre?.centreName || lead.centre || "-"
+                });
+            }
+        });
+
+        list.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
+        res.status(200).json({ data: list, totalCount: list.length });
+    } catch (error) {
+        console.error("Error in getUserWalkInDetails:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };

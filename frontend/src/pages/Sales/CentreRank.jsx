@@ -28,8 +28,13 @@ const CentreRank = () => {
     const [filterYear, setFilterYear] = useState(currentDate.getFullYear());
     const [selectedMonths, setSelectedMonths] = useState([monthNames[currentDate.getMonth()]]);
     const [viewMode, setViewMode] = useState("Monthly");
-    const [startDate, setStartDate] = useState("");
-    const [endDate, setEndDate] = useState("");
+    const [selectedQuarter, setSelectedQuarter] = useState("All");
+    const [startDate, setStartDate] = useState(() => {
+        return new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+    });
+    const [endDate, setEndDate] = useState(() => {
+        return new Date().toISOString().split('T')[0];
+    });
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [search, setSearch] = useState("");
     const dropdownRef = useRef(null);
@@ -132,25 +137,32 @@ const CentreRank = () => {
     }, [centres, zoneCentreMatchInfo, isCentreAllowedByZone]);
 
     const fetchRankings = async () => {
-        if (!filterFinancialYear && viewMode !== "Custom") return;
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
 
-            if (viewMode === "Custom" && startDate && endDate) {
-                params.append("startDate", startDate);
-                params.append("endDate", endDate);
-            } else {
-                params.append("financialYear", filterFinancialYear);
-                params.append("viewMode", viewMode);
-                if (viewMode === "Monthly") {
-                    params.append("year", filterYear);
-                    if (selectedMonths.length === 1) {
-                         params.append("month", selectedMonths[0]);
-                    } else if (selectedMonths.length > 1) {
-                         params.append("months", selectedMonths.join(","));
-                    }
+            params.append("viewMode", viewMode);
+
+            if (viewMode === "Custom") {
+                const sDate = startDate || new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().split('T')[0];
+                const eDate = endDate || new Date().toISOString().split('T')[0];
+                params.append("startDate", sDate);
+                params.append("endDate", eDate);
+                if (filterFinancialYear) params.append("financialYear", filterFinancialYear);
+            } else if (viewMode === "Quarterly") {
+                if (filterFinancialYear) params.append("financialYear", filterFinancialYear);
+                if (selectedQuarter && selectedQuarter !== "All") {
+                    params.append("quarter", selectedQuarter);
+                }
+            } else if (viewMode === "Yearly") {
+                if (filterFinancialYear) params.append("financialYear", filterFinancialYear);
+            } else if (viewMode === "Monthly") {
+                params.append("year", filterYear);
+                if (selectedMonths.length === 1) {
+                    params.append("month", selectedMonths[0]);
+                } else if (selectedMonths.length > 1) {
+                    params.append("months", selectedMonths.join(","));
                 }
             }
 
@@ -193,7 +205,7 @@ const CentreRank = () => {
 
     useEffect(() => {
         fetchRankings();
-    }, [filterFinancialYear, filterYear, selectedMonths, startDate, endDate, viewMode, selectedCentres, selectedZones, availableCentres, search]);
+    }, [filterFinancialYear, filterYear, selectedMonths, selectedQuarter, startDate, endDate, viewMode, selectedCentres, selectedZones, availableCentres, search]);
 
     const displayedRankings = React.useMemo(() => {
         if (!zoneCentreMatchInfo) return rankings;
@@ -326,6 +338,38 @@ const CentreRank = () => {
                                 isDarkMode={isDarkMode}
                             />
                         </div>
+
+                        {(viewMode === "Quarterly" || viewMode === "Yearly") && (
+                            <select
+                                value={filterFinancialYear}
+                                onChange={(e) => setFilterFinancialYear(e.target.value)}
+                                className={`text-sm rounded-md block px-3 py-2 outline-none font-bold w-36 border transition-colors ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-blue-500'
+                                    : 'bg-white border-gray-300 text-gray-800 shadow-sm focus:border-blue-500'
+                                    }`}
+                            >
+                                {sessions.map(s => (
+                                    <option key={s._id} value={s.sessionName}>{s.sessionName}</option>
+                                ))}
+                            </select>
+                        )}
+
+                        {viewMode === "Quarterly" && (
+                            <select
+                                value={selectedQuarter}
+                                onChange={(e) => setSelectedQuarter(e.target.value)}
+                                className={`text-sm rounded-md block px-3 py-2 outline-none font-bold w-36 border transition-colors ${isDarkMode
+                                    ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-blue-500'
+                                    : 'bg-white border-gray-300 text-gray-800 shadow-sm focus:border-blue-500'
+                                    }`}
+                            >
+                                <option value="All">All Quarters</option>
+                                <option value="Q1">Q1 (Apr - Jun)</option>
+                                <option value="Q2">Q2 (Jul - Sep)</option>
+                                <option value="Q3">Q3 (Oct - Dec)</option>
+                                <option value="Q4">Q4 (Jan - Mar)</option>
+                            </select>
+                        )}
 
                         {viewMode === "Monthly" && (
                             <>
