@@ -8,6 +8,11 @@ import { getSignedFileUrl } from "../utils/r2Upload.js";
 import jwt from "jsonwebtoken";
 import { getCache, setCache, generateCacheKey, clearCachePattern } from "../utils/redisCache.js";
 
+const convertToIST = (date) => {
+    if (!date) return null;
+    return new Date(date).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+};
+
 // Login: Username (Email) + Password (Admission Number)
 export const login = async (req, res) => {
     try {
@@ -357,8 +362,8 @@ export const getPreviousClasses = async (req, res) => {
                 date: cls.date,
                 startTime: cls.startTime,
                 endTime: cls.endTime,
-                actualStartTime: cls.actualStartTime,
-                actualEndTime: cls.actualEndTime,
+                actualStartTime: convertToIST(cls.actualStartTime),
+                actualEndTime: convertToIST(cls.actualEndTime),
                 classMode: cls.classMode,
                 status: cls.status,
                 teacherName: cls.teacherId?.name || "N/A",
@@ -424,8 +429,8 @@ export const getPreviousClassesAttendance = async (req, res) => {
                 date: cls.date,
                 startTime: cls.startTime,
                 endTime: cls.endTime,
-                actualStartTime: cls.actualStartTime,
-                actualEndTime: cls.actualEndTime,
+                actualStartTime: convertToIST(cls.actualStartTime),
+                actualEndTime: convertToIST(cls.actualEndTime),
                 classMode: cls.classMode,
                 status: cls.status,
                 teacherName: cls.teacherId?.name || "N/A",
