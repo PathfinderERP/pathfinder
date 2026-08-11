@@ -267,17 +267,28 @@ const UserRank = () => {
         }
     };
 
+    const EXCLUDED_ROLES = ["superAdmin", "super admin", "teacher", "digital", "accounts"];
+
+    const isBreakupRole = (userRole) => {
+        if (!userRole) return false;
+        return ROLE_OPTIONS.some(opt => opt.value.toLowerCase() === userRole.toLowerCase());
+    };
+
     const roleCounts = {};
     rankings.forEach(r => {
-        const role = r.role || "default";
-        roleCounts[role] = (roleCounts[role] || 0) + 1;
+        const userRole = r.role || "default";
+        const matchedOption = ROLE_OPTIONS.find(opt => opt.value.toLowerCase() === userRole.toLowerCase());
+        if (matchedOption) {
+            roleCounts[matchedOption.value] = (roleCounts[matchedOption.value] || 0) + 1;
+        }
     });
 
-    const EXCLUDED_ROLES = ["superAdmin", "super admin", "teacher", "digital", "accounts"];
+    const totalRolesCount = ROLE_OPTIONS.reduce((sum, role) => sum + (roleCounts[role.value] || 0), 0);
 
     const filtered = rankings
         .filter(r => !EXCLUDED_ROLES.includes((r.role || "").toLowerCase()) && !EXCLUDED_ROLES.includes(r.role))
-        .filter(r => !selectedRole || r.role === selectedRole)
+        .filter(r => isBreakupRole(r.role))
+        .filter(r => !selectedRole || (r.role || "").toLowerCase() === selectedRole.toLowerCase())
         .filter(r =>
             r.name.toLowerCase().includes(search.toLowerCase()) ||
             (r.role || "").toLowerCase().includes(search.toLowerCase())
@@ -424,7 +435,7 @@ const UserRank = () => {
                                 </div>
                                 <p className={`text-[9px] font-black uppercase tracking-widest ${subText} mb-0.5 truncate`}>All Roles</p>
                                 <p className={`text-lg font-black ${mainText}`}>
-                                    {rankings.length}
+                                    {totalRolesCount}
                                 </p>
                             </div>
                             {ROLE_OPTIONS.map((role) => {
