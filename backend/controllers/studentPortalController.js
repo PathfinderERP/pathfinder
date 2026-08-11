@@ -357,6 +357,8 @@ export const getPreviousClasses = async (req, res) => {
                 date: cls.date,
                 startTime: cls.startTime,
                 endTime: cls.endTime,
+                actualStartTime: cls.actualStartTime,
+                actualEndTime: cls.actualEndTime,
                 classMode: cls.classMode,
                 status: cls.status,
                 teacherName: cls.teacherId?.name || "N/A",
