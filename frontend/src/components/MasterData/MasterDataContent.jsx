@@ -184,6 +184,14 @@ const MasterDataContent = () => {
             color: "border-cyan-400",
             permissionSection: "schoolForTask"
         },
+        {
+            title: "Activity Purpose",
+            description: "Manage activity purposes",
+            icon: <FaListAlt className="text-3xl text-yellow-500" />,
+            path: "/master-data/activity-purpose",
+            color: "border-yellow-500",
+            permissionSection: "activityPurpose"
+        },
     ];
 
     // Filter tiles to only show what the user has access to

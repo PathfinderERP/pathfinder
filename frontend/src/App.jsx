@@ -66,6 +66,7 @@ import MasterDataAccount from "./pages/MasterDataAccount";
 import MasterDataBoard from "./pages/MasterDataBoard";
 import MasterDataSubject from "./pages/MasterDataSubject";
 import MasterDataFollowUpFeedback from "./pages/MasterDataFollowUpFeedback";
+import MasterDataActivityPurpose from "./pages/MasterDataActivityPurpose";
 import ZoneManagement from "./pages/ZoneManagement";
 import MasterDataSchoolData from "./pages/MasterDataSchoolData";
 import MasterDataSchoolForTask from "./pages/MasterDataSchoolForTask";
@@ -371,6 +372,7 @@ function App() {
         <Route path="/master-data/board" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="board"><MasterDataBoard /></ProtectedRoute>} />
         <Route path="/master-data/board-course-subject" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="boardCourse"><MasterDataBoardCourseSubject /></ProtectedRoute>} />
         <Route path="/master-data/subject" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="subject"><MasterDataSubject /></ProtectedRoute>} />
+        <Route path="/master-data/activity-purpose" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="activityPurpose"><MasterDataActivityPurpose /></ProtectedRoute>} />
         <Route path="/master-data/zone" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="zone"><ZoneManagement /></ProtectedRoute>} />
         <Route path="/master-data/school-data" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="schoolData"><MasterDataSchoolData /></ProtectedRoute>} />
         <Route path="/master-data/school-for-task" element={<ProtectedRoute requiredPermissionModule="masterData" requiredPermissionSection="schoolForTask"><MasterDataSchoolForTask /></ProtectedRoute>} />

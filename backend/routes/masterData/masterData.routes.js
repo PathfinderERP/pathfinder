@@ -15,6 +15,9 @@ import {
     createFollowUpFeedback, getFollowUpFeedbacks, updateFollowUpFeedback, deleteFollowUpFeedback
 } from "../../controllers/masterData/followUpFeedbackController.js";
 import {
+    createActivityPurpose, getActivityPurposes, updateActivityPurpose, deleteActivityPurpose
+} from "../../controllers/masterData/activityPurposeController.js";
+import {
     createSchoolData, getSchoolData, updateSchoolData, deleteSchoolData, bulkImportSchoolData,
     bulkDeleteSchoolData, bulkUpdateSchoolData, getSchoolDataDistinctFields, getSchoolsOverview
 } from "../../controllers/masterData/schoolDataController.js";
@@ -25,8 +28,16 @@ import ExpenseSubCategory from "../../models/Master_data/ExpenseSubCategory.js";
 import ExpenditureType from "../../models/Master_data/ExpenditureType.js";
 import Account from "../../models/Master_data/Account.js";
 import FollowUpFeedback from "../../models/Master_data/FollowUpFeedback.js";
+import ActivityPurpose from "../../models/Master_data/ActivityPurpose.js";
 
 const router = express.Router();
+
+// Activity Purpose
+router.get("/activity-purpose", requireAuth, getActivityPurposes);
+router.post("/activity-purpose", requireGranularPermission("masterData", "activityPurpose", "create"), createActivityPurpose);
+router.post("/activity-purpose/import", requireGranularPermission("masterData", "activityPurpose", "create"), bulkImport(ActivityPurpose));
+router.put("/activity-purpose/:id", requireGranularPermission("masterData", "activityPurpose", "edit"), updateActivityPurpose);
+router.delete("/activity-purpose/:id", requireGranularPermission("masterData", "activityPurpose", "delete"), deleteActivityPurpose);
 
 // Expense Category
 router.get("/category", requireAuth, getExpenseCategories);
