@@ -130,10 +130,23 @@ export const getMyLog = async (req, res) => {
 
 // Helper to query and construct board logs data shared by get and export
 const getLogsDataHelper = async (req) => {
-    const { date, role, employeeName, centreId } = req.query;
-    const targetDate = getMidnightIST(date);
-    const startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
-    const endRange = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
+    const { date, fromDate, toDate, startDate: reqStart, endDate: reqEnd, role, employeeName, centreId } = req.query;
+
+    let startRange, endRange, targetDate;
+    const fDate = fromDate || reqStart;
+    const tDate = toDate || reqEnd;
+
+    if (fDate && tDate) {
+        const sMidnight = getMidnightIST(fDate);
+        const eMidnight = getMidnightIST(tDate);
+        startRange = new Date(sMidnight.getTime() - 12 * 60 * 60 * 1000);
+        endRange = new Date(eMidnight.getTime() + 36 * 60 * 60 * 1000 - 1);
+        targetDate = sMidnight;
+    } else {
+        targetDate = getMidnightIST(date);
+        startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
+        endRange = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
+    }
 
     const userQuery = { isActive: true };
     
@@ -307,7 +320,7 @@ const getLogsDataHelper = async (req) => {
         }
     }
 
-    // Find existing logs for the day
+    // Find existing logs for the day or range
     const logQuery = { 
         date: { $gte: startRange, $lt: endRange },
         user: { $in: users.map(u => u._id) }
@@ -317,17 +330,21 @@ const getLogsDataHelper = async (req) => {
         .populate("user", "name role designation profileImage")
         .populate("activities.centre", "centreName enterCode");
 
-    // Map logs by user ID string
+    // Map logs array by user ID string
     const logMap = new Map();
     for (const log of logs) {
         if (log.user) {
-            logMap.set(log.user._id.toString(), log);
+            const uId = log.user._id.toString();
+            if (!logMap.has(uId)) {
+                logMap.set(uId, []);
+            }
+            logMap.get(uId).push(log);
         }
     }
 
     // Merge users with their logs (or create empty logs)
     const combinedLogs = users.map(user => {
-        const existingLog = logMap.get(user._id.toString());
+        const userLogs = logMap.get(user._id.toString()) || [];
         const primaryCentre = employeeMap.get(user._id.toString());
 
         const formattedUser = {
@@ -339,10 +356,33 @@ const getLogsDataHelper = async (req) => {
             primaryCentre: primaryCentre
         };
 
-        if (existingLog) {
-            // Ensure user in existingLog is populated with primaryCentre info
-            const logObj = existingLog.toObject ? existingLog.toObject() : existingLog;
+        let mergedActivities = [];
+        userLogs.forEach(l => {
+            if (Array.isArray(l.activities)) {
+                const logDate = l.date ? new Date(l.date) : null;
+                let logDateStr = "";
+                if (logDate && !isNaN(logDate.getTime())) {
+                    const day = String(logDate.getDate()).padStart(2, '0');
+                    const month = String(logDate.getMonth() + 1).padStart(2, '0');
+                    const year = logDate.getFullYear();
+                    logDateStr = `${day}-${month}-${year}`;
+                }
+                l.activities.forEach(act => {
+                    const actObj = act.toObject ? act.toObject() : { ...act };
+                    actObj.logDate = logDateStr;
+                    actObj.rawDate = logDate;
+                    mergedActivities.push(actObj);
+                });
+            }
+        });
+        mergedActivities.sort((a, b) => new Date(b.rawDate || 0) - new Date(a.rawDate || 0));
+
+        if (userLogs.length > 0) {
+            const firstLog = userLogs[0];
+            const logObj = firstLog.toObject ? firstLog.toObject() : firstLog;
             logObj.user = formattedUser;
+            logObj.activities = mergedActivities;
+            logObj.noEntry = mergedActivities.length === 0;
             return logObj;
         }
 
@@ -404,7 +444,21 @@ const getDisplayRoleName = (role) => {
 export const getDepartmentLogs = async (req, res) => {
     try {
         const { combinedLogs } = await getLogsDataHelper(req);
-        res.status(200).json({ logs: combinedLogs });
+
+        const totalUsers = combinedLogs.length;
+        const filledUsersCount = combinedLogs.filter(l => l.activities && l.activities.length > 0).length;
+        const pendingUsersCount = totalUsers - filledUsersCount;
+
+        res.status(200).json({ 
+            logs: combinedLogs,
+            summary: {
+                totalUsers,
+                filledUsersCount,
+                pendingUsersCount,
+                filledPercentage: totalUsers > 0 ? Math.round((filledUsersCount / totalUsers) * 100) : 0,
+                pendingPercentage: totalUsers > 0 ? Math.round((pendingUsersCount / totalUsers) * 100) : 0
+            }
+        });
     } catch (error) {
         console.error("Error fetching board logs:", error);
         res.status(500).json({ message: "Failed to fetch board logs.", error: error.message });

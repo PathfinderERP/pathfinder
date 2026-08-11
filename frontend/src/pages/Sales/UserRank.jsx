@@ -196,10 +196,11 @@ const UserRank = () => {
     const [search, setSearch] = useState("");
     const [selectedRole, setSelectedRole] = useState(""); // "" means All Roles
 
-    // Modal state for Admission Details
+    // Dynamic Modal state for Metric Details
     const [selectedUserForModal, setSelectedUserForModal] = useState(null);
-    const [admissionModalOpen, setAdmissionModalOpen] = useState(false);
-    const [modalAdmissions, setModalAdmissions] = useState([]);
+    const [modalMetricKey, setModalMetricKey] = useState("admissions");
+    const [detailModalOpen, setDetailModalOpen] = useState(false);
+    const [modalData, setModalData] = useState([]);
     const [modalTotalDownPayment, setModalTotalDownPayment] = useState(0);
     const [modalLoading, setModalLoading] = useState(false);
 
@@ -239,10 +240,20 @@ const UserRank = () => {
         fetchRankings();
     }, [fetchRankings]);
 
-    const handleOpenAdmissionModal = async (user) => {
+    const handleOpenMetricModal = async (user, metricKey) => {
         setSelectedUserForModal(user);
-        setAdmissionModalOpen(true);
+        setModalMetricKey(metricKey);
+        setDetailModalOpen(true);
         setModalLoading(true);
+        setModalData([]);
+        setModalTotalDownPayment(0);
+
+        let endpointKey = "admissions";
+        if (metricKey === "counselling") endpointKey = "counselling";
+        else if (metricKey === "calling" || metricKey === "followUps") endpointKey = "calling";
+        else if (metricKey === "walkIn") endpointKey = "walk-in";
+        else if (metricKey === "admissions" || metricKey === "revenue") endpointKey = "admissions";
+
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({
@@ -250,15 +261,15 @@ const UserRank = () => {
                 fromDate,
                 toDate
             });
-            const res = await fetch(`${apiUrl}/sales/user-rank/admissions?${params.toString()}`, {
+            const res = await fetch(`${apiUrl}/sales/user-rank/${endpointKey}?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.ok) {
                 const data = await res.json();
-                setModalAdmissions(data.data || []);
+                setModalData(data.data || []);
                 setModalTotalDownPayment(data.totalDownPayment || 0);
             } else {
-                toast.error("Failed to load admission details");
+                toast.error("Failed to load details");
             }
         } catch (err) {
             toast.error("Network error");
@@ -614,18 +625,18 @@ const UserRank = () => {
                                                 ].map(({ key, m }) => {
                                                     const val = user[key] || 0;
                                                     const isActive = activeMetric === key;
-                                                    const isAdmissionsCol = key === "admissions";
+                                                    const isClickable = val > 0;
                                                     return (
                                                         <td key={key} className="px-5 py-3.5 text-right">
                                                             <span
                                                                 onClick={(e) => {
-                                                                    if (isAdmissionsCol && val > 0) {
+                                                                    if (isClickable) {
                                                                         e.stopPropagation();
-                                                                        handleOpenAdmissionModal(user);
+                                                                        handleOpenMetricModal(user, key);
                                                                     }
                                                                 }}
-                                                                className={`text-[12px] font-black transition-all ${isAdmissionsCol && val > 0 ? "cursor-pointer underline hover:text-cyan-400" : ""} ${isActive ? m.text : (isDark ? "text-gray-300" : "text-gray-700")} ${isActive && val > 0 ? `px-2 py-0.5 rounded-md ${m.bg}` : ""}`}
-                                                                title={isAdmissionsCol && val > 0 ? "Click to view admission details" : ""}
+                                                                className={`text-[12px] font-black transition-all ${isClickable ? "cursor-pointer underline hover:text-cyan-400" : ""} ${isActive ? m.text : (isDark ? "text-gray-300" : "text-gray-700")} ${isActive && val > 0 ? `px-2 py-0.5 rounded-md ${m.bg}` : ""}`}
+                                                                title={isClickable ? `Click to view ${m.label} details` : ""}
                                                             >
                                                                 {formatValue(key, val)}
                                                             </span>
@@ -641,27 +652,31 @@ const UserRank = () => {
                     )}
                 </div>
 
-                {/* ── Admission Details Modal ───────────────────────── */}
-                {admissionModalOpen && (
+                {/* ── Dynamic Details Modal ───────────────────────── */}
+                {detailModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
                         <div className={`w-full max-w-5xl rounded-xl border ${card} shadow-2xl overflow-hidden flex flex-col max-h-[90vh]`}>
                             {/* Modal Header */}
                             <div className={`px-6 py-4 border-b ${isDark ? "border-gray-700/50 bg-[#131619]" : "border-gray-200 bg-gray-50"} flex items-center justify-between`}>
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
-                                        <FaGraduationCap size={16} />
+                                    <div className="p-2 rounded-lg bg-blue-500/10 text-cyan-400">
+                                        <FaUser size={16} />
                                     </div>
                                     <div>
                                         <h3 className={`text-[14px] font-black uppercase tracking-wide ${mainText}`}>
-                                            Admission Details — {selectedUserForModal?.name}
+                                            {modalMetricKey === "counselling" && "Counselling Details"}
+                                            {(modalMetricKey === "calling" || modalMetricKey === "followUps") && "Calling / Follow-up Details"}
+                                            {modalMetricKey === "walkIn" && "Walk-In Details"}
+                                            {(modalMetricKey === "admissions" || modalMetricKey === "revenue") && "Admission Details"}
+                                            {" — "}{selectedUserForModal?.name}
                                         </h3>
                                         <p className={`text-[10px] font-bold uppercase tracking-widest ${subText}`}>
-                                            {fromDate} → {toDate} · {modalAdmissions.length} Admissions Found
+                                            {fromDate} → {toDate} · {modalData.length} Records Found
                                         </p>
                                     </div>
                                 </div>
                                 <button
-                                    onClick={() => setAdmissionModalOpen(false)}
+                                    onClick={() => setDetailModalOpen(false)}
                                     className={`p-2 rounded-lg hover:bg-gray-700/30 ${subText} transition-all font-bold text-lg`}
                                 >
                                     ✕
@@ -673,61 +688,156 @@ const UserRank = () => {
                                 {modalLoading ? (
                                     <div className="flex flex-col items-center justify-center py-16 gap-3">
                                         <div className="w-8 h-8 rounded-full border-2 border-cyan-500 border-t-transparent animate-spin" />
-                                        <p className={`text-[11px] font-bold uppercase tracking-widest ${subText}`}>Loading Admission Details…</p>
+                                        <p className={`text-[11px] font-bold uppercase tracking-widest ${subText}`}>Loading Details…</p>
                                     </div>
-                                ) : modalAdmissions.length === 0 ? (
+                                ) : modalData.length === 0 ? (
                                     <div className="flex flex-col items-center justify-center py-16 gap-2">
-                                        <FaGraduationCap size={32} className="text-gray-500 opacity-40" />
-                                        <p className={`text-[12px] font-bold ${subText}`}>No admission records found for selected period</p>
+                                        <FaUser size={32} className="text-gray-500 opacity-40" />
+                                        <p className={`text-[12px] font-bold ${subText}`}>No records found for selected period</p>
                                     </div>
                                 ) : (
                                     <div className="overflow-x-auto rounded-lg border border-gray-700/30">
                                         <table className="w-full text-left">
                                             <thead>
                                                 <tr className={`text-[10px] font-black uppercase tracking-wider ${subText} ${isDark ? "bg-[#131619]" : "bg-gray-100"} border-b ${isDark ? "border-gray-700/50" : "border-gray-200"}`}>
-                                                    <th className="px-4 py-3">DATE</th>
-                                                    <th className="px-4 py-3">ENROLLMENT NO.</th>
-                                                    <th className="px-4 py-3">STUDENT NAME</th>
-                                                    <th className="px-4 py-3">COURSE NAME</th>
-                                                    <th className="px-4 py-3">CLASS</th>
-                                                    <th className="px-4 py-3">MONTH</th>
-                                                    <th className="px-4 py-3 text-right">DOWN PAYMENT</th>
+                                                    {(modalMetricKey === "admissions" || modalMetricKey === "revenue") && (
+                                                        <>
+                                                            <th className="px-4 py-3">DATE</th>
+                                                            <th className="px-4 py-3">ENROLLMENT NO.</th>
+                                                            <th className="px-4 py-3">STUDENT NAME</th>
+                                                            <th className="px-4 py-3">COURSE NAME</th>
+                                                            <th className="px-4 py-3">CLASS</th>
+                                                            <th className="px-4 py-3">MONTH</th>
+                                                            <th className="px-4 py-3 text-right">DOWN PAYMENT</th>
+                                                        </>
+                                                    )}
+                                                    {modalMetricKey === "counselling" && (
+                                                        <>
+                                                            <th className="px-4 py-3">DATE</th>
+                                                            <th className="px-4 py-3">STUDENT / LEAD NAME</th>
+                                                            <th className="px-4 py-3">MOBILE</th>
+                                                            <th className="px-4 py-3">COURSE / CLASS</th>
+                                                            <th className="px-4 py-3">CENTRE</th>
+                                                            <th className="px-4 py-3">REMARKS / STATUS</th>
+                                                        </>
+                                                    )}
+                                                    {(modalMetricKey === "calling" || modalMetricKey === "followUps") && (
+                                                        <>
+                                                            <th className="px-4 py-3">DATE</th>
+                                                            <th className="px-4 py-3">LEAD / STUDENT NAME</th>
+                                                            <th className="px-4 py-3">MOBILE</th>
+                                                            <th className="px-4 py-3">FOLLOW-UP COUNT</th>
+                                                            <th className="px-4 py-3">PREVIOUS FOLLOW-UP</th>
+                                                            <th className="px-4 py-3">CURRENT REMARKS</th>
+                                                            <th className="px-4 py-3">STATUS</th>
+                                                            <th className="px-4 py-3">CENTRE</th>
+                                                        </>
+                                                    )}
+                                                    {modalMetricKey === "walkIn" && (
+                                                        <>
+                                                            <th className="px-4 py-3">WALK-IN DATE</th>
+                                                            <th className="px-4 py-3">LEAD NAME</th>
+                                                            <th className="px-4 py-3">MOBILE</th>
+                                                            <th className="px-4 py-3">SOURCE</th>
+                                                            <th className="px-4 py-3">STATUS</th>
+                                                            <th className="px-4 py-3">CENTRE</th>
+                                                        </>
+                                                    )}
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-800/40">
-                                                {modalAdmissions.map((item) => (
-                                                    <tr key={item.id} className={`${isDark ? "hover:bg-[#131619]/60" : "hover:bg-gray-50"}`}>
-                                                        <td className={`px-4 py-3 text-[11px] font-medium ${subText}`}>{item.date}</td>
-                                                        <td className="px-4 py-3">
-                                                            <span className="px-2 py-0.5 bg-blue-500/15 text-cyan-400 font-mono text-[11px] font-bold rounded border border-blue-500/30">
-                                                                {item.enrollmentNo}
-                                                            </span>
-                                                        </td>
-                                                        <td className={`px-4 py-3 text-[12px] font-bold ${mainText} uppercase`}>{item.studentName}</td>
-                                                        <td className={`px-4 py-3 text-[11px] font-semibold ${subText}`}>{item.courseName}</td>
-                                                        <td className="px-4 py-3">
-                                                            <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 font-bold text-[11px] rounded">
-                                                                {item.className}
-                                                            </span>
-                                                        </td>
-                                                        <td className={`px-4 py-3 text-[11px] font-medium ${subText}`}>{item.month}</td>
-                                                        <td className={`px-4 py-3 text-[12px] font-bold text-right ${mainText}`}>
-                                                            ₹{item.downPayment.toLocaleString("en-IN")}
-                                                        </td>
+                                                {modalData.map((item, idx) => (
+                                                    <tr key={item.id || idx} className={`${isDark ? "hover:bg-[#131619]/60" : "hover:bg-gray-50"}`}>
+                                                        {(modalMetricKey === "admissions" || modalMetricKey === "revenue") && (
+                                                            <>
+                                                                <td className={`px-4 py-3 text-[11px] font-medium ${subText}`}>{item.date}</td>
+                                                                <td className="px-4 py-3">
+                                                                    <span className="px-2 py-0.5 bg-blue-500/15 text-cyan-400 font-mono text-[11px] font-bold rounded border border-blue-500/30">
+                                                                        {item.enrollmentNo}
+                                                                    </span>
+                                                                </td>
+                                                                <td className={`px-4 py-3 text-[12px] font-bold ${mainText} uppercase`}>{item.studentName}</td>
+                                                                <td className={`px-4 py-3 text-[11px] font-semibold ${subText}`}>{item.courseName}</td>
+                                                                <td className="px-4 py-3">
+                                                                    <span className="px-2 py-0.5 bg-blue-500/20 text-blue-400 font-bold text-[11px] rounded">
+                                                                        {item.className}
+                                                                    </span>
+                                                                </td>
+                                                                <td className={`px-4 py-3 text-[11px] font-medium ${subText}`}>{item.month}</td>
+                                                                <td className={`px-4 py-3 text-[12px] font-bold text-right ${mainText}`}>
+                                                                    ₹{(item.downPayment || 0).toLocaleString("en-IN")}
+                                                                </td>
+                                                            </>
+                                                        )}
+                                                        {modalMetricKey === "counselling" && (
+                                                            <>
+                                                                <td className={`px-4 py-3 text-[11px] font-medium ${subText}`}>{item.date}</td>
+                                                                <td className={`px-4 py-3 text-[12px] font-bold ${mainText} uppercase`}>{item.studentName}</td>
+                                                                <td className={`px-4 py-3 text-[11px] font-mono ${subText}`}>{item.mobile}</td>
+                                                                <td className={`px-4 py-3 text-[11px] font-semibold ${subText}`}>{item.courseOrClass}</td>
+                                                                <td className={`px-4 py-3 text-[11px] font-medium ${subText}`}>{item.centre}</td>
+                                                                <td className={`px-4 py-3 text-[11px] font-medium ${mainText}`}>{item.remarks}</td>
+                                                            </>
+                                                        )}
+                                                        {(modalMetricKey === "calling" || modalMetricKey === "followUps") && (
+                                                            <>
+                                                                <td className={`px-4 py-3 text-[11px] font-medium ${subText}`}>{item.date}</td>
+                                                                <td className={`px-4 py-3 text-[12px] font-bold ${mainText} uppercase`}>{item.studentName}</td>
+                                                                <td className={`px-4 py-3 text-[11px] font-mono ${subText}`}>{item.mobile}</td>
+                                                                <td className="px-4 py-3">
+                                                                    <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 font-bold text-[10px] rounded border border-purple-500/30 whitespace-nowrap">
+                                                                        Follow-up #{item.followUpSeq} of {item.totalFollowUps}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-4 py-3 max-w-[200px]">
+                                                                    {item.prevFollowUp ? (
+                                                                        <div className="text-[10px] leading-tight">
+                                                                            <p className="font-bold text-cyan-400">{item.prevFollowUp.date} · {item.prevFollowUp.status}</p>
+                                                                            <p className={`truncate ${subText}`} title={item.prevFollowUp.remarks}>{item.prevFollowUp.remarks}</p>
+                                                                        </div>
+                                                                    ) : (
+                                                                        <span className="text-[10px] text-gray-500 italic">First Call</span>
+                                                                    )}
+                                                                </td>
+                                                                <td className={`px-4 py-3 text-[11px] font-medium ${mainText} max-w-[200px] truncate`} title={item.remarks}>{item.remarks}</td>
+                                                                <td className="px-4 py-3">
+                                                                    <span className="px-2 py-0.5 bg-cyan-500/15 text-cyan-400 font-bold text-[10px] rounded border border-cyan-500/30">
+                                                                        {item.status}
+                                                                    </span>
+                                                                </td>
+                                                                <td className={`px-4 py-3 text-[11px] font-medium ${subText}`}>{item.centre}</td>
+                                                            </>
+                                                        )}
+                                                        {modalMetricKey === "walkIn" && (
+                                                            <>
+                                                                <td className={`px-4 py-3 text-[11px] font-medium ${subText}`}>{item.date}</td>
+                                                                <td className={`px-4 py-3 text-[12px] font-bold ${mainText} uppercase`}>{item.studentName}</td>
+                                                                <td className={`px-4 py-3 text-[11px] font-mono ${subText}`}>{item.mobile}</td>
+                                                                <td className={`px-4 py-3 text-[11px] font-semibold ${subText}`}>{item.source}</td>
+                                                                <td className="px-4 py-3">
+                                                                    <span className="px-2 py-0.5 bg-orange-500/15 text-orange-400 font-bold text-[10px] rounded border border-orange-500/30">
+                                                                        {item.status}
+                                                                    </span>
+                                                                </td>
+                                                                <td className={`px-4 py-3 text-[11px] font-medium ${subText}`}>{item.centre}</td>
+                                                            </>
+                                                        )}
                                                     </tr>
                                                 ))}
                                             </tbody>
-                                            <tfoot>
-                                                <tr className={`border-t ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-300 bg-gray-100"}`}>
-                                                    <td colSpan={5} className="px-4 py-3"></td>
-                                                    <td className={`px-4 py-3 text-[11px] font-black uppercase text-right tracking-wider ${mainText}`}>
-                                                        TOTAL
-                                                    </td>
-                                                    <td className={`px-4 py-3 text-[13px] font-black text-right ${mainText}`}>
-                                                        ₹{modalTotalDownPayment.toLocaleString("en-IN")}
-                                                    </td>
-                                                </tr>
-                                            </tfoot>
+                                            {(modalMetricKey === "admissions" || modalMetricKey === "revenue") && (
+                                                <tfoot>
+                                                    <tr className={`border-t ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-300 bg-gray-100"}`}>
+                                                        <td colSpan={5} className="px-4 py-3"></td>
+                                                        <td className={`px-4 py-3 text-[11px] font-black uppercase text-right tracking-wider ${mainText}`}>
+                                                            TOTAL
+                                                        </td>
+                                                        <td className={`px-4 py-3 text-[13px] font-black text-right ${mainText}`}>
+                                                            ₹{modalTotalDownPayment.toLocaleString("en-IN")}
+                                                        </td>
+                                                    </tr>
+                                                </tfoot>
+                                            )}
                                         </table>
                                     </div>
                                 )}

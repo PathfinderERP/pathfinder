@@ -15,7 +15,9 @@ import {
     FaSpinner,
     FaCheck,
     FaTasks,
-    FaFileExcel
+    FaFileExcel,
+    FaUsers,
+    FaExclamationTriangle
 } from "react-icons/fa";
 import { useTheme } from "../context/ThemeContext";
 import Layout from "../components/Layout";
@@ -28,6 +30,65 @@ const getTodayDateString = () => {
     const month = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+};
+
+const getDateRangeLimits = (range, customStart, customEnd) => {
+    const today = new Date();
+    const formatDate = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    let start, end;
+    switch (range) {
+        case "Today":
+            start = formatDate(today);
+            end = formatDate(today);
+            break;
+        case "Yesterday":
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            start = formatDate(yesterday);
+            end = formatDate(yesterday);
+            break;
+        case "Last 7 Days":
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(today.getDate() - 6);
+            start = formatDate(sevenDaysAgo);
+            end = formatDate(today);
+            break;
+        case "This Month":
+            const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            start = formatDate(startOfMonth);
+            end = formatDate(today);
+            break;
+        case "Last Month":
+            const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+            start = formatDate(startOfLastMonth);
+            end = formatDate(endOfLastMonth);
+            break;
+        case "This Year":
+            const startOfYear = new Date(today.getFullYear(), 0, 1);
+            start = formatDate(startOfYear);
+            end = formatDate(today);
+            break;
+        case "All":
+            start = "2020-01-01";
+            end = formatDate(today);
+            break;
+        case "Custom":
+            start = customStart || formatDate(today);
+            end = customEnd || formatDate(today);
+            break;
+        default:
+            start = formatDate(today);
+            end = formatDate(today);
+            break;
+    }
+    return { start, end };
 };
 
 
@@ -80,6 +141,18 @@ const DailyTrackingLog = () => {
         }
     }, [tabParam, navigate]);
     const [selectedDate, setSelectedDate] = useState(getTodayDateString());
+    const [dateRangeOption, setDateRangeOption] = useState("Today");
+    const [customStartDate, setCustomStartDate] = useState("");
+    const [customEndDate, setCustomEndDate] = useState("");
+    const [statusFilter, setStatusFilter] = useState("ALL"); // "ALL" | "FILLED" | "PENDING"
+    const [summaryData, setSummaryData] = useState({
+        totalUsers: 0,
+        filledUsersCount: 0,
+        pendingUsersCount: 0,
+        filledPercentage: 0,
+        pendingPercentage: 0
+    });
+
     const [currentYear, setCurrentYear] = useState(new Date().getFullYear());
     const [currentMonth, setCurrentMonth] = useState(new Date().getMonth());
     const [loggedDates, setLoggedDates] = useState([]);
@@ -400,10 +473,11 @@ const DailyTrackingLog = () => {
     };
 
     // Fetch board logs
-    const fetchBoardLogs = async (date, role, name, centreId) => {
+    const fetchBoardLogs = async (rangeOption, customStart, customEnd, role, name, centreId) => {
         setLoading(true);
         try {
-            let url = `${apiUrl}/daily-tracking-logs/board?date=${date}`;
+            const { start, end } = getDateRangeLimits(rangeOption, customStart, customEnd);
+            let url = `${apiUrl}/daily-tracking-logs/board?fromDate=${start}&toDate=${end}`;
 
             // Handle multi-select roles
             let rolesParam = "";
@@ -434,7 +508,22 @@ const DailyTrackingLog = () => {
             });
             const data = await res.json();
             if (res.ok) {
-                setBoardLogs(data.logs || []);
+                const logs = data.logs || [];
+                setBoardLogs(logs);
+                if (data.summary) {
+                    setSummaryData(data.summary);
+                } else {
+                    const totalUsers = logs.length;
+                    const filledUsersCount = logs.filter(l => l.activities && l.activities.length > 0).length;
+                    const pendingUsersCount = totalUsers - filledUsersCount;
+                    setSummaryData({
+                        totalUsers,
+                        filledUsersCount,
+                        pendingUsersCount,
+                        filledPercentage: totalUsers > 0 ? Math.round((filledUsersCount / totalUsers) * 100) : 0,
+                        pendingPercentage: totalUsers > 0 ? Math.round((pendingUsersCount / totalUsers) * 100) : 0
+                    });
+                }
             } else {
                 toast.error(data.message || "Failed to fetch board logs.");
             }
@@ -448,7 +537,8 @@ const DailyTrackingLog = () => {
 
     const handleExportExcel = async () => {
         try {
-            let url = `${apiUrl}/daily-tracking-logs/board/export?date=${selectedDate}`;
+            const { start, end } = getDateRangeLimits(dateRangeOption, customStartDate, customEndDate);
+            let url = `${apiUrl}/daily-tracking-logs/board/export?fromDate=${start}&toDate=${end}`;
 
             // Handle multi-select roles
             let rolesParam = "";
@@ -490,8 +580,7 @@ const DailyTrackingLog = () => {
             const link = document.createElement("a");
             link.href = downloadUrl;
 
-            const formattedDate = selectedDate.replace(/\//g, '-');
-            link.setAttribute("download", `Daily_Tracking_Logs_${formattedDate}.xlsx`);
+            link.setAttribute("download", `Daily_Tracking_Logs_${start}_to_${end}.xlsx`);
             document.body.appendChild(link);
             link.click();
             link.parentNode.removeChild(link);
@@ -506,9 +595,9 @@ const DailyTrackingLog = () => {
         if (activeTab === "myLog") {
             fetchMyLog(selectedDate);
         } else {
-            fetchBoardLogs(selectedDate, selectedDept, searchEmployee, selectedCentre);
+            fetchBoardLogs(dateRangeOption, customStartDate, customEndDate, selectedDept, searchEmployee, selectedCentre);
         }
-    }, [activeTab, selectedDate, selectedDept, searchEmployee, selectedCentre]);
+    }, [activeTab, selectedDate, dateRangeOption, customStartDate, customEndDate, selectedDept, searchEmployee, selectedCentre]);
 
     // Handle Form Submit
     const handleAddActivity = async (e) => {
@@ -726,17 +815,57 @@ const DailyTrackingLog = () => {
                     </div>
 
                     <div className="flex items-center gap-3 self-stretch md:self-auto">
-                        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${isDarkMode ? "bg-gray-800/50 border-gray-700" : "bg-white border-slate-200"
-                            }`}>
-                            <FaCalendarAlt className="text-indigo-500" />
-                            <input
-                                type="date"
-                                value={selectedDate}
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                                className={`bg-transparent font-medium focus:outline-none text-sm ${isDarkMode ? "text-white" : "text-gray-800"
-                                    }`}
-                            />
-                        </div>
+                        {activeTab === "myLog" ? (
+                            <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${isDarkMode ? "bg-gray-800/50 border-gray-700" : "bg-white border-slate-200"
+                                }`}>
+                                <FaCalendarAlt className="text-indigo-500" />
+                                <input
+                                    type="date"
+                                    value={selectedDate}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    className={`bg-transparent font-medium focus:outline-none text-sm ${isDarkMode ? "text-white" : "text-gray-800"
+                                        }`}
+                                />
+                            </div>
+                        ) : (
+                            <div className="flex flex-wrap items-center gap-3">
+                                <div className={`flex flex-col border rounded-xl px-3 py-1.5 ${isDarkMode ? "bg-gray-800/80 border-gray-700" : "bg-white border-slate-200 shadow-sm"}`}>
+                                    <label className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-0.5">DATE RANGE</label>
+                                    <select
+                                        value={dateRangeOption}
+                                        onChange={(e) => setDateRangeOption(e.target.value)}
+                                        className={`bg-transparent font-bold focus:outline-none text-xs cursor-pointer ${isDarkMode ? "text-white" : "text-gray-800"}`}
+                                    >
+                                        <option value="Today" className={isDarkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"}>Today</option>
+                                        <option value="Yesterday" className={isDarkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"}>Yesterday</option>
+                                        <option value="Last 7 Days" className={isDarkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"}>Last 7 Days</option>
+                                        <option value="This Month" className={isDarkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"}>This Month</option>
+                                        <option value="Last Month" className={isDarkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"}>Last Month</option>
+                                        <option value="This Year" className={isDarkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"}>This Year</option>
+                                        <option value="All" className={isDarkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"}>All</option>
+                                        <option value="Custom" className={isDarkMode ? "bg-gray-900 text-white" : "bg-white text-gray-900"}>Custom</option>
+                                    </select>
+                                </div>
+
+                                {dateRangeOption === "Custom" && (
+                                    <div className="flex items-center gap-2">
+                                        <input
+                                            type="date"
+                                            value={customStartDate}
+                                            onChange={(e) => setCustomStartDate(e.target.value)}
+                                            className={`p-2 rounded-xl border text-xs font-semibold ${isDarkMode ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-slate-300 text-gray-800"}`}
+                                        />
+                                        <span className="text-gray-400 font-bold text-xs">to</span>
+                                        <input
+                                            type="date"
+                                            value={customEndDate}
+                                            onChange={(e) => setCustomEndDate(e.target.value)}
+                                            className={`p-2 rounded-xl border text-xs font-semibold ${isDarkMode ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-slate-300 text-gray-800"}`}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -1148,6 +1277,88 @@ const DailyTrackingLog = () => {
 
                 {activeTab === "deptBoard" && (
                     <div>
+                        {/* Summary Metric Cards */}
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+                            {/* Total Active Users Card */}
+                            <div 
+                                onClick={() => setStatusFilter("ALL")}
+                                className={`p-5 rounded-2xl border transition-all duration-200 cursor-pointer ${
+                                    statusFilter === "ALL" 
+                                        ? (isDarkMode ? "bg-indigo-950/40 border-indigo-500 ring-2 ring-indigo-500/50 shadow-lg shadow-indigo-500/10" : "bg-indigo-50/80 border-indigo-500 ring-2 ring-indigo-500/30 shadow-md")
+                                        : (isDarkMode ? "bg-[#1a1f24] border-gray-800 hover:border-gray-700" : "bg-white border-slate-200 hover:border-slate-300 shadow-sm")
+                                }`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className={`text-[10px] font-black uppercase tracking-wider mb-1 ${isDarkMode ? "text-indigo-400" : "text-indigo-600"}`}>
+                                            TOTAL ACTIVE USERS
+                                        </p>
+                                        <h3 className="text-2xl font-black">{summaryData.totalUsers || 0}</h3>
+                                        <p className="text-[11px] text-gray-500 mt-1 font-medium">Matching current filter</p>
+                                    </div>
+                                    <div className={`p-3.5 rounded-xl ${isDarkMode ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30" : "bg-indigo-100 text-indigo-600"}`}>
+                                        <FaUsers className="text-2xl" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Log Filled / Submitted Card */}
+                            <div 
+                                onClick={() => setStatusFilter("FILLED")}
+                                className={`p-5 rounded-2xl border transition-all duration-200 cursor-pointer ${
+                                    statusFilter === "FILLED" 
+                                        ? (isDarkMode ? "bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/50 shadow-lg shadow-emerald-500/10" : "bg-emerald-50/80 border-emerald-500 ring-2 ring-emerald-500/30 shadow-md")
+                                        : (isDarkMode ? "bg-[#1a1f24] border-gray-800 hover:border-gray-700" : "bg-white border-slate-200 hover:border-slate-300 shadow-sm")
+                                }`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-wider mb-1 text-emerald-500">
+                                            LOG SUBMITTED
+                                        </p>
+                                        <div className="flex items-baseline gap-2">
+                                            <h3 className="text-2xl font-black text-emerald-500">{summaryData.filledUsersCount || 0}</h3>
+                                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                {summaryData.filledPercentage || 0}%
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-500 mt-1 font-medium">Users filled activity log</p>
+                                    </div>
+                                    <div className={`p-3.5 rounded-xl ${isDarkMode ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-emerald-100 text-emerald-600"}`}>
+                                        <FaCheckCircle className="text-2xl" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Log Pending Card */}
+                            <div 
+                                onClick={() => setStatusFilter("PENDING")}
+                                className={`p-5 rounded-2xl border transition-all duration-200 cursor-pointer ${
+                                    statusFilter === "PENDING" 
+                                        ? (isDarkMode ? "bg-rose-950/40 border-rose-500 ring-2 ring-rose-500/50 shadow-lg shadow-rose-500/10" : "bg-rose-50/80 border-rose-500 ring-2 ring-rose-500/30 shadow-md")
+                                        : (isDarkMode ? "bg-[#1a1f24] border-gray-800 hover:border-gray-700" : "bg-white border-slate-200 hover:border-slate-300 shadow-sm")
+                                }`}
+                            >
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-[10px] font-black uppercase tracking-wider mb-1 text-rose-500">
+                                            PENDING LOG SUBMISSION
+                                        </p>
+                                        <div className="flex items-baseline gap-2">
+                                            <h3 className="text-2xl font-black text-rose-500">{summaryData.pendingUsersCount || 0}</h3>
+                                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                                {summaryData.pendingPercentage || 0}%
+                                            </span>
+                                        </div>
+                                        <p className="text-[11px] text-gray-500 mt-1 font-medium">Users did not fill log</p>
+                                    </div>
+                                    <div className={`p-3.5 rounded-xl ${isDarkMode ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" : "bg-rose-100 text-rose-600"}`}>
+                                        <FaExclamationTriangle className="text-2xl" />
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         {/* Filters dashboard panel */}
                         <div className={`p-5 rounded-2xl border mb-6 flex flex-col md:flex-row gap-4 items-stretch md:items-center justify-between ${isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-slate-200 shadow-sm"
                             }`}>
@@ -1212,12 +1423,19 @@ const DailyTrackingLog = () => {
                         ) : boardLogs.length === 0 ? (
                             <div className="text-center py-16 flex flex-col items-center justify-center">
                                 <FaBuilding className={`text-5xl mb-3 ${isDarkMode ? "text-gray-700" : "text-gray-300"}`} />
-                                <p className="text-gray-500 text-sm font-medium">No tracking logs found on the board for today.</p>
-                                <p className="text-xs text-gray-500 mt-1">Try changing the filters or selecting another date.</p>
+                                <p className="text-gray-500 text-sm font-medium">No tracking logs found on the board for the selected filter.</p>
+                                <p className="text-xs text-gray-500 mt-1">Try changing the date range or centre/role filters.</p>
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {boardLogs.map((log) => {
+                                {boardLogs
+                                    .filter(log => {
+                                        const hasAct = log.activities && log.activities.length > 0;
+                                        if (statusFilter === "FILLED") return hasAct;
+                                        if (statusFilter === "PENDING") return !hasAct;
+                                        return true;
+                                    })
+                                    .map((log) => {
                                     const completedCount = log.activities.filter(a => a.status === "Completed").length;
                                     const pendingCount = log.activities.filter(a => a.status === "In Progress").length;
 
@@ -1274,7 +1492,7 @@ const DailyTrackingLog = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Employee Activities today */}
+                                            {/* Employee Activities */}
                                             <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
                                                 {log.activities.length === 0 ? (
                                                     <div className={`p-4 rounded-xl border border-dashed text-center flex flex-col items-center justify-center ${isDarkMode
@@ -1283,24 +1501,32 @@ const DailyTrackingLog = () => {
                                                         }`}>
                                                         <FaClock className="text-xl mb-1 text-gray-500/50" />
                                                         <p className="text-xs font-semibold">Pending Log Submission</p>
-                                                        <p className="text-[10px] opacity-75">This employee hasn't logged any activities yet today.</p>
+                                                        <p className="text-[10px] opacity-75">This employee hasn't logged any activities yet in this period.</p>
                                                     </div>
                                                 ) : (
-                                                    log.activities.map((act) => (
+                                                    log.activities.map((act, actIdx) => (
                                                         <div
-                                                            key={act._id}
+                                                            key={act._id || actIdx}
                                                             className={`p-3 rounded-xl border ${isDarkMode
                                                                 ? "bg-[#1f252d]/60 border-gray-800"
                                                                 : "bg-slate-50 border-slate-100"
                                                                 }`}
                                                         >
-                                                            <div className="flex justify-between items-center mb-1.5">
-                                                                <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${act.status === "Completed"
-                                                                    ? "bg-emerald-500/10 text-emerald-500"
-                                                                    : "bg-amber-500/10 text-amber-500"
-                                                                    }`}>
-                                                                    {act.status}
-                                                                </span>
+                                                            <div className="flex flex-wrap justify-between items-center mb-1.5 gap-1">
+                                                                <div className="flex items-center gap-1.5">
+                                                                    <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${act.status === "Completed"
+                                                                        ? "bg-emerald-500/10 text-emerald-500"
+                                                                        : "bg-amber-500/10 text-amber-500"
+                                                                        }`}>
+                                                                        {act.status}
+                                                                    </span>
+                                                                    {act.logDate && (
+                                                                        <span className={`inline-flex items-center gap-1 text-[8px] font-mono font-bold px-2 py-0.5 rounded-full ${isDarkMode ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30" : "bg-cyan-50 text-cyan-700 border border-cyan-200"}`}>
+                                                                            <FaCalendarAlt className="text-[7px]" />
+                                                                            {act.logDate}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                                 {act.centre && (
                                                                     <span className={`inline-flex items-center gap-1 text-[8px] font-extrabold uppercase px-2 py-0.5 rounded-full ${isDarkMode ? "bg-indigo-500/10 text-indigo-400" : "bg-indigo-50 text-indigo-600"}`}>
                                                                         <FaBuilding className="text-[7px]" />

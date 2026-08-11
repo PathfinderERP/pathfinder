@@ -144,7 +144,7 @@ const CourseTarget = () => {
             year: selectedYear,
             month: selectedMonth,
             quarter: selectedQuarter,
-            week: selectedWeek
+            week: Array.isArray(selectedWeek) ? (selectedWeek[0] || 1) : selectedWeek
         });
         setShowTargetModal(true);
     };
@@ -227,9 +227,10 @@ const CourseTarget = () => {
             return { startDate: formatDateLocal(s), endDate: formatDateLocal(e) };
         } else if (viewMode === "WEEKLY") {
             const weeks = getWeeksForMonth(selectedYear, selectedMonth);
-            const currentWeekRange = weeks.find(w => w.weekNumber === selectedWeek) || weeks[0];
-            const startDay = currentWeekRange ? currentWeekRange.startDay : 1;
-            const endDay = currentWeekRange ? currentWeekRange.endDay : 7;
+            const weekNums = Array.isArray(selectedWeek) ? selectedWeek : [selectedWeek];
+            const selectedWeekObjs = weeks.filter(w => weekNums.includes(w.weekNumber));
+            const startDay = selectedWeekObjs.length > 0 ? Math.min(...selectedWeekObjs.map(w => w.startDay)) : 1;
+            const endDay = selectedWeekObjs.length > 0 ? Math.max(...selectedWeekObjs.map(w => w.endDay)) : 7;
             const s = new Date(selectedYear, mIdx, startDay);
             const e = new Date(selectedYear, mIdx, endDay);
             return { startDate: formatDateLocal(s), endDate: formatDateLocal(e) };
@@ -351,11 +352,21 @@ const CourseTarget = () => {
     });
     const [selectedWeek, setSelectedWeek] = useState(() => {
         const saved = localStorage.getItem("courseTarget_selectedWeek");
-        if (saved) return parseInt(saved, 10);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+                if (typeof parsed === "number") return [parsed];
+            } catch (e) {
+                const num = parseInt(saved, 10);
+                if (!isNaN(num)) return [num];
+            }
+        }
         const today = new Date();
         const curMonth = monthNames[today.getMonth()];
         const curYear = today.getFullYear();
-        return getCurrentRunningWeek(curYear, curMonth);
+        const weeks = getWeeksForMonth(curYear, curMonth);
+        return weeks.map(w => w.weekNumber);
     });
     const [customStartDate, setCustomStartDate] = useState(() => {
         const saved = localStorage.getItem("courseTarget_customStartDate");
@@ -399,7 +410,7 @@ const CourseTarget = () => {
     }, [selectedQuarter]);
 
     useEffect(() => {
-        localStorage.setItem("courseTarget_selectedWeek", selectedWeek);
+        localStorage.setItem("courseTarget_selectedWeek", JSON.stringify(selectedWeek));
     }, [selectedWeek]);
 
     useEffect(() => {
@@ -446,10 +457,18 @@ const CourseTarget = () => {
 
     useEffect(() => {
         const weeks = getWeeksForMonth(selectedYear, selectedMonth);
-        if (selectedWeek > weeks.length) {
-            setSelectedWeek(1);
+        const maxWeeks = weeks.length;
+        if (Array.isArray(selectedWeek)) {
+            const validWeeks = selectedWeek.filter(w => w <= maxWeeks);
+            if (validWeeks.length === 0) {
+                setSelectedWeek(weeks.map(w => w.weekNumber));
+            } else if (validWeeks.length !== selectedWeek.length) {
+                setSelectedWeek(validWeeks);
+            }
+        } else {
+            setSelectedWeek(weeks.map(w => w.weekNumber));
         }
-    }, [selectedMonth, selectedYear, selectedWeek]);
+    }, [selectedMonth, selectedYear]);
 
     const fetchCentres = async () => {
         try {
@@ -673,7 +692,7 @@ const CourseTarget = () => {
                 targetType: viewMode,
                 month: selectedMonth,
                 quarter: selectedQuarter,
-                week: selectedWeek,
+                week: Array.isArray(selectedWeek) ? selectedWeek.join(',') : selectedWeek,
                 startDate: customStartDate,
                 endDate: customEndDate
             };
@@ -1294,18 +1313,49 @@ const CourseTarget = () => {
                         )}
 
                         {viewMode === "WEEKLY" && (
-                            <div className="min-w-[150px] z-20">
-                                <select
-                                    value={selectedWeek}
-                                    onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
-                                    className={`border text-xs rounded-lg block w-full px-3 py-2 outline-none font-bold transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-gray-300 focus:border-cyan-500' : 'bg-white border-gray-300 text-gray-700 focus:border-cyan-500 shadow-sm'}`}
-                                >
-                                    {getWeeksForMonth(selectedYear, selectedMonth).map((wk) => (
-                                        <option key={wk.weekNumber} value={wk.weekNumber}>
-                                            Week {wk.weekNumber} ({wk.startDay} {selectedMonth.substring(0, 3)} - {wk.endDay} {selectedMonth.substring(0, 3)})
-                                        </option>
-                                    ))}
-                                </select>
+                            <div className="min-w-[200px] z-20 w-full sm:w-60">
+                                <CustomMultiSelect
+                                    options={[
+                                        { value: 'all', label: 'All Select Weeks' },
+                                        ...getWeeksForMonth(selectedYear, selectedMonth).map(wk => ({
+                                            value: wk.weekNumber,
+                                            label: `Week ${wk.weekNumber} (${wk.startDay} ${selectedMonth.substring(0, 3)} - ${wk.endDay} ${selectedMonth.substring(0, 3)})`
+                                        }))
+                                    ]}
+                                    value={
+                                        (() => {
+                                            const weeks = getWeeksForMonth(selectedYear, selectedMonth);
+                                            const selArr = Array.isArray(selectedWeek) ? selectedWeek : [selectedWeek];
+                                            if (selArr.length === weeks.length && weeks.length > 0) {
+                                                return [{ value: 'all', label: 'All Select Weeks' }];
+                                            }
+                                            return weeks
+                                                .map(wk => ({
+                                                    value: wk.weekNumber,
+                                                    label: `Week ${wk.weekNumber} (${wk.startDay} ${selectedMonth.substring(0, 3)} - ${wk.endDay} ${selectedMonth.substring(0, 3)})`
+                                                }))
+                                                .filter(opt => selArr.includes(opt.value));
+                                        })()
+                                    }
+                                    onChange={(selected) => {
+                                        const weeks = getWeeksForMonth(selectedYear, selectedMonth);
+                                        const selArr = Array.isArray(selectedWeek) ? selectedWeek : [selectedWeek];
+                                        const wasAllSelected = selArr.length === weeks.length && weeks.length > 0;
+                                        if (selected && selected.some(o => o.value === 'all')) {
+                                            if (wasAllSelected) {
+                                                const specificOnly = selected.filter(o => o.value !== 'all');
+                                                setSelectedWeek(specificOnly.map(o => Number(o.value)));
+                                            } else {
+                                                setSelectedWeek(weeks.map(w => w.weekNumber));
+                                            }
+                                        } else {
+                                            const newVals = selected ? selected.map(o => Number(o.value)).filter(n => !isNaN(n)) : [];
+                                            setSelectedWeek(newVals.length > 0 ? newVals : weeks.map(w => w.weekNumber));
+                                        }
+                                    }}
+                                    placeholder="Select Weeks"
+                                    isDarkMode={isDarkMode}
+                                />
                             </div>
                         )}
 
@@ -1365,7 +1415,7 @@ const CourseTarget = () => {
                                         year: selectedYear,
                                         month: selectedMonth,
                                         quarter: selectedQuarter,
-                                        week: selectedWeek,
+                                        week: Array.isArray(selectedWeek) ? (selectedWeek[0] || 1) : selectedWeek,
                                         centreId: selectedCentres.length === 1 ? selectedCentres[0] : "",
                                         departmentId: "",
                                         targetCount: ""

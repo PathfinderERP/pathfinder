@@ -45,135 +45,86 @@ export const getCentreRankings = async (req, res) => {
             query.centre = { $in: targetIds.length > 0 ? targetIds.map(toObjectId) : [new mongoose.Types.ObjectId()] };
         }
 
-        if (startDate && endDate) {
-            const start = new Date(startDate);
-            const end = new Date(endDate);
-            const monthsInRange = [];
-            let current = new Date(start.getFullYear(), start.getMonth(), 1);
-
-            while (current <= end) {
-                monthsInRange.push({
-                    year: current.getFullYear(),
-                    month: monthNames[current.getMonth()]
-                });
-                current.setMonth(current.getMonth() + 1);
-            }
-
-            if (monthsInRange.length > 0) {
-                query.$or = monthsInRange;
-            } else {
-                query.year = -1; // No results
-            }
-            if (financialYear) {
-                query.financialYear = financialYear;
-            } else if (!year && !month && !months) {
-                const now = new Date();
-                const curMonth = now.getMonth();
-                const curYear = now.getFullYear();
-                const fyStart = curMonth >= 3 ? curYear : curYear - 1;
-                query.financialYear = `${fyStart}-${fyStart + 1}`;
-            }
-
-            if (viewMode === "Yearly") {
-                query.month = "YEARLY";
-            } else if (viewMode === "Quarterly") {
-                query.month = { $regex: /,/ };
-            } else if (viewMode === "Monthly") {
-                if (months) {
-                     query.month = { $in: months.split(',') };
-                } else if (month) {
-                     query.month = month;
-                } else {
-                     query.month = { $not: /,|YEARLY/ };
-                }
-            } else if (month) {
-                 query.month = month;
-            }
-
-            if (year && !isNaN(parseInt(year))) query.year = parseInt(year);
-        } else {
-            if (viewMode === "Monthly" && year && (month || months)) {
-                const targetYear = parseInt(year);
-                const firstMonth = month || months.split(',')[0].trim();
-                const monthIndex = monthNames.indexOf(firstMonth);
-                if (monthIndex >= 0) {
-                    const fyStart = monthIndex >= 3 ? targetYear : targetYear - 1;
-                    query.financialYear = `${fyStart}-${fyStart + 1}`;
-                }
-            } else if (financialYear) {
-                query.financialYear = financialYear;
-            } else if (!year && !month && !months) {
-                const now = new Date();
-                const curMonth = now.getMonth();
-                const curYear = now.getFullYear();
-                const fyStart = curMonth >= 3 ? curYear : curYear - 1;
-                query.financialYear = `${fyStart}-${fyStart + 1}`;
-            }
-
-            if (viewMode === "Yearly") {
-                query.month = "YEARLY";
-            } else if (viewMode === "Quarterly") {
-                query.month = { $regex: /,/ };
-            } else if (viewMode === "Monthly") {
-                if (months) {
-                     query.month = { $in: months.split(',') };
-                } else if (month) {
-                     query.month = month;
-                } else {
-                     query.month = { $not: /,|YEARLY/ };
-                }
-            } else if (month) {
-                 query.month = month;
-            }
-
-            if (year && !isNaN(parseInt(year))) query.year = parseInt(year);
-        }
-
-        // --- Determine Date Range for Exact Payment Retrieval ---
-        // IMPORTANT: Check viewMode FIRST before financialYear so Monthly/Quarterly
-        // don't accidentally use the full financial year date range.
-        let paymentStartDate, paymentEndDate;
         const now = new Date();
+        const curMonth = now.getMonth();
+        const curYear = now.getFullYear();
+        const defaultFyStart = curMonth >= 3 ? curYear : curYear - 1;
+        const defaultFinancialYear = `${defaultFyStart}-${defaultFyStart + 1}`;
+        const targetFinancialYear = financialYear || defaultFinancialYear;
+        const [fyStartYear] = targetFinancialYear.split('-').map(Number);
 
-        if (startDate && endDate) {
-            // Custom date range
+        let paymentStartDate, paymentEndDate;
+
+        if (viewMode === "Custom" && startDate && endDate) {
             paymentStartDate = new Date(startDate);
             paymentEndDate = new Date(endDate);
             paymentEndDate.setHours(23, 59, 59, 999);
-        } else if (viewMode === "Monthly") {
-            const targetYear = year ? parseInt(year) : now.getFullYear();
+
+            const monthsInRange = [];
+            let current = new Date(paymentStartDate.getFullYear(), paymentStartDate.getMonth(), 1);
+            while (current <= paymentEndDate) {
+                monthsInRange.push(monthNames[current.getMonth()]);
+                current.setMonth(current.getMonth() + 1);
+            }
+            if (monthsInRange.length > 0) {
+                query.month = { $in: [...new Set(monthsInRange)] };
+            }
+            query.financialYear = targetFinancialYear;
+        } else if (viewMode === "Quarterly") {
+            const quarterMap = {
+                Q1: { months: ["April", "May", "June"], s: [fyStartYear, 3, 1], e: [fyStartYear, 5, 30] },
+                Q2: { months: ["July", "August", "September"], s: [fyStartYear, 6, 1], e: [fyStartYear, 8, 30] },
+                Q3: { months: ["October", "November", "December"], s: [fyStartYear, 9, 1], e: [fyStartYear, 11, 31] },
+                Q4: { months: ["January", "February", "March"], s: [fyStartYear + 1, 0, 1], e: [fyStartYear + 1, 2, 31] }
+            };
+
+            const selQuarter = req.query.quarter;
+            if (selQuarter && quarterMap[selQuarter]) {
+                const qInfo = quarterMap[selQuarter];
+                query.month = { $in: qInfo.months };
+                paymentStartDate = new Date(...qInfo.s);
+                paymentEndDate = new Date(...qInfo.e, 23, 59, 59, 999);
+            } else {
+                paymentStartDate = new Date(fyStartYear, 3, 1);
+                paymentEndDate = new Date(fyStartYear + 1, 2, 31, 23, 59, 59, 999);
+            }
+            query.financialYear = targetFinancialYear;
+        } else if (viewMode === "Yearly") {
+            query.financialYear = targetFinancialYear;
+            paymentStartDate = new Date(fyStartYear, 3, 1);
+            paymentEndDate = new Date(fyStartYear + 1, 2, 31, 23, 59, 59, 999);
+        } else {
+            // Monthly view
+            const targetYear = year ? parseInt(year) : curYear;
+            query.year = targetYear;
+
             if (months) {
-                // Multiple months selected — find min/max month boundary
-                const monthList = months.split(',');
-                const monthIndices = monthList
-                    .map(m => monthNames.indexOf(m.trim()))
-                    .filter(i => i >= 0);
+                const monthList = months.split(',').map(m => m.trim());
+                query.month = { $in: monthList };
+
+                const monthIndices = monthList.map(m => monthNames.indexOf(m)).filter(i => i >= 0);
                 if (monthIndices.length > 0) {
                     const minIdx = Math.min(...monthIndices);
                     const maxIdx = Math.max(...monthIndices);
                     paymentStartDate = new Date(targetYear, minIdx, 1);
                     paymentEndDate = new Date(targetYear, maxIdx + 1, 0, 23, 59, 59, 999);
                 }
+            } else if (month) {
+                query.month = month;
+                const monthIndex = monthNames.indexOf(month);
+                if (monthIndex >= 0) {
+                    paymentStartDate = new Date(targetYear, monthIndex, 1);
+                    paymentEndDate = new Date(targetYear, monthIndex + 1, 0, 23, 59, 59, 999);
+                }
             } else {
-                // Single month
-                const targetMonthName = month || monthNames[now.getMonth()];
+                const targetMonthName = monthNames[now.getMonth()];
+                query.month = targetMonthName;
                 const monthIndex = monthNames.indexOf(targetMonthName);
                 if (monthIndex >= 0) {
                     paymentStartDate = new Date(targetYear, monthIndex, 1);
                     paymentEndDate = new Date(targetYear, monthIndex + 1, 0, 23, 59, 59, 999);
                 }
             }
-        } else if (viewMode === "Quarterly") {
-            // Quarterly uses financial year — CentreTarget query handles which quarter
-            const fy = financialYear || `${now.getFullYear()}-${now.getFullYear() + 1}`;
-            const [startYear] = fy.split('-').map(Number);
-            paymentStartDate = new Date(startYear, 3, 1);
-            paymentEndDate = new Date(startYear + 1, 2, 31, 23, 59, 59, 999);
-        } else if (viewMode === "Yearly" || financialYear) {
-            const fy = financialYear || `${now.getFullYear()}-${now.getFullYear() + 1}`;
-            const [startYear] = fy.split('-').map(Number);
-            paymentStartDate = new Date(startYear, 3, 1); // April 1st
-            paymentEndDate = new Date(startYear + 1, 2, 31, 23, 59, 59, 999); // March 31st
         }
 
         // --- Fetch Exact Achieved Amount from Payments (mirrors transaction list logic) ---
