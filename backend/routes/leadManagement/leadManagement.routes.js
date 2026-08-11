@@ -32,6 +32,8 @@ import { getLeadJourney } from "../../controllers/leadManagement/getLeadJourney.
 import { getSchoolJourney } from "../../controllers/leadManagement/getSchoolJourney.js";
 import { checkDuplicatePhone } from "../../controllers/leadManagement/checkDuplicatePhone.js";
 
+import { getConversionDetails } from "../../controllers/leadManagement/getConversionDetails.js";
+
 const router = express.Router();
 const upload = multer({ 
     storage: multer.memoryStorage(),
@@ -47,6 +49,7 @@ router.post("/campaigns/presigned-upload-url", requireAuth, getCampaignPresigned
 router.get("/uploaders", requireAuth, getLeadUploaders);
 router.get("/follow-ups", requireAuth, getFollowUpLeads);
 router.get("/stats/dashboard", requireAuth, getLeadDashboardStats);
+router.get("/stats/dashboard/conversion-details", requireAuth, getConversionDetails);
 router.get("/stats/today-followups", requireAuth, getFollowUpStats);
 router.get("/stats/conversion-report", requireAuth, getLeadConversionReport);
 router.get("/stats/conversion-report/admitted-leads", requireAuth, getAdmittedLeadDetails);

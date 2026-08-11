@@ -20,6 +20,7 @@ import FollowUpActivityModal from "./FollowUpActivityModal";
 import BulkUpdateLeadModal from "./BulkUpdateLeadModal";
 import { CardSkeleton, TableRowSkeleton, FeedItemSkeleton } from "../common/Skeleton";
 import LeadJourneyModal from "./LeadJourneyModal";
+import ConversionDetailsModal from "./ConversionDetailsModal";
 
 const LeadManagementContent = () => {
     const navigate = useNavigate();
@@ -71,6 +72,12 @@ const LeadManagementContent = () => {
         isOpen: false,
         title: "",
         data: []
+    });
+
+    const [conversionModal, setConversionModal] = useState({
+        isOpen: false,
+        title: "",
+        leads: []
     });
 
     const [centreAnalysis, setCentreAnalysis] = useState([]);
@@ -566,6 +573,50 @@ const LeadManagementContent = () => {
         } else {
             const label = statusValue === 'contacted' ? 'Contacted' : statusValue === 'remaining' ? 'Pending' : 'Walk In';
             handleFilterChange('followUpStatus', [{ value: statusValue, label }]);
+        }
+    };
+
+    const fetchAndShowConversionDetails = async (type) => {
+        try {
+            const token = localStorage.getItem("token");
+            const params = new URLSearchParams();
+            params.append("type", type);
+            if (searchTerm) params.append("search", searchTerm);
+
+            // Pass all active filters
+            Object.entries(filters).forEach(([key, value]) => {
+                if (Array.isArray(value)) {
+                    value.forEach(v => {
+                        const val = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
+                        if (val) params.append(key, val);
+                    });
+                } else if (value && !['fromDate', 'toDate'].includes(key)) {
+                    params.append(key, value);
+                }
+            });
+
+            // ADD Dashboard specific date filters
+            if (dashboardFilters.fromDate) params.append('fromDate', dashboardFilters.fromDate);
+            if (dashboardFilters.toDate) params.append('toDate', dashboardFilters.toDate);
+
+            toast.info(`Fetching ${type} leads...`, { autoClose: 1000 });
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/stats/dashboard/conversion-details?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                setConversionModal({
+                    isOpen: true,
+                    title: `${type === 'counselled' ? 'Counselled' : 'Admitted'} Leads`,
+                    leads: data.leads || []
+                });
+            } else {
+                toast.error("Failed to fetch conversion details");
+            }
+        } catch (error) {
+            console.error("Error fetching conversion details:", error);
+            toast.error("Error fetching conversion details");
         }
     };
 
@@ -1758,11 +1809,17 @@ const LeadManagementContent = () => {
                                 <div className="w-full">
                                     <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-2.5 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>Conversion Summary</p>
                                     <div className="flex flex-col gap-1">
-                                        <div className="flex justify-between items-center pr-2">
+                                        <div 
+                                            onClick={() => fetchAndShowConversionDetails('counselled')}
+                                            className={`flex justify-between items-center pr-2 cursor-pointer p-1.5 rounded transition-all hover:bg-purple-500/10 active:scale-95`}
+                                        >
                                             <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Counselled:</span>
                                             <span className={`text-xs font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.counselledCount || 0}</span>
                                         </div>
-                                        <div className="flex justify-between items-center pr-2">
+                                        <div 
+                                            onClick={() => fetchAndShowConversionDetails('admitted')}
+                                            className={`flex justify-between items-center pr-2 cursor-pointer p-1.5 rounded transition-all hover:bg-purple-500/10 active:scale-95`}
+                                        >
                                             <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Admitted:</span>
                                             <span className={`text-xs font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.admittedCount || 0}</span>
                                         </div>
@@ -2228,6 +2285,14 @@ const LeadManagementContent = () => {
                     setSelectedLead(leadObj);
                     setShowFollowUpModal(true);
                 }}
+            />
+
+            <ConversionDetailsModal
+                isOpen={conversionModal.isOpen}
+                onClose={() => setConversionModal({ ...conversionModal, isOpen: false })}
+                title={conversionModal.title}
+                leads={conversionModal.leads}
+                isDarkMode={isDarkMode}
             />
 
 
