@@ -77,9 +77,16 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                                         <h3 className={`text-sm font-bold uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                             {lead.name}
                                         </h3>
-                                        <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${lead.leadType === "HOT LEAD" ? "bg-red-500/10 text-red-400 border border-red-500/20" : "bg-purple-500/10 text-purple-400 border border-purple-500/20"}`}>
-                                            {lead.leadType || "Lead"}
-                                        </span>
+                                        <div className="flex gap-1.5 items-center shrink-0">
+                                            {lead.downPayment > 0 && (
+                                                <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                    Down Payment: ₹{lead.downPayment}
+                                                </span>
+                                            )}
+                                            <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${lead.leadType === "HOT LEAD" ? "bg-red-500/10 text-red-400 border border-red-500/20" : "bg-purple-500/10 text-purple-400 border border-purple-500/20"}`}>
+                                                {lead.leadType || "Lead"}
+                                            </span>
+                                        </div>
                                     </div>
 
                                     <div className="space-y-2 text-[11px] font-medium text-gray-400">
