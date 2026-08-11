@@ -269,7 +269,6 @@ export const getCourseTargetAnalysis = async (req, res) => {
             endDate = new Date(parsedYear + 1, 2, 31, 23, 59, 59, 999);
         } else if (targetType === 'WEEKLY') {
             const mIdx = monthNames.indexOf(month);
-            const parsedWeekNum = parseInt(week, 10);
             const daysInMonth = new Date(parsedYear, mIdx + 1, 0).getDate();
             const firstDowJS = new Date(parsedYear, mIdx, 1).getDay();
             const firstMonOffset = (firstDowJS + 6) % 7; // Mon=0, Tue=1 … Sun=6
@@ -291,9 +290,19 @@ export const getCourseTargetAnalysis = async (req, res) => {
                 currentWeekNum++;
             }
 
-            const currentWeekRange = weeksList.find(w => w.weekNumber === parsedWeekNum) || weeksList[0];
-            const startDay = currentWeekRange ? currentWeekRange.startDay : 1;
-            const endDay = currentWeekRange ? currentWeekRange.endDay : 7;
+            let weekNums = [];
+            if (typeof week === 'string') {
+                weekNums = week.split(',').map(w => parseInt(w.trim(), 10)).filter(w => !isNaN(w));
+            } else if (typeof week === 'number') {
+                weekNums = [week];
+            } else if (Array.isArray(week)) {
+                weekNums = week.map(w => parseInt(w, 10)).filter(w => !isNaN(w));
+            }
+            if (weekNums.length === 0) weekNums = weeksList.map(w => w.weekNumber);
+
+            const selectedWeekObjs = weeksList.filter(w => weekNums.includes(w.weekNumber));
+            const startDay = selectedWeekObjs.length > 0 ? Math.min(...selectedWeekObjs.map(w => w.startDay)) : 1;
+            const endDay = selectedWeekObjs.length > 0 ? Math.max(...selectedWeekObjs.map(w => w.endDay)) : 7;
 
             startDate = new Date(parsedYear, mIdx, startDay);
             endDate = new Date(parsedYear, mIdx, endDay, 23, 59, 59, 999);
@@ -365,7 +374,17 @@ export const getCourseTargetAnalysis = async (req, res) => {
                 targetFilter.quarter = quarter;
             } else if (targetType === 'WEEKLY') {
                 targetFilter.targetType = 'WEEKLY';
-                targetFilter.week = parseInt(week, 10);
+                let weekNums = [];
+                if (typeof week === 'string') {
+                    weekNums = week.split(',').map(w => parseInt(w.trim(), 10)).filter(w => !isNaN(w));
+                } else if (typeof week === 'number') {
+                    weekNums = [week];
+                } else if (Array.isArray(week)) {
+                    weekNums = week.map(w => parseInt(w, 10)).filter(w => !isNaN(w));
+                }
+                if (weekNums.length > 0) {
+                    targetFilter.week = { $in: weekNums };
+                }
                 targetFilter.month = month; // required: same week number can exist in different months
             } else if (targetType === 'YEARLY') {
                 targetFilter.targetType = 'YEARLY';
@@ -374,8 +393,12 @@ export const getCourseTargetAnalysis = async (req, res) => {
             const courseTargets = await CourseTarget.find(targetFilter).lean();
             courseTargets.forEach(t => {
                 const key = `${t.centre.toString()}_${t.department.toString()}`;
-                if (!targetMap[key] || t.targetCount > targetMap[key]) {
-                    targetMap[key] = t.targetCount;
+                if (targetType === 'WEEKLY') {
+                    targetMap[key] = (targetMap[key] || 0) + (t.targetCount || 0);
+                } else {
+                    if (!targetMap[key] || t.targetCount > targetMap[key]) {
+                        targetMap[key] = t.targetCount;
+                    }
                 }
             });
         }

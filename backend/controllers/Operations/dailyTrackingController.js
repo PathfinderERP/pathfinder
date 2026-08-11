@@ -141,20 +141,41 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
     }).select('name role employeeId centres').lean();
 
     // 3. Gather other usernames that had activity
-    const allUserNames = new Set(activeUsers.map(u => u.name.toLowerCase().trim()));
+    const allUserNames = new Set(activeUsers.filter(u => u && u.name).map(u => u.name.toLowerCase().trim()));
     
     // Fetch walk-ins and admissions in the date filter
     const walkInMap = {};
     const walkIns = await LeadManagement.find({
-        isWalkIn: true,
-        walkInDate: dateFilter,
-        walkInBy: { $exists: true, $ne: null }
-    }).select('walkInBy centre').lean();
+        $or: [
+            { isWalkIn: true },
+            { source: { $regex: /walk[- ]?in/i } }
+        ],
+        centre: { $in: actualCenterIds }
+    }).select('walkInBy createdBy leadResponsibility centre walkInDate createdAt').lean();
 
     walkIns.forEach(wi => {
-        const uId = wi.walkInBy.toString();
+        const wDate = wi.walkInDate || wi.createdAt;
+        if (!wDate) return;
+        const dObj = new Date(wDate);
+        if (dObj < startDate || dObj > endDate) return;
+
         const cId = wi.centre?.toString();
-        if (uId && cId) {
+        if (!cId) return;
+
+        let uId = null;
+        if (wi.walkInBy) {
+            uId = wi.walkInBy.toString();
+        } else if (wi.createdBy) {
+            uId = wi.createdBy.toString();
+        } else if (wi.leadResponsibility) {
+            const respLower = wi.leadResponsibility.toLowerCase().trim();
+            const matchedUser = activeUsers.find(u => u && u.name && u.name.toLowerCase().trim() === respLower);
+            if (matchedUser) {
+                uId = matchedUser._id.toString();
+            }
+        }
+
+        if (uId) {
             const key = `${uId}_${cId}`;
             walkInMap[key] = (walkInMap[key] || 0) + 1;
         }
@@ -163,8 +184,12 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
     const centreNameToIdMap = {};
     const centreMap = {};
     centres.forEach(c => {
-        centreMap[c._id.toString()] = c.centreName;
-        centreNameToIdMap[c.centreName.toLowerCase()] = c._id.toString();
+        if (c && c._id) {
+            centreMap[c._id.toString()] = c.centreName || "Unknown";
+            if (c.centreName) {
+                centreNameToIdMap[c.centreName.toLowerCase()] = c._id.toString();
+            }
+        }
     });
 
     const admissionMap = {};
@@ -180,10 +205,10 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
     ]);
 
     const addAdmissionToMap = (adm) => {
-        const uId = adm.createdBy.toString();
+        const uId = adm.createdBy ? adm.createdBy.toString() : null;
         const cName = adm.centre;
         if (uId && cName) {
-            const cId = centreNameToIdMap[cName.toLowerCase()];
+            const cId = centreNameToIdMap[(cName || '').toLowerCase()];
             if (cId) {
                 const key = `${uId}_${cId}`;
                 admissionMap[key] = (admissionMap[key] || 0) + 1;
@@ -263,22 +288,24 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
 
     // Find any other users who had activity but aren't in activeUsers list
     const escapeRegex = (string) => {
-        return string.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+        return (string || '').replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
     };
-    const extraUserNames = Array.from(allUserNames).filter(name => !activeUsers.some(u => u.name.toLowerCase().trim() === name));
+    const extraUserNames = Array.from(allUserNames).filter(name => !activeUsers.some(u => u && u.name && u.name.toLowerCase().trim() === name));
     if (extraUserNames.length > 0) {
         const extraUsers = await User.find({
             name: { $in: extraUserNames.map(n => new RegExp(`^${escapeRegex(n)}$`, 'i')) }
         }).select('name role employeeId centres').lean();
         extraUsers.forEach(u => {
-            activeUsers.push(u);
+            if (u && u.name) activeUsers.push(u);
         });
     }
 
     // Map all users by lowercase name
     const userMap = {};
     activeUsers.forEach(u => {
-        userMap[u.name.toLowerCase().trim()] = { id: u._id, role: u.role, employeeId: u.employeeId, name: u.name, centres: u.centres };
+        if (u && u.name) {
+            userMap[u.name.toLowerCase().trim()] = { id: u._id, role: u.role, employeeId: u.employeeId, name: u.name, centres: u.centres };
+        }
     });
 
     const rowsMap = new Map();
@@ -308,12 +335,14 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
 
     // Initialize rows for all active users under their assigned centres
     activeUsers.forEach(u => {
-        (u.centres || []).forEach(c => {
-            const cIdStr = c.toString();
-            if (centreMap[cIdStr]) {
-                addRowKey(u.name, cIdStr, u._id, u.role, u.employeeId);
-            }
-        });
+        if (u && u.name) {
+            (u.centres || []).forEach(c => {
+                const cIdStr = c.toString();
+                if (centreMap[cIdStr]) {
+                    addRowKey(u.name, cIdStr, u._id, u.role, u.employeeId);
+                }
+            });
+        }
     });
 
     // Add rows from aggregated calls
@@ -349,11 +378,18 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
 
     // Add rows from walk-ins
     walkIns.forEach(wi => {
-        const uId = wi.walkInBy.toString();
         const cId = wi.centre?.toString();
-        if (uId && cId) {
-            const uDetails = activeUsers.find(u => u._id.toString() === uId) || {};
+        if (!cId) return;
+        let uId = wi.walkInBy ? wi.walkInBy.toString() : (wi.createdBy ? wi.createdBy.toString() : null);
+        if (uId) {
+            const uDetails = activeUsers.find(u => u && u._id && u._id.toString() === uId) || {};
             if (uDetails.name) {
+                addRowKey(uDetails.name, cId, uDetails._id, uDetails.role, uDetails.employeeId);
+            }
+        } else if (wi.leadResponsibility) {
+            const respLower = wi.leadResponsibility.toLowerCase().trim();
+            const uDetails = activeUsers.find(u => u && u.name && u.name.toLowerCase().trim() === respLower);
+            if (uDetails && uDetails.name) {
                 addRowKey(uDetails.name, cId, uDetails._id, uDetails.role, uDetails.employeeId);
             }
         }
@@ -361,12 +397,12 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
 
     // Add rows from admissions
     const addAdmRow = (adm) => {
-        const uId = adm.createdBy.toString();
+        const uId = adm.createdBy ? adm.createdBy.toString() : null;
         const cName = adm.centre;
         if (uId && cName) {
-            const cId = centreNameToIdMap[cName.toLowerCase()];
+            const cId = centreNameToIdMap[(cName || '').toLowerCase()];
             if (cId) {
-                const uDetails = activeUsers.find(u => u._id.toString() === uId) || {};
+                const uDetails = activeUsers.find(u => u && u._id && u._id.toString() === uId) || {};
                 if (uDetails.name) {
                     addRowKey(uDetails.name, cId, uDetails._id, uDetails.role, uDetails.employeeId);
                 }
@@ -383,7 +419,7 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
         const uName = row.userName;
         const uDetails = userMap[uNameLower] || {};
 
-        const isMatchLoggedInUser = reqUser && uNameLower === reqUser.name.toLowerCase().trim();
+        const isMatchLoggedInUser = reqUser && reqUser.name && uNameLower === reqUser.name.toLowerCase().trim();
         const finalUserId = isMatchLoggedInUser ? reqUser._id : (row.userId || uDetails.id || null);
         const finalRole = isMatchLoggedInUser ? reqUser.role : (row.role || uDetails.role || "N/A");
         const finalEmployeeId = isMatchLoggedInUser ? reqUser.employeeId : (row.employeeId || uDetails.employeeId || "N/A");
@@ -3264,33 +3300,54 @@ export const getDailyUserWalkIns = async (req, res) => {
         const { fromDate, toDate, centerId } = req.query;
 
         const { start: startDate, end: endDate } = parseDateRangeIST(fromDate, toDate);
-        const dateFilter = { $gte: startDate, $lte: endDate };
+        const userObjId = new mongoose.Types.ObjectId(userId);
 
-        const query = {
-            walkInBy: userId,
-            isWalkIn: true,
-            walkInDate: dateFilter
-        };
-        if (centerId) {
-            query.centre = centerId;
-        }
+        const user = await User.findById(userId).select("name").lean();
+        const userNameLower = (user?.name || "").toLowerCase().trim();
 
-        const walkIns = await LeadManagement.find(query)
+        const candidateLeads = await LeadManagement.find({
+            $or: [
+                { isWalkIn: true },
+                { source: { $regex: /walk[- ]?in/i } }
+            ],
+            ...(centerId ? { centre: centerId } : {}),
+            $or: [
+                { walkInBy: userObjId },
+                { createdBy: userObjId },
+                ...(userNameLower ? [{ leadResponsibility: { $regex: new RegExp(`^${(user?.name || "").trim()}$`, "i") } }] : [])
+            ]
+        })
             .populate('className', 'name')
             .populate('board', 'boardName')
             .populate('course', 'courseName')
             .populate('centre')
             .lean();
 
+        const walkIns = candidateLeads.filter(lead => {
+            const wDate = lead.walkInDate || lead.createdAt;
+            if (!wDate) return false;
+            const dObj = new Date(wDate);
+            if (dObj < startDate || dObj > endDate) return false;
+
+            if (lead.walkInBy) {
+                return lead.walkInBy.toString() === userId.toString();
+            } else if (lead.createdBy) {
+                return lead.createdBy.toString() === userId.toString();
+            } else if (lead.leadResponsibility) {
+                return lead.leadResponsibility.toLowerCase().trim() === userNameLower;
+            }
+            return false;
+        });
+
         const data = walkIns.map(lead => ({
             leadId: lead._id,
             studentName: lead.name,
-            phoneNumber: lead.phoneNumber || '-',
-            className: lead.className?.name || '-',
+            phoneNumber: lead.phoneNumber || lead.secondPhoneNumber || '-',
+            className: lead.className?.name || lead.targetClass || '-',
             boardName: lead.board?.boardName || '-',
             schoolName: lead.schoolName || '-',
             courseName: lead.course?.courseName || lead.courseText || '-',
-            leadType: lead.leadType || 'UNTAGGED',
+            leadType: lead.isWalkIn ? 'Walked In (Button Tagged)' : (lead.leadType || 'WALK_IN'),
             remarks: lead.remarks || '',
             date: lead.walkInDate || lead.createdAt
         }));
