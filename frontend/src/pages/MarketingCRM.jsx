@@ -2864,7 +2864,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                                             <div className="text-[8px] text-amber-500 mt-1 font-bold">({activity.schoolStatus})</div>
                                                                         )}
                                                                     </div>
-                                                                ) : (activity.type === "School Visit" || (!activity.type && (activitySources[0] === "School Visit" || !activitySources[0]))) ? (
+                                                                ) : (
                                                                     <div className="flex flex-col gap-1">
                                                                         <CustomSearchSelect
                                                                             options={(() => {
@@ -2919,20 +2919,6 @@ const MarketingCRM = ({ initialTab }) => {
                                                                             </div>
                                                                         )}
                                                                     </div>
-                                                                ) : (
-                                                                    <input
-                                                                        type="text"
-                                                                        placeholder="Enter Place / Institution..."
-                                                                        value={activity.place || ""}
-                                                                        onChange={(e) => {
-                                                                            const newActs = [...todayActivities];
-                                                                            newActs[idx].place = e.target.value;
-                                                                            newActs[idx].schoolRef = null;
-                                                                            newActs[idx].schoolStatus = "";
-                                                                            setTodayActivities(newActs);
-                                                                        }}
-                                                                        className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white placeholder-gray-600 focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 placeholder-gray-400 focus:border-cyan-500'}`}
-                                                                    />
                                                                 )}
                                                             </div>
 
