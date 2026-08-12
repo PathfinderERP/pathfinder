@@ -883,6 +883,8 @@ const MarketingCRM = ({ initialTab }) => {
                         estimatedDuration: task.estimatedDuration || "",
                         notes: task.notes || "",
                         priority: task.priority || "Medium",
+                        activityStatus: task.activityStatus || "Success",
+                        nextActivityDate: task.nextActivityDate || getTomorrowDateString(),
                         _id: task._id
                     }));
                 }
@@ -916,6 +918,8 @@ const MarketingCRM = ({ initialTab }) => {
                                 captureDateTime: saved.captureDateTime || act.captureDateTime,
                                 expectedLeads: saved.expectedLeads || act.expectedLeads,
                                 isSaved: saved.isSaved || act.isSaved,
+                                activityStatus: saved.activityStatus || act.activityStatus || "Success",
+                                nextActivityDate: saved.nextActivityDate || act.nextActivityDate || getTomorrowDateString()
                             };
                         });
                         setExpectedLeadTarget(draftData.draft.expectedLeadTarget || "");
@@ -938,6 +942,7 @@ const MarketingCRM = ({ initialTab }) => {
                 // No planner and no draft — start with one blank row
                 setTodayActivities([{
                     type: "",
+                    activityPurpose: "",
                     place: "",
                     time: "",
                     expectedLeads: "",
@@ -952,7 +957,9 @@ const MarketingCRM = ({ initialTab }) => {
                     captureDateTime: "",
                     estimatedDuration: "",
                     notes: "",
-                    priority: "Medium"
+                    priority: "Medium",
+                    activityStatus: "Success",
+                    nextActivityDate: getTomorrowDateString()
                 }]);
             }
         } catch (error) {
@@ -1514,6 +1521,12 @@ const MarketingCRM = ({ initialTab }) => {
             return;
         }
 
+        // Auto-assign default activityStatus and nextActivityDate if missing
+        todayActivities.forEach(act => {
+            if (!act.activityStatus) act.activityStatus = "Success";
+            if (!act.nextActivityDate) act.nextActivityDate = getTomorrowDateString();
+        });
+
         const missingStatusOrNextDate = todayActivities.some(act => !act.activityStatus || !act.nextActivityDate);
         if (missingStatusOrNextDate) {
             toast.error("Activity Status and Next Activity Date (Follow-up Date) are required for all activity blocks.");
@@ -1542,8 +1555,8 @@ const MarketingCRM = ({ initialTab }) => {
             estimatedDuration: act.estimatedDuration || "",
             notes: act.notes || "",
             priority: act.priority || "Medium",
-            activityStatus: act.activityStatus || "Neutral",
-            nextActivityDate: act.nextActivityDate || "",
+            activityStatus: act.activityStatus || "Success",
+            nextActivityDate: act.nextActivityDate || getTomorrowDateString(),
             schoolRef: act.schoolRef || null,
             schoolStatus: act.schoolStatus || ""
         }));
@@ -2987,7 +3000,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                                 <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Status *</label>
                                                                 <select
                                                                     disabled={activity.isSaved}
-                                                                    value={activity.activityStatus || "Neutral"}
+                                                                    value={activity.activityStatus || "Success"}
                                                                     onChange={(e) => {
                                                                         const newActs = [...todayActivities];
                                                                         newActs[idx].activityStatus = e.target.value;
@@ -2996,8 +3009,8 @@ const MarketingCRM = ({ initialTab }) => {
                                                                     className={`w-full px-1.5 py-3 rounded-xl border text-[10px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
                                                                 >
                                                                     <option value="Success">Success</option>
-                                                                    <option value="Failed">Failed</option>
                                                                     <option value="Ongoing">Ongoing</option>
+                                                                    <option value="Failed">Failed</option>
                                                                 </select>
                                                             </div>
 
@@ -3007,7 +3020,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                                 <input
                                                                     type="date"
                                                                     disabled={activity.isSaved}
-                                                                    value={activity.nextActivityDate || ""}
+                                                                    value={activity.nextActivityDate || getTomorrowDateString()}
                                                                     onChange={(e) => {
                                                                         const newActs = [...todayActivities];
                                                                         newActs[idx].nextActivityDate = e.target.value;

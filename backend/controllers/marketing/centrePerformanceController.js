@@ -13,10 +13,14 @@ export const getCentrePerformance = async (req, res) => {
         const {
             centers = "",
             activities = "",
+            purposes = "",
+            activityPurpose = "",
             dateRange = "This Month",
             startDate = "",
             endDate = "",
-            search = ""
+            search = "",
+            page = 1,
+            limit = 10
         } = req.query;
 
         // Determine date filter boundaries
@@ -77,6 +81,29 @@ export const getCentrePerformance = async (req, res) => {
             });
         };
 
+        // Parse activity purpose filter
+        let purposeFilterArr = [];
+        const purpInput = purposes || activityPurpose;
+        if (purpInput && purpInput.trim() && purpInput !== "All") {
+            purposeFilterArr = purpInput.split(",").map(p => {
+                let clean = p.trim().toLowerCase();
+                if (clean === "[object object]") return "";
+                return clean;
+            }).filter(Boolean);
+        }
+
+        const isActivityPurposeMatched = (purpStr) => {
+            if (purposeFilterArr.length === 0) return true;
+            if (!purpStr) return false;
+            const cleanPurp = String(purpStr).trim().toLowerCase();
+            return purposeFilterArr.some(filterItem => {
+                const cleanFilter = filterItem.trim().toLowerCase();
+                return cleanPurp === cleanFilter ||
+                    cleanPurp.includes(cleanFilter) ||
+                    cleanFilter.includes(cleanPurp);
+            });
+        };
+
         // Build query for MarketingPlanner
         const plannerQuery = {};
         if (startStr && endStr) {
@@ -117,18 +144,17 @@ export const getCentrePerformance = async (req, res) => {
                 .lean()
         ]);
 
-        // Default master activity types from system
-        const defaultActivityTypeList = [
-            "WEBSITE", "META", "FOUNDATION", "MOCK", "REPEATER", "2 YEAR",
-            "Leafletting", "Others Activity", "DIGITAL LEAD", "Tuition Visit",
-            "Data Calling", "Referral Drive", "Shikkha Bondhu", "School Visit",
-            "SURVEY FORM", "Walk In", "Tele Enquiry", "Market Activity",
-            "Canopy", "Seminar", "Workshop", "Assigned Task"
-        ];
+        const availableActivityTypesSet = new Set();
+        const availableActivityPurposesSet = new Set();
 
-        const availableActivityTypesSet = new Set(defaultActivityTypeList);
         plannerRecords.forEach(r => {
             if (r.type && r.type.trim()) availableActivityTypesSet.add(r.type.trim());
+            if (r.activityPurpose && r.activityPurpose.trim()) availableActivityPurposesSet.add(r.activityPurpose.trim());
+        });
+
+        (assignedTasks || []).forEach(t => {
+            if (t.activityType && t.activityType.trim()) availableActivityTypesSet.add(t.activityType.trim());
+            if (t.activityPurpose && t.activityPurpose.trim()) availableActivityPurposesSet.add(t.activityPurpose.trim());
         });
 
         // -------------------------------------------------------------
@@ -156,6 +182,7 @@ export const getCentrePerformance = async (req, res) => {
                     completedVisits: 0,
                     activePersonnelMap: new Map(), // Key: userId -> staff info
                     activityBreakdown: {},
+                    purposeBreakdown: {},
                     schoolsMap: new Map(),
                     totalLeads: 0,
                     totalHotLeads: 0,
@@ -310,6 +337,9 @@ export const getCentrePerformance = async (req, res) => {
             const activityType = (rec.type || "School Visit").trim();
             if (!isActivityTypeMatched(activityType)) return;
 
+            const activityPurpose = (rec.activityPurpose || "").trim();
+            if (!isActivityPurposeMatched(activityPurpose)) return;
+
             const userCentres = rec.user?.centres || [];
             let cInput = rec.schoolRef?.centerName || rec.locationName;
             const targetMasterName = resolveToMasterCentreName(cInput, userCentres);
@@ -321,6 +351,9 @@ export const getCentrePerformance = async (req, res) => {
             const isCompleted = rec.status === "Approved" || rec.photo || (rec.photos && rec.photos.length > 0);
             cStats.totalActivities += 1;
             cStats.activityBreakdown[activityType] = (cStats.activityBreakdown[activityType] || 0) + 1;
+            if (activityPurpose) {
+                cStats.purposeBreakdown[activityPurpose] = (cStats.purposeBreakdown[activityPurpose] || 0) + 1;
+            }
 
             if (rec.user) {
                 trackStaffPerformance(cStats, rec.user, rec.owner || "Marketing Executive", rec.leads, isCompleted);
@@ -339,6 +372,7 @@ export const getCentrePerformance = async (req, res) => {
                 staffName: staffName,
                 institution: schoolName || "Field Activity",
                 type: activityType,
+                activityPurpose: activityPurpose,
                 planTime: rec.plan || "",
                 actualTime: rec.actual || "",
                 status: rec.status || "Pending",
@@ -402,6 +436,11 @@ export const getCentrePerformance = async (req, res) => {
                 return;
             }
 
+            const taskPurpose = (task.activityPurpose || "").trim();
+            if (!isActivityPurposeMatched(taskPurpose)) {
+                return;
+            }
+
             const userCentres = task.assignedTo?.centres || [];
             const targetMasterName = resolveToMasterCentreName(task.centreName, userCentres);
 
@@ -413,6 +452,9 @@ export const getCentrePerformance = async (req, res) => {
             const taskDate = task.planDate ? new Date(task.planDate).toISOString().split('T')[0] : "";
             cStats.totalActivities += 1;
             cStats.activityBreakdown["Assigned Task"] = (cStats.activityBreakdown["Assigned Task"] || 0) + 1;
+            if (taskPurpose) {
+                cStats.purposeBreakdown[taskPurpose] = (cStats.purposeBreakdown[taskPurpose] || 0) + 1;
+            }
 
             if (task.assignedTo) {
                 trackStaffPerformance(cStats, task.assignedTo, task.assignedToName || "Assigned Executive", 0, isCompleted);
@@ -426,6 +468,7 @@ export const getCentrePerformance = async (req, res) => {
                 staffName: staffName,
                 institution: task.schoolName || "Assigned School Task",
                 type: "Assigned Task",
+                activityPurpose: taskPurpose,
                 planTime: "",
                 actualTime: "",
                 status: task.status || "Pending",
@@ -680,12 +723,38 @@ export const getCentrePerformance = async (req, res) => {
             topPerformerCentre: centreStatsList.length > 0 && centreStatsList[0].totalActivities > 0 ? centreStatsList[0] : null
         };
 
+        const totalItems = centreStatsList.length;
+        const parsedLimit = limit === "all" ? (totalItems || 1) : (parseInt(limit) || 10);
+        const parsedPage = parseInt(page) || 1;
+        const totalPages = Math.max(1, Math.ceil(totalItems / parsedLimit));
+
+        const paginatedList = centreStatsList.slice((parsedPage - 1) * parsedLimit, parsedPage * parsedLimit);
+
+        const purposeSetLower = new Set(Array.from(availableActivityPurposesSet).map(p => p.toLowerCase().trim()));
+        const knownPurposes = new Set([
+            "pntse", "tie up", "mock", "leafletting", "seminar", "workshop",
+            "pntse & mtp workshop", "mtp workshop", "school visit & tie up"
+        ]);
+
+        const filteredActivityTypes = Array.from(availableActivityTypesSet).filter(actType => {
+            if (!actType) return false;
+            const lower = actType.toLowerCase().trim();
+            if (purposeSetLower.has(lower)) return false;
+            if (knownPurposes.has(lower)) return false;
+            return true;
+        });
+
         return res.status(200).json({
             success: true,
             overallStats,
             leaderboard: centreStatsList.slice(0, 3),
-            centrePerformance: centreStatsList,
-            availableActivityTypes: Array.from(availableActivityTypesSet)
+            centrePerformance: paginatedList,
+            totalItems,
+            totalPages,
+            currentPage: parsedPage,
+            limit: parsedLimit,
+            availableActivityTypes: filteredActivityTypes,
+            availableActivityPurposes: Array.from(availableActivityPurposesSet)
         });
 
     } catch (error) {

@@ -4,7 +4,7 @@ import {
     FaBuilding, FaTrophy, FaCalendarAlt, FaSearch, FaRedo,
     FaSync, FaMapMarkerAlt, FaFileAlt, FaCheckCircle, FaUserCheck,
     FaUsers, FaUniversity, FaTimes, FaExternalLinkAlt, FaImage,
-    FaMedal, FaLayerGroup
+    FaMedal, FaLayerGroup, FaChevronLeft, FaChevronRight
 } from "react-icons/fa";
 
 const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
@@ -12,6 +12,9 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
     const [overallStats, setOverallStats] = useState({});
     const [leaderboard, setLeaderboard] = useState([]);
     const [backendActivityTypes, setBackendActivityTypes] = useState([]);
+    const [selectedPurposes, setSelectedPurposes] = useState([]);
+    const [backendActivityPurposes, setBackendActivityPurposes] = useState([]);
+    const [masterPurposesList, setMasterPurposesList] = useState([]);
     const [loading, setLoading] = useState(true);
 
     // Filters state
@@ -21,6 +24,12 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalItems, setTotalItems] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
 
     // Modal States
     const [selectedCentreForLogsModal, setSelectedCentreForLogsModal] = useState(null);
@@ -35,6 +44,26 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
     const [previewPhotos, setPreviewPhotos] = useState(null);
     const [activePhotoIdx, setActivePhotoIdx] = useState(0);
 
+    // Fetch master activity purposes
+    useEffect(() => {
+        const fetchMasterPurposes = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/master-data/activity-purpose`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const list = Array.isArray(data) ? data : (data.data || []);
+                    setMasterPurposesList(list.map(p => p.name || p.purposeName || p).filter(Boolean));
+                }
+            } catch (err) {
+                console.error("Error fetching master activity purposes:", err);
+            }
+        };
+        fetchMasterPurposes();
+    }, []);
+
     const centreOptions = useMemo(() => {
         return (availableCenters || []).map(c => ({
             value: c.centreName || c.name || c,
@@ -42,21 +71,28 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
         }));
     }, [availableCenters]);
 
-    const DEFAULT_ACTIVITY_TYPES = useMemo(() => [
-        "WEBSITE", "META", "FOUNDATION", "MOCK", "REPEATER", "2 YEAR",
-        "Leafletting", "Others Activity", "DIGITAL LEAD", "Tuition Visit",
-        "Data Calling", "Referral Drive", "Shikkha Bondhu", "School Visit",
-        "SURVEY FORM", "Walk In", "Tele Enquiry", "Market Activity",
-        "Canopy", "Seminar", "Workshop", "Assigned Task"
-    ], []);
-
     const activityTypeOptions = useMemo(() => {
-        const combined = Array.from(new Set([...DEFAULT_ACTIVITY_TYPES, ...backendActivityTypes]));
-        return combined.map(act => ({
+        const knownPurposes = new Set([
+            "pntse", "tie up", "mock", "leafletting", "seminar", "workshop",
+            "pntse & mtp workshop", "mtp workshop", "school visit & tie up"
+        ]);
+        const filtered = backendActivityTypes.filter(act => !knownPurposes.has((act || "").toLowerCase().trim()));
+        const typesList = filtered.length > 0
+            ? filtered
+            : ["School Visit", "Principal Talk", "Others Activity"];
+        return typesList.map(act => ({
             value: act,
             label: act
         }));
-    }, [DEFAULT_ACTIVITY_TYPES, backendActivityTypes]);
+    }, [backendActivityTypes]);
+
+    const activityPurposeOptions = useMemo(() => {
+        const combined = Array.from(new Set([...masterPurposesList, ...backendActivityPurposes]));
+        return combined.map(p => ({
+            value: p,
+            label: p
+        }));
+    }, [masterPurposesList, backendActivityPurposes]);
 
     const extractSelectValues = (val) => {
         if (!val) return "";
@@ -71,11 +107,17 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
         return String(val);
     };
 
-    const fetchCentrePerformance = async () => {
+    const fetchCentrePerformance = async (overridePage, overrideLimit) => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
+
+            const p = overridePage !== undefined ? overridePage : currentPage;
+            const l = overrideLimit !== undefined ? overrideLimit : itemsPerPage;
+
+            params.append("page", p);
+            params.append("limit", l);
 
             const centersStr = extractSelectValues(selectedCentres);
             if (centersStr) {
@@ -85,6 +127,11 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
             const activitiesStr = extractSelectValues(selectedActivities);
             if (activitiesStr) {
                 params.append("activities", activitiesStr);
+            }
+
+            const purposesStr = extractSelectValues(selectedPurposes);
+            if (purposesStr) {
+                params.append("purposes", purposesStr);
             }
 
             let apiDateRange = "This Month";
@@ -110,8 +157,13 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                 setPerformanceData(data.centrePerformance || []);
                 setOverallStats(data.overallStats || {});
                 setLeaderboard(data.leaderboard || []);
+                if (data.totalItems !== undefined) setTotalItems(data.totalItems);
+                if (data.totalPages !== undefined) setTotalPages(data.totalPages);
                 if (data.availableActivityTypes && Array.isArray(data.availableActivityTypes)) {
                     setBackendActivityTypes(data.availableActivityTypes);
+                }
+                if (data.availableActivityPurposes && Array.isArray(data.availableActivityPurposes)) {
+                    setBackendActivityPurposes(data.availableActivityPurposes);
                 }
             }
         } catch (error) {
@@ -122,21 +174,25 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
     };
 
     useEffect(() => {
-        fetchCentrePerformance();
+        fetchCentrePerformance(currentPage, itemsPerPage);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dateRange]);
+    }, [dateRange, currentPage, itemsPerPage]);
 
     const handleApplyFilters = () => {
-        fetchCentrePerformance();
+        setCurrentPage(1);
+        fetchCentrePerformance(1, itemsPerPage);
     };
 
     const handleResetFilters = () => {
         setSelectedCentres([]);
         setSelectedActivities([]);
+        setSelectedPurposes([]);
         setDateRange("THIS MONTH");
         setStartDate("");
         setEndDate("");
         setSearchQuery("");
+        setCurrentPage(1);
+        fetchCentrePerformance(1, itemsPerPage);
     };
 
     const openPhotoLightbox = (photos, initialIndex = 0) => {
@@ -163,6 +219,29 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                         }`}
                     >
                         {act}: <span className="text-cyan-400 font-extrabold">{count}</span>
+                    </span>
+                ))}
+            </div>
+        );
+    };
+
+    const renderPurposePills = (breakdown = {}) => {
+        const entries = Object.entries(breakdown);
+        if (entries.length === 0) {
+            return <span className="text-[10px] text-gray-400 font-bold uppercase">No purpose logged</span>;
+        }
+        return (
+            <div className="flex flex-wrap gap-1.5">
+                {entries.map(([purp, count]) => (
+                    <span
+                        key={purp}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+                            isDarkMode
+                                ? 'bg-purple-950/60 border-purple-500/40 text-purple-300'
+                                : 'bg-purple-50 border-purple-200 text-purple-800'
+                        }`}
+                    >
+                        {purp}: <span className="text-purple-400 font-extrabold">{count}</span>
                     </span>
                 ))}
             </div>
@@ -201,7 +280,7 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                 </div>
 
                 {/* Filter Controls Grid */}
-                <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 pt-4 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                <div className={`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4 pt-4 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
                     {/* Multi-Selection Centre Dropdown */}
                     <div className="lg:col-span-1">
                         <label className={`text-[10px] font-black uppercase tracking-widest mb-1.5 block ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -226,6 +305,20 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                             value={selectedActivities}
                             onChange={setSelectedActivities}
                             placeholder="All Activity Types"
+                            isDarkMode={isDarkMode}
+                        />
+                    </div>
+
+                    {/* Multi-Selection Activity Purposes Dropdown */}
+                    <div className="lg:col-span-1">
+                        <label className={`text-[10px] font-black uppercase tracking-widest mb-1.5 block ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            Activity Purposes
+                        </label>
+                        <CustomMultiSelect
+                            options={activityPurposeOptions}
+                            value={selectedPurposes}
+                            onChange={setSelectedPurposes}
+                            placeholder="All Purposes"
                             isDarkMode={isDarkMode}
                         />
                     </div>
@@ -494,11 +587,17 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                         </div>
                                     </div>
 
-                                    {/* Activity breakdown */}
-                                    <div className="mt-3">
-                                        <span className={`text-[9px] font-black uppercase tracking-widest block mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Activity Breakdown</span>
-                                        {renderActivityPills(centre.activityBreakdown)}
-                                    </div>
+                                    {/* Activity Type Breakdown & Activity Purpose Breakdown */}
+                                     <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                         <div>
+                                             <span className={`text-[9px] font-black uppercase tracking-widest block mb-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Activity Type Breakdown</span>
+                                             {renderActivityPills(centre.activityBreakdown)}
+                                         </div>
+                                         <div>
+                                             <span className={`text-[9px] font-black uppercase tracking-widest block mb-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Activity Purpose Breakdown</span>
+                                             {renderPurposePills(centre.purposeBreakdown)}
+                                         </div>
+                                     </div>
 
                                     {/* Footer Button */}
                                     <button
@@ -527,12 +626,12 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                         </p>
                     </div>
                     <span className={`text-xs font-bold uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                        Showing {performanceData.length} Master Centres
+                        Showing {performanceData.length} Master Centres (Total {totalItems})
                     </span>
                 </div>
 
                 <div className="overflow-x-auto custom-scrollbar">
-                    <table className="w-full text-left border-collapse min-w-[1000px]">
+                    <table className="w-full text-left border-collapse min-w-[1100px]">
                         <thead>
                             <tr className={`border-b text-[10px] font-black uppercase tracking-widest ${
                                 isDarkMode ? 'border-gray-800 text-gray-300 bg-[#0b0e11]' : 'border-gray-100 text-gray-600 bg-gray-50'
@@ -540,7 +639,8 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                 <th className="p-4">Rank & Master Centre</th>
                                 <th className="p-4 text-center">Active Staff</th>
                                 <th className="p-4 text-center">Total Activities</th>
-                                <th className="p-4">Activity Breakdown</th>
+                                <th className="p-4">Activity Type Breakdown</th>
+                                <th className="p-4">Activity Purpose Breakdown</th>
                                 <th className="p-4 text-center">Unique Schools</th>
                                 <th className="p-4 text-center">Leads Gathered</th>
                                 <th className="p-4">Last Activity Date</th>
@@ -551,13 +651,13 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                         <tbody className={`divide-y text-xs font-semibold ${isDarkMode ? 'divide-gray-800/60' : 'divide-gray-100'}`}>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="9" className="p-8 text-center text-gray-400 font-bold animate-pulse">
+                                    <td colSpan="10" className="p-8 text-center text-gray-400 font-bold animate-pulse">
                                         Loading Master Centre Performance Roster...
                                     </td>
                                 </tr>
                             ) : performanceData.length === 0 ? (
                                 <tr>
-                                    <td colSpan="9" className="p-8 text-center text-gray-400 font-bold uppercase tracking-wider">
+                                    <td colSpan="10" className="p-8 text-center text-gray-400 font-bold uppercase tracking-wider">
                                         No master centres match your filter criteria
                                     </td>
                                 </tr>
@@ -608,9 +708,14 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                                 {centre.totalActivities}
                                             </td>
 
-                                            {/* Activity Breakdown */}
-                                            <td className="p-4 max-w-[280px]">
+                                            {/* Activity Type Breakdown */}
+                                            <td className="p-4 max-w-[240px]">
                                                 {renderActivityPills(centre.activityBreakdown)}
+                                            </td>
+
+                                            {/* Activity Purpose Breakdown */}
+                                            <td className="p-4 max-w-[240px]">
+                                                {renderPurposePills(centre.purposeBreakdown)}
                                             </td>
 
                                             {/* Unique Schools (Clickable Modal) */}
@@ -708,6 +813,7 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                                 <th className="p-3">Date</th>
                                                 <th className="p-3">Staff Member</th>
                                                 <th className="p-3">Activity Type</th>
+                                                <th className="p-3">Activity Purpose</th>
                                                 <th className="p-3">Institution / Venue</th>
                                                 <th className="p-3">Plan / Actual</th>
                                                 <th className="p-3">Feedback / Remarks</th>
@@ -723,6 +829,11 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                                     <td className="p-3">
                                                         <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
                                                             {log.type}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-3">
+                                                        <span className="px-2.5 py-1 rounded-md text-[10px] font-black uppercase bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                                            {log.activityPurpose || "—"}
                                                         </span>
                                                     </td>
                                                     <td className="p-3 font-bold text-amber-400">{log.institution || "—"}</td>
@@ -893,9 +1004,16 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                 >
                                     <div className="flex items-center justify-between text-xs font-black">
                                         <span className="text-emerald-400">📅 Visiting Date: {visit.date || "—"}</span>
-                                        <span className="px-2.5 py-1 rounded-md text-[10px] uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                                            {visit.type}
-                                        </span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2.5 py-1 rounded-md text-[10px] uppercase font-black bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                                                Type: {visit.type}
+                                            </span>
+                                            {visit.activityPurpose && (
+                                                <span className="px-2.5 py-1 rounded-md text-[10px] uppercase font-black bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                                    Purpose: {visit.activityPurpose}
+                                                </span>
+                                            )}
+                                        </div>
                                     </div>
                                     <div className="text-xs text-gray-300">
                                         <strong className={`block mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Executive Remarks / Detailed Feedback:</strong>
