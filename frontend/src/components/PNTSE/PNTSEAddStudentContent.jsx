@@ -10,6 +10,7 @@ import { useLocation } from 'react-router-dom';
 const INITIAL_FORM = {
     name: '',
     mobile: '',
+    secondaryMobile: '',
     email: '',
     dob: '',
     gender: '',
@@ -475,6 +476,12 @@ const PNTSEAddStudentContent = () => {
                                     <input type="text" name="mobile" value={form.mobile} onChange={handleChange} placeholder="10-digit mobile number"
                                         className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 transition-all ${errors.mobile ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`} />
                                     {errors.mobile && <p className="text-xs text-red-400 mt-0.5">{errors.mobile}</p>}
+                                </div>
+
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Secondary Mobile</label>
+                                    <input type="text" name="secondaryMobile" value={form.secondaryMobile} onChange={handleChange} placeholder="Optional secondary mobile number"
+                                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all" />
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">

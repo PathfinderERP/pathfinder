@@ -9,6 +9,11 @@ const pntseStudentSchema = new mongoose.Schema({
         type: String,
         required: true,
     },
+    secondaryMobile: {
+        type: String,
+        required: false,
+        default: "",
+    },
     email: {
         type: String,
         required: false,

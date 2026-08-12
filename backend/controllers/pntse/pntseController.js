@@ -14,7 +14,7 @@ import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js
 export const createPNTSEStudent = async (req, res) => {
     try {
         const {
-            name, mobile, email, dob, gender, address, city, state, pincode,
+            name, mobile, secondaryMobile, email, dob, gender, address, city, state, pincode,
             class: classId, centre: centreId, session: sessionId, examTag: examTagId,
             course, paymentType, school, guardianName, guardianMobile, examDate, examVenue, reportingTime, timeSlot, remarks, status, score, rank,
             // Payment fields (only used when paymentType === 'paid')
@@ -155,7 +155,7 @@ export const createPNTSEStudent = async (req, res) => {
         const amountPaid = grossFee - waiverAmt;
 
         const newStudent = new PNTSEStudent({
-            name, mobile, email, dob, gender, address, city, state, pincode,
+            name, mobile, secondaryMobile: secondaryMobile || "", email, dob, gender, address, city, state, pincode,
             class: classId,
             centre: centreId,
             session: sessionId,
@@ -320,6 +320,7 @@ export const getPNTSEStudents = async (req, res) => {
             query.$or = [
                 { name: { $regex: search, $options: 'i' } },
                 { mobile: { $regex: search, $options: 'i' } },
+                { secondaryMobile: { $regex: search, $options: 'i' } },
                 { rollNo: { $regex: search, $options: 'i' } }
             ];
         }
@@ -498,6 +499,7 @@ export const downloadTemplate = async (req, res) => {
             {
                 "Name*": "Aarav Sharma",
                 "Mobile*": "9876543210",
+                "Secondary Mobile": "9876543299",
                 "Email": "aarav@example.com",
                 "DOB (YYYY-MM-DD)": "2012-05-15",
                 "Gender": "Male",
@@ -522,6 +524,7 @@ export const downloadTemplate = async (req, res) => {
             {
                 "Name*": "Priya Verma",
                 "Mobile*": "9876543211",
+                "Secondary Mobile": "",
                 "Email": "",
                 "DOB (YYYY-MM-DD)": "2011-08-20",
                 "Gender": "Female",
@@ -605,6 +608,7 @@ export const importExcel = async (req, res) => {
 
                 const name = String(getRowValue("Name*") ?? getRowValue("Name") ?? "").trim();
                 const mobile = String(getRowValue("Mobile") ?? "").trim();
+                const secondaryMobile = String(getRowValue("Secondary Mobile") ?? "").trim() || undefined;
                 const email = String(getRowValue("Email") ?? "").trim() || undefined;
                 const dob = String(getRowValue("DOB") ?? "").trim() || undefined;
                 const gender = String(getRowValue("Gender") ?? "").trim() || undefined;
@@ -740,7 +744,7 @@ export const importExcel = async (req, res) => {
 
                 // Save student (all imports are FREE by default but pending selection)
                 const newStudent = new PNTSEStudent({
-                    name, mobile, email, dob, gender, address, city, state, pincode,
+                    name, mobile, secondaryMobile, email, dob, gender, address, city, state, pincode,
                     class: classObj._id,
                     centre: centreObj._id,
                     session: sessionObj._id,

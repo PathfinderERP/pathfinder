@@ -14,6 +14,8 @@ const COL_MAP = {
     "Name*":                          "name",
     "Mobile":                         "mobile",
     "Mobile*":                        "mobile",
+    "Secondary Mobile":               "secondaryMobile",
+    "Secondary Mobile*":              "secondaryMobile",
     "Email":                          "email",
     "DOB (YYYY-MM-DD)":               "dob",
     "DOB":                            "dob",

@@ -173,7 +173,7 @@ const PNTSEAllStudentsContent = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [editStudent, setEditStudent] = useState(null);
     const [editForm, setEditForm] = useState({
-        name: '', mobile: '', email: '', dob: '', gender: '',
+        name: '', mobile: '', secondaryMobile: '', email: '', dob: '', gender: '',
         class: '', centre: '', session: '', examTag: '', course: '',
         school: '', guardianName: '', guardianMobile: '',
         address: '', city: '', state: '', pincode: '',
@@ -202,6 +202,7 @@ const PNTSEAllStudentsContent = () => {
         setEditForm({
             name: student.name || '',
             mobile: student.mobile || '',
+            secondaryMobile: student.secondaryMobile || '',
             email: student.email || '',
             dob: student.dob || '',
             gender: student.gender || '',
@@ -658,6 +659,7 @@ const PNTSEAllStudentsContent = () => {
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Class</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Centre</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Mobile</th>
+                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Secondary Mobile</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Course</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Paid Status</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Exam Tag</th>
@@ -668,7 +670,7 @@ const PNTSEAllStudentsContent = () => {
                         <tbody className="divide-y divide-gray-800/50">
                             {sortedStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className="text-center py-16 text-gray-500">
+                                    <td colSpan={12} className="text-center py-16 text-gray-500">
                                         <FaGraduationCap className="text-4xl mx-auto mb-3 opacity-30" />
                                         <p>No students found</p>
                                     </td>
@@ -688,6 +690,7 @@ const PNTSEAllStudentsContent = () => {
                                     <td className="px-5 py-4 text-gray-300">{student.class?.name || student.class}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.centre?.centreName || student.centre?.enterCode || student.centre}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.mobile}</td>
+                                    <td className="px-5 py-4 text-gray-300">{student.secondaryMobile || '—'}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.course}</td>
                                     <td className="px-5 py-4">
                                         {student.paymentType === 'paid' && student.paymentId ? (
@@ -1004,6 +1007,10 @@ const PNTSEAllStudentsContent = () => {
                                         <p className="text-[10px] text-gray-400 uppercase font-semibold">Mobile</p>
                                         <p className="text-sm text-gray-200 mt-0.5">{viewStudent.mobile || '—'}</p>
                                     </div>
+                                    <div>
+                                        <p className="text-[10px] text-gray-400 uppercase font-semibold">Secondary Mobile</p>
+                                        <p className="text-sm text-gray-200 mt-0.5">{viewStudent.secondaryMobile || '—'}</p>
+                                    </div>
                                     <div className="md:col-span-2">
                                         <p className="text-[10px] text-gray-400 uppercase font-semibold">Email</p>
                                         <p className="text-sm text-gray-200 mt-0.5 truncate">{viewStudent.email || '—'}</p>
@@ -1208,6 +1215,16 @@ const PNTSEAllStudentsContent = () => {
                                             className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
                                         />
                                         {editErrors.mobile && <p className="text-[10px] text-red-400">{editErrors.mobile}</p>}
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-400 font-semibold">Secondary Mobile</label>
+                                        <input
+                                            type="text"
+                                            value={editForm.secondaryMobile}
+                                            onChange={e => setEditForm(p => ({ ...p, secondaryMobile: e.target.value }))}
+                                            placeholder="Optional secondary mobile"
+                                            className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                                        />
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-xs text-gray-400 font-semibold">Email ID</label>
