@@ -9,6 +9,7 @@ import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
 import PNTSEAdmitCard from './PNTSEAdmitCard';
 import PNTSEBulkImportModal from './PNTSEBulkImportModal';
+import * as XLSX from 'xlsx';
 
 const formatReportingTime = (timeStr) => {
     if (!timeStr) return '—';
@@ -417,6 +418,73 @@ const PNTSEAllStudentsContent = () => {
         setSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }));
     };
 
+    // Export filtered students to Excel
+    const handleExportExcel = () => {
+        if (!sortedStudents || sortedStudents.length === 0) {
+            alert("No student data available to export.");
+            return;
+        }
+
+        const exportRows = sortedStudents.map((student, idx) => {
+            const isPaid = student.paymentType === 'paid';
+            const billNumber = isPaid ? (student.billId || student.paymentId?.billId || 'N/A') : 'N/A';
+
+            return {
+                "Sl. No.": idx + 1,
+                "Roll No.": student.rollNo || '',
+                "Student Name": student.name || '',
+                "Mobile": student.mobile || '',
+                "Secondary Mobile": student.secondaryMobile || '',
+                "Email": student.email || '',
+                "Class": student.class?.name || student.class || '',
+                "Centre": student.centre?.centreName || student.centre?.enterCode || student.centre || '',
+                "Course": student.course || '',
+                "Fee Status": isPaid ? 'PAID' : 'FREE',
+                "Bill No.": billNumber,
+                "Amount Paid (Rs)": student.amountPaid ?? 0,
+                "Waiver (Rs)": student.waiver ?? 0,
+                "Exam Tag": student.examTag?.name || '',
+                "Session": student.session?.sessionName || student.session?.name || '',
+                "School": student.school || '',
+                "Guardian Name": student.guardianName || '',
+                "Guardian Mobile": student.guardianMobile || '',
+                "Exam Status": student.status || 'Appeared',
+                "Score": student.score ?? 0,
+                "Rank": student.rank || '',
+                "Exam Date": student.examDate ? new Date(student.examDate).toLocaleDateString() : '',
+                "Exam Venue": student.examVenue || '',
+                "Reporting Time": formatReportingTime(student.reportingTime),
+                "Time Slot": student.timeSlot || '',
+                "Address": student.address || '',
+                "City": student.city || '',
+                "State": student.state || '',
+                "Pincode": student.pincode || '',
+                "Remarks": student.remarks || '',
+                "Registration Date": student.createdAt ? new Date(student.createdAt).toLocaleDateString() : ''
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(exportRows);
+
+        // Auto-fit column widths
+        const cols = Object.keys(exportRows[0] || {}).map(key => {
+            const maxLen = Math.max(
+                key.length,
+                ...exportRows.map(r => String(r[key] ?? '').length)
+            );
+            return { wch: Math.min(Math.max(maxLen + 3, 12), 40) };
+        });
+        worksheet['!cols'] = cols;
+
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "PNTSE Students");
+
+        const dateStr = new Date().toISOString().split('T')[0];
+        let fileName = `PNTSE_Students_${dateStr}.xlsx`;
+
+        XLSX.writeFile(workbook, fileName);
+    };
+
     const handleViewBill = (student) => {
         if (!student.paymentId) return;
         const payment = student.paymentId;
@@ -582,6 +650,14 @@ const PNTSEAllStudentsContent = () => {
                             Import Excel
                         </button>
                     )}
+                    <button
+                        onClick={handleExportExcel}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-teal-500/25 cursor-pointer"
+                        title="Export filtered student list to Excel"
+                    >
+                        <FaFileExcel className="text-base" />
+                        Export Excel
+                    </button>
                 </div>
             </div>
 
@@ -642,10 +718,18 @@ const PNTSEAllStudentsContent = () => {
                     </div>
                 )}
                 <div className="flex items-center justify-between px-6 py-4 border-b border-gray-800">
-                    <h2 className="text-sm font-semibold text-white">
+                    <h2 className="text-sm font-semibold text-white flex items-center gap-2">
                         PNTSE Students
-                        <span className="ml-2 text-xs text-gray-400 font-normal">{sortedStudents.length} record(s)</span>
+                        <span className="text-xs text-gray-400 font-normal">({sortedStudents.length} record(s))</span>
                     </h2>
+                    <button
+                        onClick={handleExportExcel}
+                        className="flex items-center gap-1.5 px-3.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-emerald-400 hover:text-emerald-300 rounded-xl text-xs font-semibold border border-gray-700 transition-all cursor-pointer shadow-sm"
+                        title="Export current view to Excel"
+                    >
+                        <FaFileExcel className="text-xs" />
+                        Export Data
+                    </button>
                 </div>
                 <div className="overflow-x-auto">
                     <table className="w-full text-sm">
