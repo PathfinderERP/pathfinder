@@ -239,6 +239,7 @@ export const getSchoolJourney = async (req, res) => {
                 captureDateTime: p.captureDateTime || "",
                 submittedAt: p.submittedAt || "",
                 activityType: p.type || "School Visit",
+                activityPurpose: p.activityPurpose || "",
                 schoolStatus: p.schoolStatus || school.status || "—",
                 notes: p.notes || "No notes provided",
                 remarks: p.remarks || "",

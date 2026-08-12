@@ -51,10 +51,19 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedActivities, setSelectedActivities] = useState([]);
     const [backendActivityTypes, setBackendActivityTypes] = useState([]);
+    const [selectedPurposes, setSelectedPurposes] = useState([]);
+    const [backendActivityPurposes, setBackendActivityPurposes] = useState([]);
+    const [masterPurposesList, setMasterPurposesList] = useState([]);
     const [dateRange, setDateRange] = useState("THIS MONTH");
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [searchQuery, setSearchQuery] = useState("");
+
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalItems, setTotalItems] = useState(0);
+    const [totalPages, setTotalPages] = useState(1);
 
     // Modal state for viewing individual staff's visit logs
     const [selectedStaffForModal, setSelectedStaffForModal] = useState(null);
@@ -75,6 +84,25 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
     const [previewPhotos, setPreviewPhotos] = useState(null);
     const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0);
 
+    useEffect(() => {
+        const fetchMasterPurposes = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/master-data/activity-purpose`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const list = (data.data || data || []).map(p => typeof p === "string" ? p : p.name || p.purposeName).filter(Boolean);
+                    setMasterPurposesList(list);
+                }
+            } catch (err) {
+                console.error("Error fetching master activity purposes:", err);
+            }
+        };
+        fetchMasterPurposes();
+    }, []);
+
     const centreOptions = useMemo(() => {
         return availableCenters.map(c => ({
             value: c.centreName || c.name || c,
@@ -82,38 +110,28 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
         }));
     }, [availableCenters]);
 
-    const DEFAULT_ACTIVITY_TYPES = useMemo(() => [
-        "WEBSITE",
-        "META",
-        "FOUNDATION",
-        "MOCK",
-        "REPEATER",
-        "2 YEAR",
-        "Leafletting",
-        "Others Activity",
-        "DIGITAL LEAD",
-        "Tuition Visit",
-        "Data Calling",
-        "Referral Drive",
-        "Shikkha Bondhu",
-        "School Visit",
-        "SURVEY FORM",
-        "Walk In",
-        "Tele Enquiry",
-        "Market Activity",
-        "Canopy",
-        "Seminar",
-        "Workshop",
-        "Assigned Task"
-    ], []);
-
     const activityTypeOptions = useMemo(() => {
-        const combined = Array.from(new Set([...DEFAULT_ACTIVITY_TYPES, ...backendActivityTypes]));
-        return combined.map(act => ({
+        const knownPurposes = new Set([
+            "pntse", "tie up", "mock", "leafletting", "seminar", "workshop",
+            "pntse & mtp workshop", "mtp workshop", "school visit & tie up"
+        ]);
+        const filtered = backendActivityTypes.filter(act => !knownPurposes.has((act || "").toLowerCase().trim()));
+        const typesList = filtered.length > 0
+            ? filtered
+            : ["School Visit", "Principal Talk", "Others Activity"];
+        return typesList.map(act => ({
             value: act,
             label: act
         }));
-    }, [DEFAULT_ACTIVITY_TYPES, backendActivityTypes]);
+    }, [backendActivityTypes]);
+
+    const activityPurposeOptions = useMemo(() => {
+        const combined = Array.from(new Set([...masterPurposesList, ...backendActivityPurposes]));
+        return combined.map(p => ({
+            value: p,
+            label: p
+        }));
+    }, [masterPurposesList, backendActivityPurposes]);
 
     const extractSelectValues = (val) => {
         if (!val) return "";
@@ -128,11 +146,17 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
         return String(val);
     };
 
-    const fetchTeamPerformance = async () => {
+    const fetchTeamPerformance = async (overridePage, overrideLimit) => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
+
+            const p = overridePage !== undefined ? overridePage : currentPage;
+            const l = overrideLimit !== undefined ? overrideLimit : itemsPerPage;
+
+            params.append("page", p);
+            params.append("limit", l);
 
             const centersStr = extractSelectValues(selectedCentres);
             if (centersStr) {
@@ -142,6 +166,11 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
             const activitiesStr = extractSelectValues(selectedActivities);
             if (activitiesStr) {
                 params.append("activities", activitiesStr);
+            }
+
+            const purposesStr = extractSelectValues(selectedPurposes);
+            if (purposesStr) {
+                params.append("purposes", purposesStr);
             }
 
             // Standardize date range parameter
@@ -168,8 +197,13 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                 setPerformanceData(data.teamPerformance || []);
                 setOverallStats(data.overallStats || {});
                 setLeaderboard(data.leaderboard || []);
+                if (data.totalItems !== undefined) setTotalItems(data.totalItems);
+                if (data.totalPages !== undefined) setTotalPages(data.totalPages);
                 if (data.availableActivityTypes && Array.isArray(data.availableActivityTypes)) {
                     setBackendActivityTypes(data.availableActivityTypes);
+                }
+                if (data.availableActivityPurposes && Array.isArray(data.availableActivityPurposes)) {
+                    setBackendActivityPurposes(data.availableActivityPurposes);
                 }
             } else {
                 toast.error("Failed to load team performance data");
@@ -183,21 +217,25 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
     };
 
     useEffect(() => {
-        fetchTeamPerformance();
+        fetchTeamPerformance(currentPage, itemsPerPage);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [dateRange]);
+    }, [dateRange, currentPage, itemsPerPage]);
 
     const handleApplyFilters = () => {
-        fetchTeamPerformance();
+        setCurrentPage(1);
+        fetchTeamPerformance(1, itemsPerPage);
     };
 
     const handleResetFilters = () => {
         setSelectedCentres([]);
         setSelectedActivities([]);
+        setSelectedPurposes([]);
         setDateRange("THIS MONTH");
         setStartDate("");
         setEndDate("");
         setSearchQuery("");
+        setCurrentPage(1);
+        fetchTeamPerformance(1, itemsPerPage);
     };
 
     return (
@@ -260,6 +298,20 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                             value={selectedActivities}
                             onChange={setSelectedActivities}
                             placeholder="All Activity Types"
+                            isDarkMode={isDarkMode}
+                        />
+                    </div>
+
+                    {/* Multi-Selection Activity Purpose Dropdown */}
+                    <div className="lg:col-span-1">
+                        <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5 block">
+                            Activity Purposes
+                        </label>
+                        <CustomMultiSelect
+                            options={activityPurposeOptions}
+                            value={selectedPurposes}
+                            onChange={setSelectedPurposes}
+                            placeholder="All Activity Purposes"
                             isDarkMode={isDarkMode}
                         />
                     </div>
@@ -495,14 +547,27 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                         </div>
                                     </div>
 
-                                    {/* Activity breakdown pill badges */}
-                                    {person.activityBreakdown && Object.keys(person.activityBreakdown).length > 0 && (
-                                        <div className="flex flex-wrap gap-1 my-2 pt-2 border-t border-gray-800/30">
-                                            {Object.entries(person.activityBreakdown).map(([actType, count]) => (
-                                                <span key={actType} className="px-2 py-0.5 rounded text-[9px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                                                    {actType}: {count}
-                                                </span>
-                                            ))}
+                                    {/* Activity type & purpose breakdown pill badges */}
+                                    {((person.activityBreakdown && Object.keys(person.activityBreakdown).length > 0) || (person.purposeBreakdown && Object.keys(person.purposeBreakdown).length > 0)) && (
+                                        <div className="space-y-1 my-2 pt-2 border-t border-gray-800/30">
+                                            {person.activityBreakdown && Object.keys(person.activityBreakdown).length > 0 && (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {Object.entries(person.activityBreakdown).map(([actType, count]) => (
+                                                        <span key={actType} className="px-2 py-0.5 rounded text-[9px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                                                            {actType}: {count}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            {person.purposeBreakdown && Object.keys(person.purposeBreakdown).length > 0 && (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {Object.entries(person.purposeBreakdown).map(([purp, count]) => (
+                                                        <span key={purp} className="px-2 py-0.5 rounded text-[9px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                                                            {purp}: {count}
+                                                        </span>
+                                                    ))}
+                                                </div>
+                                            )}
                                         </div>
                                     )}
 
@@ -548,7 +613,8 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                 <th className="p-5">Rank & Personnel</th>
                                 <th className="p-5">Centres</th>
                                 <th className="p-5 text-center">Total Activities</th>
-                                <th className="p-5">Activity Breakdown</th>
+                                <th className="p-5">Activity Type Breakdown</th>
+                                <th className="p-5">Activity Purpose Breakdown</th>
                                 <th className="p-5 text-center">Unique Schools</th>
                                 <th className="p-5 text-center">Leads Gathered</th>
                                 <th className="p-5">Last Activity Date</th>
@@ -560,7 +626,7 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                         <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800/50' : 'divide-gray-100'}`}>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="9" className="p-16 text-center">
+                                    <td colSpan="10" className="p-16 text-center">
                                         <div className="flex flex-col items-center justify-center gap-3">
                                             <div className="animate-spin h-8 w-8 border-4 border-cyan-500 border-t-transparent rounded-full" />
                                             <span className="text-xs font-bold uppercase tracking-widest text-gray-500 animate-pulse">Loading Marketing Performance Data...</span>
@@ -569,7 +635,7 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                 </tr>
                             ) : performanceData.length === 0 ? (
                                 <tr>
-                                    <td colSpan="9" className="p-16 text-center italic text-gray-500 font-bold uppercase tracking-widest">
+                                    <td colSpan="10" className="p-16 text-center italic text-gray-500 font-bold uppercase tracking-widest">
                                         No marketing personnel performance records found for selected filters
                                     </td>
                                 </tr>
@@ -622,11 +688,25 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                             </td>
 
                                             <td className="p-5">
-                                                <div className="flex flex-wrap gap-1 max-w-[220px]">
+                                                <div className="flex flex-wrap gap-1 max-w-[180px]">
                                                     {staff.activityBreakdown && Object.keys(staff.activityBreakdown).length > 0 ? (
                                                         Object.entries(staff.activityBreakdown).map(([actType, count]) => (
-                                                            <span key={actType} className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-800/60 text-gray-300 border border-gray-700">
+                                                            <span key={actType} className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
                                                                 {actType}: {count}
+                                                            </span>
+                                                        ))
+                                                    ) : (
+                                                        <span className="text-gray-500 text-[10px]">None</span>
+                                                    )}
+                                                </div>
+                                            </td>
+
+                                            <td className="p-5">
+                                                <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                                    {staff.purposeBreakdown && Object.keys(staff.purposeBreakdown).length > 0 ? (
+                                                        Object.entries(staff.purposeBreakdown).map(([purp, count]) => (
+                                                            <span key={purp} className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                                                                {purp}: {count}
                                                             </span>
                                                         ))
                                                     ) : (
@@ -689,6 +769,89 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                         </tbody>
                     </table>
                 </div>
+
+                {/* PAGINATION FOOTER BAR */}
+                {performanceData.length > 0 && (
+                    <div className={`p-4 border-t flex flex-col sm:flex-row items-center justify-between gap-4 ${isDarkMode ? 'bg-[#181d23] border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-100 text-gray-600'}`}>
+                        <div className="flex flex-wrap items-center gap-3 text-xs font-bold">
+                            <span>
+                                Showing <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}</span> to{" "}
+                                <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{Math.min(currentPage * itemsPerPage, totalItems)}</span> of{" "}
+                                <span className="text-cyan-400 font-black">{totalItems}</span> personnel
+                            </span>
+
+                            <div className="flex items-center gap-1.5 ml-2">
+                                <span className="text-[10px] text-gray-500 uppercase font-black">Per Page:</span>
+                                <select
+                                    value={itemsPerPage}
+                                    onChange={(e) => {
+                                        setItemsPerPage(Number(e.target.value));
+                                        setCurrentPage(1);
+                                    }}
+                                    className={`px-2 py-1 rounded-lg border text-xs font-bold outline-none cursor-pointer ${
+                                        isDarkMode ? 'bg-[#1f262e] border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-800'
+                                    }`}
+                                >
+                                    {[5, 10, 20, 50, 100].map(size => (
+                                        <option key={size} value={size}>{size}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                disabled={currentPage === 1 || loading}
+                                className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                                    isDarkMode ? 'bg-[#1f262e] border-gray-700 text-white hover:bg-gray-700' : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-100'
+                                }`}
+                            >
+                                <FaChevronLeft className="text-[10px]" /> Previous
+                            </button>
+
+                            {/* Page number buttons */}
+                            <div className="flex items-center gap-1">
+                                {Array.from({ length: totalPages }, (_, i) => i + 1)
+                                    .filter(p => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                                    .map((p, idx, arr) => {
+                                        const prev = arr[idx - 1];
+                                        return (
+                                            <React.Fragment key={p}>
+                                                {prev && p - prev > 1 && (
+                                                    <span className="px-1 text-gray-500 text-xs font-bold">...</span>
+                                                )}
+                                                <button
+                                                    onClick={() => setCurrentPage(p)}
+                                                    disabled={loading}
+                                                    className={`w-7 h-7 rounded-xl text-xs font-black transition-all ${
+                                                        currentPage === p
+                                                            ? 'bg-cyan-500 text-black shadow-md shadow-cyan-500/20'
+                                                            : isDarkMode
+                                                                ? 'bg-[#1f262e] text-gray-300 hover:bg-gray-700'
+                                                                : 'bg-white text-gray-700 border border-gray-200 hover:bg-gray-100'
+                                                    }`}
+                                                >
+                                                    {p}
+                                                </button>
+                                            </React.Fragment>
+                                        );
+                                    })
+                                }
+                            </div>
+
+                            <button
+                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                disabled={currentPage >= totalPages || loading}
+                                className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center gap-1 transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
+                                    isDarkMode ? 'bg-[#1f262e] border-gray-700 text-white hover:bg-gray-700' : 'bg-white border-gray-200 text-gray-800 hover:bg-gray-100'
+                                }`}
+                            >
+                                Next <FaChevronRight className="text-[10px]" />
+                            </button>
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* VISIT LOGS MODAL */}
@@ -743,26 +906,37 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-bold">
-                                            <div>
-                                                <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Visit Type</span>
-                                                <span className="text-gray-300">{log.type || "School Visit"}</span>
-                                            </div>
+                                         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-bold">
+                                             <div>
+                                                 <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Activity Type</span>
+                                                 <span className="text-cyan-400 font-bold">{log.type || "School Visit"}</span>
+                                             </div>
 
-                                            <div>
-                                                <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Leads Collected</span>
-                                                <span className="text-emerald-400 font-black">{log.leads || 0} Leads</span>
-                                            </div>
+                                             <div>
+                                                 <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Activity Purpose</span>
+                                                 {log.activityPurpose ? (
+                                                     <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20 inline-block mt-0.5">
+                                                         {log.activityPurpose}
+                                                     </span>
+                                                 ) : (
+                                                     <span className="text-gray-500 font-bold">—</span>
+                                                 )}
+                                             </div>
 
-                                            <div>
-                                                <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Approval Status</span>
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${
-                                                    log.status === "Approved" ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                                                }`}>
-                                                    {log.status}
-                                                </span>
-                                            </div>
-                                        </div>
+                                             <div>
+                                                 <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Leads Collected</span>
+                                                 <span className="text-emerald-400 font-black">{log.leads || 0} Leads</span>
+                                             </div>
+
+                                             <div>
+                                                 <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Approval Status</span>
+                                                 <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider border ${
+                                                     log.status === "Approved" ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                 }`}>
+                                                     {log.status}
+                                                 </span>
+                                             </div>
+                                         </div>
 
                                         {log.notes && (
                                             <div className="text-xs text-gray-400 bg-white/5 p-3 rounded-xl">
@@ -1196,10 +1370,21 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                             </div>
                                         </div>
 
-                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs font-bold">
+                                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-bold">
                                             <div>
                                                 <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Activity Type</span>
-                                                <span className="text-gray-300">{vLog.type || "School Visit"}</span>
+                                                <span className="text-cyan-400 font-bold">{vLog.type || "School Visit"}</span>
+                                            </div>
+
+                                            <div>
+                                                <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Activity Purpose</span>
+                                                {vLog.activityPurpose ? (
+                                                    <span className="px-2.5 py-1 rounded-md text-[10px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20 inline-block mt-0.5">
+                                                        {vLog.activityPurpose}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-500 font-bold">—</span>
+                                                )}
                                             </div>
 
                                             <div>

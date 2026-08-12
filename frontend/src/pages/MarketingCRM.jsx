@@ -58,6 +58,7 @@ const MarketingCRM = ({ initialTab }) => {
 
     // Audit filter state
     const [auditSearch, setAuditSearch] = useState("");
+    const [auditFilterPurpose, setAuditFilterPurpose] = useState([]);
     const [auditFilterType, setAuditFilterType] = useState([]);
     const [auditFilterOwner, setAuditFilterOwner] = useState([]);
     const [auditFilterStatus, setAuditFilterStatus] = useState([]);
@@ -76,6 +77,7 @@ const MarketingCRM = ({ initialTab }) => {
 
     // Activity Audit Pagination & Dynamic Filter states
     const [auditLoading, setAuditLoading] = useState(false);
+    const [auditPurposes, setAuditPurposes] = useState(["All"]);
     const [auditTypes, setAuditTypes] = useState(["All"]);
     const [auditOwners, setAuditOwners] = useState(["All"]);
     const [totalRecords, setTotalRecords] = useState(0);
@@ -532,7 +534,7 @@ const MarketingCRM = ({ initialTab }) => {
         assignedTo: [], // Array of selected user ObjectIds
         school: "",
         planDate: getTomorrowDateString(),
-        activityType: "School Visit",
+        activityType: "",
         time: "",
         estimatedDuration: "",
         notes: "",
@@ -935,7 +937,7 @@ const MarketingCRM = ({ initialTab }) => {
             } else {
                 // No planner and no draft — start with one blank row
                 setTodayActivities([{
-                    type: activitySources[0] || "School Visit",
+                    type: "",
                     place: "",
                     time: "",
                     expectedLeads: "",
@@ -962,7 +964,10 @@ const MarketingCRM = ({ initialTab }) => {
 
     const handleAddTomorrowTask = (e) => {
         e.preventDefault();
-        const actType = newTaskForm.activityType || activitySources[0] || "School Visit";
+        if (!newTaskForm.activityType) {
+            toast.error("Please select Activity Type.");
+            return;
+        }
         if (!newTaskForm.place) {
             toast.error("Place / Institution is required.");
             return;
@@ -978,7 +983,7 @@ const MarketingCRM = ({ initialTab }) => {
 
         const newTask = {
             _id: `temp_${Date.now()}_${Math.random()}`,
-            activityType: actType,
+            activityType: newTaskForm.activityType,
             activityPurpose: newTaskForm.activityPurpose || "",
             place: newTaskForm.place,
             schoolRef: newTaskForm.schoolRef || null,
@@ -991,7 +996,7 @@ const MarketingCRM = ({ initialTab }) => {
 
         setTomorrowTasks(prev => [...prev, newTask]);
         setNewTaskForm({
-            activityType: activitySources[0] || "School Visit",
+            activityType: "",
             activityPurpose: "",
             place: "",
             schoolRef: null,
@@ -1238,6 +1243,7 @@ const MarketingCRM = ({ initialTab }) => {
                 page: currentPage,
                 limit: itemsPerPage,
                 search: auditSearch,
+                ...(auditFilterPurpose && auditFilterPurpose.length > 0 ? { activityPurpose: auditFilterPurpose.map(p => p.value).join(",") } : {}),
                 ...(auditFilterType && auditFilterType.length > 0 ? { type: auditFilterType.map(t => t.value).join(",") } : {}),
                 ...(auditFilterOwner && auditFilterOwner.length > 0 ? { owner: auditFilterOwner.map(o => o.value).join(",") } : {}),
                 ...(auditFilterStatus && auditFilterStatus.length > 0 ? { status: auditFilterStatus.map(s => s.value).join(",") } : {}),
@@ -1264,6 +1270,7 @@ const MarketingCRM = ({ initialTab }) => {
                     setApprovalState(prev => ({ ...prev, ...fetchedApprovals }));
                     setTotalRecords(data.totalRecords || 0);
                     setTotalPages(data.totalPages || 1);
+                    setAuditPurposes(data.uniquePurposes || ["All"]);
                     setAuditTypes(data.uniqueTypes || ["All"]);
                     setAuditOwners(data.uniqueOwners || ["All"]);
                     setTotalRecordsBeforeFilters(data.totalRecordsBeforeFilters || 0);
@@ -1351,8 +1358,8 @@ const MarketingCRM = ({ initialTab }) => {
                     return {
                         "Date": row.date || '—',
                         "Centre": row.user?.centres?.[0]?.centreName || '—',
-                        "Purpose": row.activityPurpose || '—',
-                        "Type": row.type || '—',
+                        "Activity Purpose": row.activityPurpose || '—',
+                        "Activity Type": row.type || '—',
                         "Institution": row.institution || '—',
                         "School Status": row.schoolStatus || '—',
                         "Owner": row.owner || '—',
@@ -1396,7 +1403,7 @@ const MarketingCRM = ({ initialTab }) => {
 
         return () => clearTimeout(debounce);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, currentPage, itemsPerPage, auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditFilterCentres, auditFilterSchools, auditDateRange, auditStartDate, auditEndDate]);
+    }, [activeTab, currentPage, itemsPerPage, auditSearch, auditFilterPurpose, auditFilterType, auditFilterOwner, auditFilterStatus, auditFilterCentres, auditFilterSchools, auditDateRange, auditStartDate, auditEndDate]);
 
     // Assign Task & Assigned Tasks tab data watcher
     useEffect(() => {
@@ -1414,7 +1421,7 @@ const MarketingCRM = ({ initialTab }) => {
     useEffect(() => {
         setCurrentPage(1);
         setPageInput("1");
-    }, [auditSearch, auditFilterType, auditFilterOwner, auditFilterStatus, auditFilterCentres, auditFilterSchools, auditDateRange, auditStartDate, auditEndDate]);
+    }, [auditSearch, auditFilterPurpose, auditFilterType, auditFilterOwner, auditFilterStatus, auditFilterCentres, auditFilterSchools, auditDateRange, auditStartDate, auditEndDate]);
 
     const handleUpdateApprovalStatus = async (recordId, newStatus) => {
         try {
@@ -1931,7 +1938,7 @@ const MarketingCRM = ({ initialTab }) => {
     const handleDeleteActivity = (idx) => {
         if (todayActivities.length === 1) {
             const defaultActs = [{
-                type: "School Visit",
+                type: "",
                 place: "",
                 time: "",
                 expectedLeads: "",
@@ -1981,7 +1988,7 @@ const MarketingCRM = ({ initialTab }) => {
 
     const handleAddActivity = () => {
         const newActs = [...todayActivities, {
-            type: activitySources[0] || "",
+            type: "",
             activityPurpose: "",
             place: "",
             time: "",
@@ -2781,7 +2788,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                 <div className={`p-6 rounded-2xl border space-y-4 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-[#f4f6f8] border-gray-100'}`}>
                                                     {/* Grid Column Headers (Desktop only) */}
                                                     <div className="hidden md:grid grid-cols-12 gap-2 px-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
-                                                        <div className="col-span-1">Purpose</div>
+                                                        <div className="col-span-1">Activity Purpose</div>
                                                         <div className="col-span-2">Activity Type</div>
 
                                                         <div className="col-span-2">Place / Institution</div>
@@ -2799,7 +2806,7 @@ const MarketingCRM = ({ initialTab }) => {
 
                                                         <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center animate-fadeIn border-b border-gray-800/10 dark:border-gray-800/30 pb-4 md:pb-0 md:border-b-0">
                                                             <div className="col-span-1 md:col-span-1">
-                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Purpose</label>
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Purpose</label>
                                                                 {activity.isSaved ? (
                                                                     <div className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed`}>
                                                                         {activity.activityPurpose || '—'}
@@ -2814,7 +2821,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                                         }}
                                                                         className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
                                                                     >
-                                                                        <option value="">-- Purpose --</option>
+                                                                        <option value="">-- Select Purpose --</option>
                                                                         {activityPurposes.map((p, pIdx) => (
                                                                             <option key={pIdx} value={p}>{p}</option>
                                                                         ))}
@@ -2840,6 +2847,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                                         setTodayActivities(newActs);
                                                                     }}
                                                                 >
+                                                                    <option value="">-- Select Activity Type --</option>
                                                                     {activitySources.length > 0 ? (
                                                                         activitySources.map((src, sIdx) => (
                                                                             <option key={sIdx} value={src}>{src}</option>
@@ -3383,6 +3391,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                 }}
                                                 className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
                                             >
+                                                <option value="">-- Select Activity Type --</option>
                                                 {activitySources.length > 0 ? (
                                                     activitySources.map((src, sIdx) => (
                                                         <option key={sIdx} value={src}>{src}</option>
@@ -3553,6 +3562,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                                     }}
                                                                     className={`w-full px-2 py-1.5 rounded-lg border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/60 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
                                                                 >
+                                                                    <option value="">-- Select Activity Type --</option>
                                                                     {activitySources.length > 0 ? activitySources.map((src, sIdx) => (
                                                                         <option key={sIdx} value={src}>{src}</option>
                                                                     )) : ["School Visit", "Tuition Visit", "Shikkha Bondhu", "Referral Drive", "Market Activity", "Others Activity"].map((s, sIdx) => (
@@ -3775,11 +3785,12 @@ const MarketingCRM = ({ initialTab }) => {
 
                             // Apply search + filters
                             const filteredAuditRecords = auditRecords;
-                            const filtersActive = auditSearch || auditFilterType.length > 0 || auditFilterOwner.length > 0 || auditFilterStatus.length > 0 || auditFilterCentres.length > 0 || auditFilterSchools.length > 0 || auditDateRange !== "Today" || auditStartDate || auditEndDate;
+                            const filtersActive = auditSearch || auditFilterPurpose.length > 0 || auditFilterType.length > 0 || auditFilterOwner.length > 0 || auditFilterStatus.length > 0 || auditFilterCentres.length > 0 || auditFilterSchools.length > 0 || auditDateRange !== "Today" || auditStartDate || auditEndDate;
 
                             const selectCls = `px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-[#05080c]'
                                 }`;
 
+                            const purposeOptions = (auditPurposes || []).filter(p => p && p !== "All").map(p => ({ value: p, label: p }));
                             const typeOptions = (auditTypes || []).filter(t => t && t !== "All").map(t => ({ value: t, label: t }));
                             const ownerOptions = (auditOwners || []).filter(o => o && o !== "All").map(o => ({ value: o, label: o }));
                             const statusOptions = ["Pending", "Approved", "Rejected"].map(s => ({ value: s, label: s }));
@@ -3891,7 +3902,19 @@ const MarketingCRM = ({ initialTab }) => {
                                                 <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>School</span>
                                             </div>
 
-                                            {/* Type filter */}
+                                            {/* Activity Purpose filter */}
+                                            <div className="relative min-w-[160px] z-20">
+                                                <CustomMultiSelect
+                                                    options={purposeOptions}
+                                                    value={auditFilterPurpose}
+                                                    onChange={setAuditFilterPurpose}
+                                                    placeholder="All Purposes"
+                                                    isDarkMode={isDarkMode}
+                                                />
+                                                <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>Activity Purpose</span>
+                                            </div>
+
+                                            {/* Activity Type filter */}
                                             <div className="relative min-w-[160px] z-20">
                                                 <CustomMultiSelect
                                                     options={typeOptions}
@@ -3901,7 +3924,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                     isDarkMode={isDarkMode}
                                                 />
                                                 <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-gray-50 text-gray-400'
-                                                    }`}>Type</span>
+                                                    }`}>Activity Type</span>
                                             </div>
 
                                             {/* Owner filter */}
@@ -3948,6 +3971,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                 <button
                                                     onClick={() => {
                                                         setAuditSearch("");
+                                                        setAuditFilterPurpose([]);
                                                         setAuditFilterType([]);
                                                         setAuditFilterOwner([]);
                                                         setAuditFilterStatus([]);
@@ -3988,8 +4012,8 @@ const MarketingCRM = ({ initialTab }) => {
                                                         <tr className="bg-[#05080c] text-white text-[10px] uppercase font-black tracking-widest">
                                                             <th className="px-5 py-4 whitespace-nowrap">Date</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Centre</th>
-                                                            <th className="px-5 py-4 whitespace-nowrap">Purpose</th>
-                                                            <th className="px-5 py-4 whitespace-nowrap">Type</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Activity Purpose</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Activity Type</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Institution</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">School Status</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Owner</th>

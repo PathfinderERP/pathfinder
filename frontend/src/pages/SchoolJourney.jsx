@@ -242,6 +242,8 @@ const SchoolJourney = () => {
                         isNext: jIdx === 0 && j.schoolStatus === "Next",
                         date: j.date ? new Date(j.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "Recent",
                         title: j.activityType || j.schoolStatus || "Activity",
+                        activityType: j.activityType || "",
+                        activityPurpose: j.activityPurpose || "",
                         sub: j.remarks || j.notes || "Recorded activity",
                         type: j.sourceType || "Activity"
                     }));
@@ -710,7 +712,23 @@ const SchoolJourney = () => {
                                                             {item.isNext && <span className="text-emerald-600 dark:text-emerald-400 mr-1.5 font-black">Next ·</span>}
                                                             {item.title} · <span className="text-gray-400 font-semibold">{item.date}</span>
                                                         </p>
-                                                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5 font-medium leading-tight">
+
+                                                        {(item.activityType || item.activityPurpose) && (
+                                                            <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                                                {item.activityType && (
+                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'bg-blue-900/40 text-blue-300 border border-blue-800/60' : 'bg-blue-50 text-blue-700 border border-blue-200'}`}>
+                                                                        Type: {item.activityType}
+                                                                    </span>
+                                                                )}
+                                                                {item.activityPurpose && (
+                                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'bg-purple-900/40 text-purple-300 border border-purple-800/60' : 'bg-purple-50 text-purple-700 border border-purple-200'}`}>
+                                                                        Purpose: {item.activityPurpose}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        )}
+
+                                                        <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 font-medium leading-tight">
                                                             {item.sub}
                                                         </p>
                                                     </div>

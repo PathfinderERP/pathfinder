@@ -249,7 +249,7 @@ export const getPlanners = async (req, res) => {
         const limit = isExport ? 0 : (parseInt(req.query.limit) || 10);
         const skip = isExport ? 0 : (page - 1) * limit;
 
-        const { search, type, owner, status, startDate, endDate, centres, school } = req.query;
+        const { search, type, activityPurpose, purpose, owner, status, startDate, endDate, centres, school } = req.query;
 
         // Build matching filters
         const filterMatch = {};
@@ -258,6 +258,14 @@ export const getPlanners = async (req, res) => {
             const filteredTypeList = typeList.filter(t => t && t !== "All");
             if (filteredTypeList.length > 0) {
                 filterMatch.type = { $in: filteredTypeList };
+            }
+        }
+        const purposeVal = activityPurpose || purpose;
+        if (purposeVal) {
+            const purposeList = Array.isArray(purposeVal) ? purposeVal : (purposeVal.includes(',') ? purposeVal.split(',') : [purposeVal]);
+            const filteredPurposeList = purposeList.filter(p => p && p !== "All");
+            if (filteredPurposeList.length > 0) {
+                filterMatch.activityPurpose = { $in: filteredPurposeList };
             }
         }
         if (owner) {
@@ -284,7 +292,8 @@ export const getPlanners = async (req, res) => {
         if (search) {
             filterMatch.$or = [
                 { institution: { $regex: search.trim(), $options: "i" } },
-                { owner: { $regex: search.trim(), $options: "i" } }
+                { owner: { $regex: search.trim(), $options: "i" } },
+                { activityPurpose: { $regex: search.trim(), $options: "i" } }
             ];
         }
 
@@ -344,6 +353,7 @@ export const getPlanners = async (req, res) => {
             totalRecords,
             totalRecordsBeforeFilters,
             rawUniqueTypes,
+            rawUniquePurposes,
             rawUniqueOwners,
             totalPending,
             totalApproved,
@@ -366,6 +376,7 @@ export const getPlanners = async (req, res) => {
             MarketingPlanner.countDocuments(finalQuery),
             MarketingPlanner.countDocuments(query),
             MarketingPlanner.distinct("type", dateQuery),
+            MarketingPlanner.distinct("activityPurpose", dateQuery),
             MarketingPlanner.distinct("owner", dateQuery),
             MarketingPlanner.countDocuments(pendingQuery),
             MarketingPlanner.countDocuments(approvedQuery),
@@ -399,6 +410,7 @@ export const getPlanners = async (req, res) => {
 
         const totalPages = Math.ceil(totalRecords / limit);
         const uniqueTypes = ["All", ...rawUniqueTypes.filter(Boolean)];
+        const uniquePurposes = ["All", ...rawUniquePurposes.filter(Boolean)];
         const uniqueOwners = ["All", ...rawUniqueOwners.filter(Boolean)];
 
         res.json({
@@ -408,6 +420,7 @@ export const getPlanners = async (req, res) => {
             totalPages,
             currentPage: page,
             uniqueTypes,
+            uniquePurposes,
             uniqueOwners,
             totalRecordsBeforeFilters,
             totalPending,

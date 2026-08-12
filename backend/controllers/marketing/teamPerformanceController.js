@@ -13,10 +13,14 @@ export const getTeamPerformance = async (req, res) => {
         const {
             centers = "",
             activities = "",
+            purposes = "",
+            activityPurpose = "",
             dateRange = "This Month",
             startDate = "",
             endDate = "",
-            search = ""
+            search = "",
+            page = 1,
+            limit = 10
         } = req.query;
 
         // Determine date filter boundaries
@@ -77,6 +81,29 @@ export const getTeamPerformance = async (req, res) => {
             });
         };
 
+        // Parse activity purpose filter
+        const purposeFilterVal = purposes || activityPurpose;
+        let purposeFilterArr = [];
+        if (purposeFilterVal && purposeFilterVal.trim() && purposeFilterVal !== "All") {
+            purposeFilterArr = purposeFilterVal.split(",").map(p => {
+                let clean = p.trim().toLowerCase();
+                if (clean === "[object object]") return "";
+                return clean;
+            }).filter(Boolean);
+        }
+
+        const isActivityPurposeMatched = (purposeStr) => {
+            if (purposeFilterArr.length === 0) return true;
+            if (!purposeStr) return false;
+            const cleanPurp = String(purposeStr).trim().toLowerCase();
+            return purposeFilterArr.some(filterItem => {
+                const cleanFilter = filterItem.trim().toLowerCase();
+                return cleanPurp === cleanFilter ||
+                    cleanPurp.includes(cleanFilter) ||
+                    cleanFilter.includes(cleanPurp);
+            });
+        };
+
         // Build query for MarketingPlanner
         const plannerQuery = {};
         if (startStr && endStr) {
@@ -113,18 +140,17 @@ export const getTeamPerformance = async (req, res) => {
             Centre.find().select("_id centreName enterCode location").lean()
         ]);
 
-        // Default master activity types from system
-        const defaultActivityTypeList = [
-            "WEBSITE", "META", "FOUNDATION", "MOCK", "REPEATER", "2 YEAR",
-            "Leafletting", "Others Activity", "DIGITAL LEAD", "Tuition Visit",
-            "Data Calling", "Referral Drive", "Shikkha Bondhu", "School Visit",
-            "SURVEY FORM", "Walk In", "Tele Enquiry", "Market Activity",
-            "Canopy", "Seminar", "Workshop", "Assigned Task"
-        ];
+        const availableActivityTypesSet = new Set();
+        const availableActivityPurposesSet = new Set();
 
-        const availableActivityTypesSet = new Set(defaultActivityTypeList);
         plannerRecords.forEach(r => {
             if (r.type && r.type.trim()) availableActivityTypesSet.add(r.type.trim());
+            if (r.activityPurpose && r.activityPurpose.trim()) availableActivityPurposesSet.add(r.activityPurpose.trim());
+        });
+
+        (assignedTasks || []).forEach(t => {
+            if (t.activityType && t.activityType.trim()) availableActivityTypesSet.add(t.activityType.trim());
+            if (t.activityPurpose && t.activityPurpose.trim()) availableActivityPurposesSet.add(t.activityPurpose.trim());
         });
 
         // Build a robust ID -> centreName map
@@ -184,6 +210,7 @@ export const getTeamPerformance = async (req, res) => {
                     totalVisits: 0,
                     completedVisits: 0,
                     activityBreakdown: {},
+                    purposeBreakdown: {},
                     schoolsMap: new Map(),
                     totalLeads: 0,
                     totalHotLeads: 0,
@@ -211,6 +238,7 @@ export const getTeamPerformance = async (req, res) => {
                     totalVisits: 0,
                     completedVisits: 0,
                     activityBreakdown: {},
+                    purposeBreakdown: {},
                     schoolsMap: new Map(),
                     totalLeads: 0,
                     totalHotLeads: 0,
@@ -226,13 +254,18 @@ export const getTeamPerformance = async (req, res) => {
         plannerRecords.forEach(rec => {
             if (!rec.user) return;
             const activityType = (rec.type || "School Visit").trim();
-            
+            const actPurpose = (rec.activityPurpose || "").trim();
+
             if (!isActivityTypeMatched(activityType)) return;
+            if (!isActivityPurposeMatched(actPurpose)) return;
 
             const userStats = getOrCreateUserStats(rec.user, rec.owner || "Marketing Staff");
 
             userStats.totalActivities += 1;
             userStats.activityBreakdown[activityType] = (userStats.activityBreakdown[activityType] || 0) + 1;
+            if (actPurpose) {
+                userStats.purposeBreakdown[actPurpose] = (userStats.purposeBreakdown[actPurpose] || 0) + 1;
+            }
 
             if (rec.status === "Approved" || rec.photo || (rec.photos && rec.photos.length > 0)) {
                 userStats.completedVisits += 1;
@@ -244,6 +277,7 @@ export const getTeamPerformance = async (req, res) => {
                 date: rec.date,
                 institution: schoolName || "Field Activity",
                 type: activityType,
+                activityPurpose: actPurpose,
                 planTime: rec.plan || "",
                 actualTime: rec.actual || "",
                 status: rec.status || "Pending",
@@ -573,12 +607,38 @@ export const getTeamPerformance = async (req, res) => {
             topPerformer: userStatsList.length > 0 && userStatsList[0].totalActivities > 0 ? userStatsList[0] : null
         };
 
+        const totalItems = userStatsList.length;
+        const parsedLimit = limit === "all" ? (totalItems || 1) : (parseInt(limit) || 10);
+        const parsedPage = parseInt(page) || 1;
+        const totalPages = Math.max(1, Math.ceil(totalItems / parsedLimit));
+
+        const paginatedList = userStatsList.slice((parsedPage - 1) * parsedLimit, parsedPage * parsedLimit);
+
+        const purposeSetLower = new Set(Array.from(availableActivityPurposesSet).map(p => p.toLowerCase().trim()));
+        const knownPurposes = new Set([
+            "pntse", "tie up", "mock", "leafletting", "seminar", "workshop",
+            "pntse & mtp workshop", "mtp workshop", "school visit & tie up"
+        ]);
+
+        const filteredActivityTypes = Array.from(availableActivityTypesSet).filter(actType => {
+            if (!actType) return false;
+            const lower = actType.toLowerCase().trim();
+            if (purposeSetLower.has(lower)) return false;
+            if (knownPurposes.has(lower)) return false;
+            return true;
+        });
+
         return res.status(200).json({
             success: true,
             overallStats,
             leaderboard: userStatsList.slice(0, 3),
-            teamPerformance: userStatsList,
-            availableActivityTypes: Array.from(availableActivityTypesSet)
+            teamPerformance: paginatedList,
+            totalItems,
+            totalPages,
+            currentPage: parsedPage,
+            limit: parsedLimit,
+            availableActivityTypes: filteredActivityTypes,
+            availableActivityPurposes: Array.from(availableActivityPurposesSet)
         });
 
     } catch (error) {
