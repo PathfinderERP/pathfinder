@@ -23,6 +23,10 @@ const marketingPlannerSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    activityPurpose: {
+        type: String,
+        default: ""
+    },
     institution: {
         type: String,
         default: ""
@@ -66,7 +70,7 @@ const marketingPlannerSchema = new mongoose.Schema({
     },
     activityStatus: {
         type: String,
-        enum: ["Bad", "Neutral", "Good"],
+        enum: ["Success", "Failed", "Ongoing", "Bad", "Neutral", "Good"],
         default: "Neutral"
     },
     nextActivityDate: {

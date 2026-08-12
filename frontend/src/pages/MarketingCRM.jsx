@@ -1351,6 +1351,7 @@ const MarketingCRM = ({ initialTab }) => {
                     return {
                         "Date": row.date || '—',
                         "Centre": row.user?.centres?.[0]?.centreName || '—',
+                        "Purpose": row.activityPurpose || '—',
                         "Type": row.type || '—',
                         "Institution": row.institution || '—',
                         "School Status": row.schoolStatus || '—',
@@ -1576,6 +1577,7 @@ const MarketingCRM = ({ initialTab }) => {
                 setExpectedLeadTarget("");
                 setExpectedHotLeads("");
                 toast.success("Today's Task saved successfully! ✅");
+                fetchAuditRecords();
                 return;
             } else {
                 const text = await response.text();
@@ -3986,6 +3988,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                         <tr className="bg-[#05080c] text-white text-[10px] uppercase font-black tracking-widest">
                                                             <th className="px-5 py-4 whitespace-nowrap">Date</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Centre</th>
+                                                            <th className="px-5 py-4 whitespace-nowrap">Purpose</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Type</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Institution</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">School Status</th>
@@ -4008,13 +4011,13 @@ const MarketingCRM = ({ initialTab }) => {
                                                     <tbody className="text-[11px] font-bold divide-y divide-gray-100 dark:divide-gray-800">
                                                         {auditLoading ? (
                                                             <tr>
-                                                                <td colSpan={canApproveOrReject ? 17 : 16} className="px-5 py-12 text-center">
+                                                                <td colSpan={canApproveOrReject ? 20 : 19} className="px-5 py-12 text-center">
                                                                     <span className="text-[10px] font-bold text-orange-500 animate-pulse uppercase tracking-widest">Loading audit records...</span>
                                                                 </td>
                                                             </tr>
                                                         ) : filteredAuditRecords.length === 0 ? (
                                                             <tr>
-                                                                <td colSpan={canApproveOrReject ? 17 : 16} className="px-5 py-12 text-center">
+                                                                <td colSpan={canApproveOrReject ? 20 : 19} className="px-5 py-12 text-center">
                                                                     <div className="flex flex-col items-center gap-2 text-gray-400">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 opacity-40">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
@@ -4042,6 +4045,15 @@ const MarketingCRM = ({ initialTab }) => {
                                                                         </td>
                                                                         <td className="px-5 py-4 whitespace-nowrap text-gray-500 font-semibold">
                                                                             {row.user?.centres?.[0]?.centreName || '—'}
+                                                                        </td>
+                                                                        <td className="px-5 py-4 whitespace-nowrap">
+                                                                            {row.activityPurpose ? (
+                                                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border bg-yellow-500/10 text-yellow-500 border-yellow-500/20`}>
+                                                                                    {row.activityPurpose}
+                                                                                </span>
+                                                                            ) : (
+                                                                                <span className="text-gray-400 font-mono text-[10px]">—</span>
+                                                                            )}
                                                                         </td>
                                                                         <td className="px-5 py-4 whitespace-nowrap">
                                                                             <span className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-wider ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600'}`}>

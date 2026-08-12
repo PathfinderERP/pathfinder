@@ -78,6 +78,31 @@ const processActivitiesImages = async (activities) => {
     return processed;
 };
 
+const formatPlanTime = (timeStr) => {
+    if (!timeStr) return "—";
+    if (typeof timeStr !== "string") return String(timeStr);
+    const trimmed = timeStr.trim();
+    if (!trimmed) return "—";
+    
+    if (/am|pm/i.test(trimmed)) {
+        return trimmed;
+    }
+    
+    const parts = trimmed.split(':');
+    if (parts.length >= 1) {
+        const h = parseInt(parts[0], 10);
+        const m = parts.length > 1 ? parseInt(parts[1], 10) : 0;
+        if (!isNaN(h) && !isNaN(m)) {
+            const d = new Date();
+            d.setHours(h, m, 0, 0);
+            if (!isNaN(d.getTime())) {
+                return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
+            }
+        }
+    }
+    return trimmed;
+};
+
 // Create Planner activities
 export const createPlanner = async (req, res) => {
     try {
@@ -89,20 +114,18 @@ export const createPlanner = async (req, res) => {
         const createdRecords = [];
         const processedActivities = await processActivitiesImages(activities);
         for (const act of processedActivities) {
+            const validSchoolRef = (act.schoolRef && mongoose.Types.ObjectId.isValid(act.schoolRef)) ? act.schoolRef : null;
+
             const newRecord = new MarketingPlanner({
                 user: req.user._id || req.user.id,
                 date,
                 expectedLeadTarget: Number(expectedLeadTarget),
                 expectedHotLeads: Number(expectedHotLeads),
-                type: act.type,
-                institution: act.place || "—",
+                type: act.type || act.activityType || "School Visit",
+                activityPurpose: act.activityPurpose || "",
+                institution: act.place || act.institution || "—",
                 owner: req.user.name || req.user.username || "Unknown",
-                plan: act.time ? (() => {
-                    const [h, m] = act.time.split(':');
-                    const d = new Date();
-                    d.setHours(+h, +m);
-                    return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
-                })() : "—",
+                plan: formatPlanTime(act.time),
                 planTimeRaw: act.time || "",
                 estimatedDuration: act.estimatedDuration || "",
                 notes: act.notes || "",
@@ -120,25 +143,35 @@ export const createPlanner = async (req, res) => {
                 submittedAt: act.submittedAt || new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
                 status: "Pending",
                 remarks: "",
-                schoolRef: act.schoolRef || null,
+                schoolRef: validSchoolRef,
                 schoolStatus: act.schoolStatus || ""
             });
             await newRecord.save();
-            if (act.schoolRef && act.schoolStatus) {
+
+            if (validSchoolRef && act.schoolStatus) {
                 try {
-                    await SchoolForTask.findByIdAndUpdate(act.schoolRef, { status: act.schoolStatus });
+                    await SchoolForTask.findByIdAndUpdate(validSchoolRef, { status: act.schoolStatus });
                 } catch (schoolErr) {
                     console.error("Error updating SchoolForTask status during submit:", schoolErr);
                 }
             }
+
             const recObj = newRecord.toObject();
             if (recObj.photo) {
-                recObj.photo = await getSignedFileUrl(recObj.photo);
+                try {
+                    recObj.photo = await getSignedFileUrl(recObj.photo);
+                } catch (e) {
+                    console.error("Error getting signed url for photo:", e);
+                }
             }
             if (recObj.photos && Array.isArray(recObj.photos)) {
-                recObj.photos = await Promise.all(
-                    recObj.photos.map(p => getSignedFileUrl(p))
-                );
+                try {
+                    recObj.photos = await Promise.all(
+                        recObj.photos.map(p => getSignedFileUrl(p))
+                    );
+                } catch (e) {
+                    console.error("Error getting signed url for photos:", e);
+                }
             }
             createdRecords.push({
                 ...recObj,
@@ -147,12 +180,16 @@ export const createPlanner = async (req, res) => {
         }
 
         // Delete draft if exists for the user and date
-        await DraftPlanner.deleteOne({ user: req.user._id || req.user.id, date });
+        try {
+            await DraftPlanner.deleteOne({ user: req.user._id || req.user.id, date });
+        } catch (draftErr) {
+            console.error("Error deleting draft planner:", draftErr);
+        }
 
         res.status(201).json({ success: true, records: createdRecords });
     } catch (error) {
         console.error("Error creating planner records:", error);
-        res.status(500).json({ error: "Internal Server Error" });
+        res.status(500).json({ error: error.message || "Internal Server Error" });
     }
 };
 
