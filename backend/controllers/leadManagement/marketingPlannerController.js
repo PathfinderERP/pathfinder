@@ -202,31 +202,78 @@ export const getPlanners = async (req, res) => {
         if (userRoleStr === "superadmin" || userRoleStr === "super admin" || userRoleStr === "admin") {
             // Superadmin and Admin can view all data
             query = {};
-        } else if (userRoleStr === "zonalmanager" || userRoleStr === "zonalhead" || userRoleStr === "assistantzonalmanager") {
-            // Zonal manager/head/assistant can view marketing, centerIncharge, assistantCenterIncharge and supportStaff in their allotted centres, plus their own logs
-            const userCentres = req.user.centres || [];
-            const userIds = [req.user._id || req.user.id]; // Always include their own ID
+        } else if (userRoleStr === "zonalmanager" || userRoleStr === "zonalhead") {
+            // Zonal Manager / Head can view assistantzonalmanager, centerincharge, assistantcenterincharge, marketing, and supportstaff in their allotted centres, plus their own logs
+            const userCentres = (req.user.centres || []).map(c => (c._id || c).toString()).filter(Boolean);
+            const userIds = [(req.user._id || req.user.id).toString()];
             if (userCentres.length > 0) {
+                const centreObjectIds = userCentres.map(id => new mongoose.Types.ObjectId(id));
                 const subordinateUsers = await User.find({
-                    centres: { $in: userCentres },
-                    role: { $in: ["marketing", "centerIncharge", "assistantCenterIncharge", "supportStaff"] }
+                    centres: { $in: centreObjectIds },
+                    role: { $in: [
+                        "marketing", "Marketing",
+                        "centerincharge", "centerIncharge", "centreincharge", "centreIncharge",
+                        "assistantcenterincharge", "assistantCenterIncharge", "assistantcentreincharge", "assistantCentreIncharge",
+                        "supportstaff", "supportStaff",
+                        "assistantzonalmanager", "assistantZonalManager"
+                    ] }
                 }).select('_id');
                 subordinateUsers.forEach(u => {
-                    userIds.push(u._id);
+                    userIds.push(u._id.toString());
                 });
             }
             query.user = { $in: userIds };
-        } else if (userRoleStr === "centerincharge" || userRoleStr === "centreincharge" || userRoleStr === "assistantcenterincharge") {
-            // Center Incharge/assistant can view marketing, centerIncharge, assistantCenterIncharge and supportStaff in their centres, plus their own logs
-            const userCentres = req.user.centres || [];
-            const userIds = [req.user._id || req.user.id]; // Always include their own ID
+        } else if (userRoleStr === "assistantzonalmanager") {
+            // Assistant Zonal Manager can view centerincharge, assistantcenterincharge, marketing, and supportstaff in their allotted centres, plus their own logs
+            const userCentres = (req.user.centres || []).map(c => (c._id || c).toString()).filter(Boolean);
+            const userIds = [(req.user._id || req.user.id).toString()];
             if (userCentres.length > 0) {
+                const centreObjectIds = userCentres.map(id => new mongoose.Types.ObjectId(id));
                 const subordinateUsers = await User.find({
-                    centres: { $in: userCentres },
-                    role: { $in: ["marketing", "centerIncharge", "assistantCenterIncharge", "supportStaff"] }
+                    centres: { $in: centreObjectIds },
+                    role: { $in: [
+                        "marketing", "Marketing",
+                        "centerincharge", "centerIncharge", "centreincharge", "centreIncharge",
+                        "assistantcenterincharge", "assistantCenterIncharge", "assistantcentreincharge", "assistantCentreIncharge",
+                        "supportstaff", "supportStaff"
+                    ] }
                 }).select('_id');
                 subordinateUsers.forEach(u => {
-                    userIds.push(u._id);
+                    userIds.push(u._id.toString());
+                });
+            }
+            query.user = { $in: userIds };
+        } else if (userRoleStr === "centerincharge" || userRoleStr === "centreincharge") {
+            // Center Incharge can view assistantcenterincharge, marketing, and supportstaff in their centres, plus their own logs
+            const userCentres = (req.user.centres || []).map(c => (c._id || c).toString()).filter(Boolean);
+            const userIds = [(req.user._id || req.user.id).toString()];
+            if (userCentres.length > 0) {
+                const centreObjectIds = userCentres.map(id => new mongoose.Types.ObjectId(id));
+                const subordinateUsers = await User.find({
+                    centres: { $in: centreObjectIds },
+                    role: { $in: [
+                        "marketing", "Marketing",
+                        "assistantcenterincharge", "assistantCenterIncharge", "assistantcentreincharge", "assistantCentreIncharge",
+                        "supportstaff", "supportStaff"
+                    ] }
+                }).select('_id');
+                subordinateUsers.forEach(u => {
+                    userIds.push(u._id.toString());
+                });
+            }
+            query.user = { $in: userIds };
+        } else if (userRoleStr === "assistantcenterincharge" || userRoleStr === "assistantcentreincharge") {
+            // Assistant Center Incharge can view marketing in their centres, plus their own logs
+            const userCentres = (req.user.centres || []).map(c => (c._id || c).toString()).filter(Boolean);
+            const userIds = [(req.user._id || req.user.id).toString()];
+            if (userCentres.length > 0) {
+                const centreObjectIds = userCentres.map(id => new mongoose.Types.ObjectId(id));
+                const subordinateUsers = await User.find({
+                    centres: { $in: centreObjectIds },
+                    role: { $in: ["marketing", "Marketing"] }
+                }).select('_id');
+                subordinateUsers.forEach(u => {
+                    userIds.push(u._id.toString());
                 });
             }
             query.user = { $in: userIds };
@@ -467,35 +514,41 @@ export const updatePlannerApproval = async (req, res) => {
             }
 
             // Check center overlap
-            const managerCentres = (req.user.centres || []).map(c => c.toString());
-            const ownerCentres = (ownerUser.centres || []).map(c => c.toString());
-            const hasOverlap = ownerCentres.some(c => managerCentres.includes(c));
+            const getCentreStrArr = (cList) => {
+                if (!Array.isArray(cList)) return [];
+                return cList.map(c => (c?._id || c?.id || c || "").toString()).filter(Boolean);
+            };
 
-            if (!hasOverlap) {
-                return res.status(403).json({ error: "Forbidden: You are not authorized to approve/reject plans for a user outside your centres." });
+            const managerCentres = getCentreStrArr(req.user.centres);
+            const ownerCentres = getCentreStrArr(ownerUser.centres);
+
+            if (managerCentres.length > 0 && ownerCentres.length > 0) {
+                const hasOverlap = ownerCentres.some(c => managerCentres.includes(c));
+                if (!hasOverlap) {
+                    return res.status(403).json({ error: "Forbidden: You are not authorized to approve/reject plans for a user outside your centres." });
+                }
             }
 
             // Specific role hierarchy logic
             if (userRoleStr === "zonalmanager" || userRoleStr === "zonalhead") {
                 // Zonal managers can approve marketing, centerIncharge, assistantCenterIncharge, supportStaff, and assistantZonalManager
-                const allowedOwners = ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "supportstaff", "assistantzonalmanager"];
+                const allowedOwners = ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "assistantcentreincharge", "supportstaff", "assistantzonalmanager"];
                 if (!allowedOwners.includes(ownerRoleStr)) {
                     return res.status(403).json({ error: "Forbidden: Zonal Managers can only approve plans of Marketing, Center Incharge, Assistant Center Incharge, Support Staff, and Assistant Zonal Manager users." });
                 }
             } else if (userRoleStr === "assistantzonalmanager") {
                 // Assistant Zonal Managers can approve marketing, centerIncharge, assistantCenterIncharge, and supportStaff.
-                // Note: they CANNOT approve assistantZonalManager plans.
-                const allowedOwners = ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "supportstaff"];
+                const allowedOwners = ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "assistantcentreincharge", "supportstaff"];
                 if (!allowedOwners.includes(ownerRoleStr)) {
                     return res.status(403).json({ error: "Forbidden: Assistant Zonal Managers can only approve plans of Marketing, Center Incharge, Assistant Center Incharge, and Support Staff users." });
                 }
             } else if (userRoleStr === "centerincharge" || userRoleStr === "centreincharge") {
                 // Center Incharges can approve marketing, supportStaff, and assistantCenterIncharge
-                const allowedOwners = ["marketing", "supportstaff", "assistantcenterincharge"];
+                const allowedOwners = ["marketing", "supportstaff", "assistantcenterincharge", "assistantcentreincharge"];
                 if (!allowedOwners.includes(ownerRoleStr)) {
                     return res.status(403).json({ error: "Forbidden: Center Incharges can only approve plans of Marketing, Support Staff, and Assistant Center Incharge users." });
                 }
-            } else if (userRoleStr === "assistantcenterincharge") {
+            } else if (userRoleStr === "assistantcenterincharge" || userRoleStr === "assistantcentreincharge") {
                 // Assistant Center Incharges can approve marketing only
                 const allowedOwners = ["marketing"];
                 if (!allowedOwners.includes(ownerRoleStr)) {

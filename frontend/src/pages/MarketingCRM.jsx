@@ -365,27 +365,46 @@ const MarketingCRM = ({ initialTab }) => {
             return true;
         }
 
-        const ownerUserId = record.user?._id || record.user;
-        const actorUserId = userObj._id || userObj.id;
-        if (ownerUserId && actorUserId && ownerUserId.toString() === actorUserId.toString()) {
+        const ownerUserId = (record.user?._id || record.user || "").toString();
+        const actorUserId = (userObj._id || userObj.id || "").toString();
+        if (ownerUserId && actorUserId && ownerUserId === actorUserId) {
             return false;
+        }
+
+        // Verify center overlap between actor and owner if both have centres defined
+        const getCentresArr = (u) => {
+            const list = u?.centres || u?.centers || [];
+            if (!Array.isArray(list)) return [];
+            return list.map(c => {
+                if (typeof c === "string") return c.toLowerCase().trim();
+                if (typeof c === "object") return (c._id || c.centreName || c.name || "").toString().toLowerCase().trim();
+                return String(c).toLowerCase().trim();
+            }).filter(Boolean);
+        };
+
+        const actorCentres = getCentresArr(userObj);
+        const ownerCentres = getCentresArr(record.user);
+
+        if (actorCentres.length > 0 && ownerCentres.length > 0) {
+            const hasOverlap = ownerCentres.some(c => actorCentres.includes(c));
+            if (!hasOverlap) return false;
         }
 
         const ownerRole = (record.user?.role || "").toLowerCase().replace(/\s+/g, "");
 
         if (actorRole === "zonalmanager" || actorRole === "zonalhead") {
-            return ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "supportstaff", "assistantzonalmanager"].includes(ownerRole);
+            return ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "assistantcentreincharge", "supportstaff", "assistantzonalmanager"].includes(ownerRole);
         }
 
         if (actorRole === "assistantzonalmanager") {
-            return ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "supportstaff"].includes(ownerRole);
+            return ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "assistantcentreincharge", "supportstaff"].includes(ownerRole);
         }
 
         if (actorRole === "centerincharge" || actorRole === "centreincharge") {
-            return ["marketing", "supportstaff", "assistantcenterincharge"].includes(ownerRole);
+            return ["marketing", "supportstaff", "assistantcenterincharge", "assistantcentreincharge"].includes(ownerRole);
         }
 
-        if (actorRole === "assistantcenterincharge") {
+        if (actorRole === "assistantcenterincharge" || actorRole === "assistantcentreincharge") {
             return ["marketing"].includes(ownerRole);
         }
 
