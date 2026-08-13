@@ -49,18 +49,22 @@ const buildFilterQuery = (filters = {}, user = null) => {
 
     addIdFilter("board", board);
 
-    // Centre restriction check based on assigned user centres
+    // SuperAdmin role check (robust for superadmin, Super Admin, superAdmin, etc.)
+    const userRoleClean = (user?.role || "").toLowerCase().replace(/\s+/g, "");
+    const isSuperAdmin = userRoleClean === "superadmin";
+
+    // Centre restriction check based on assigned user centres (ignored for Superadmin)
     const userCentreIds = (user?.centres || []).map((c) => (c._id || c).toString()).filter(Boolean);
 
     if (centerName) {
         const requestedIds = centerName.split(",").map((v) => v.trim()).filter(Boolean);
-        if (userCentreIds.length > 0) {
+        if (!isSuperAdmin && userCentreIds.length > 0) {
             const allowedRequestedIds = requestedIds.filter((id) => userCentreIds.includes(id));
             query.centerName = { $in: allowedRequestedIds.length > 0 ? allowedRequestedIds : userCentreIds };
         } else {
             query.centerName = requestedIds.length === 1 ? requestedIds[0] : { $in: requestedIds };
         }
-    } else if (userCentreIds.length > 0) {
+    } else if (!isSuperAdmin && userCentreIds.length > 0) {
         query.centerName = { $in: userCentreIds };
     }
 
@@ -77,8 +81,8 @@ export const createSchoolForTask = async (req, res) => {
             return res.status(400).json({ message: "schoolName and centerName are required" });
         }
 
-        const userRoleStr = (req.user?.role || "").toLowerCase();
-        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        const userRoleClean = (req.user?.role || "").toLowerCase().replace(/\s+/g, "");
+        const isSuperAdmin = userRoleClean === "superadmin";
         if (!isSuperAdmin && req.user) {
             const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
             if (!userCentreIds.includes(centerName.toString())) {
@@ -166,8 +170,8 @@ export const getSchoolForTaskById = async (req, res) => {
         const school = await withPopulate(SchoolForTask.findById(req.params.id));
         if (!school) return res.status(404).json({ message: "School not found" });
 
-        const userRoleStr = (req.user?.role || "").toLowerCase();
-        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        const userRoleClean = (req.user?.role || "").toLowerCase().replace(/\s+/g, "");
+        const isSuperAdmin = userRoleClean === "superadmin";
         if (!isSuperAdmin && req.user) {
             const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
             const schoolCentreId = (school.centerName?._id || school.centerName)?.toString();
@@ -191,8 +195,8 @@ export const updateSchoolForTask = async (req, res) => {
         const existing = await SchoolForTask.findById(id);
         if (!existing) return res.status(404).json({ message: "School not found" });
 
-        const userRoleStr = (req.user?.role || "").toLowerCase();
-        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        const userRoleClean = (req.user?.role || "").toLowerCase().replace(/\s+/g, "");
+        const isSuperAdmin = userRoleClean === "superadmin";
         if (!isSuperAdmin && req.user) {
             const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
             const currentCentreId = (existing.centerName?._id || existing.centerName)?.toString();
@@ -235,8 +239,8 @@ export const deleteSchoolForTask = async (req, res) => {
         const existing = await SchoolForTask.findById(req.params.id);
         if (!existing) return res.status(404).json({ message: "School not found" });
 
-        const userRoleStr = (req.user?.role || "").toLowerCase();
-        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        const userRoleClean = (req.user?.role || "").toLowerCase().replace(/\s+/g, "");
+        const isSuperAdmin = userRoleClean === "superadmin";
         if (!isSuperAdmin && req.user) {
             const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
             const currentCentreId = (existing.centerName?._id || existing.centerName)?.toString();
@@ -260,8 +264,8 @@ export const bulkDeleteSchoolsForTask = async (req, res) => {
         const { ids, selectAllMatching, filters } = req.body;
         let query = {};
 
-        const userRoleStr = (req.user?.role || "").toLowerCase();
-        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        const userRoleClean = (req.user?.role || "").toLowerCase().replace(/\s+/g, "");
+        const isSuperAdmin = userRoleClean === "superadmin";
 
         if (selectAllMatching) {
             query = buildFilterQuery(filters || {}, req.user);
@@ -297,8 +301,8 @@ export const bulkUpdateSchoolsForTask = async (req, res) => {
             return res.status(400).json({ message: "No update fields provided" });
         }
 
-        const userRoleStr = (req.user?.role || "").toLowerCase();
-        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        const userRoleClean = (req.user?.role || "").toLowerCase().replace(/\s+/g, "");
+        const isSuperAdmin = userRoleClean === "superadmin";
 
         if (!isSuperAdmin && req.user && updates.centerName) {
             const userCentreIds = (req.user.centres || []).map((c) => (c._id || c).toString());
@@ -353,8 +357,8 @@ export const bulkImportSchoolsForTask = async (req, res) => {
             return res.status(400).json({ message: "No data provided for import" });
         }
 
-        const userRoleStr = (req.user?.role || "").toLowerCase();
-        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        const userRoleClean = (req.user?.role || "").toLowerCase().replace(/\s+/g, "");
+        const isSuperAdmin = userRoleClean === "superadmin";
         const userCentreIds = (!isSuperAdmin && req.user)
             ? (req.user.centres || []).map((c) => (c._id || c).toString())
             : null;
@@ -531,8 +535,8 @@ export const bulkImportSchoolsForTask = async (req, res) => {
 // ─────────────────────────────────────────────
 export const getSchoolForTaskDistinctFields = async (req, res) => {
     try {
-        const userRoleStr = (req.user?.role || "").toLowerCase();
-        const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
+        const userRoleClean = (req.user?.role || "").toLowerCase().replace(/\s+/g, "");
+        const isSuperAdmin = userRoleClean === "superadmin";
         let filter = {};
 
         if (!isSuperAdmin && req.user) {

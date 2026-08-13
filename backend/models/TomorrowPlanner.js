@@ -98,7 +98,7 @@ const tomorrowPlannerSchema = new mongoose.Schema({
         },
         activityStatus: {
             type: String,
-            enum: ["Success", "Failed", "Ongoing"],
+            enum: ["Success", "Failed", "Ongoing", "Neutral", "Pending", ""],
             default: "Neutral"
         },
         nextActivityDate: {

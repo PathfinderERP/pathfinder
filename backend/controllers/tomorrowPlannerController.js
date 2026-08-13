@@ -522,19 +522,32 @@ export const savePlan = async (req, res) => {
             ]
         });
 
-        // Filter and map tasks to clean up temporary client-side IDs
-        const mappedTasks = tasks.map(t => ({
-            taskDetails: t.taskDetails || `${t.activityType || 'Activity'} at ${t.place || 'Unspecified Place'}`,
-            activityType: t.activityType || "",
-            place: t.place || "",
-            schoolRef: t.schoolRef || t.school || null,
-            schoolStatus: t.schoolStatus || "",
-            time: t.time || "",
-            priority: t.priority || "Medium",
-            estimatedDuration: t.estimatedDuration || "",
-            notes: t.notes || "",
-            status: t.status || "Planned"
-        }));
+        // Filter and map tasks to clean up temporary client-side IDs and prevent ObjectId cast errors
+        const mappedTasks = tasks.map(t => {
+            const rawSchoolRef = t.schoolRef || t.school;
+            const validSchoolRef = (rawSchoolRef && mongoose.Types.ObjectId.isValid(rawSchoolRef)) ? rawSchoolRef : null;
+            const validAssignedBy = (t.assignedBy && mongoose.Types.ObjectId.isValid(t.assignedBy)) ? t.assignedBy : null;
+            const validAssignedTaskRef = (t.assignedTaskRef && mongoose.Types.ObjectId.isValid(t.assignedTaskRef)) ? t.assignedTaskRef : null;
+
+            return {
+                taskDetails: t.taskDetails || `${t.activityType || 'Activity'} at ${t.place || 'Unspecified Place'}`,
+                activityType: t.activityType || "",
+                activityPurpose: t.activityPurpose || "",
+                place: t.place || "",
+                schoolRef: validSchoolRef,
+                schoolStatus: t.schoolStatus || "",
+                time: t.time || "",
+                priority: t.priority || "Medium",
+                estimatedDuration: t.estimatedDuration || "",
+                notes: t.notes || "",
+                status: t.status || "Planned",
+                isAssigned: Boolean(t.isAssigned),
+                assignedBy: validAssignedBy,
+                assignedByName: t.assignedByName || "",
+                assignedTaskRef: validAssignedTaskRef,
+                activityStatus: t.activityStatus || "Neutral"
+            };
+        });
 
         if (!plan) {
             plan = new TomorrowPlanner({

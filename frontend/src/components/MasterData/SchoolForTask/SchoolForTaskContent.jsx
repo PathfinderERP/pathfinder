@@ -171,8 +171,8 @@ export default function MasterDataSchoolForTaskContent() {
 
     const token = localStorage.getItem("token");
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const userRoleLower = (user.role || "").toLowerCase();
-    const isSuperAdmin = userRoleLower === "superadmin" || userRoleLower === "super admin" || user.role === "superAdmin";
+    const userRoleClean = (user.role || "").toLowerCase().replace(/\s+/g, "");
+    const isSuperAdmin = userRoleClean === "superadmin";
     const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "create");
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "edit");
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "delete");

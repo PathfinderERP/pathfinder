@@ -193,7 +193,7 @@ const MarketingCRM = ({ initialTab }) => {
             fetchTodayPlanActivities();
             fetchPlannerMasterOptions(); // also load schools for the place dropdown
         }
-        if (activeTab === "Tomorrow Planner") {
+        if (activeTab === "Tomorrow Planner" || activeTab === "Activity Planner") {
             fetchPlannerMasterOptions();
         }
         if (activeTab === "Activity Audit") {
@@ -1096,7 +1096,7 @@ const MarketingCRM = ({ initialTab }) => {
 
             if (response.ok) {
                 const data = await response.json();
-                toast.success("Tomorrow's field plan saved successfully!");
+                toast.success("Activity plan saved successfully!");
                 if (data.plan && data.plan._id) {
                     setTomorrowPlanId(data.plan._id);
                     setTomorrowTasks(data.plan.tasks || []);
@@ -1126,11 +1126,11 @@ const MarketingCRM = ({ initialTab }) => {
                 }
             } else {
                 const errData = await response.json();
-                toast.error(errData.message || "Failed to save tomorrow's plan.");
+                toast.error(errData.message || "Failed to save plan.");
             }
         } catch (error) {
-            console.error("Error saving tomorrow plan:", error);
-            toast.error("Error saving tomorrow's plan.");
+            console.error("Error saving plan:", error);
+            toast.error("Error saving plan.");
         } finally {
             setSavingTomorrowPlan(false);
         }
@@ -1164,7 +1164,9 @@ const MarketingCRM = ({ initialTab }) => {
                 });
                 if (response.ok) {
                     const data = await response.json();
-                    setActivityPurposes(Array.isArray(data) ? data.map(p => p.name) : []);
+                    const rawList = Array.isArray(data) ? data : (data.data || []);
+                    const fetchedNames = rawList.map(p => typeof p === 'string' ? p : (p.name || p.purposeName || p.title || '')).filter(Boolean);
+                    setActivityPurposes(fetchedNames);
                 }
             } catch (err) {
                 console.error("Error fetching activity purposes:", err);
@@ -2063,7 +2065,7 @@ const MarketingCRM = ({ initialTab }) => {
 
     // Fetch tomorrow plan when tab switches or date changes
     useEffect(() => {
-        if (activeTab === "Tomorrow Planner") {
+        if (activeTab === "Tomorrow Planner" || activeTab === "Activity Planner") {
             fetchTomorrowPlan();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2199,7 +2201,7 @@ const MarketingCRM = ({ initialTab }) => {
                         {/* NAVIGATION */}
                         <div className="flex flex-wrap items-center gap-2">
                             {[
-                                "Command Centre", "Tomorrow Planner", "Today Task", "Activity Audit"
+                                "Command Centre", "Activity Planner", "Today Task", "Activity Audit"
                             ].map((tab, idx) => (
                                 <button
                                     key={idx}
@@ -3352,36 +3354,17 @@ const MarketingCRM = ({ initialTab }) => {
                             </div>
                         )}
 
-                        {/* TOMORROW PLANNER VIEW */}
-                        {activeTab === "Tomorrow Planner" && (
+                        {/* ACTIVITY PLANNER VIEW */}
+                        {(activeTab === "Activity Planner" || activeTab === "Tomorrow Planner") && (
                             <div className="space-y-6 animate-fadeIn">
                                 <div>
-                                    <h2 className="text-3xl font-black tracking-tighter">Tomorrow Planner</h2>
-                                    <p className="text-gray-500 text-[11px] font-bold mt-1">Pre-plan tomorrow's tasks and activities.</p>
+                                    <h2 className="text-3xl font-black tracking-tighter">Activity Planner</h2>
+                                    <p className="text-gray-500 text-[11px] font-bold mt-1">Pre-plan tasks and activities.</p>
                                 </div>
 
                                 <div className={`p-8 rounded-[24px] border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                                     <div className="flex justify-between items-center mb-6">
-                                        <h3 className="text-xl font-black tracking-tight">Create Tomorrow's Field Plan</h3>
-                                        <div className="flex flex-col gap-1.5 w-48">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-gray-400">Target Date</label>
-                                            <input
-                                                type="date"
-                                                value={tomorrowPlanDate}
-                                                min={getTomorrowDateString()}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    const tom = getTomorrowDateString();
-                                                    if (val < tom) {
-                                                        toast.warning("Backdated dates are not allowed. Enforcing tomorrow's date.");
-                                                        setTomorrowPlanDate(tom);
-                                                    } else {
-                                                        setTomorrowPlanDate(val);
-                                                    }
-                                                }}
-                                                className={`w-full px-4 py-2 rounded-xl border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-orange-500' : 'bg-white border-gray-200 focus:border-black shadow-sm'}`}
-                                            />
-                                        </div>
+                                        <h3 className="text-xl font-black tracking-tight">Create Field Plan</h3>
                                     </div>
 
                                     <form onSubmit={handleAddTomorrowTask} className={`grid grid-cols-1 md:grid-cols-12 gap-4 mb-8 p-6 rounded-2xl border shadow-xl relative overflow-hidden ${isDarkMode ? 'bg-[#05080c] border-gray-800' : 'bg-white border-gray-200'}`}>
@@ -3393,6 +3376,22 @@ const MarketingCRM = ({ initialTab }) => {
                                                 </svg>
                                                 Add New Task
                                             </h4>
+                                        </div>
+
+                                        <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Target Date *</label>
+                                            <input
+                                                type="date"
+                                                value={tomorrowPlanDate}
+                                                min={getTodayDateString()}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    if (val) {
+                                                        setTomorrowPlanDate(val);
+                                                    }
+                                                }}
+                                                className={`w-full px-3 py-2.5 rounded-xl border text-[11px] font-bold outline-none focus:border-blue-500 transition-all ${isDarkMode ? 'border-gray-700 bg-black/50 text-white' : 'border-gray-200 bg-white text-gray-900'}`}
+                                            />
                                         </div>
 
                                         <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
@@ -3506,7 +3505,7 @@ const MarketingCRM = ({ initialTab }) => {
                                             </select>
                                         </div>
 
-                                        <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
+                                        <div className="col-span-1 md:col-span-7 z-10 flex flex-col gap-1.5">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Notes (Optional)</label>
                                             <input
                                                 type="text"
@@ -3544,7 +3543,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                 </svg>
                                                 <div>
                                                     <p className="text-[11px] font-black text-gray-500 uppercase tracking-widest">No tasks planned yet</p>
-                                                    <p className="text-[10px] text-gray-400 font-bold mt-1">Use the form above to add tasks for tomorrow's field plan.</p>
+                                                    <p className="text-[10px] text-gray-400 font-bold mt-1">Use the form above to add tasks for the field plan.</p>
                                                 </div>
                                             </div>
                                         ) : (
@@ -3793,14 +3792,14 @@ const MarketingCRM = ({ initialTab }) => {
                                                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                                             </svg>
-                                                            Saving Field Plan...
+                                                            Saving Activity Plan...
                                                         </>
                                                     ) : (
                                                         <>
                                                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                                                             </svg>
-                                                            Save Tomorrow's Field Plan
+                                                            Save Activity Plan
                                                         </>
                                                     )}
                                                 </button>
