@@ -238,6 +238,19 @@ const EnrolledStudentsContent = () => {
     const [masterExamTags, setMasterExamTags] = useState([]);
     const [masterBoards, setMasterBoards] = useState([]);
     const [batches, setBatches] = useState([]);
+
+    // Service Calling States
+    const [isServiceCallModalOpen, setIsServiceCallModalOpen] = useState(false);
+    const [selectedStudentForCall, setSelectedStudentForCall] = useState(null);
+    const [serviceCallForm, setServiceCallForm] = useState({
+        servicePurpose: 'EMI Purpose',
+        status: 'Neutral',
+        remarks: '',
+        nextFollowUpDate: ''
+    });
+    const [isSubmittingServiceCall, setIsSubmittingServiceCall] = useState(false);
+    const [serviceCallHistory, setServiceCallHistory] = useState([]);
+    const [loadingServiceCallHistory, setLoadingServiceCallHistory] = useState(false);
     const [selectedAdmissionIds, setSelectedAdmissionIds] = useState([]);
     const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
     const [selectedStudent, setSelectedStudent] = useState(null);
@@ -568,6 +581,93 @@ const EnrolledStudentsContent = () => {
                 ? prev.filter(id => id !== admissionId)
                 : [...prev, admissionId]
         );
+    };
+
+    const handleOpenServiceCallModal = async (studentItem) => {
+        setSelectedStudentForCall(studentItem);
+        setServiceCallForm({
+            servicePurpose: 'EMI Purpose',
+            status: 'Neutral',
+            remarks: '',
+            nextFollowUpDate: ''
+        });
+        setIsServiceCallModalOpen(true);
+
+        const sId = studentItem.student?._id;
+        const admId = studentItem.latestAdmission?._id;
+        if (sId || admId) {
+            setLoadingServiceCallHistory(true);
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/student-service-call/history?studentId=${sId || ''}&admissionId=${admId || ''}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setServiceCallHistory(data.history || []);
+                }
+            } catch (err) {
+                console.error("Error fetching service call history:", err);
+            } finally {
+                setLoadingServiceCallHistory(false);
+            }
+        }
+    };
+
+    const handleSubmitServiceCall = async (e) => {
+        e.preventDefault();
+        if (!serviceCallForm.servicePurpose) {
+            toast.error("Please select a Service Purpose.");
+            return;
+        }
+        if (!serviceCallForm.nextFollowUpDate) {
+            toast.error("Next Follow Up Date is mandatory.");
+            return;
+        }
+
+        setIsSubmittingServiceCall(true);
+        try {
+            const token = localStorage.getItem("token");
+            const studentObj = selectedStudentForCall?.student || {};
+            const studentDetails = studentObj.studentsDetails?.[0] || {};
+            const latestAdm = selectedStudentForCall?.latestAdmission || {};
+
+            const payload = {
+                studentId: studentObj._id || null,
+                admissionId: latestAdm._id || null,
+                studentName: latestAdm.studentName || studentDetails.studentName || studentObj.studentName || "Student",
+                enrollmentNo: latestAdm.enrollmentNo || latestAdm.admissionNumber || studentDetails.enrollmentNo || studentDetails.admissionNo || "",
+                studentPhone: latestAdm.mobileNum || studentDetails.mobileNum || studentObj.mobileNumber || studentObj.phone || "",
+                centreName: latestAdm.centre || studentDetails.centre || "",
+                servicePurpose: serviceCallForm.servicePurpose,
+                status: serviceCallForm.status || "Neutral",
+                remarks: serviceCallForm.remarks,
+                nextFollowUpDate: serviceCallForm.nextFollowUpDate
+            };
+
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/student-service-call`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                toast.success("Service call logged & added to call reports!");
+                setIsServiceCallModalOpen(false);
+                setSelectedStudentForCall(null);
+            } else {
+                const errData = await res.json();
+                toast.error(errData.message || "Failed to log service call.");
+            }
+        } catch (err) {
+            console.error("Error submitting service call:", err);
+            toast.error("Failed to log service call due to network error.");
+        } finally {
+            setIsSubmittingServiceCall(false);
+        }
     };
 
     const handleSelectAll = (e) => {
@@ -2590,6 +2690,17 @@ const EnrolledStudentsContent = () => {
                                                             </button>
                                                         )}
 
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleOpenServiceCallModal(studentItem);
+                                                            }}
+                                                            className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-black border border-emerald-500/20' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white shadow-sm'}`}
+                                                            title="Service Calling"
+                                                        >
+                                                            <FaPhoneAlt size={14} />
+                                                        </button>
+
                                                         {canDeactivate && (
                                                             <button
                                                                 onClick={(e) => {
@@ -4037,8 +4148,188 @@ const EnrolledStudentsContent = () => {
                     handlePaymentSubmit({ preventDefault: () => { } });
                 }}
             />
-        </div >
 
+            {/* Service Calling Modal */}
+            {isServiceCallModalOpen && selectedStudentForCall && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+                    <div className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[8px] border shadow-2xl ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
+                        {/* Modal Header */}
+                        <div className={`sticky top-0 z-10 flex items-center justify-between p-5 border-b backdrop-blur-md ${isDarkMode ? 'bg-[#131619]/90 border-gray-800' : 'bg-white/90 border-gray-200'}`}>
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 rounded-[6px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    <FaPhoneAlt size={18} />
+                                </div>
+                                <div>
+                                    <h2 className="text-base font-black uppercase tracking-wider">Student Service Calling</h2>
+                                    <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">
+                                        Log Service Feedback &amp; Follow-up Details
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setIsServiceCallModalOpen(false);
+                                    setSelectedStudentForCall(null);
+                                }}
+                                className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'hover:bg-gray-800 text-gray-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`}
+                            >
+                                <FaTimes size={16} />
+                            </button>
+                        </div>
+
+                        {/* Student Details Header Summary */}
+                        <div className="p-5 border-b border-gray-800/50 bg-emerald-500/5">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[11px]">
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Student Name</span>
+                                    <span className="font-black text-emerald-400 uppercase">
+                                        {selectedStudentForCall.latestAdmission?.studentName || selectedStudentForCall.student?.studentsDetails?.[0]?.studentName || selectedStudentForCall.student?.studentName || "N/A"}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Enrollment No</span>
+                                    <span className="font-bold text-gray-300">
+                                        {selectedStudentForCall.latestAdmission?.enrollmentNo || selectedStudentForCall.latestAdmission?.admissionNumber || selectedStudentForCall.student?.studentsDetails?.[0]?.enrollmentNo || selectedStudentForCall.student?.studentsDetails?.[0]?.admissionNo || "N/A"}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Mobile No</span>
+                                    <span className="font-bold text-gray-300">
+                                        {selectedStudentForCall.latestAdmission?.mobileNum || selectedStudentForCall.student?.studentsDetails?.[0]?.mobileNum || selectedStudentForCall.student?.mobileNumber || selectedStudentForCall.student?.phone || "N/A"}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Centre</span>
+                                    <span className="font-bold text-gray-300">
+                                        {selectedStudentForCall.latestAdmission?.centre || selectedStudentForCall.student?.studentsDetails?.[0]?.centre || "Main Centre"}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Form Body */}
+                        <form onSubmit={handleSubmitServiceCall} className="p-6 space-y-5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* Service Purpose Dropdown */}
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                                        Service Purpose <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={serviceCallForm.servicePurpose}
+                                        onChange={(e) => setServiceCallForm({ ...serviceCallForm, servicePurpose: e.target.value })}
+                                        required
+                                        className={`w-full p-3 rounded-[4px] border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#181b1e] border-gray-800 text-white focus:border-emerald-500' : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-emerald-500'}`}
+                                    >
+                                        <option value="EMI Purpose">EMI Purpose</option>
+                                        <option value="Cross Selling">Cross Selling</option>
+                                        <option value="Any Other Dispute">Any Other Dispute</option>
+                                        <option value="Attendance & Academic Issue">Attendance &amp; Academic Issue</option>
+                                        <option value="General Service Calling">General Service Calling</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+
+                                {/* Next Follow Up Date (Mandatory) */}
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                                        Next Follow Up Date <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={serviceCallForm.nextFollowUpDate}
+                                        onChange={(e) => setServiceCallForm({ ...serviceCallForm, nextFollowUpDate: e.target.value })}
+                                        className={`w-full p-3 rounded-[4px] border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#181b1e] border-gray-800 text-white focus:border-emerald-500' : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-emerald-500'}`}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Remarks */}
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                                    Remarks / Call Notes
+                                </label>
+                                <textarea
+                                    rows={3}
+                                    value={serviceCallForm.remarks}
+                                    onChange={(e) => setServiceCallForm({ ...serviceCallForm, remarks: e.target.value })}
+                                    placeholder="Enter call details, EMI agreement, dispute resolution, or cross-selling feedback..."
+                                    className={`w-full p-3 rounded-[4px] border text-[11px] font-medium outline-none transition-all ${isDarkMode ? 'bg-[#181b1e] border-gray-800 text-white focus:border-emerald-500' : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-emerald-500'}`}
+                                />
+                            </div>
+
+                            {/* Submit Controls */}
+                            <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsServiceCallModalOpen(false);
+                                        setSelectedStudentForCall(null);
+                                    }}
+                                    className={`px-5 py-2.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmittingServiceCall}
+                                    className="px-6 py-2.5 rounded-[4px] bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isSubmittingServiceCall ? (
+                                        <><FaSync className="animate-spin" size={12} /> Logging Call...</>
+                                    ) : (
+                                        <><FaPhoneAlt size={12} /> Submit Service Call</>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+
+                        {/* Call History Section */}
+                        <div className="p-6 border-t border-gray-800 bg-black/20">
+                            <h3 className="text-[11px] font-black uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
+                                <FaHistory size={12} className="text-emerald-400" />
+                                Previous Service Call History ({serviceCallHistory.length})
+                            </h3>
+                            {loadingServiceCallHistory ? (
+                                <p className="text-[10px] text-gray-500 font-bold uppercase animate-pulse">Loading service call logs...</p>
+                            ) : serviceCallHistory.length === 0 ? (
+                                <p className="text-[10px] text-gray-500 italic">No previous service calls logged for this student.</p>
+                            ) : (
+                                <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                                    {serviceCallHistory.map((item) => (
+                                        <div
+                                            key={item._id}
+                                            className={`p-3 rounded-[4px] border text-[11px] ${isDarkMode ? 'bg-[#181b1e] border-gray-800' : 'bg-gray-50 border-gray-200'}`}
+                                        >
+                                            <div className="flex items-center justify-between mb-1">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-black text-emerald-400 uppercase">{item.servicePurpose}</span>
+                                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase border ${item.status === 'Hot' ? 'bg-red-500/10 text-red-400 border-red-500/20' : item.status === 'Warm' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-gray-500/10 text-gray-400 border-gray-500/20'}`}>
+                                                        {item.status || 'Neutral'}
+                                                    </span>
+                                                </div>
+                                                <span className="text-[9px] font-bold text-gray-500">
+                                                    {item.callDate} | {item.userName || "User"}
+                                                </span>
+                                            </div>
+                                            {item.remarks && (
+                                                <p className="text-[10px] text-gray-400 mt-1 italic">"{item.remarks}"</p>
+                                            )}
+                                            {item.nextFollowUpDate && (
+                                                <p className="text-[9px] text-cyan-400 font-bold mt-1">
+                                                    Next Follow Up: {item.nextFollowUpDate}
+                                                </p>
+                                            )}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
     );
 };
 

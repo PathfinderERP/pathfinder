@@ -1,5 +1,6 @@
 import CentreSchema from "../../models/Master_data/Centre.js";
 import LeadManagement from "../../models/LeadManagement.js";
+import StudentServiceCall from "../../models/StudentServiceCall.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import BoardCourseCounselling from "../../models/Admission/BoardCourseCounselling.js";
@@ -108,6 +109,65 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
             }
         } }
     ]);
+
+    // Aggregate student service calls
+    const serviceCallMatchStage = {
+        centre: { $in: actualCenterIds },
+        callDate: dateFilter
+    };
+    if (isRestrictIndividual && reqUser) {
+        serviceCallMatchStage["userName"] = { $regex: new RegExp(`^${reqUser.name.trim()}$`, "i") };
+    }
+
+    const aggregatedServiceCalls = await StudentServiceCall.aggregate([
+        { $match: serviceCallMatchStage },
+        {
+            $addFields: {
+                "userNameLower": { $toLower: "$userName" }
+            }
+        },
+        {
+            $group: {
+                _id: {
+                    centre: "$centre",
+                    userName: "$userNameLower"
+                },
+                originalUserName: { $first: "$userName" },
+                totalCalls: { $sum: 1 },
+                hot: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /hot/i } }, 1, 0] } },
+                warm: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /warm/i } }, 1, 0] } },
+                cold: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /cold/i } }, 1, 0] } },
+                neutral: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /neutral/i } }, 1, 0] } },
+                invalid: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /invalid|inactive/i } }, 1, 0] } }
+            }
+        }
+    ]);
+
+    // Merge service calls into aggregatedCalls
+    const callsMap = new Map();
+    const makeKey = (cId, uLower) => `${cId ? cId.toString() : ''}_${uLower || ''}`;
+
+    aggregatedCalls.forEach(item => {
+        const key = makeKey(item._id?.centre, item._id?.userName);
+        callsMap.set(key, { ...item });
+    });
+
+    aggregatedServiceCalls.forEach(sc => {
+        const key = makeKey(sc._id?.centre, sc._id?.userName);
+        if (callsMap.has(key)) {
+            const existing = callsMap.get(key);
+            existing.totalCalls += sc.totalCalls;
+            existing.hot += sc.hot;
+            existing.warm += sc.warm;
+            existing.cold += sc.cold;
+            existing.neutral += sc.neutral;
+            existing.invalid += sc.invalid;
+        } else {
+            callsMap.set(key, { ...sc });
+        }
+    });
+
+    const combinedCalls = Array.from(callsMap.values());
 
     const isCallReportRole = (roleStr) => {
         const rClean = (roleStr || '').toLowerCase().trim().replace(/\s+/g, '');
@@ -345,8 +405,8 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
         }
     });
 
-    // Add rows from aggregated calls
-    aggregatedCalls.forEach(item => {
+    // Add rows from aggregated calls (leads + student service calls)
+    combinedCalls.forEach(item => {
         const cId = item._id.centre?.toString();
         const uNameLower = (item._id.userName || "").trim();
         const uDetails = userMap[uNameLower] || {};
@@ -424,7 +484,7 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
         const finalRole = isMatchLoggedInUser ? reqUser.role : (row.role || uDetails.role || "N/A");
         const finalEmployeeId = isMatchLoggedInUser ? reqUser.employeeId : (row.employeeId || uDetails.employeeId || "N/A");
 
-        const aggCall = aggregatedCalls.find(ac => ac._id.centre?.toString() === cId && ac._id.userName === uNameLower) || {};
+        const aggCall = combinedCalls.find(ac => ac._id.centre?.toString() === cId && ac._id.userName === uNameLower) || {};
         
         const lookupKey = finalUserId ? `${finalUserId.toString()}_${cId}` : null;
         const walkInCount = lookupKey ? (walkInMap[lookupKey] || 0) : 0;

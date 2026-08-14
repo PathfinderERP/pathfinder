@@ -27,6 +27,7 @@ import examTagRoutes from "./routes/examTag/examTag.routes.js";
 import departmentRoutes from "./routes/department/department.routes.js";
 import admissionRoutes from "./routes/Admission/admission.routes.js";
 import boardCourseAdmissionRoutes from "./routes/Admission/boardAdmissionRoutes.js";
+import studentServiceCallRoutes from "./routes/studentServiceCall.routes.js";
 import paymentReminderRoutes from "./routes/payment/paymentReminder.routes.js";
 import paymentRoutes from "./routes/payment/payment.routes.js";
 import centreRoutes from "./routes/centre/centre.routes.js";
@@ -147,6 +148,7 @@ app.use("/api/examTag", examTagRoutes);
 app.use("/api/department", departmentRoutes);
 app.use("/api/admission", admissionRoutes);
 app.use("/api/board-admission", boardCourseAdmissionRoutes);
+app.use("/api/student-service-call", studentServiceCallRoutes);
 app.use("/api/payment-reminder", paymentReminderRoutes);
 app.use("/api/payment", paymentRoutes);
 
