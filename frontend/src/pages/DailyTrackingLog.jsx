@@ -23,6 +23,7 @@ import { useTheme } from "../context/ThemeContext";
 import Layout from "../components/Layout";
 import CustomMultiSelect from "../components/common/CustomMultiSelect";
 import { hasPermission } from "../config/permissions";
+import LogCalendarView from "../components/DailyTrackingLog/LogCalendarView";
 
 const getTodayDateString = () => {
     const d = new Date();
@@ -104,7 +105,12 @@ const DailyTrackingLog = () => {
     const tabParam = queryParams.get("tab");
 
     // State management
-    const [activeTab, setActiveTab] = useState(tabParam === "deptBoard" ? "deptBoard" : "myLog"); // "myLog" | "deptBoard"
+    const [activeTab, setActiveTab] = useState(
+        tabParam === "deptBoard" ? "deptBoard" : tabParam === "logCalendar" ? "logCalendar" : "myLog"
+    );
+    const [boardViewMode, setBoardViewMode] = useState("submitted"); // "submitted" | "upcoming"
+    const [upcomingGroupedUsers, setUpcomingGroupedUsers] = useState([]);
+    const [upcomingSummary, setUpcomingSummary] = useState({ totalLogs: 0, upcomingCount: 0, inProgressCount: 0, completedCount: 0 });
 
     useEffect(() => {
         const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -113,6 +119,7 @@ const DailyTrackingLog = () => {
             : currentUser.role === 'superAdmin' || currentUser.role === 'superadmin';
 
         const hasMyLogAccess = isSuperAdminUser || hasPermission(currentUser, 'dailyTrackingLog', 'myDailyLog', 'view');
+        const hasLogCalendarAccess = isSuperAdminUser || hasPermission(currentUser, 'dailyTrackingLog', 'logCalendar', 'view') || hasMyLogAccess;
         const hasLogTrackingAccess = isSuperAdminUser || hasPermission(currentUser, 'dailyTrackingLog', 'logTracking', 'view');
 
         if (tabParam === "deptBoard") {
@@ -126,11 +133,24 @@ const DailyTrackingLog = () => {
             } else {
                 setActiveTab("deptBoard");
             }
+        } else if (tabParam === "logCalendar") {
+            if (!hasLogCalendarAccess) {
+                toast.error("Access denied. You do not have permission to view Log Calendar.");
+                if (hasMyLogAccess) {
+                    navigate("/daily-tracking-log?tab=myLog");
+                } else {
+                    navigate("/dashboard");
+                }
+            } else {
+                setActiveTab("logCalendar");
+            }
         } else {
             // Default: myLog tab
             if (!hasMyLogAccess) {
                 toast.error("Access denied. You do not have permission to view My Daily Log.");
-                if (hasLogTrackingAccess) {
+                if (hasLogCalendarAccess) {
+                    navigate("/daily-tracking-log?tab=logCalendar");
+                } else if (hasLogTrackingAccess) {
                     navigate("/daily-tracking-log?tab=deptBoard");
                 } else {
                     navigate("/dashboard");
@@ -593,13 +613,67 @@ const DailyTrackingLog = () => {
         }
     };
 
+    // Fetch upcoming board logs
+    const fetchUpcomingBoardLogs = async (rangeOption, customStart, customEnd, role, name, centreId, status) => {
+        setLoading(true);
+        try {
+            const { start, end } = getDateRangeLimits(rangeOption, customStart, customEnd);
+            let url = `${apiUrl}/log-calendar/board?startDate=${start}&endDate=${end}`;
+
+            let rolesParam = "";
+            if (role) {
+                if (Array.isArray(role)) {
+                    rolesParam = role.map(r => r.value).join(",");
+                } else if (role !== "All") {
+                    rolesParam = role;
+                }
+            }
+            if (rolesParam) url += `&roles=${rolesParam}`;
+
+            if (name) url += `&search=${encodeURIComponent(name)}`;
+
+            let centresParam = "";
+            if (centreId) {
+                if (Array.isArray(centreId)) {
+                    centresParam = centreId.map(c => c.value).join(",");
+                } else if (centreId !== "All") {
+                    centresParam = centreId;
+                }
+            }
+            if (centresParam) url += `&centres=${centresParam}`;
+
+            if (status && status !== "ALL") url += `&status=${status}`;
+
+            const res = await fetch(url, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok) {
+                setUpcomingGroupedUsers(data.groupedUsers || []);
+                if (data.summary) {
+                    setUpcomingSummary(data.summary);
+                }
+            } else {
+                toast.error(data.message || "Failed to fetch upcoming logs.");
+            }
+        } catch (error) {
+            console.error("Error fetching upcoming board logs:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
         if (activeTab === "myLog") {
             fetchMyLog(selectedDate);
-        } else {
-            fetchBoardLogs(dateRangeOption, customStartDate, customEndDate, selectedDept, searchEmployee, selectedCentre);
+        } else if (activeTab === "deptBoard") {
+            if (boardViewMode === "submitted") {
+                fetchBoardLogs(dateRangeOption, customStartDate, customEndDate, selectedDept, searchEmployee, selectedCentre);
+            } else {
+                fetchUpcomingBoardLogs(dateRangeOption, customStartDate, customEndDate, selectedDept, searchEmployee, selectedCentre, statusFilter);
+            }
         }
-    }, [activeTab, selectedDate, dateRangeOption, customStartDate, customEndDate, selectedDept, searchEmployee, selectedCentre]);
+    }, [activeTab, boardViewMode, selectedDate, dateRangeOption, customStartDate, customEndDate, selectedDept, searchEmployee, selectedCentre, statusFilter]);
 
     // Handle Form Submit
     const handleAddActivity = async (e) => {
@@ -806,11 +880,13 @@ const DailyTrackingLog = () => {
                         </div>
                         <div>
                             <h2 className="text-2xl font-bold tracking-tight">
-                                {activeTab === "deptBoard" ? "Daily Tracking" : "My Daily Log"}
+                                {activeTab === "deptBoard" ? "Daily Tracking Board" : activeTab === "logCalendar" ? "Log Calendar" : "My Daily Log"}
                             </h2>
                             <p className={`text-xs ${isDarkMode ? "text-gray-400" : "text-gray-500"}`}>
                                 {activeTab === "deptBoard"
-                                    ? "Track employee daily working activity logs"
+                                    ? "Track employee daily submitted logs & upcoming log calendar entries"
+                                    : activeTab === "logCalendar"
+                                    ? "Schedule and fill upcoming working logs across date ranges"
                                     : "Input and track employee daily working activity log"}
                             </p>
                         </div>
@@ -829,7 +905,7 @@ const DailyTrackingLog = () => {
                                         }`}
                                 />
                             </div>
-                        ) : (
+                        ) : activeTab === "deptBoard" ? (
                             <div className="flex flex-wrap items-center gap-3">
                                 <div className={`flex flex-col border rounded-xl px-3 py-1.5 ${isDarkMode ? "bg-gray-800/80 border-gray-700" : "bg-white border-slate-200 shadow-sm"}`}>
                                     <label className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-0.5">DATE RANGE</label>
@@ -867,7 +943,7 @@ const DailyTrackingLog = () => {
                                     </div>
                                 )}
                             </div>
-                        )}
+                        ) : null}
                     </div>
                 </div>
 
@@ -1277,8 +1353,38 @@ const DailyTrackingLog = () => {
                     </div>
                 )}
 
+                {activeTab === "logCalendar" && (
+                    <LogCalendarView isDarkMode={isDarkMode} availableCentres={availableCentres} />
+                )}
+
                 {activeTab === "deptBoard" && (
                     <div>
+                        {/* Sub View Toggle: Submitted vs Upcoming Logs */}
+                        <div className={`flex items-center gap-2 mb-6 p-1.5 rounded-2xl border w-fit ${
+                            isDarkMode ? "bg-[#1a1f24]/80 border-gray-800" : "bg-white border-slate-200 shadow-sm"
+                        }`}>
+                            <button
+                                onClick={() => setBoardViewMode("submitted")}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
+                                    boardViewMode === "submitted"
+                                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                                        : isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-600 hover:text-gray-900"
+                                }`}
+                            >
+                                <FaCheckCircle /> Submitted Daily Logs
+                            </button>
+                            <button
+                                onClick={() => setBoardViewMode("upcoming")}
+                                className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
+                                    boardViewMode === "upcoming"
+                                        ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
+                                        : isDarkMode ? "text-gray-400 hover:text-white" : "text-gray-600 hover:text-gray-900"
+                                }`}
+                            >
+                                <FaCalendarAlt /> Upcoming Calendar Logs
+                            </button>
+                        </div>
+
                         {/* Summary Metric Cards */}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
                             {/* Total Active Users Card */}
@@ -1293,9 +1399,11 @@ const DailyTrackingLog = () => {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className={`text-[10px] font-black uppercase tracking-wider mb-1 ${isDarkMode ? "text-indigo-400" : "text-indigo-600"}`}>
-                                            TOTAL ACTIVE USERS
+                                            {boardViewMode === "upcoming" ? "TOTAL UPCOMING LOGS" : "TOTAL ACTIVE USERS"}
                                         </p>
-                                        <h3 className="text-2xl font-black">{summaryData.totalUsers || 0}</h3>
+                                        <h3 className="text-2xl font-black">
+                                            {boardViewMode === "upcoming" ? (upcomingSummary.totalLogs || 0) : (summaryData.totalUsers || 0)}
+                                        </h3>
                                         <p className="text-[11px] text-gray-500 mt-1 font-medium">Matching current filter</p>
                                     </div>
                                     <div className={`p-3.5 rounded-xl ${isDarkMode ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30" : "bg-indigo-100 text-indigo-600"}`}>
@@ -1316,15 +1424,21 @@ const DailyTrackingLog = () => {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-wider mb-1 text-emerald-500">
-                                            LOG SUBMITTED
+                                            {boardViewMode === "upcoming" ? "COMPLETED LOGS" : "LOG SUBMITTED"}
                                         </p>
                                         <div className="flex items-baseline gap-2">
-                                            <h3 className="text-2xl font-black text-emerald-500">{summaryData.filledUsersCount || 0}</h3>
-                                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                                {summaryData.filledPercentage || 0}%
-                                            </span>
+                                            <h3 className="text-2xl font-black text-emerald-500">
+                                                {boardViewMode === "upcoming" ? (upcomingSummary.completedCount || 0) : (summaryData.filledUsersCount || 0)}
+                                            </h3>
+                                            {boardViewMode !== "upcoming" && (
+                                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                    {summaryData.filledPercentage || 0}%
+                                                </span>
+                                            )}
                                         </div>
-                                        <p className="text-[11px] text-gray-500 mt-1 font-medium">Users filled activity log</p>
+                                        <p className="text-[11px] text-gray-500 mt-1 font-medium">
+                                            {boardViewMode === "upcoming" ? "Finished calendar activities" : "Users filled activity log"}
+                                        </p>
                                     </div>
                                     <div className={`p-3.5 rounded-xl ${isDarkMode ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-emerald-100 text-emerald-600"}`}>
                                         <FaCheckCircle className="text-2xl" />
@@ -1344,15 +1458,21 @@ const DailyTrackingLog = () => {
                                 <div className="flex items-center justify-between">
                                     <div>
                                         <p className="text-[10px] font-black uppercase tracking-wider mb-1 text-rose-500">
-                                            PENDING LOG SUBMISSION
+                                            {boardViewMode === "upcoming" ? "UPCOMING / IN PROGRESS" : "PENDING LOG SUBMISSION"}
                                         </p>
                                         <div className="flex items-baseline gap-2">
-                                            <h3 className="text-2xl font-black text-rose-500">{summaryData.pendingUsersCount || 0}</h3>
-                                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
-                                                {summaryData.pendingPercentage || 0}%
-                                            </span>
+                                            <h3 className="text-2xl font-black text-rose-500">
+                                                {boardViewMode === "upcoming" ? ((upcomingSummary.upcomingCount || 0) + (upcomingSummary.inProgressCount || 0)) : (summaryData.pendingUsersCount || 0)}
+                                            </h3>
+                                            {boardViewMode !== "upcoming" && (
+                                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30">
+                                                    {summaryData.pendingPercentage || 0}%
+                                                </span>
+                                            )}
                                         </div>
-                                        <p className="text-[11px] text-gray-500 mt-1 font-medium">Users did not fill log</p>
+                                        <p className="text-[11px] text-gray-500 mt-1 font-medium">
+                                            {boardViewMode === "upcoming" ? "Scheduled / Active logs" : "Users did not fill log"}
+                                        </p>
                                     </div>
                                     <div className={`p-3.5 rounded-xl ${isDarkMode ? "bg-rose-500/20 text-rose-400 border border-rose-500/30" : "bg-rose-100 text-rose-600"}`}>
                                         <FaExclamationTriangle className="text-2xl" />
@@ -1417,149 +1537,241 @@ const DailyTrackingLog = () => {
                         </div>
 
                         {/* Employee Logs Grid */}
-                        {loading ? (
-                            <div className="flex items-center justify-center p-12">
-                                <FaSpinner className="animate-spin text-3xl text-indigo-500 mr-2" />
-                                <span className="text-gray-500 font-medium">Fetching activities...</span>
-                            </div>
-                        ) : boardLogs.length === 0 ? (
-                            <div className="text-center py-16 flex flex-col items-center justify-center">
-                                <FaBuilding className={`text-5xl mb-3 ${isDarkMode ? "text-gray-700" : "text-gray-300"}`} />
-                                <p className="text-gray-500 text-sm font-medium">No tracking logs found on the board for the selected filter.</p>
-                                <p className="text-xs text-gray-500 mt-1">Try changing the date range or centre/role filters.</p>
-                            </div>
-                        ) : (
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {boardLogs
-                                    .filter(log => {
-                                        const hasAct = log.activities && log.activities.length > 0;
-                                        if (statusFilter === "FILLED") return hasAct;
-                                        if (statusFilter === "PENDING") return !hasAct;
-                                        return true;
-                                    })
-                                    .map((log) => {
-                                    const completedCount = log.activities.filter(a => a.status === "Completed").length;
-                                    const pendingCount = log.activities.filter(a => a.status === "In Progress").length;
-
-                                    return (
+                        {boardViewMode === "upcoming" ? (
+                            loading ? (
+                                <div className="flex items-center justify-center p-12">
+                                    <FaSpinner className="animate-spin text-3xl text-indigo-500 mr-2" />
+                                    <span className="text-gray-500 font-medium">Fetching upcoming logs...</span>
+                                </div>
+                            ) : upcomingGroupedUsers.length === 0 ? (
+                                <div className="text-center py-16 flex flex-col items-center justify-center">
+                                    <FaCalendarAlt className={`text-5xl mb-3 ${isDarkMode ? "text-gray-700" : "text-gray-300"}`} />
+                                    <p className="text-gray-500 text-sm font-medium">No upcoming calendar logs found for the selected filter.</p>
+                                    <p className="text-xs text-gray-500 mt-1">Try changing the date range or centre/role filters.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {upcomingGroupedUsers.map((userGroup, gIdx) => (
                                         <div
-                                            key={log._id}
-                                            className={`p-6 rounded-2xl border transition duration-200 hover:shadow-md ${isDarkMode
-                                                ? "bg-[#1a1f24] border-gray-800/80 hover:border-gray-700"
-                                                : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
-                                                }`}
+                                            key={gIdx}
+                                            className={`p-6 rounded-2xl border transition duration-200 hover:shadow-md ${
+                                                isDarkMode ? "bg-[#1a1f24] border-gray-800" : "bg-white border-slate-200 shadow-sm"
+                                            }`}
                                         >
-                                            {/* Employee Header */}
-                                            <div className="flex items-start justify-between mb-4 border-b border-gray-800/10 pb-3">
+                                            <div className="flex items-center justify-between mb-4 pb-3 border-b border-gray-100 dark:border-gray-800">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 text-white font-bold flex items-center justify-center shadow">
-                                                        {log.userName.charAt(0).toUpperCase()}
+                                                    <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-purple-600 text-white font-bold flex items-center justify-center text-sm shadow">
+                                                        {userGroup.userName ? userGroup.userName.charAt(0).toUpperCase() : "U"}
                                                     </div>
                                                     <div>
-                                                        <h4 className="font-bold text-sm leading-tight">{log.userName}</h4>
-                                                        <p className={`text-[10px] ${isDarkMode ? "text-indigo-400" : "text-indigo-600"} font-black uppercase tracking-wider`}>
-                                                            {getDisplayRoleName(log.user?.role || log.department)}
+                                                        <h4 className="font-bold text-base">{userGroup.userName}</h4>
+                                                        <p className="text-xs text-gray-500 flex items-center gap-2">
+                                                            <span>{getDisplayRoleName(userGroup.userRole)}</span>
+                                                            {userGroup.centreName && <span>• {userGroup.centreName}</span>}
                                                         </p>
-                                                        <p className="text-[10px] text-gray-500">
-                                                            {log.user?.designation || "Employee"}
-                                                        </p>
-                                                        {log.user?.primaryCentre?.centreName && (
-                                                            <p className={`text-[10px] font-bold ${isDarkMode ? "text-indigo-400" : "text-indigo-600"} mt-0.5`}>
-                                                                🏢 {log.user.primaryCentre.centreName}
+                                                    </div>
+                                                </div>
+                                                <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                                                    {userGroup.logs.length} scheduled
+                                                </span>
+                                            </div>
+
+                                            <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                                                {userGroup.logs.map(log => {
+                                                    const sStr = new Date(log.startDate).toISOString().split("T")[0];
+                                                    const eStr = new Date(log.endDate).toISOString().split("T")[0];
+                                                    const isMulti = sStr !== eStr;
+
+                                                    return (
+                                                        <div
+                                                            key={log._id}
+                                                            className={`p-3.5 rounded-xl border flex flex-col gap-2 ${
+                                                                isDarkMode ? "bg-gray-800/50 border-gray-700/80" : "bg-slate-50 border-slate-200/80"
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-start justify-between gap-2">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span
+                                                                        style={{ backgroundColor: log.color || "#6366f1" }}
+                                                                        className="w-2.5 h-2.5 rounded-full shrink-0"
+                                                                    />
+                                                                    <h5 className="font-bold text-sm leading-snug">{log.title}</h5>
+                                                                </div>
+                                                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                                                                    log.priority === "High"
+                                                                        ? "bg-rose-500/10 text-rose-500 border border-rose-500/20"
+                                                                        : "bg-slate-500/10 text-slate-500"
+                                                                }`}>
+                                                                    {log.priority}
+                                                                </span>
+                                                            </div>
+
+                                                            <div className="flex flex-wrap items-center gap-3 text-xs text-gray-400 font-medium">
+                                                                <span className="text-indigo-400 font-semibold flex items-center gap-1">
+                                                                    <FaCalendarAlt className="text-[10px]" />
+                                                                    {sStr} {isMulti && ` → ${eStr}`}
+                                                                </span>
+                                                                {log.time && <span>• {log.time}</span>}
+                                                                {log.place && <span>• {log.place}</span>}
+                                                                <span className={`ml-auto text-[10px] font-bold px-2 py-0.5 rounded ${
+                                                                    log.status === "Completed" ? "bg-emerald-500/10 text-emerald-500" : "bg-amber-500/10 text-amber-500"
+                                                                }`}>
+                                                                    {log.status}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )
+                        ) : (
+                            loading ? (
+                                <div className="flex items-center justify-center p-12">
+                                    <FaSpinner className="animate-spin text-3xl text-indigo-500 mr-2" />
+                                    <span className="text-gray-500 font-medium">Fetching activities...</span>
+                                </div>
+                            ) : boardLogs.length === 0 ? (
+                                <div className="text-center py-16 flex flex-col items-center justify-center">
+                                    <FaBuilding className={`text-5xl mb-3 ${isDarkMode ? "text-gray-700" : "text-gray-300"}`} />
+                                    <p className="text-gray-500 text-sm font-medium">No tracking logs found on the board for the selected filter.</p>
+                                    <p className="text-xs text-gray-500 mt-1">Try changing the date range or centre/role filters.</p>
+                                </div>
+                            ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                    {boardLogs
+                                        .filter(log => {
+                                            const hasAct = log.activities && log.activities.length > 0;
+                                            if (statusFilter === "FILLED") return hasAct;
+                                            if (statusFilter === "PENDING") return !hasAct;
+                                            return true;
+                                        })
+                                        .map((log) => {
+                                        const completedCount = log.activities.filter(a => a.status === "Completed").length;
+                                        const pendingCount = log.activities.filter(a => a.status === "In Progress").length;
+
+                                        return (
+                                            <div
+                                                key={log._id}
+                                                className={`p-6 rounded-2xl border transition duration-200 hover:shadow-md ${isDarkMode
+                                                    ? "bg-[#1a1f24] border-gray-800/80 hover:border-gray-700"
+                                                    : "bg-white border-slate-200 hover:border-slate-300 shadow-sm"
+                                                    }`}
+                                            >
+                                                {/* Employee Header */}
+                                                <div className="flex items-start justify-between mb-4 border-b border-gray-800/10 pb-3">
+                                                    <div className="flex items-center gap-3">
+                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 text-white font-bold flex items-center justify-center shadow">
+                                                            {log.userName.charAt(0).toUpperCase()}
+                                                        </div>
+                                                        <div>
+                                                            <h4 className="font-bold text-sm leading-tight">{log.userName}</h4>
+                                                            <p className={`text-[10px] ${isDarkMode ? "text-indigo-400" : "text-indigo-600"} font-black uppercase tracking-wider`}>
+                                                                {getDisplayRoleName(log.user?.role || log.department)}
                                                             </p>
+                                                            <p className="text-[10px] text-gray-500">
+                                                                {log.user?.designation || "Employee"}
+                                                            </p>
+                                                            {log.user?.primaryCentre?.centreName && (
+                                                                <p className={`text-[10px] font-bold ${isDarkMode ? "text-indigo-400" : "text-indigo-600"} mt-0.5`}>
+                                                                    🏢 {log.user.primaryCentre.centreName}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Work ratios */}
+                                                    <div className="flex gap-2">
+                                                        {completedCount === 0 && pendingCount === 0 && (
+                                                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 flex items-center gap-1">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
+                                                                No Entry
+                                                            </span>
+                                                        )}
+                                                        {completedCount > 0 && (
+                                                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center gap-1">
+                                                                <FaCheck className="text-[7px]" />
+                                                                {completedCount} Done
+                                                            </span>
+                                                        )}
+                                                        {pendingCount > 0 && (
+                                                            <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center gap-1">
+                                                                <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                                                                {pendingCount} Active
+                                                            </span>
                                                         )}
                                                     </div>
                                                 </div>
 
-                                                {/* Work ratios */}
-                                                <div className="flex gap-2">
-                                                    {completedCount === 0 && pendingCount === 0 && (
-                                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-rose-500/10 text-rose-500 flex items-center gap-1">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-pulse" />
-                                                            No Entry
-                                                        </span>
-                                                    )}
-                                                    {completedCount > 0 && (
-                                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 flex items-center gap-1">
-                                                            <FaCheck className="text-[7px]" />
-                                                            {completedCount} Done
-                                                        </span>
-                                                    )}
-                                                    {pendingCount > 0 && (
-                                                        <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 flex items-center gap-1">
-                                                            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                                                            {pendingCount} Active
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </div>
-
-                                            {/* Employee Activities */}
-                                            <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
-                                                {log.activities.length === 0 ? (
-                                                    <div className={`p-4 rounded-xl border border-dashed text-center flex flex-col items-center justify-center ${isDarkMode
-                                                        ? "bg-[#1f252d]/30 border-gray-800 text-gray-500"
-                                                        : "bg-slate-50 border-slate-200 text-gray-400"
-                                                        }`}>
-                                                        <FaClock className="text-xl mb-1 text-gray-500/50" />
-                                                        <p className="text-xs font-semibold">Pending Log Submission</p>
-                                                        <p className="text-[10px] opacity-75">This employee hasn't logged any activities yet in this period.</p>
-                                                    </div>
-                                                ) : (
-                                                    log.activities.map((act, actIdx) => (
-                                                        <div
-                                                            key={act._id || actIdx}
-                                                            className={`p-3 rounded-xl border ${isDarkMode
-                                                                ? "bg-[#1f252d]/60 border-gray-800"
-                                                                : "bg-slate-50 border-slate-100"
-                                                                }`}
-                                                        >
-                                                            <div className="flex flex-wrap justify-between items-center mb-1.5 gap-1">
-                                                                <div className="flex items-center gap-1.5">
-                                                                    <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${act.status === "Completed"
-                                                                        ? "bg-emerald-500/10 text-emerald-500"
-                                                                        : "bg-amber-500/10 text-amber-500"
-                                                                        }`}>
-                                                                        {act.status}
-                                                                    </span>
-                                                                    {act.logDate && (
-                                                                        <span className={`inline-flex items-center gap-1 text-[8px] font-mono font-bold px-2 py-0.5 rounded-full ${isDarkMode ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30" : "bg-cyan-50 text-cyan-700 border border-cyan-200"}`}>
-                                                                            <FaCalendarAlt className="text-[7px]" />
-                                                                            {act.logDate}
+                                                {/* Employee Activities */}
+                                                <div className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
+                                                    {log.activities.length === 0 ? (
+                                                        <div className={`p-4 rounded-xl border border-dashed text-center flex flex-col items-center justify-center ${isDarkMode
+                                                            ? "bg-[#1f252d]/30 border-gray-800 text-gray-500"
+                                                            : "bg-slate-50 border-slate-200 text-gray-400"
+                                                            }`}>
+                                                            <FaClock className="text-xl mb-1 text-gray-500/50" />
+                                                            <p className="text-xs font-semibold">Pending Log Submission</p>
+                                                            <p className="text-[10px] opacity-75">This employee hasn't logged any activities yet in this period.</p>
+                                                        </div>
+                                                    ) : (
+                                                        log.activities.map((act, actIdx) => (
+                                                            <div
+                                                                key={act._id || actIdx}
+                                                                className={`p-3 rounded-xl border ${isDarkMode
+                                                                    ? "bg-[#1f252d]/60 border-gray-800"
+                                                                    : "bg-slate-50 border-slate-100"
+                                                                    }`}
+                                                            >
+                                                                <div className="flex flex-wrap justify-between items-center mb-1.5 gap-1">
+                                                                    <div className="flex items-center gap-1.5">
+                                                                        <span className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${act.status === "Completed"
+                                                                            ? "bg-emerald-500/10 text-emerald-500"
+                                                                            : "bg-amber-500/10 text-amber-500"
+                                                                            }`}>
+                                                                            {act.status}
+                                                                        </span>
+                                                                        {act.logDate && (
+                                                                            <span className={`inline-flex items-center gap-1 text-[8px] font-mono font-bold px-2 py-0.5 rounded-full ${isDarkMode ? "bg-cyan-500/15 text-cyan-400 border border-cyan-500/30" : "bg-cyan-50 text-cyan-700 border border-cyan-200"}`}>
+                                                                                <FaCalendarAlt className="text-[7px]" />
+                                                                                {act.logDate}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    {act.centre && (
+                                                                        <span className={`inline-flex items-center gap-1 text-[8px] font-extrabold uppercase px-2 py-0.5 rounded-full ${isDarkMode ? "bg-indigo-500/10 text-indigo-400" : "bg-indigo-50 text-indigo-600"}`}>
+                                                                            <FaBuilding className="text-[7px]" />
+                                                                            {act.centre.centreName}
                                                                         </span>
                                                                     )}
                                                                 </div>
-                                                                {act.centre && (
-                                                                    <span className={`inline-flex items-center gap-1 text-[8px] font-extrabold uppercase px-2 py-0.5 rounded-full ${isDarkMode ? "bg-indigo-500/10 text-indigo-400" : "bg-indigo-50 text-indigo-600"}`}>
-                                                                        <FaBuilding className="text-[7px]" />
-                                                                        {act.centre.centreName}
-                                                                    </span>
+
+                                                                <p className={`text-xs leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                                                                    {act.workDetails}
+                                                                </p>
+
+                                                                {act.completedWork && (
+                                                                    <div className={`mt-2 p-2 rounded border border-dashed text-[11px] ${isDarkMode
+                                                                        ? "bg-emerald-950/5 border-emerald-900/30 text-emerald-400"
+                                                                        : "bg-emerald-50/20 border-emerald-200 text-emerald-700"
+                                                                        }`}>
+                                                                        <div className="font-extrabold flex items-center gap-1 mb-0.5 text-[9px] uppercase tracking-wider">
+                                                                            <FaCheckCircle /> Completed Work
+                                                                        </div>
+                                                                        <p className="opacity-90">{act.completedWork}</p>
+                                                                    </div>
                                                                 )}
                                                             </div>
-
-                                                            <p className={`text-xs leading-relaxed ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                                                                {act.workDetails}
-                                                            </p>
-
-                                                            {act.completedWork && (
-                                                                <div className={`mt-2 p-2 rounded border border-dashed text-[11px] ${isDarkMode
-                                                                    ? "bg-emerald-950/5 border-emerald-900/30 text-emerald-400"
-                                                                    : "bg-emerald-50/20 border-emerald-200 text-emerald-700"
-                                                                    }`}>
-                                                                    <div className="font-extrabold flex items-center gap-1 mb-0.5 text-[9px] uppercase tracking-wider">
-                                                                        <FaCheckCircle /> Completed Work
-                                                                    </div>
-                                                                    <p className="opacity-90">{act.completedWork}</p>
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    ))
-                                                )}
+                                                        ))
+                                                    )}
+                                                </div>
                                             </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )
                         )}
                     </div>
                 )}

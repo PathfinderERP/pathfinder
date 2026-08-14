@@ -1,66 +1,49 @@
 import express from "express";
 import {
-    addTask,
-    getMyPlan,
-    getMyUpcomingPlans,
-    getBoardPlans,
-    updateTask,
-    deleteTask,
-    savePlan
-} from "../controllers/tomorrowPlannerController.js";
+    createLog,
+    getMyLogs,
+    getAllUpcomingLogs,
+    updateLog,
+    deleteLog
+} from "../controllers/logCalendarController.js";
 import protect from "../middleware/authMiddleware.js";
 import { requireGranularPermission } from "../middleware/permissionMiddleware.js";
 
 const router = express.Router();
 
-// All routes protected — reuse same dailyTrackingLog granular permissions
 router.post(
     "/",
     protect,
     requireGranularPermission("dailyTrackingLog", "myDailyLog", "create"),
-    addTask
-);
-
-router.post(
-    "/save-plan",
-    protect,
-    requireGranularPermission("dailyTrackingLog", "myDailyLog", "create"),
-    savePlan
+    createLog
 );
 
 router.get(
-    "/my-plan",
+    "/my-logs",
     protect,
     requireGranularPermission("dailyTrackingLog", "myDailyLog", "view"),
-    getMyPlan
-);
-
-router.get(
-    "/my-upcoming-plans",
-    protect,
-    requireGranularPermission("dailyTrackingLog", "myDailyLog", "view"),
-    getMyUpcomingPlans
+    getMyLogs
 );
 
 router.get(
     "/board",
     protect,
     requireGranularPermission("dailyTrackingLog", "logTracking", "view"),
-    getBoardPlans
+    getAllUpcomingLogs
 );
 
 router.put(
-    "/:planId/task/:taskId",
+    "/:id",
     protect,
     requireGranularPermission("dailyTrackingLog", "myDailyLog", "edit"),
-    updateTask
+    updateLog
 );
 
 router.delete(
-    "/:planId/task/:taskId",
+    "/:id",
     protect,
     requireGranularPermission("dailyTrackingLog", "myDailyLog", "delete"),
-    deleteTask
+    deleteLog
 );
 
 export default router;

@@ -3,6 +3,7 @@ import TomorrowPlanner from "../models/TomorrowPlanner.js";
 import User from "../models/User.js";
 import Employee from "../models/HR/Employee.js";
 import AssignedTask from "../models/AssignedTask.js";
+import LogCalendar from "../models/LogCalendar.js";
 
 // Helper: convert a YYYY-MM-DD string or Date → midnight UTC for that calendar date
 const getMidnightUTC = (dateInput) => {
@@ -39,6 +40,74 @@ const mapRoleToDepartment = (role) => {
     if (r.includes("incharge") || r.includes("manager") || r.includes("head")) return "Management";
     if (r.includes("admin")) return "Administration";
     return "Operations";
+};
+
+// Helper: Sync TomorrowPlanner tasks into LogCalendar collection
+export const syncPlanToLogCalendar = async (userObj, targetDate, tasks) => {
+    try {
+        const startOfDay = new Date(targetDate);
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date(targetDate);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        const userId = userObj._id || userObj;
+
+        // Delete existing synced MarketingPlanner items for this date & user
+        await LogCalendar.deleteMany({
+            user: userId,
+            sourceModule: "MarketingPlanner",
+            startDate: { $gte: startOfDay, $lte: endOfDay }
+        });
+
+        if (!tasks || tasks.length === 0) return;
+
+        const department = mapRoleToDepartment(userObj.role);
+        const userRoleStr = Array.isArray(userObj.role) ? userObj.role.join(", ") : (userObj.role || "");
+
+        let userCentre = userObj.centre || null;
+        let userCentreName = "";
+        if (userObj.centres && userObj.centres.length > 0) {
+            userCentre = userObj.centres[0]._id || userObj.centres[0];
+            userCentreName = userObj.centres[0].centreName || "";
+        }
+
+        const logEntries = tasks.map(t => {
+            const purposeStr = t.activityPurpose ? `${t.activityPurpose} - ` : "";
+            const placeStr = t.place ? ` @ ${t.place}` : "";
+            const title = `[Marketing] ${purposeStr}${t.activityType || 'Field Activity'}${placeStr}`;
+
+            const noteParts = [];
+            if (t.activityPurpose) noteParts.push(`Purpose: ${t.activityPurpose}`);
+            if (t.notes) noteParts.push(`Notes: ${t.notes}`);
+            if (t.estimatedDuration) noteParts.push(`Duration: ${t.estimatedDuration}`);
+            const notes = noteParts.join(" | ");
+
+            return {
+                user: userId,
+                userName: userObj.name || userObj.userName || "Marketing Executive",
+                userRole: userRoleStr,
+                department,
+                centre: userCentre,
+                centreName: userCentreName,
+                title,
+                activityType: t.activityType || "School Visit",
+                startDate: startOfDay,
+                endDate: endOfDay,
+                time: t.time || "",
+                place: t.place || "",
+                priority: t.priority || "Medium",
+                status: t.status === "Completed" ? "Completed" : "Upcoming",
+                notes: notes || "Marketing Plan Activity",
+                color: "#3b82f6",
+                sourceModule: "MarketingPlanner",
+                marketingTaskId: t._id ? String(t._id) : ""
+            };
+        });
+
+        await LogCalendar.insertMany(logEntries);
+    } catch (err) {
+        console.error("Error in syncPlanToLogCalendar:", err);
+    }
 };
 
 // ─── Add a task to tomorrow's planner ───────────────────────────────────────
@@ -89,6 +158,7 @@ export const addTask = async (req, res) => {
         });
 
         await plan.save();
+        await syncPlanToLogCalendar(req.user, targetDate, plan.tasks);
         res.status(201).json({ message: "Task added to tomorrow's planner.", plan });
     } catch (error) {
         console.error("Error adding tomorrow planner task:", error);
@@ -170,6 +240,74 @@ export const getMyPlan = async (req, res) => {
     } catch (error) {
         console.error("Error fetching tomorrow plan:", error);
         res.status(500).json({ message: "Failed to fetch plan.", error: error.message });
+    }
+};
+
+// ─── Get current user's upcoming plans (where planDate >= today) ──────────────
+export const getMyUpcomingPlans = async (req, res) => {
+    try {
+        const todayMidnight = getMidnightUTC();
+        const startRange = new Date(todayMidnight.getTime() - 12 * 60 * 60 * 1000);
+
+        // Find all plans for this user where planDate >= startRange
+        const plans = await TomorrowPlanner.find({
+            user: req.user._id,
+            $or: [
+                { planDate: { $gte: startRange } },
+                { plantDate: { $gte: startRange } }
+            ]
+        }).sort({ planDate: 1 }).populate({
+            path: "tasks.schoolRef",
+            select: "schoolName centerName tier status",
+            populate: { path: "centerName", select: "centreName" }
+        });
+
+        // Also fetch future assigned tasks
+        const assignedTasks = await AssignedTask.find({
+            assignedTo: req.user._id,
+            planDate: { $gte: startRange },
+            status: { $ne: "Cancelled" }
+        });
+
+        const allUpcomingTasks = [];
+
+        plans.forEach(p => {
+            const pDateStr = (p.planDate || p.plantDate).toISOString().split("T")[0];
+            (p.tasks || []).forEach(t => {
+                const tObj = t.toObject ? t.toObject() : t;
+                allUpcomingTasks.push({
+                    ...tObj,
+                    targetDate: pDateStr,
+                    planId: p._id
+                });
+            });
+        });
+
+        assignedTasks.forEach(at => {
+            const atDateStr = at.planDate ? at.planDate.toISOString().split("T")[0] : "";
+            allUpcomingTasks.push({
+                _id: at._id,
+                targetDate: atDateStr,
+                taskDetails: `${at.activityType || 'School Visit'} at ${at.schoolName || 'School'}`,
+                activityType: at.activityType || "School Visit",
+                place: at.schoolName || "",
+                schoolRef: at.school,
+                schoolStatus: at.schoolStatus || "",
+                time: at.time || "",
+                priority: at.priority || "Medium",
+                estimatedDuration: at.estimatedDuration || "",
+                notes: at.notes || "",
+                status: at.status === "Completed" ? "Completed" : "Planned",
+                isAssigned: true,
+                assignedBy: at.assignedBy,
+                assignedByName: at.assignedByName || ""
+            });
+        });
+
+        res.status(200).json({ tasks: allUpcomingTasks, plans });
+    } catch (error) {
+        console.error("Error fetching upcoming plans:", error);
+        res.status(500).json({ message: "Failed to fetch upcoming plans.", error: error.message });
     }
 };
 
@@ -472,6 +610,7 @@ export const updateTask = async (req, res) => {
         if (nextActivityDate !== undefined) task.nextActivityDate = nextActivityDate;
 
         await plan.save();
+        await syncPlanToLogCalendar(req.user, plan.planDate, plan.tasks);
         res.status(200).json({ message: "Task updated successfully.", plan });
     } catch (error) {
         console.error("Error updating task:", error);
@@ -495,6 +634,7 @@ export const deleteTask = async (req, res) => {
 
         plan.tasks.pull({ _id: taskId });
         await plan.save();
+        await syncPlanToLogCalendar(req.user, plan.planDate, plan.tasks);
         res.status(200).json({ message: "Task deleted successfully.", plan });
     } catch (error) {
         console.error("Error deleting task:", error);
@@ -509,61 +649,88 @@ export const savePlan = async (req, res) => {
             return res.status(400).json({ message: "Tasks must be an array." });
         }
 
-        const targetDate = planDate ? getMidnightUTC(planDate) : getTomorrowMidnightUTC();
-        const startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
-        const endRange   = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
-
+        const fallbackTargetDate = planDate ? getMidnightUTC(planDate) : getTomorrowMidnightUTC();
         const department = mapRoleToDepartment(req.user.role);
 
-        let plan = await TomorrowPlanner.findOne({
-            user: req.user._id,
-            $or: [
-                { planDate: { $gte: startRange, $lt: endRange } },
-                { plantDate: { $gte: startRange, $lt: endRange } }
-            ]
+        // Group tasks by targetDate
+        const tasksByDate = new Map();
+
+        tasks.forEach(t => {
+            const tDateStr = t.targetDate ? String(t.targetDate).split("T")[0] : null;
+            const tDate = tDateStr ? getMidnightUTC(tDateStr) : fallbackTargetDate;
+            const dateKey = tDate.toISOString().split("T")[0];
+
+            if (!tasksByDate.has(dateKey)) {
+                tasksByDate.set(dateKey, { targetDate: tDate, tasks: [] });
+            }
+            tasksByDate.get(dateKey).tasks.push(t);
         });
 
-        // Filter and map tasks to clean up temporary client-side IDs and prevent ObjectId cast errors
-        const mappedTasks = tasks.map(t => {
-            const rawSchoolRef = t.schoolRef || t.school;
-            const validSchoolRef = (rawSchoolRef && mongoose.Types.ObjectId.isValid(rawSchoolRef)) ? rawSchoolRef : null;
-            const validAssignedBy = (t.assignedBy && mongoose.Types.ObjectId.isValid(t.assignedBy)) ? t.assignedBy : null;
-            const validAssignedTaskRef = (t.assignedTaskRef && mongoose.Types.ObjectId.isValid(t.assignedTaskRef)) ? t.assignedTaskRef : null;
-
-            return {
-                taskDetails: t.taskDetails || `${t.activityType || 'Activity'} at ${t.place || 'Unspecified Place'}`,
-                activityType: t.activityType || "",
-                activityPurpose: t.activityPurpose || "",
-                place: t.place || "",
-                schoolRef: validSchoolRef,
-                schoolStatus: t.schoolStatus || "",
-                time: t.time || "",
-                priority: t.priority || "Medium",
-                estimatedDuration: t.estimatedDuration || "",
-                notes: t.notes || "",
-                status: t.status || "Planned",
-                isAssigned: Boolean(t.isAssigned),
-                assignedBy: validAssignedBy,
-                assignedByName: t.assignedByName || "",
-                assignedTaskRef: validAssignedTaskRef,
-                activityStatus: t.activityStatus || "Neutral"
-            };
-        });
-
-        if (!plan) {
-            plan = new TomorrowPlanner({
-                user: req.user._id,
-                userName: req.user.name,
-                department,
-                planDate: targetDate,
-                tasks: mappedTasks
-            });
-        } else {
-            plan.tasks = mappedTasks;
+        // If empty tasks array provided, ensure plan for fallbackTargetDate is cleared
+        if (tasksByDate.size === 0) {
+            const dateKey = fallbackTargetDate.toISOString().split("T")[0];
+            tasksByDate.set(dateKey, { targetDate: fallbackTargetDate, tasks: [] });
         }
 
-        await plan.save();
-        res.status(200).json({ message: "Tomorrow's plan saved successfully.", plan });
+        const savedPlans = [];
+
+        for (const [dateKey, group] of tasksByDate.entries()) {
+            const targetDate = group.targetDate;
+            const startRange = new Date(targetDate.getTime() - 12 * 60 * 60 * 1000);
+            const endRange   = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
+
+            let plan = await TomorrowPlanner.findOne({
+                user: req.user._id,
+                $or: [
+                    { planDate: { $gte: startRange, $lt: endRange } },
+                    { plantDate: { $gte: startRange, $lt: endRange } }
+                ]
+            });
+
+            const mappedTasks = group.tasks.map(t => {
+                const rawSchoolRef = t.schoolRef || t.school;
+                const validSchoolRef = (rawSchoolRef && mongoose.Types.ObjectId.isValid(rawSchoolRef)) ? rawSchoolRef : null;
+                const validAssignedBy = (t.assignedBy && mongoose.Types.ObjectId.isValid(t.assignedBy)) ? t.assignedBy : null;
+                const validAssignedTaskRef = (t.assignedTaskRef && mongoose.Types.ObjectId.isValid(t.assignedTaskRef)) ? t.assignedTaskRef : null;
+
+                return {
+                    taskDetails: t.taskDetails || `${t.activityType || 'Activity'} at ${t.place || 'Unspecified Place'}`,
+                    activityType: t.activityType || "",
+                    activityPurpose: t.activityPurpose || "",
+                    place: t.place || "",
+                    schoolRef: validSchoolRef,
+                    schoolStatus: t.schoolStatus || "",
+                    time: t.time || "",
+                    priority: t.priority || "Medium",
+                    estimatedDuration: t.estimatedDuration || "",
+                    notes: t.notes || "",
+                    status: t.status || "Planned",
+                    isAssigned: Boolean(t.isAssigned),
+                    assignedBy: validAssignedBy,
+                    assignedByName: t.assignedByName || "",
+                    assignedTaskRef: validAssignedTaskRef,
+                    activityStatus: t.activityStatus || "Neutral"
+                };
+            });
+
+            if (!plan) {
+                plan = new TomorrowPlanner({
+                    user: req.user._id,
+                    userName: req.user.name,
+                    department,
+                    planDate: targetDate,
+                    tasks: mappedTasks
+                });
+            } else {
+                plan.tasks = mappedTasks;
+            }
+
+            await plan.save();
+            await syncPlanToLogCalendar(req.user, targetDate, mappedTasks);
+            savedPlans.push(plan);
+        }
+
+        res.status(200).json({ message: "Activity plan saved successfully.", plans: savedPlans, plan: savedPlans[0] });
     } catch (error) {
         console.error("Error saving tomorrow plan:", error);
         res.status(500).json({ message: "Failed to save plan.", error: error.message });
