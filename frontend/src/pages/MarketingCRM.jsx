@@ -582,21 +582,19 @@ const MarketingCRM = ({ initialTab }) => {
     const fetchTomorrowPlan = async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/tomorrow-planner/my-plan?date=${tomorrowPlanDate}`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/tomorrow-planner/my-upcoming-plans`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.ok) {
                 const data = await response.json();
-                if (data.plan && data.plan.tasks && data.plan.tasks.length > 0) {
-                    setTomorrowPlanId(data.plan._id || null);
-                    setTomorrowTasks(data.plan.tasks || []);
+                if (data.tasks && data.tasks.length > 0) {
+                    setTomorrowTasks(data.tasks);
                 } else {
-                    setTomorrowPlanId(null);
                     setTomorrowTasks([]);
                 }
             }
         } catch (error) {
-            console.error("Error fetching tomorrow plan:", error);
+            console.error("Error fetching upcoming plans:", error);
         }
     };
 
@@ -988,6 +986,53 @@ const MarketingCRM = ({ initialTab }) => {
         }
     };
 
+    const formatDisplayDate = (dStr) => {
+        if (!dStr) return "-";
+        const dateOnly = String(dStr).split("T")[0];
+        const parts = dateOnly.split("-");
+        if (parts.length === 3) {
+            return `${parts[2]}-${parts[1]}-${parts[0]}`;
+        }
+        return dStr;
+    };
+
+    const autoSaveTomorrowPlan = async (tasksToSave) => {
+        setSavingTomorrowPlan(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/tomorrow-planner/save-plan`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    tasks: tasksToSave,
+                    planDate: tomorrowPlanDate
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.plan && data.plan._id) {
+                    setTomorrowPlanId(data.plan._id);
+                    setTomorrowTasks(data.plan.tasks || []);
+                }
+                return true;
+            } else {
+                const errData = await response.json();
+                toast.error(errData.message || "Failed to save plan to database.");
+                return false;
+            }
+        } catch (error) {
+            console.error("Error saving plan:", error);
+            toast.error("Error connecting to server to save plan.");
+            return false;
+        } finally {
+            setSavingTomorrowPlan(false);
+        }
+    };
+
     const handleAddTomorrowTask = (e) => {
         e.preventDefault();
         if (!newTaskForm.activityType) {
@@ -1009,6 +1054,7 @@ const MarketingCRM = ({ initialTab }) => {
 
         const newTask = {
             _id: `temp_${Date.now()}_${Math.random()}`,
+            targetDate: tomorrowPlanDate,
             activityType: newTaskForm.activityType,
             activityPurpose: newTaskForm.activityPurpose || "",
             place: newTaskForm.place,
@@ -1031,10 +1077,8 @@ const MarketingCRM = ({ initialTab }) => {
             notes: "",
             priority: "Medium"
         });
-        toast.info("Activity added locally. Remember to save your plan!", {
-            autoClose: 4000,
-            closeOnClick: true
-        });
+
+        toast.info("Task added to list. Click 'SAVE ACTIVITY PLAN' to save your plan.");
     };
 
     const handleDeleteTomorrowTask = (taskId) => {
@@ -1043,12 +1087,13 @@ const MarketingCRM = ({ initialTab }) => {
             setEditTaskForm({});
         }
         setTomorrowTasks(prev => prev.filter(t => t._id !== taskId));
-        toast.success("Task removed from list.");
+        toast.info("Task removed from list.");
     };
 
     const handleEditTomorrowTask = (task) => {
         setEditingTaskId(task._id);
         setEditTaskForm({
+            targetDate: task.targetDate || tomorrowPlanDate,
             activityType: task.activityType || "",
             activityPurpose: task.activityPurpose || "",
             place: task.place || "",
@@ -1061,7 +1106,7 @@ const MarketingCRM = ({ initialTab }) => {
     };
 
     const handleUpdateTomorrowTask = (taskId) => {
-        if (!editTaskForm.place) { toast.error("School selection is required."); return; }
+        if (!editTaskForm.place) { toast.error("School / Place selection is required."); return; }
         if (!editTaskForm.time) { toast.error("Time is required."); return; }
         if (!editTaskForm.estimatedDuration) { toast.error("Duration is required."); return; }
         setTomorrowTasks(prev => prev.map(t =>
@@ -1069,7 +1114,7 @@ const MarketingCRM = ({ initialTab }) => {
         ));
         setEditingTaskId(null);
         setEditTaskForm({});
-        toast.success("Task updated. Remember to save your plan!");
+        toast.info("Task updated in list. Click 'SAVE ACTIVITY PLAN' to save your plan.");
     };
 
     const handleCancelEdit = () => {
@@ -1078,7 +1123,10 @@ const MarketingCRM = ({ initialTab }) => {
     };
 
     const handleSaveTomorrowPlan = async () => {
-        toast.dismiss();
+        if (tomorrowTasks.length === 0) {
+            toast.error("No planned tasks to save. Add tasks first using the form above.");
+            return;
+        }
         setSavingTomorrowPlan(true);
         try {
             const token = localStorage.getItem("token");
@@ -1096,41 +1144,15 @@ const MarketingCRM = ({ initialTab }) => {
 
             if (response.ok) {
                 const data = await response.json();
-                toast.success("Activity plan saved successfully!");
-                if (data.plan && data.plan._id) {
-                    setTomorrowPlanId(data.plan._id);
-                    setTomorrowTasks(data.plan.tasks || []);
-
-                    // Immediately sync to Today Task state in memory
-                    if (data.plan.tasks && data.plan.tasks.length > 0) {
-                        const mapped = data.plan.tasks.map(task => ({
-                            type: task.activityType || "",
-                            activityPurpose: task.activityPurpose || "",
-                            place: task.place || "",
-                            schoolRef: task.schoolRef?._id?.toString() || (typeof task.schoolRef === 'string' ? task.schoolRef : null),
-                            time: task.time || "",
-                            expectedLeads: "",
-                            isSaved: false,
-                            geoTagged: false,
-                            latitude: null,
-                            longitude: null,
-                            locationName: "",
-                            photo: null,
-                            estimatedDuration: task.estimatedDuration || "",
-                            notes: task.notes || "",
-                            priority: task.priority || "Medium",
-                            _id: task._id
-                        }));
-                        setTodayActivities(mapped);
-                    }
-                }
+                toast.success("Activity plan saved successfully for target date(s)!");
+                fetchTomorrowPlan();
             } else {
                 const errData = await response.json();
-                toast.error(errData.message || "Failed to save plan.");
+                toast.error(errData.message || "Failed to save activity plan.");
             }
         } catch (error) {
             console.error("Error saving plan:", error);
-            toast.error("Error saving plan.");
+            toast.error("Error connecting to server to save plan.");
         } finally {
             setSavingTomorrowPlan(false);
         }
@@ -2063,13 +2085,13 @@ const MarketingCRM = ({ initialTab }) => {
         }
     }, [filteredCmdCentreStaff, activeTab, selectedStaff]);
 
-    // Fetch tomorrow plan when tab switches or date changes
+    // Fetch tomorrow plan when tab switches
     useEffect(() => {
         if (activeTab === "Tomorrow Planner" || activeTab === "Activity Planner") {
             fetchTomorrowPlan();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [activeTab, tomorrowPlanDate]);
+    }, [activeTab]);
 
     // Sync planDate with tomorrowPlanDate so Today Task displays the planned activities
     useEffect(() => {
@@ -3550,12 +3572,13 @@ const MarketingCRM = ({ initialTab }) => {
                                             <div className="space-y-3">
                                                 {/* Grid Column Headers (Desktop only) */}
                                                 <div className="hidden md:grid grid-cols-12 gap-4 px-4 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
-                                                    <div className="col-span-2">Activity Purpose</div>
+                                                    <div className="col-span-1">Target Date</div>
+                                                    <div className="col-span-1">Purpose</div>
                                                     <div className="col-span-2">Activity Type</div>
-                                                    <div className="col-span-3">Place / Institution Name</div>
+                                                    <div className="col-span-2">Place / Institution Name</div>
                                                     <div className="col-span-1 text-center">From Time</div>
-                                                    <div className="col-span-1 text-center">Duration (In Hours)</div>
-                                                    <div className="col-span-1">Notes</div>
+                                                    <div className="col-span-1 text-center">Duration</div>
+                                                    <div className="col-span-2">Notes</div>
                                                     <div className="col-span-1 text-center">Priority</div>
                                                     <div className="col-span-1 text-center">Actions</div>
                                                 </div>
@@ -3564,6 +3587,13 @@ const MarketingCRM = ({ initialTab }) => {
                                                     editingTaskId === task._id ? (
                                                         /* ── EDIT MODE ROW ── */
                                                         <div key={task._id || idx} className={`grid grid-cols-1 md:grid-cols-12 gap-3 items-end p-4 rounded-xl border-2 transition-all ${isDarkMode ? 'bg-blue-950/20 border-blue-500/40 text-white' : 'bg-blue-50/60 border-blue-300 text-gray-900'}`}>
+                                                            {/* Target Date */}
+                                                            <div className="col-span-1 md:col-span-1 flex flex-col gap-1">
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Target Date</label>
+                                                                <span className={`text-[10px] font-black uppercase py-1.5 px-2 rounded-lg border ${isDarkMode ? 'border-gray-700 bg-black/60 text-blue-400' : 'border-gray-200 bg-white text-blue-600'}`}>
+                                                                    {formatDisplayDate(task.targetDate || tomorrowPlanDate)}
+                                                                </span>
+                                                            </div>
                                                             {/* Activity Purpose */}
                                                             <div className="col-span-1 md:col-span-1 flex flex-col gap-1">
                                                                 <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Purpose</label>
@@ -3602,7 +3632,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                                 </select>
                                                             </div>
                                                             {/* Place / School */}
-                                                            <div className="col-span-1 md:col-span-3 flex flex-col gap-1">
+                                                            <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
                                                                 <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">
                                                                     Place / Institution *
                                                                 </label>
@@ -3648,7 +3678,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                                 />
                                                             </div>
                                                             {/* Duration */}
-                                                            <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
+                                                            <div className="col-span-1 md:col-span-1 flex flex-col gap-1">
                                                                 <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Duration *</label>
                                                                 <input
                                                                     type="text"
@@ -3707,6 +3737,14 @@ const MarketingCRM = ({ initialTab }) => {
                                                     ) : (
                                                         /* ── VIEW MODE ROW ── */
                                                         <div key={task._id || idx} className={`grid grid-cols-1 md:grid-cols-12 gap-4 items-center p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#131619]/40 border-gray-800/60 text-white hover:border-gray-700' : 'bg-gray-50/50 border-gray-100 text-gray-900 hover:border-gray-200'}`}>
+                                                            {/* Target Date */}
+                                                            <div className="col-span-1 md:col-span-1">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Target Date</label>
+                                                                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border bg-blue-500/10 text-blue-500 border-blue-500/20`}>
+                                                                    {formatDisplayDate(task.targetDate || tomorrowPlanDate)}
+                                                                </span>
+                                                            </div>
+
                                                             <div className="col-span-1 md:col-span-1">
                                                                 <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Purpose</label>
                                                                 {task.activityPurpose ? (
@@ -3723,9 +3761,9 @@ const MarketingCRM = ({ initialTab }) => {
                                                                 <span className="text-[11px] font-black uppercase">{task.activityType || task.taskDetails || "Activity"}</span>
                                                             </div>
 
-                                                            <div className="col-span-1 md:col-span-3">
+                                                            <div className="col-span-1 md:col-span-2 truncate">
                                                                 <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Place / Institution Name</label>
-                                                                <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{task.place || "-"}</span>
+                                                                <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`} title={task.place}>{task.place || "-"}</span>
                                                             </div>
 
                                                             <div className="col-span-1 md:col-span-1 text-left md:text-center">
@@ -3733,8 +3771,8 @@ const MarketingCRM = ({ initialTab }) => {
                                                                 <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{task.time || "-"}</span>
                                                             </div>
 
-                                                            <div className="col-span-1 md:col-span-2 text-left md:text-center">
-                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Duration (In Hours)</label>
+                                                            <div className="col-span-1 md:col-span-1 text-left md:text-center">
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Duration</label>
                                                                 <span className={`text-[11px] font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{task.estimatedDuration || "-"}</span>
                                                             </div>
 

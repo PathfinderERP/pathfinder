@@ -497,6 +497,10 @@ export const PERMISSION_MODULES = {
                 label: "My Daily Log",
                 operations: ["create", "edit", "delete"]
             },
+            logCalendar: {
+                label: "Log Calendar",
+                operations: ["create", "edit", "delete"]
+            },
             logTracking: {
                 label: "Log Tracking",
                 operations: ["create", "edit", "delete"]

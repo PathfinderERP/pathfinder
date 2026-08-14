@@ -249,7 +249,7 @@ export const requireGranularPermission = (module, section, action) => {
 
             // Grant automatic access to dailyTrackingLog module actions ONLY if user does NOT have custom permissions configured
             if (!hasAccess && module === 'dailyTrackingLog' && !hasCustomPerms) {
-                if (section === 'myDailyLog') {
+                if (section === 'myDailyLog' || section === 'logCalendar') {
                     const isTeacher = user.role?.toLowerCase() === 'teacher';
                     if (!isTeacher) {
                         hasAccess = true;

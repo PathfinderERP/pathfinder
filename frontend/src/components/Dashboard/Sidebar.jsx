@@ -146,6 +146,13 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     permissionSection: "myDailyLog"
                 },
                 {
+                    name: "Log Calendar",
+                    path: "/daily-tracking-log?tab=logCalendar",
+                    icon: <FaCalendarAlt />,
+                    permissionModule: "dailyTrackingLog",
+                    permissionSection: "logCalendar"
+                },
+                {
                     name: "Log Tracking",
                     path: "/daily-tracking-log?tab=deptBoard",
                     icon: <FaBuilding />,
