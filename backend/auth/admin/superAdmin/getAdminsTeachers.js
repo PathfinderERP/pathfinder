@@ -6,7 +6,7 @@ import { getSignedFileUrl } from "../../../utils/r2Upload.js";
 export const getAllAdminsBySuperAdmin = async (req, res) => {
   try {
     const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-    const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "hod", "assistantzonalmanager", "assistantcenterincharge", "hr"];
+    const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "areamanager", "hod", "assistantzonalmanager", "assistantcenterincharge", "hr"];
     const isPrivileged = privilegedRoles.includes(userRoleStr);
 
     let query = { role: "admin" };
@@ -45,7 +45,7 @@ export const getAllTeachersBySuperAdmin = async (req, res) => {
     const requestingUser = req.user;
     const userRole = (requestingUser.role || "").toLowerCase().replace(/\s+/g, "");
 
-    const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "hod", "assistantzonalmanager", "assistantcenterincharge", "hr"];
+    const privilegedRoles = ["superadmin", "super admin", "centerincharge", "zonalmanager", "areamanager", "hod", "assistantzonalmanager", "assistantcenterincharge", "hr"];
     const isUnderPrivileged = !privilegedRoles.includes(userRole);
 
     let query = { role: "teacher" };
@@ -108,7 +108,7 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
 
       // If user is a centerIncharge, restrict queried roles
       if (userRole === "centerincharge" || userRole === "centreincharge" || userRole === "assistantcenterincharge") {
-        query.role = { $in: ["telecaller", "centralizedTelecaller", "counsellor", "marketing", "zonalManager", "centerIncharge", "Center Incharge", "centerincharge", "centreincharge", "Centre Incharge", "assistantZonalManager", "assistantCenterIncharge", "supportStaff"] };
+        query.role = { $in: ["telecaller", "centralizedTelecaller", "counsellor", "marketing", "zonalManager", "areaManager", "centerIncharge", "Center Incharge", "centerincharge", "centreincharge", "Centre Incharge", "assistantZonalManager", "assistantCenterIncharge", "supportStaff"] };
       }
     }
 

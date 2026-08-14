@@ -49,7 +49,7 @@ const UpcomingClass = () => {
     const ALL_ROLES_FOR_CLASS = [
         'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller',
         'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing',
-        'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts',
+        'centerIncharge', 'zonalManager', 'areaManager', 'zonalHead', 'hr', 'accounts',
         'coordinator', 'digital', 'assistantZonalManager', 'assistantCenterIncharge'
     ];
     const isAcademicAdmin = ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase());

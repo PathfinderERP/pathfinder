@@ -665,7 +665,7 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
     const ALL_ROLES_FOR_CLASS = [
         'teacher', 'admin', 'superadmin', 'telecaller', 'centralizedtelecaller',
         'counsellor', 'rm', 'classcoordinator', 'class_coordinator', 'hod', 'marketing',
-        'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'hr', 'accounts',
+        'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead', 'hr', 'accounts',
         'coordinator', 'digital', 'assistantzonalmanager', 'assistantcenterincharge'
     ];
 
@@ -679,7 +679,7 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
     // Course Management module & section resolution
     if (module === 'courseManagement' || section === 'courses' || section === 'courseManagement') {
         const isCourseTargetRole = [
-            'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead',
+            'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead',
             'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge',
             'coordinator', 'classcoordinator', 'class_coordinator'
         ].includes(cleanRoleStr);
@@ -721,7 +721,7 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
             }
             return secObj[operation] === true;
         }
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
         return isMktTargetRole;
     }
 
@@ -736,7 +736,7 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
                 const isTeacher = role?.toLowerCase() === 'teacher';
                 if (!isTeacher && (!granularPermissions?.[module]?.[section] || granularPermissions[module][section].view !== false)) return true;
             } else {
-                const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
+                const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead', 'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
                 if ((isMktTargetRole || granularPermissions?.['marketingCRM']) && (!granularPermissions?.[module]?.[section] || granularPermissions[module][section].view !== false)) {
                     return true;
                 }
@@ -796,7 +796,7 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     // Course Management module access resolution
     if (module === 'courseManagement') {
         const isCourseTargetRole = [
-            'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead',
+            'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead',
             'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge',
             'coordinator', 'classcoordinator', 'class_coordinator'
         ].includes(normalizedRole);
@@ -845,7 +845,7 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
                 return sec && typeof sec === 'object' && sec.view === true;
             });
         }
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'].includes(normalizedRole);
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'].includes(normalizedRole);
         if (isMktTargetRole) return true;
     }
 

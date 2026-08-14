@@ -162,6 +162,7 @@ const getLogsDataHelper = async (req) => {
         counsellor: ["counsellor"],
         teacher: ["teacher"],
         zonalmanager: ["zonalManager", "zonalmanager"],
+        areamanager: ["areaManager", "areamanager"],
         centreincharge: ["centerIncharge"],
         centerincharge: ["centerIncharge"],
         assistantzonalmanager: ["assistantZonalManager"],
@@ -415,6 +416,7 @@ const getDisplayRoleName = (role) => {
     if (normalized === "marketing") return "Marketing";
     if (normalized === "centerincharge" || normalized === "centreincharge") return "Center Incharge";
     if (normalized === "zonalmanager") return "Zonal Manager";
+    if (normalized === "areamanager") return "Area Manager";
     if (normalized === "hod") return "HOD";
     if (normalized === "accounts") return "Accounts";
     if (normalized === "coordinator") return "Coordinator";

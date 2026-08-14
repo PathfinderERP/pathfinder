@@ -346,6 +346,8 @@ export const getActiveEmployees = async (req, res) => {
             "admin",
             "zonal manager",
             "zonalmanager",
+            "area manager",
+            "areamanager",
             "assistant zonal manager",
             "assistantzonalmanager"
         ];

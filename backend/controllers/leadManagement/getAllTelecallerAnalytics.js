@@ -60,7 +60,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         const user = req.user;
         const userRoleStr = (user.role || "").toLowerCase().replace(/\s+/g, "");
         const isFullAccess = ['superadmin', 'super admin', 'admin', 'digital'].includes(userRoleStr);
-        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "coordinator", "rm", "hod", "assistantzonalmanager", "assistantcenterincharge", "digital"];
+        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "areamanager", "hr", "class_coordinator", "coordinator", "rm", "hod", "assistantzonalmanager", "assistantcenterincharge", "digital"];
         const isPrivileged = privilegedRoles.includes(userRoleStr);
 
         const baseLeadFilters = {};

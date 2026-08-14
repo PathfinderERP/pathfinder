@@ -177,7 +177,7 @@ const DailyCenterTracking = () => {
             if (response.ok) {
                 const data = await response.json();
                 const allUsers = data.users || [];
-                const operationalRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'assistantcenterincharge', 'assistantzonalmanager'];
+                const operationalRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'assistantcenterincharge', 'assistantzonalmanager'];
                 const filteredAgents = allUsers.filter(u => {
                     const roleClean = (u.role || '').toLowerCase().replace(/\s+/g, '');
                     return u.isActive !== false && operationalRoles.includes(roleClean);

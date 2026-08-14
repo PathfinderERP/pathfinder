@@ -21,6 +21,7 @@ const ALL_ROLES = [
     { value: "marketing", label: "Marketing" },
     { value: "centerIncharge", label: "Center Incharge" },
     { value: "zonalManager", label: "Zonal Manager" },
+    { value: "areaManager", label: "Area Manager" },
     { value: "HOD", label: "HOD" },
     { value: "Class_Coordinator", label: "Class Coordinator" },
     { value: "hr", label: "HR" },

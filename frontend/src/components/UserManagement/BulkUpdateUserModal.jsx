@@ -16,6 +16,7 @@ const ROLES = [
     { value: "marketing", label: "Marketing" },
     { value: "centerIncharge", label: "Center Incharge" },
     { value: "zonalManager", label: "Zonal Manager" },
+    { value: "areaManager", label: "Area Manager" },
     { value: "hr", label: "HR" },
     { value: "accounts", label: "Accounts" },
     { value: "coordinator", label: "Coordinator" },

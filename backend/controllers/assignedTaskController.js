@@ -189,6 +189,7 @@ export const getAssignableStaff = async (req, res) => {
             "marketing",
             "centerIncharge",
             "zonalManager",
+            "areaManager",
             "assistantZonalManager",
             "assistantCenterIncharge",
             "supportStaff",

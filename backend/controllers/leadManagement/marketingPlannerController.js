@@ -202,8 +202,8 @@ export const getPlanners = async (req, res) => {
         if (userRoleStr === "superadmin" || userRoleStr === "super admin" || userRoleStr === "admin") {
             // Superadmin and Admin can view all data
             query = {};
-        } else if (userRoleStr === "zonalmanager" || userRoleStr === "zonalhead") {
-            // Zonal Manager / Head can view assistantzonalmanager, centerincharge, assistantcenterincharge, marketing, and supportstaff in their allotted centres, plus their own logs
+        } else if (userRoleStr === "zonalmanager" || userRoleStr === "zonalhead" || userRoleStr === "areamanager") {
+            // Zonal/Area Manager / Head can view assistantzonalmanager, centerincharge, assistantcenterincharge, marketing, and supportstaff in their allotted centres, plus their own logs
             const userCentres = (req.user.centres || []).map(c => (c._id || c).toString()).filter(Boolean);
             const userIds = [(req.user._id || req.user.id).toString()];
             if (userCentres.length > 0) {
@@ -215,7 +215,8 @@ export const getPlanners = async (req, res) => {
                         "centerincharge", "centerIncharge", "centreincharge", "centreIncharge",
                         "assistantcenterincharge", "assistantCenterIncharge", "assistantcentreincharge", "assistantCentreIncharge",
                         "supportstaff", "supportStaff",
-                        "assistantzonalmanager", "assistantZonalManager"
+                        "assistantzonalmanager", "assistantZonalManager",
+                        "areamanager", "areaManager"
                     ] }
                 }).select('_id');
                 subordinateUsers.forEach(u => {
@@ -487,7 +488,7 @@ export const updatePlannerApproval = async (req, res) => {
         const { status, remarks } = req.body;
 
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const allowedRoles = ["superadmin", "super admin", "admin", "zonalmanager", "zonalhead", "centerincharge", "centreincharge", "assistantzonalmanager", "assistantcenterincharge"];
+        const allowedRoles = ["superadmin", "super admin", "admin", "zonalmanager", "areamanager", "zonalhead", "centerincharge", "centreincharge", "assistantzonalmanager", "assistantcenterincharge"];
         if (!allowedRoles.includes(userRoleStr)) {
             return res.status(403).json({ error: "Forbidden: You do not have permission to approve/reject plans." });
         }
@@ -530,8 +531,8 @@ export const updatePlannerApproval = async (req, res) => {
             }
 
             // Specific role hierarchy logic
-            if (userRoleStr === "zonalmanager" || userRoleStr === "zonalhead") {
-                // Zonal managers can approve marketing, centerIncharge, assistantCenterIncharge, supportStaff, and assistantZonalManager
+            if (userRoleStr === "zonalmanager" || userRoleStr === "zonalhead" || userRoleStr === "areamanager") {
+                // Zonal/Area managers can approve marketing, centerIncharge, assistantCenterIncharge, supportStaff, and assistantZonalManager
                 const allowedOwners = ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "assistantcentreincharge", "supportstaff", "assistantzonalmanager"];
                 if (!allowedOwners.includes(ownerRoleStr)) {
                     return res.status(403).json({ error: "Forbidden: Zonal Managers can only approve plans of Marketing, Center Incharge, Assistant Center Incharge, Support Staff, and Assistant Zonal Manager users." });
@@ -559,7 +560,7 @@ export const updatePlannerApproval = async (req, res) => {
             }
         } else {
             // Superadmins can approve any of the target roles
-            const validRoles = ["marketing", "centerincharge", "centreincharge", "zonalmanager", "zonalhead", "superadmin", "super admin", "admin", "assistantzonalmanager", "assistantcenterincharge", "supportstaff"];
+            const validRoles = ["marketing", "centerincharge", "centreincharge", "zonalmanager", "areamanager", "zonalhead", "superadmin", "super admin", "admin", "assistantzonalmanager", "assistantcenterincharge", "supportstaff"];
             if (!validRoles.includes(ownerRoleStr)) {
                 return res.status(403).json({ error: "Forbidden: Not an approvable role." });
             }

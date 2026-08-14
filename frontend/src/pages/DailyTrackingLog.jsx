@@ -307,6 +307,7 @@ const DailyTrackingLog = () => {
                 'marketing',
                 'centerIncharge',
                 'zonalManager',
+                'areaManager',
                 'HOD',
                 'accounts',
                 'coordinator',
@@ -418,6 +419,7 @@ const DailyTrackingLog = () => {
         if (normalized === "marketing") return "Marketing";
         if (normalized === "centerincharge" || normalized === "centreincharge") return "Center Incharge";
         if (normalized === "zonalmanager") return "Zonal Manager";
+        if (normalized === "areamanager") return "Area Manager";
         if (normalized === "hod") return "HOD";
         if (normalized === "accounts") return "Accounts";
         if (normalized === "coordinator") return "Coordinator";

@@ -67,8 +67,8 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
     const canDeactivateUsers = isSuperAdmin || (hasPermission(currentUser.granularPermissions, 'userManagement', 'users', 'edit') && (hasModuleAccess(currentUser.granularPermissions, 'employeeCenter') || hasModuleAccess(currentUser.granularPermissions, 'hrManpower')));
 
     const roles = isSuperAdmin
-        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "HOD", "hr", "accounts", "coordinator", "digital", "assistantZonalManager", "assistantCenterIncharge", "supportStaff", "superAdmin"]
-        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "HOD", "hr", "accounts", "coordinator", "digital", "assistantZonalManager", "assistantCenterIncharge", "supportStaff"];
+        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "areaManager", "HOD", "hr", "accounts", "coordinator", "digital", "assistantZonalManager", "assistantCenterIncharge", "supportStaff", "superAdmin"]
+        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "areaManager", "HOD", "hr", "accounts", "coordinator", "digital", "assistantZonalManager", "assistantCenterIncharge", "supportStaff"];
 
     useEffect(() => {
         fetchCentres();
@@ -378,6 +378,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                                             : role === "Class_Coordinator" ? "Class Coordinator"
                                             : role === "centerIncharge" ? "Center Incharge"
                                             : role === "zonalManager" ? "Zonal Manager"
+                                            : role === "areaManager" ? "Area Manager"
                                             : role === "assistantZonalManager" ? "Assistant Zonal Manager"
                                             : role === "assistantCenterIncharge" ? "Assistant Center Incharge"
                                             : role === "supportStaff" ? "Support Staff"

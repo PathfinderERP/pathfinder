@@ -54,8 +54,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
     const isSuperAdmin = currentUser.role === "superAdmin";
 
     const roles = isSuperAdmin
-        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "HOD", "Class_Coordinator", "hr", "accounts", "coordinator", "digital", "assistantZonalManager", "assistantCenterIncharge", "supportStaff", "superAdmin"]
-        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "HOD", "Class_Coordinator", "hr", "accounts", "coordinator", "digital", "assistantZonalManager", "assistantCenterIncharge", "supportStaff"];
+        ? ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "areaManager", "HOD", "Class_Coordinator", "hr", "accounts", "coordinator", "digital", "assistantZonalManager", "assistantCenterIncharge", "supportStaff", "superAdmin"]
+        : ["admin", "teacher", "telecaller", "counsellor", "marketing", "centerIncharge", "zonalManager", "areaManager", "HOD", "Class_Coordinator", "hr", "accounts", "coordinator", "digital", "assistantZonalManager", "assistantCenterIncharge", "supportStaff"];
 
     useEffect(() => {
         fetchCentres();
@@ -293,11 +293,12 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                                                     : role === "Class_Coordinator" ? "Class Coordinator"
                                                         : role === "centerIncharge" ? "Center Incharge"
                                                             : role === "zonalManager" ? "Zonal Manager"
-                                                                : role === "assistantZonalManager" ? "Assistant Zonal Manager"
-                                                                    : role === "assistantCenterIncharge" ? "Assistant Center Incharge"
-                                                                        : role === "supportStaff" ? "Support Staff"
-                                                                            : role === "admin" ? "Back Office"
-                                                                                : role.charAt(0).toUpperCase() + role.slice(1)}
+                                                                : role === "areaManager" ? "Area Manager"
+                                                                    : role === "assistantZonalManager" ? "Assistant Zonal Manager"
+                                                                        : role === "assistantCenterIncharge" ? "Assistant Center Incharge"
+                                                                            : role === "supportStaff" ? "Support Staff"
+                                                                                : role === "admin" ? "Back Office"
+                                                                                    : role.charAt(0).toUpperCase() + role.slice(1)}
                                     </option>
                                 ))}
                             </select>

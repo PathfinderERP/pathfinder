@@ -34,6 +34,7 @@ const roleMap = {
     'Marketing': 'marketing',
     'Center Incharge': 'centerIncharge',
     'Zonal Manager': 'zonalManager',
+    'Area Manager': 'areaManager',
     'Coordinator': 'coordinator',
     'Teacher': 'teacher',
     'Support Staff': 'supportStaff'
@@ -46,6 +47,9 @@ const matchRole = (flagRole, selectedTabRoleName) => {
     }
     if (backendRole === 'zonalManager') {
         return flagRole === 'zonalManager' || flagRole === 'assistantZonalManager';
+    }
+    if (backendRole === 'areaManager') {
+        return flagRole === 'areaManager';
     }
     if (backendRole === 'centerIncharge') {
         return flagRole === 'centerIncharge' || flagRole === 'assistantCenterIncharge';

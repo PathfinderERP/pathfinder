@@ -426,7 +426,7 @@ export const bulkUpdateUsers = async (req, res) => {
                         const cleanRoleStr = (user.role || "").toLowerCase().replace(/\s+/g, "");
                         const isMktTargetRole = [
                             "counsellor", "marketing", "centerincharge", "centreincharge", 
-                            "zonalmanager", "zonalhead", "hod", "hr", "assistantcenterincharge", 
+                            "zonalmanager", "areamanager", "zonalhead", "hod", "hr", "assistantcenterincharge", 
                             "assistantzonalmanager", "coordinator", "classcoordinator", "class_coordinator"
                         ].includes(cleanRoleStr);
 

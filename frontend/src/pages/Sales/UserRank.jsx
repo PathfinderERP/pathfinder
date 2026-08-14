@@ -88,6 +88,7 @@ const METRICS = [
 const ROLE_BADGES = {
     centerIncharge: { label: "CI", style: "bg-purple-500/15 text-purple-400 border border-purple-500/20" },
     zonalManager: { label: "ZM", style: "bg-blue-500/15 text-blue-400 border border-blue-500/20" },
+    areaManager: { label: "AM", style: "bg-violet-600/15 text-violet-400 border border-violet-600/20" },
     counsellor: { label: "Counsellor", style: "bg-cyan-500/15 text-cyan-400 border border-cyan-500/20" },
     telecaller: { label: "Telecaller", style: "bg-pink-500/15 text-pink-400 border border-pink-500/20" },
     marketing: { label: "Marketing", style: "bg-green-500/15 text-green-400 border border-green-500/20" },
@@ -109,6 +110,7 @@ const ROLE_BADGES = {
 const ROLE_OPTIONS = [
     { value: "centerIncharge", label: "Center Incharge" },
     { value: "zonalManager", label: "Zonal Manager" },
+    { value: "areaManager", label: "Area Manager" },
     { value: "counsellor", label: "Counsellor" },
     { value: "telecaller", label: "Telecaller" },
     { value: "marketing", label: "Marketing" },

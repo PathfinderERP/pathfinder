@@ -256,6 +256,7 @@ export const getCentrePerformance = async (req, res) => {
             "assistantcenterincharge",
             "assistantcentreincharge",
             "zonalmanager",
+            "areamanager",
             "zonalhead",
             "assistantzonalmanager",
             "assistantzonalhead"

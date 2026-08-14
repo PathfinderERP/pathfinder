@@ -182,7 +182,7 @@ export const getTeamPerformance = async (req, res) => {
         // Fetch all marketing target users
         const targetRoles = [
             "marketing", "counsellor", "centerincharge", "centreincharge",
-            "zonalmanager", "zonalhead", "assistantcenterincharge", "assistantzonalmanager"
+            "zonalmanager", "areamanager", "zonalhead", "assistantcenterincharge", "assistantzonalmanager"
         ];
 
         const allUsers = await User.find({

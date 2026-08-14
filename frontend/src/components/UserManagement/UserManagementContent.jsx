@@ -243,6 +243,7 @@ const UserManagementContent = () => {
         marketing: filteredUsers.filter(u => u.role === "marketing").length,
         centerIncharge: filteredUsers.filter(u => u.role === "centerIncharge").length,
         zonalManager: filteredUsers.filter(u => u.role === "zonalManager").length,
+        areaManager: filteredUsers.filter(u => u.role === "areaManager").length,
         HOD: filteredUsers.filter(u => u.role === "HOD").length,
         accounts: filteredUsers.filter(u => u.role === "accounts").length,
         coordinator: filteredUsers.filter(u => u.role === "coordinator").length,
@@ -265,6 +266,7 @@ const UserManagementContent = () => {
                 { name: 'Marketing', value: stats.marketing, color: '#ec4899' },
                 { name: 'CenterIncharge', value: stats.centerIncharge, color: '#06b6d4' },
                 { name: 'ZonalManager', value: stats.zonalManager, color: '#6366f1' },
+                { name: 'AreaManager', value: stats.areaManager, color: '#7c3aed' },
                 { name: 'HOD', value: stats.HOD, color: '#4f46e5' },
                 { name: 'Accounts', value: stats.accounts, color: '#10b981' },
                 { name: 'Coordinator', value: stats.coordinator, color: '#14b8a6' },
@@ -280,9 +282,10 @@ const UserManagementContent = () => {
                 { name: 'Part Time', value: filteredUsers.filter(u => u.role === 'teacher' && u.teacherType === 'Part Time').length, color: '#10b981' }
             ].filter(d => d.value > 0);
         }
-        if (label === "Back Office" || label === "SuperAdmin" || label === "Counsellor" || label === "Telecaller" || label === "Marketing" || label === "CenterIncharge" || label === "ZonalManager" || label === "HOD" || label === "Accounts" || label === "Coordinator" || label === "Digital" || label === "Assistant Zonal Manager" || label === "Assistant Center Incharge" || label === "Support Staff") {
+        if (label === "Back Office" || label === "SuperAdmin" || label === "Counsellor" || label === "Telecaller" || label === "Marketing" || label === "CenterIncharge" || label === "ZonalManager" || label === "Area Manager" || label === "HOD" || label === "Accounts" || label === "Coordinator" || label === "Digital" || label === "Assistant Zonal Manager" || label === "Assistant Center Incharge" || label === "Support Staff") {
             let roleKey = label === "HOD" ? "HOD" : label.toLowerCase();
             if (label === "Back Office") roleKey = "admin";
+            if (label === "Area Manager") roleKey = "areaManager";
             if (label === "Assistant Zonal Manager") roleKey = "assistantZonalManager";
             if (label === "Assistant Center Incharge") roleKey = "assistantCenterIncharge";
             if (label === "Support Staff") roleKey = "supportStaff";
@@ -305,6 +308,7 @@ const UserManagementContent = () => {
             marketing: "bg-pink-500/20 text-pink-400 border-pink-500/50",
             centerIncharge: "bg-cyan-500/20 text-cyan-400 border-cyan-500/50",
             zonalManager: "bg-indigo-500/20 text-indigo-400 border-indigo-500/50",
+            areaManager: "bg-purple-700/20 text-purple-300 border-purple-700/50",
             HOD: "bg-blue-600/20 text-blue-300 border-blue-600/50",
             accounts: "bg-emerald-500/20 text-emerald-400 border-emerald-500/50",
             coordinator: "bg-teal-500/20 text-teal-400 border-teal-500/50",
@@ -321,6 +325,7 @@ const UserManagementContent = () => {
         if (role === "admin") return "Back Office";
         if (role === "centerIncharge") return "Center Incharge";
         if (role === "zonalManager") return "Zonal Manager";
+        if (role === "areaManager") return "Area Manager";
         if (role === "HOD") return "HOD";
         if (role === "accounts") return "Accounts";
         if (role === "coordinator") return "Coordinator";
@@ -522,6 +527,7 @@ const UserManagementContent = () => {
                     { label: "Marketing", count: stats.marketing, color: "from-pink-500/20 to-rose-500/20", border: "border-pink-500/30" },
                     { label: "CenterIncharge", count: stats.centerIncharge, color: "from-cyan-500/20 to-blue-500/20", border: "border-cyan-500/30" },
                     { label: "ZonalManager", count: stats.zonalManager, color: "from-indigo-500/20 to-blue-500/20", border: "border-indigo-500/30" },
+                    { label: "Area Manager", count: stats.areaManager, color: "from-purple-700/20 to-violet-700/20", border: "border-purple-700/30" },
                     { label: "HOD", count: stats.HOD, color: "from-blue-600/20 to-indigo-600/20", border: "border-blue-600/30" },
                     { label: "Accounts", count: stats.accounts, color: "from-emerald-500/20 to-teal-500/20", border: "border-emerald-500/30" },
                     { label: "Coordinator", count: stats.coordinator, color: "from-teal-500/20 to-cyan-500/20", border: "border-teal-500/30" },
@@ -599,6 +605,7 @@ const UserManagementContent = () => {
                                     { value: 'marketing', label: 'Marketing' },
                                     { value: 'centerIncharge', label: 'Center Incharge' },
                                     { value: 'zonalManager', label: 'Zonal Manager' },
+                                    { value: 'areaManager', label: 'Area Manager' },
                                     { value: 'HOD', label: 'HOD' },
                                     { value: 'accounts', label: 'Accounts' },
                                     { value: 'coordinator', label: 'Coordinator' },

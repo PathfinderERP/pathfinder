@@ -206,6 +206,7 @@ export const getBoardPlans = async (req, res) => {
             counsellor: ["counsellor"],
             teacher: ["teacher"],
             zonalmanager: ["zonalManager", "zonalmanager"],
+            areamanager: ["areaManager", "areamanager"],
             centerincharge: ["centerIncharge", "centerincharge"],
             assistantzonalmanager: ["assistantZonalManager"],
             assistantcenterincharge: ["assistantCenterIncharge"],
@@ -233,7 +234,7 @@ export const getBoardPlans = async (req, res) => {
 
         const reqUserRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
         if (reqUserRole === "assistantzonalmanager" || reqUserRole === "assistantcenterincharge") {
-            const allowedSubRoles = ["marketing", "centerIncharge", "centerincharge", "assistantCenterIncharge", "assistantZonalManager", "zonalManager", "zonalmanager", "supportStaff"];
+            const allowedSubRoles = ["marketing", "centerIncharge", "centerincharge", "assistantCenterIncharge", "assistantZonalManager", "zonalManager", "zonalmanager", "areaManager", "areamanager", "supportStaff"];
             let activeFilterRoles = [];
             if (userQuery.role && userQuery.role.$in) {
                 activeFilterRoles = userQuery.role.$in.filter(r => allowedSubRoles.includes(r));

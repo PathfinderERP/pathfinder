@@ -13,7 +13,7 @@ export const getAllHODs = async (req, res) => {
         };
 
         const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "hr", "class_coordinator", "coordinator", "rm", "hod", "assistantzonalmanager", "assistantcenterincharge"];
+        const privilegedRoles = ["superadmin", "super admin", "admin", "centerincharge", "zonalmanager", "areamanager", "hr", "class_coordinator", "coordinator", "rm", "hod", "assistantzonalmanager", "assistantcenterincharge"];
         const isPrivileged = privilegedRoles.includes(userRole);
 
         if (userRole !== "superadmin" && userRole !== "super admin" && userRole !== "hr") {

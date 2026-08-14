@@ -100,14 +100,14 @@ const MarketingCRM = ({ initialTab }) => {
         const uCentres = u.centres || u.centers || [];
         const matchesCenter = selectedCenters.length === 0 || (uCentres.some(c => selectedCenters.includes(c.centreName || c)));
         const uRole = (u.role || '').toLowerCase().replace(/\s+/g, '');
-        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(uRole);
+        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'areamanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(uRole);
         return isTargetRole && matchesSearch && matchesCenter;
     }).sort((a, b) => (a.name || '').localeCompare(b.name || '', undefined, { numeric: true, sensitivity: 'base' }));
 
     // Filtered marketing performance data for Command Centre
     const filteredCmdCentreStaff = allPerformance.filter(u => {
         const uRole = (u.role || '').toLowerCase().replace(/\s+/g, '');
-        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(uRole);
+        const isTargetRole = ['marketing', 'centerincharge', 'zonalmanager', 'areamanager', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'].includes(uRole);
         if (!isTargetRole) return false;
 
         const matchesSearch = !cmdCentreSearch || u.name.toLowerCase().includes(cmdCentreSearch.toLowerCase());
@@ -231,7 +231,7 @@ const MarketingCRM = ({ initialTab }) => {
         try {
             const token = localStorage.getItem("token");
             const params = new URLSearchParams({
-                role: 'marketing,centerIncharge,zonalManager,superAdmin,assistantZonalManager,assistantCenterIncharge'
+                role: 'marketing,centerIncharge,zonalManager,areaManager,superAdmin,assistantZonalManager,assistantCenterIncharge'
             });
 
             if (forcedDate) {
@@ -356,7 +356,7 @@ const MarketingCRM = ({ initialTab }) => {
     };
 
     const userRoleLower = (currentUser.role || "").toLowerCase().replace(/\s+/g, "");
-    const canApproveOrReject = ["superadmin", "super admin", "admin", "zonalmanager", "zonalhead", "centerincharge", "centreincharge", "assistantzonalmanager", "assistantcenterincharge"].includes(userRoleLower);
+    const canApproveOrReject = ["superadmin", "super admin", "admin", "zonalmanager", "areamanager", "zonalhead", "centerincharge", "centreincharge", "assistantzonalmanager", "assistantcenterincharge"].includes(userRoleLower);
 
     const canUserApproveRecord = (userObj, record) => {
         if (!userObj || !record) return false;
@@ -392,7 +392,7 @@ const MarketingCRM = ({ initialTab }) => {
 
         const ownerRole = (record.user?.role || "").toLowerCase().replace(/\s+/g, "");
 
-        if (actorRole === "zonalmanager" || actorRole === "zonalhead") {
+        if (actorRole === "zonalmanager" || actorRole === "zonalhead" || actorRole === "areamanager") {
             return ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "assistantcentreincharge", "supportstaff", "assistantzonalmanager"].includes(ownerRole);
         }
 
