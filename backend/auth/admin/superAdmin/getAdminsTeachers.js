@@ -106,9 +106,9 @@ export const getAllUsersBySuperAdmin = async (req, res) => {
         query._id = requestingUser._id;
       }
 
-      // If user is a centerIncharge, restrict queried roles
-      if (userRole === "centerincharge" || userRole === "centreincharge" || userRole === "assistantcenterincharge") {
-        query.role = { $in: ["telecaller", "centralizedTelecaller", "counsellor", "marketing", "zonalManager", "areaManager", "centerIncharge", "Center Incharge", "centerincharge", "centreincharge", "Centre Incharge", "assistantZonalManager", "assistantCenterIncharge", "supportStaff"] };
+      // If user is a centerIncharge or areaManager, restrict queried roles
+      if (userRole === "centerincharge" || userRole === "centreincharge" || userRole === "assistantcenterincharge" || userRole === "areamanager") {
+        query.role = { $in: ["telecaller", "centralizedTelecaller", "counsellor", "marketing", "zonalManager", "zonalHead", "areaManager", "centerIncharge", "Center Incharge", "centerincharge", "centreincharge", "Centre Incharge", "assistantZonalManager", "assistantCenterIncharge"] };
       }
     }
 

@@ -287,11 +287,25 @@ export const getSchoolJourney = async (req, res) => {
                 };
             });
 
-            const journey = [...matchedPlanner, ...matchedAssigned].sort((a, b) => {
+            const rawJourney = [...matchedPlanner, ...matchedAssigned].sort((a, b) => {
                 const dateA = a.date || (a.createdAt ? new Date(a.createdAt).toISOString() : "");
                 const dateB = b.date || (b.createdAt ? new Date(b.createdAt).toISOString() : "");
                 return dateB.localeCompare(dateA);
             });
+
+            const journey = [];
+            const seenJourneyKeys = new Set();
+            for (const item of rawJourney) {
+                const dateStr = item.date ? item.date.substring(0, 10) : (item.createdAt ? new Date(item.createdAt).toISOString().substring(0, 10) : "");
+                const typeStr = (item.activityType || "").toLowerCase().trim();
+                const purposeStr = (item.activityPurpose || "").toLowerCase().trim();
+                const notesStr = (item.notes || item.remarks || "").toLowerCase().trim();
+                const key = `${dateStr}_${typeStr}_${purposeStr}_${notesStr}`;
+                if (!seenJourneyKeys.has(key)) {
+                    seenJourneyKeys.add(key);
+                    journey.push(item);
+                }
+            }
 
             return {
                 ...school,

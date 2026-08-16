@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Select from "react-select";
-import { FaTimes, FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate, FaCheckCircle } from "react-icons/fa";
+import { FaTimes, FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate, FaCheckCircle, FaPhoneAlt, FaHistory } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate, useSearchParams, useLocation } from "react-router-dom";
@@ -243,6 +243,106 @@ const BoardAdmissionsContent = () => {
     // Duplicate contact check state
     const [mobileCheck, setMobileCheck] = useState({ checking: false, taken: false, name: "" });
     const [emailCheck, setEmailCheck] = useState({ checking: false, taken: false, name: "" });
+
+    // Service Calling States
+    const [isServiceCallModalOpen, setIsServiceCallModalOpen] = useState(false);
+    const [selectedStudentForCall, setSelectedStudentForCall] = useState(null);
+    const [serviceCallForm, setServiceCallForm] = useState({
+        servicePurpose: 'EMI Purpose',
+        status: 'Neutral',
+        remarks: '',
+        nextFollowUpDate: ''
+    });
+    const [isSubmittingServiceCall, setIsSubmittingServiceCall] = useState(false);
+    const [serviceCallHistory, setServiceCallHistory] = useState([]);
+    const [loadingServiceCallHistory, setLoadingServiceCallHistory] = useState(false);
+
+    const handleOpenServiceCallModal = async (admissionItem) => {
+        setSelectedStudentForCall(admissionItem);
+        setServiceCallForm({
+            servicePurpose: 'EMI Purpose',
+            status: 'Neutral',
+            remarks: '',
+            nextFollowUpDate: ''
+        });
+        setIsServiceCallModalOpen(true);
+
+        const sId = admissionItem.studentId?._id || admissionItem.studentId;
+        const admId = admissionItem._id;
+        if (sId || admId) {
+            setLoadingServiceCallHistory(true);
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/student-service-call/history?studentId=${sId || ''}&admissionId=${admId || ''}`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setServiceCallHistory(data.history || []);
+                }
+            } catch (err) {
+                console.error("Error fetching service call history:", err);
+            } finally {
+                setLoadingServiceCallHistory(false);
+            }
+        }
+    };
+
+    const handleSubmitServiceCall = async (e) => {
+        e.preventDefault();
+        if (!serviceCallForm.servicePurpose) {
+            toast.error("Please select a Service Purpose.");
+            return;
+        }
+        if (!serviceCallForm.nextFollowUpDate) {
+            toast.error("Next Follow Up Date is mandatory.");
+            return;
+        }
+
+        setIsSubmittingServiceCall(true);
+        try {
+            const token = localStorage.getItem("token");
+            const admObj = selectedStudentForCall || {};
+            const studentObj = admObj.studentId || {};
+            const studentDetails = studentObj.studentsDetails?.[0] || {};
+
+            const payload = {
+                studentId: studentObj._id || null,
+                admissionId: admObj._id || null,
+                studentName: admObj.studentName || studentDetails.studentName || studentObj.studentName || "Student",
+                enrollmentNo: admObj.admissionNumber || studentDetails.enrollmentNo || studentDetails.admissionNo || "",
+                studentPhone: admObj.mobileNum || studentDetails.mobileNum || studentObj.mobileNumber || studentObj.phone || "",
+                centreName: admObj.centre || studentDetails.centre || "",
+                servicePurpose: serviceCallForm.servicePurpose,
+                status: serviceCallForm.status || "Neutral",
+                remarks: serviceCallForm.remarks,
+                nextFollowUpDate: serviceCallForm.nextFollowUpDate
+            };
+
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/student-service-call`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify(payload)
+            });
+
+            if (res.ok) {
+                toast.success("Service call logged & added to call reports!");
+                setIsServiceCallModalOpen(false);
+                setSelectedStudentForCall(null);
+            } else {
+                const errData = await res.json();
+                toast.error(errData.message || "Failed to log service call.");
+            }
+        } catch (err) {
+            console.error("Error submitting service call:", err);
+            toast.error("Failed to log service call due to network error.");
+        } finally {
+            setIsSubmittingServiceCall(false);
+        }
+    };
     const [counsellingForm, setCounsellingForm] = useState({
         studentId: "",
         studentName: "",
@@ -380,12 +480,26 @@ const BoardAdmissionsContent = () => {
                     "centre incharge", "centreincharge", "center incharge", "centerincharge",
                     "admin", "zonal manager", "zonalmanager", "assistant zonal manager", "assistantzonalmanager"
                 ];
+                const loggedUser = JSON.parse(localStorage.getItem("user") || "{}");
+                const isAreaManager = (loggedUser.role || "").toLowerCase().replace(/[\s\-_]+/g, "") === "areamanager";
+                const areaManagerAllowedRoles = [
+                    "telecaller", "centralizedtelecaller", "counsellor", "marketing",
+                    "assistantcentreincharge", "assistantcenterincharge", "centreincharge", "centerincharge",
+                    "zonalmanager", "zonalhead", "assistantzonalmanager", "areamanager"
+                ];
+
                 const filtered = userList.filter((user) => {
                     if (user.isActive === false) return false;
 
                     const userRole = (user.role || "").toLowerCase().trim();
-                    const hasAllowedRole = allowedRoles.includes(userRole) || allowedRoles.includes(userRole.replace(/\s+/g, ""));
-                    if (!hasAllowedRole) return false;
+                    const userRoleClean = userRole.replace(/[\s\-_]+/g, "");
+
+                    if (isAreaManager) {
+                        if (!areaManagerAllowedRoles.includes(userRoleClean)) return false;
+                    } else {
+                        const hasAllowedRole = allowedRoles.includes(userRole) || allowedRoles.includes(userRoleClean);
+                        if (!hasAllowedRole) return false;
+                    }
 
                     const hasMatchingCentre =
                         (user.primaryCentre && user.primaryCentre.centreName && user.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase()) ||
@@ -1331,8 +1445,9 @@ const BoardAdmissionsContent = () => {
         return data;
     }, [filteredStudents, activeTab, boardAdmissions]);
 
-    const handleViewStudent = (student) => {
+    const handleViewStudent = (student, admission = null) => {
         setSelectedStudent(student);
+        setSelectedAdmission(admission);
         setShowDetailsModal(true);
     };
 
@@ -1757,10 +1872,14 @@ const BoardAdmissionsContent = () => {
                                         const exam = student?.examSchema?.[0] || {};
                                         const sessionExam = student?.sessionExamCourse?.[0] || {};
 
-                                        return (
-                                            <tr key={item._id} className={`transition-all group ${isDarkMode ? 'hover:bg-cyan-500/[0.03]' : 'hover:bg-gray-50'}`}>
+                                         return (
+                                            <tr 
+                                                key={item._id} 
+                                                onClick={() => handleViewStudent(student || item.studentId || item, (activeTab === "Enrolled" || activeTab === "Deactivated") ? item : null)}
+                                                className={`transition-all group cursor-pointer ${isDarkMode ? 'hover:bg-cyan-500/[0.05]' : 'hover:bg-gray-50'}`}
+                                            >
                                                 {activeTab !== "Potential" && (
-                                                    <td className="p-4 text-center">
+                                                    <td className="p-4 text-center" onClick={(e) => e.stopPropagation()}>
                                                         <input
                                                             type="checkbox"
                                                             checked={selectedIds.includes(item._id)}
@@ -1904,8 +2023,8 @@ const BoardAdmissionsContent = () => {
                                                 })()}
 
                                                 {(activeTab === "Enrolled" || activeTab === "Deactivated") && (
-                                                    <td className="p-4">
-                                                        <div className="flex items-center gap-2">
+                                                    <td className="p-4 text-right">
+                                                        <div className="flex justify-end gap-2">
                                                             <div className="w-6 h-6 rounded-full bg-cyan-500/10 flex items-center justify-center text-[10px] text-cyan-500 font-black border border-cyan-500/20">
                                                                 {(item.createdBy?.name || "A").charAt(0)}
                                                             </div>
@@ -1914,20 +2033,20 @@ const BoardAdmissionsContent = () => {
                                                     </td>
                                                 )}
 
-                                                <td className="p-4 text-right">
+                                                <td className="p-4 text-right" onClick={(e) => e.stopPropagation()}>
                                                     <div className="flex justify-end gap-2">
                                                         {activeTab === "Potential" ? (
                                                             <>
-                                                                <button onClick={() => handleViewStudent(student)} title="View Details" className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"><FaEye size={12} /></button>
+                                                                <button onClick={(e) => { e.stopPropagation(); handleViewStudent(student); }} title="View Details" className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"><FaEye size={12} /></button>
                                                                 <button
-                                                                    onClick={() => handleOpenCounsellingModal(student)}
+                                                                    onClick={(e) => { e.stopPropagation(); handleOpenCounsellingModal(student); }}
                                                                     className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
                                                                 >
                                                                     <span>Counsel</span>
                                                                 </button>
                                                                 {canCreate && (
                                                                     <button
-                                                                        onClick={() => navigate(`/board-course-admission/${student._id}`)}
+                                                                        onClick={(e) => { e.stopPropagation(); navigate(`/board-course-admission/${student._id}`); }}
                                                                         className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-green-500/20 bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
                                                                     >
                                                                         <FaUserGraduate size={10} />
@@ -1937,10 +2056,10 @@ const BoardAdmissionsContent = () => {
                                                             </>
                                                         ) : activeTab === "Counselling" ? (
                                                             <>
-                                                                <button onClick={() => handleViewStudent(student)} title="View Details" className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"><FaEye size={12} /></button>
+                                                                <button onClick={(e) => { e.stopPropagation(); handleViewStudent(student); }} title="View Details" className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"><FaEye size={12} /></button>
                                                                 {canEdit && (
                                                                     <button
-                                                                        onClick={() => handleEditCounselling(item)}
+                                                                        onClick={(e) => { e.stopPropagation(); handleEditCounselling(item); }}
                                                                         title="Edit Counselling"
                                                                         className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-amber-500/20 text-amber-400 hover:bg-amber-500 hover:text-black transition-all"
                                                                     >
@@ -1948,14 +2067,14 @@ const BoardAdmissionsContent = () => {
                                                                     </button>
                                                                 )}
                                                                 <button
-                                                                    onClick={() => navigate(`/board-course-admission/${item._id}`)}
+                                                                    onClick={(e) => { e.stopPropagation(); navigate(`/board-course-admission/${item._id}`); }}
                                                                     className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-green-500/20 bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
                                                                 >
                                                                     <FaUserGraduate size={10} />
                                                                     <span>Enroll Now</span>
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => handleDeleteCounselling(item._id)}
+                                                                    onClick={(e) => { e.stopPropagation(); handleDeleteCounselling(item._id); }}
                                                                     className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-red-500/20 text-red-500 hover:bg-red-500 hover:text-white transition-all"
                                                                 >
                                                                     <FaTrash size={10} />
@@ -1964,29 +2083,39 @@ const BoardAdmissionsContent = () => {
                                                         ) : (
                                                             <>
                                                                 <button
-                                                                    onClick={() => handleViewStudent(item.studentId)}
+                                                                    onClick={(e) => { e.stopPropagation(); handleViewStudent(item.studentId, item); }}
                                                                     title="View Details"
                                                                     className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-cyan-500 text-gray-400 hover:text-white transition-all"
                                                                 >
                                                                     <FaEye size={12} />
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => handleEditProfile(item.studentId, item)}
+                                                                    onClick={(e) => { e.stopPropagation(); handleEditProfile(item.studentId, item); }}
                                                                     title="Edit Profile"
                                                                     className="w-8 h-8 flex items-center justify-center rounded-[4px] border border-gray-700 hover:border-amber-500 text-gray-400 hover:text-amber-500 transition-all"
                                                                 >
                                                                     <FaEdit size={12} />
                                                                 </button>
                                                                 <button
-                                                                    onClick={() => navigate(`/manage-board-admission/${item._id}`)}
+                                                                    onClick={(e) => { e.stopPropagation(); navigate(`/manage-board-admission/${item._id}`); }}
                                                                     className="px-3 h-8 flex items-center justify-center gap-1.5 rounded-[4px] border border-cyan-500/20 bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black transition-all text-[9px] font-black uppercase tracking-widest"
                                                                 >
                                                                     <FaSync size={10} />
                                                                     <span>Manage</span>
                                                                 </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleOpenServiceCallModal(item);
+                                                                    }}
+                                                                    className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-black border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white border-emerald-200 shadow-sm'}`}
+                                                                    title="Service Calling"
+                                                                >
+                                                                    <FaPhoneAlt size={12} />
+                                                                </button>
                                                                 {canDeactivate && (
                                                                     <button
-                                                                        onClick={() => handleToggleStatus(item.studentId?._id, item.studentId?.status || 'Active')}
+                                                                        onClick={(e) => { e.stopPropagation(); handleToggleStatus(item.studentId?._id, item.studentId?.status || 'Active'); }}
                                                                         className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${item.studentId?.status === 'Deactivated'
                                                                                 ? (isDarkMode ? "bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500 hover:text-black" : "bg-green-50 border-green-200 text-green-600 hover:bg-green-600 hover:text-white shadow-sm")
                                                                                 : (isDarkMode ? "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500 hover:text-black" : "bg-red-50 border-red-200 text-red-600 hover:bg-red-600 hover:text-white shadow-sm")
@@ -2023,7 +2152,12 @@ const BoardAdmissionsContent = () => {
                 <StudentDetailsModal
                     student={selectedStudent}
                     isOpen={showDetailsModal}
-                    onClose={() => { setShowDetailsModal(false); setSelectedStudent(null); }}
+                    onClose={() => { setShowDetailsModal(false); setSelectedStudent(null); setSelectedAdmission(null); }}
+                    onEdit={() => {
+                        setShowDetailsModal(false);
+                        handleEditProfile(selectedStudent, selectedAdmission);
+                    }}
+                    canEdit={canEdit}
                     isDarkMode={isDarkMode}
                 />
             )}
@@ -2539,6 +2673,174 @@ const BoardAdmissionsContent = () => {
                     activeEmployees={activeEmployees}
                     isDarkMode={isDarkMode}
                 />
+            )}
+
+            {/* Service Calling Modal */}
+            {isServiceCallModalOpen && selectedStudentForCall && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+                    <div className={`relative w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-[8px] border shadow-2xl ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
+                        {/* Modal Header */}
+                        <div className={`sticky top-0 z-10 flex items-center justify-between p-5 border-b backdrop-blur-md ${isDarkMode ? 'bg-[#131619]/90 border-gray-800' : 'bg-white/90 border-gray-200'}`}>
+                            <div className="flex items-center gap-3">
+                                <div className="p-3 rounded-[6px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                    <FaPhoneAlt size={18} />
+                                </div>
+                                <div>
+                                    <h2 className="text-base font-black uppercase tracking-wider">Student Service Calling</h2>
+                                    <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">
+                                        Log Service Feedback &amp; Follow-up Details
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setIsServiceCallModalOpen(false);
+                                    setSelectedStudentForCall(null);
+                                }}
+                                className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'hover:bg-gray-800 text-gray-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`}
+                            >
+                                <FaTimes size={16} />
+                            </button>
+                        </div>
+
+                        {/* Student Details Header Summary */}
+                        <div className="p-5 border-b border-gray-800/50 bg-emerald-500/5">
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-[11px]">
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Student Name</span>
+                                    <span className="font-black text-emerald-400 uppercase">
+                                        {selectedStudentForCall.studentName || selectedStudentForCall.studentId?.studentsDetails?.[0]?.studentName || "N/A"}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Enrollment No</span>
+                                    <span className="font-bold text-gray-300">
+                                        {selectedStudentForCall.admissionNumber || selectedStudentForCall.studentId?.studentsDetails?.[0]?.enrollmentNo || "N/A"}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Mobile No</span>
+                                    <span className="font-bold text-gray-300">
+                                        {selectedStudentForCall.mobileNum || selectedStudentForCall.studentId?.studentsDetails?.[0]?.mobileNum || "N/A"}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Centre</span>
+                                    <span className="font-bold text-gray-300">
+                                        {selectedStudentForCall.centre || selectedStudentForCall.studentId?.studentsDetails?.[0]?.centre || "Main Centre"}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Form Body */}
+                        <form onSubmit={handleSubmitServiceCall} className="p-6 space-y-5">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {/* Service Purpose Dropdown */}
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                                        Service Purpose <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={serviceCallForm.servicePurpose}
+                                        onChange={(e) => setServiceCallForm({ ...serviceCallForm, servicePurpose: e.target.value })}
+                                        required
+                                        className={`w-full p-3 rounded-[4px] border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#181b1e] border-gray-800 text-white focus:border-emerald-500' : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-emerald-500'}`}
+                                    >
+                                        <option value="EMI Purpose">EMI Purpose</option>
+                                        <option value="Cross Selling">Cross Selling</option>
+                                        <option value="Any Other Dispute">Any Other Dispute</option>
+                                        <option value="Attendance & Academic Issue">Attendance &amp; Academic Issue</option>
+                                        <option value="General Service Calling">General Service Calling</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+
+                                {/* Next Follow Up Date (Mandatory) */}
+                                <div>
+                                    <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                                        Next Follow Up Date <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={serviceCallForm.nextFollowUpDate}
+                                        onChange={(e) => setServiceCallForm({ ...serviceCallForm, nextFollowUpDate: e.target.value })}
+                                        className={`w-full p-3 rounded-[4px] border text-[11px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#181b1e] border-gray-800 text-white focus:border-emerald-500' : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-emerald-500'}`}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Remarks */}
+                            <div>
+                                <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">
+                                    Remarks / Call Notes
+                                </label>
+                                <textarea
+                                    rows={3}
+                                    value={serviceCallForm.remarks}
+                                    onChange={(e) => setServiceCallForm({ ...serviceCallForm, remarks: e.target.value })}
+                                    placeholder="Enter call details, EMI agreement, dispute resolution, or cross-selling feedback..."
+                                    className={`w-full p-3 rounded-[4px] border text-[11px] font-medium outline-none transition-all ${isDarkMode ? 'bg-[#181b1e] border-gray-800 text-white focus:border-emerald-500' : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-emerald-500'}`}
+                                />
+                            </div>
+
+                            {/* Submit Controls */}
+                            <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setIsServiceCallModalOpen(false);
+                                        setSelectedStudentForCall(null);
+                                    }}
+                                    className={`px-5 py-2.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'}`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={isSubmittingServiceCall}
+                                    className="px-6 py-2.5 rounded-[4px] bg-emerald-600 hover:bg-emerald-500 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-600/30 transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {isSubmittingServiceCall ? (
+                                        <><FaSync className="animate-spin" size={12} /> Logging Call...</>
+                                    ) : (
+                                        <><FaPhoneAlt size={12} /> Submit Service Call</>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+
+                        {/* Call History Section */}
+                        <div className="p-6 border-t border-gray-800 bg-black/20">
+                            <h3 className="text-[11px] font-black uppercase tracking-wider text-gray-400 mb-3 flex items-center gap-2">
+                                <FaHistory size={12} className="text-emerald-400" />
+                                Previous Service Call History ({serviceCallHistory.length})
+                            </h3>
+                            {loadingServiceCallHistory ? (
+                                <p className="text-[10px] text-gray-500 font-bold uppercase animate-pulse">Loading service call logs...</p>
+                            ) : serviceCallHistory.length === 0 ? (
+                                <p className="text-[10px] text-gray-500 italic">No previous service calls logged for this student.</p>
+                            ) : (
+                                <div className="space-y-2.5 max-h-48 overflow-y-auto pr-1">
+                                    {serviceCallHistory.map((item, idx) => (
+                                        <div key={idx} className={`p-3 rounded-[4px] border text-[11px] ${isDarkMode ? 'bg-[#181b1e] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                            <div className="flex items-center justify-between font-bold mb-1">
+                                                <span className="text-emerald-400 uppercase">{item.servicePurpose}</span>
+                                                <span className="text-gray-500 text-[10px] font-mono">{item.callDate || (item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '')}</span>
+                                            </div>
+                                            <p className="text-gray-300 font-normal">{item.remarks || "No remarks provided"}</p>
+                                            <div className="flex items-center justify-between text-[10px] text-gray-500 mt-2 pt-2 border-t border-gray-800/50">
+                                                <span>Caller: <strong className="text-gray-400">{item.userName || "Staff"}</strong> ({item.userRole || "User"})</span>
+                                                <span>Next Follow-up: <strong className="text-emerald-400">{item.nextFollowUpDate || "N/A"}</strong></span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
             )}
         </div>
     );

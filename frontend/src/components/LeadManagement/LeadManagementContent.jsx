@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle, FaUserGraduate, FaGraduationCap, FaTimes, FaWalking } from "react-icons/fa";
+import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle, FaUserGraduate, FaGraduationCap, FaTimes, FaWalking, FaLayerGroup } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { saveAs } from "file-saver";
@@ -397,11 +397,24 @@ const LeadManagementContent = () => {
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
+                const loggedUser = JSON.parse(localStorage.getItem("user") || "{}");
+                const isAreaManager = (loggedUser.role || "").toLowerCase().replace(/[\s\-_]+/g, "") === "areamanager";
+                const areaManagerAllowedRoles = [
+                    "telecaller", "centralizedtelecaller", "counsellor", "marketing",
+                    "assistantcentreincharge", "assistantcenterincharge", "centreincharge", "centerincharge",
+                    "zonalmanager", "zonalhead", "assistantzonalmanager", "areamanager"
+                ];
+
                 const leadUsers = (userData.users || []).filter(u => {
-                    const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
+                    const r = u.role?.toLowerCase()?.replace(/[\s\-_]+/g, '') || '';
                     const isActive = u.isActive !== false;
-                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'];
-                    return isActive && allowedRoles.includes(r);
+                    if (!isActive) return false;
+
+                    if (isAreaManager) {
+                        return areaManagerAllowedRoles.includes(r);
+                    }
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'areamanager'];
+                    return allowedRoles.includes(r);
                 });
 
                 // Find duplicate active user names
@@ -587,8 +600,8 @@ const LeadManagementContent = () => {
 
             // Pass all active filters
             Object.entries(filters).forEach(([key, value]) => {
-                // Ignore leadType for conversion stats just like backend summary counts do
-                if (key === 'leadType') return;
+                // Ignore leadType & followUpStatus for conversion stats just like backend summary counts do
+                if (key === 'leadType' || key === 'followUpStatus') return;
 
                 if (Array.isArray(value)) {
                     if (value.length > 0) {
@@ -609,9 +622,12 @@ const LeadManagementContent = () => {
 
             if (response.ok) {
                 const data = await response.json();
+                let modalTitle = `${type === 'counselled' ? 'Counselled' : 'Admitted'} Leads`;
+                if (type === 'uploaded_admissions') modalTitle = 'Admitted Leads (Uploaded Data)';
+                if (type === 'manual_admissions') modalTitle = 'Admitted Leads (Manual Entry)';
                 setConversionModal({
                     isOpen: true,
-                    title: `${type === 'counselled' ? 'Counselled' : 'Admitted'} Leads`,
+                    title: modalTitle,
                     leads: data.leads || []
                 });
             } else {
@@ -1745,7 +1761,7 @@ const LeadManagementContent = () => {
                     </div>
 
                     {/* Follow Up Stats Summary */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-4 pt-4 border-t border-gray-800/20">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 pt-4 border-t border-gray-800/20">
                         <div
                             onClick={() => handleFollowUpStatusCardClick('contacted')}
                             className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:scale-[1.02] active:scale-95 ${filters.followUpStatus?.some(item => item.value === 'contacted')
@@ -1830,6 +1846,40 @@ const LeadManagementContent = () => {
                                 </div>
                                 <div className={`p-2 rounded-[2px] bg-purple-500 text-black shadow-[0_0_10px_rgba(168,85,247,0.3)] shrink-0`}>
                                     <FaGraduationCap size={12} />
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Admission Segregation Card */}
+                        <div
+                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all ${
+                                isDarkMode 
+                                    ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/50' 
+                                    : 'bg-amber-50 border-amber-100 shadow-sm hover:border-amber-300'
+                            }`}
+                        >
+                            <div className="flex justify-between items-start relative z-10">
+                                <div className="w-full">
+                                    <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-2.5 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>Admission Source Segregation</p>
+                                    <div className="flex flex-col gap-1">
+                                        <div 
+                                            onClick={() => fetchAndShowConversionDetails('uploaded_admissions')}
+                                            className={`flex justify-between items-center pr-2 cursor-pointer p-1.5 rounded transition-all hover:bg-amber-500/10 active:scale-95`}
+                                        >
+                                            <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Uploaded Data:</span>
+                                            <span className={`text-xs font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.uploadedAdmittedCount || 0}</span>
+                                        </div>
+                                        <div 
+                                            onClick={() => fetchAndShowConversionDetails('manual_admissions')}
+                                            className={`flex justify-between items-center pr-2 cursor-pointer p-1.5 rounded transition-all hover:bg-amber-500/10 active:scale-95`}
+                                        >
+                                            <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Manual Entry:</span>
+                                            <span className={`text-xs font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.manualAdmittedCount || 0}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className={`p-2 rounded-[2px] bg-amber-500 text-black shadow-[0_0_10px_rgba(245,158,11,0.3)] shrink-0`}>
+                                    <FaLayerGroup size={12} />
                                 </div>
                             </div>
                         </div>

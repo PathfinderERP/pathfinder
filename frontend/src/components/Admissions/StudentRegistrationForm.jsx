@@ -309,12 +309,26 @@ const StudentRegistrationForm = () => {
                     "centre incharge", "centreincharge", "center incharge", "centerincharge",
                     "admin", "zonal manager", "zonalmanager", "assistant zonal manager", "assistantzonalmanager"
                 ];
+                const loggedUser = JSON.parse(localStorage.getItem("user") || "{}");
+                const isAreaManager = (loggedUser.role || "").toLowerCase().replace(/[\s\-_]+/g, "") === "areamanager";
+                const areaManagerAllowedRoles = [
+                    "telecaller", "centralizedtelecaller", "counsellor", "marketing",
+                    "assistantcentreincharge", "assistantcenterincharge", "centreincharge", "centerincharge",
+                    "zonalmanager", "zonalhead", "assistantzonalmanager", "areamanager"
+                ];
+
                 const filtered = userList.filter((user) => {
                     if (user.isActive === false) return false;
                     
                     const userRole = (user.role || "").toLowerCase().trim();
-                    const hasAllowedRole = allowedRoles.includes(userRole) || allowedRoles.includes(userRole.replace(/\s+/g, ""));
-                    if (!hasAllowedRole) return false;
+                    const userRoleClean = userRole.replace(/[\s\-_]+/g, "");
+
+                    if (isAreaManager) {
+                        if (!areaManagerAllowedRoles.includes(userRoleClean)) return false;
+                    } else {
+                        const hasAllowedRole = allowedRoles.includes(userRole) || allowedRoles.includes(userRoleClean);
+                        if (!hasAllowedRole) return false;
+                    }
 
                     const hasMatchingCentre = 
                         (user.primaryCentre && user.primaryCentre.centreName && user.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase()) ||

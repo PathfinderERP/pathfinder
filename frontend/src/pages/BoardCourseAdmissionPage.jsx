@@ -89,11 +89,23 @@ const BoardCourseAdmissionPage = () => {
                     const data = await res.json();
                     if (data.users) {
                         const userList = Array.isArray(data.users) ? data.users : [];
-                        const filtered = userList.filter(u =>
-                            u.isActive !== false &&
-                            (u.centres || []).some(c => c && c.centreName && c.centreName.toLowerCase() === centreName.toLowerCase()) &&
-                            !["teacher", "accounts", "hr", "coordinator", "class_coordinator", "hod"].includes((u.role || "").toLowerCase())
-                        );
+                        const loggedUser = JSON.parse(localStorage.getItem("user") || "{}");
+                        const isAreaManager = (loggedUser.role || "").toLowerCase().replace(/[\s\-_]+/g, "") === "areamanager";
+                        const areaManagerAllowedRoles = [
+                            "counsellor", "telecaller", "centralizedtelecaller", "zonalmanager", "zonalhead",
+                            "assistantzonalmanager", "centerincharge", "centreincharge", "assistantcenterincharge",
+                            "areamanager", "marketing"
+                        ];
+                        const filtered = userList.filter(u => {
+                            if (u.isActive === false) return false;
+                            const matchesCentre = (u.centres || []).some(c => c && c.centreName && c.centreName.toLowerCase() === centreName.toLowerCase());
+                            if (!matchesCentre) return false;
+                            const uRoleClean = (u.role || "").toLowerCase().replace(/[\s\-_]+/g, "");
+                            if (isAreaManager) {
+                                return areaManagerAllowedRoles.includes(uRoleClean);
+                            }
+                            return !["teacher", "accounts", "hr", "coordinator", "class_coordinator", "hod"].includes((u.role || "").toLowerCase());
+                        });
                         setAdmittedByOptions(filtered);
                     }
                 }

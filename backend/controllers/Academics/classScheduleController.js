@@ -1264,7 +1264,13 @@ import Admission from "../../models/Admission/Admission.js";
 import xlsx from "xlsx";
 import fs from "fs";
 
-const ALL_ROLES_FOR_CLASS = ['teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller', 'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing', 'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts', 'coordinator', 'digital', 'assistantZonalManager', 'assistantCenterIncharge'];
+const ALL_ROLES_FOR_CLASS = [
+    'teacher', 'admin', 'superAdmin', 'superadmin', 'telecaller', 'centralizedTelecaller',
+    'counsellor', 'RM', 'Class_Coordinator', 'classcoordinator', 'class_coordinator',
+    'HOD', 'hod', 'marketing', 'centerIncharge', 'centreincharge', 'zonalManager',
+    'areaManager', 'zonalHead', 'hr', 'accounts', 'coordinator', 'digital',
+    'assistantZonalManager', 'assistantCenterIncharge', 'supportStaff'
+];
 
 
 // Create a new class schedule

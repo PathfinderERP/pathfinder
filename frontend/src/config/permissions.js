@@ -670,12 +670,12 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         'teacher', 'admin', 'superadmin', 'telecaller', 'centralizedtelecaller',
         'counsellor', 'rm', 'classcoordinator', 'class_coordinator', 'hod', 'marketing',
         'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead', 'hr', 'accounts',
-        'coordinator', 'digital', 'assistantzonalmanager', 'assistantcenterincharge'
+        'coordinator', 'digital', 'assistantzonalmanager', 'assistantcenterincharge', 'supportstaff'
     ];
 
     if (!hasGranularObject && granularPermissionsOrUser && granularPermissionsOrUser.role && module === 'academics' &&
         ['classes', 'classManagement', 'upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
-        if (ALL_ROLES_FOR_CLASS.some(r => cleanRole(r) === cleanRole(granularPermissionsOrUser.role))) {
+        if (granularPermissionsOrUser.role || ALL_ROLES_FOR_CLASS.some(r => cleanRole(r) === cleanRole(granularPermissionsOrUser.role))) {
             return true;
         }
     }

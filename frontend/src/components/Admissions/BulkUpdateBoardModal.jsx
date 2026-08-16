@@ -69,12 +69,26 @@ const BulkUpdateBoardModal = ({
                 const data = await response.json();
                 if (response.ok && data.users) {
                     const userList = Array.isArray(data.users) ? data.users : [];
+                    const loggedUser = JSON.parse(localStorage.getItem("user") || "{}");
+                    const isAreaManager = (loggedUser.role || "").toLowerCase().replace(/[\s\-_]+/g, "") === "areamanager";
+                    const areaManagerAllowedRoles = [
+                        "telecaller", "centralizedtelecaller", "counsellor", "marketing",
+                        "assistantcentreincharge", "assistantcenterincharge", "centreincharge", "centerincharge",
+                        "zonalmanager", "zonalhead", "assistantzonalmanager", "areamanager"
+                    ];
+
                     const filtered = userList.filter((user) => {
                         if (user.isActive === false) return false;
                         const userRole = (user.role || "").toLowerCase().trim();
-                        // Exclude teacher, hr, accounts, coordinator, class_coordinator, hod
-                        const isExcludedRole = ["teacher", "hr", "accounts", "coordinator", "class_coordinator", "hod"].includes(userRole.replace(/\s+/g, ""));
-                        if (isExcludedRole) return false;
+                        const userRoleClean = userRole.replace(/[\s\-_]+/g, "");
+
+                        if (isAreaManager) {
+                            if (!areaManagerAllowedRoles.includes(userRoleClean)) return false;
+                        } else {
+                            // Exclude teacher, hr, accounts, coordinator, class_coordinator, hod
+                            const isExcludedRole = ["teacher", "hr", "accounts", "coordinator", "class_coordinator", "hod"].includes(userRoleClean);
+                            if (isExcludedRole) return false;
+                        }
 
                         const hasMatchingCentre = 
                             (user.primaryCentre && user.primaryCentre.centreName && user.primaryCentre.centreName.toLowerCase() === centreName.toLowerCase()) ||

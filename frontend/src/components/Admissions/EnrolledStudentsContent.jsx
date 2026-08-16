@@ -2851,6 +2851,15 @@ const EnrolledStudentsContent = () => {
                                 })()}
                             </div>
                             <div className="flex items-center gap-3 shrink-0">
+                                <button
+                                    onClick={() => {
+                                        const studentItem = students.find(s => s.student._id === selectedStudent._id) || { student: selectedStudent };
+                                        handleOpenServiceCallModal(studentItem);
+                                    }}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-black border border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-200'}`}
+                                >
+                                    <FaPhoneAlt size={12} /> Service Call
+                                </button>
                                 {canEdit && (
                                     <button
                                         onClick={() => {

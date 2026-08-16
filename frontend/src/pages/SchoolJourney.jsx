@@ -237,7 +237,7 @@ const SchoolJourney = () => {
                     const firstContactDate = item.createdAt ? new Date(item.createdAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "08 Jul";
                     const tierVal = item.tier ? (item.tier.toLowerCase().startsWith("tier") ? item.tier : `Tier ${item.tier}`) : "Tier A";
 
-                    const timeline = (item.journey || []).map((j, jIdx) => ({
+                    const rawTimeline = (item.journey || []).map((j, jIdx) => ({
                         id: j.id || `j-${jIdx}`,
                         isNext: jIdx === 0 && j.schoolStatus === "Next",
                         date: j.date ? new Date(j.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" }) : "Recent",
@@ -247,6 +247,16 @@ const SchoolJourney = () => {
                         sub: j.remarks || j.notes || "Recorded activity",
                         type: j.sourceType || "Activity"
                     }));
+
+                    const timeline = [];
+                    const seenTimelineKeys = new Set();
+                    for (const t of rawTimeline) {
+                        const key = `${t.date}_${(t.title || "").toLowerCase()}_${(t.activityType || "").toLowerCase()}_${(t.activityPurpose || "").toLowerCase()}_${(t.sub || "").toLowerCase()}`.trim();
+                        if (!seenTimelineKeys.has(key)) {
+                            seenTimelineKeys.add(key);
+                            timeline.push(t);
+                        }
+                    }
 
                     const hasFirstContact = timeline.some(t => t.title.toLowerCase().includes("first contact"));
                     if (!hasFirstContact) {

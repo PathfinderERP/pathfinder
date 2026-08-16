@@ -200,14 +200,15 @@ export const requireGranularPermission = (module, section, action) => {
 
             // Grant automatic access to class-related academics actions for designated roles
             const ALL_ROLES_FOR_CLASS = [
-                'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller',
-                'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing',
-                'centerIncharge', 'zonalManager', 'zonalHead', 'hr', 'accounts',
-                'coordinator', 'digital', 'assistantZonalManager', 'assistantCenterIncharge'
+                'teacher', 'admin', 'superAdmin', 'superadmin', 'telecaller', 'centralizedTelecaller',
+                'counsellor', 'RM', 'Class_Coordinator', 'classcoordinator', 'class_coordinator',
+                'HOD', 'hod', 'marketing', 'centerIncharge', 'centreincharge', 'zonalManager',
+                'areaManager', 'zonalHead', 'hr', 'accounts', 'coordinator', 'digital',
+                'assistantZonalManager', 'assistantCenterIncharge', 'supportStaff'
             ];
 
             if (module === 'academics' && ['classes', 'classManagement', 'upcomingClass', 'ongoingClass', 'previousClass'].includes(section)) {
-                if (ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase())) {
+                if (user.role || ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase())) {
                     hasAccess = true;
                 }
             }

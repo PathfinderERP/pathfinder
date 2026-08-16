@@ -145,6 +145,8 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                 endpoint = `${apiUrl}/operations/daily-tracking/user/${row.userId}/todays-followups?fromDate=${fromDate}&toDate=${toDate}&centerId=${row.centreId}`;
             } else if (leadType === 'PREVIOUS_FOLLOWUP') {
                 endpoint = `${apiUrl}/operations/daily-tracking/user/${row.userId}/previous-followups?fromDate=${fromDate}&toDate=${toDate}&centerId=${row.centreId}`;
+            } else if (leadType === 'SERVICE_CALL') {
+                endpoint = `${apiUrl}/operations/daily-tracking/user/${row.userId}/service-calls?fromDate=${fromDate}&toDate=${toDate}&centerId=${row.centreId}`;
             }
             const response = await fetch(endpoint, {
                 headers: {
@@ -153,7 +155,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
             });
             const result = await response.json();
             if (response.ok) {
-                if (['WALK_IN', 'ADMISSION', 'TODAYS_FOLLOWUP', 'PREVIOUS_FOLLOWUP'].includes(leadType)) {
+                if (['WALK_IN', 'ADMISSION', 'TODAYS_FOLLOWUP', 'PREVIOUS_FOLLOWUP', 'SERVICE_CALL'].includes(leadType)) {
                     setPopupCallsData(result || []);
                 } else {
                     setPopupCallsData(result.callDetails || []);
@@ -220,9 +222,10 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
         acc.previousFollowUp += curr.previousFollowUp || 0;
         acc.walkInCount += curr.walkInCount || 0;
         acc.admissionCount += curr.admissionCount || 0;
+        acc.serviceCalls += curr.serviceCalls || 0;
         acc.totalCalls += curr.totalCalls || 0;
         return acc;
-    }, { hot: 0, warm: 0, cold: 0, neutral: 0, invalid: 0, todaysFollowUp: 0, previousFollowUp: 0, walkInCount: 0, admissionCount: 0, totalCalls: 0 });
+    }, { hot: 0, warm: 0, cold: 0, neutral: 0, invalid: 0, todaysFollowUp: 0, previousFollowUp: 0, walkInCount: 0, admissionCount: 0, serviceCalls: 0, totalCalls: 0 });
 
     const handleExportSummary = async () => {
         try {
@@ -298,11 +301,12 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
             (call.studentName || '').toLowerCase().includes(popupSearchQuery.toLowerCase()) ||
             (call.phoneNumber || '').includes(popupSearchQuery) ||
             (call.admissionNumber || '').toLowerCase().includes(popupSearchQuery.toLowerCase()) ||
+            (call.enrollmentNo || '').toLowerCase().includes(popupSearchQuery.toLowerCase()) ||
             (call.feedback || '').toLowerCase().includes(popupSearchQuery.toLowerCase()) ||
             (call.remarks || '').toLowerCase().includes(popupSearchQuery.toLowerCase());
         
         let matchLead = true;
-        if (selectedLeadType !== 'ALL' && selectedLeadType !== 'WALK_IN' && selectedLeadType !== 'ADMISSION') {
+        if (selectedLeadType !== 'ALL' && selectedLeadType !== 'WALK_IN' && selectedLeadType !== 'ADMISSION' && selectedLeadType !== 'SERVICE_CALL') {
             const key = (call.leadType || '').toUpperCase();
             if (selectedLeadType === 'HOT') matchLead = key.includes('HOT');
             else if (selectedLeadType === 'WARM') matchLead = key.includes('WARM');
@@ -484,6 +488,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                         <th className={`p-4 font-semibold text-center text-amber-600 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Previous Follow Up</th>
                                         <th className={`p-4 font-semibold text-center text-emerald-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Walk In</th>
                                         <th className={`p-4 font-semibold text-center text-indigo-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Admission</th>
+                                        <th className={`p-4 font-semibold text-center text-cyan-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Service Call</th>
                                         <th className={`p-4 font-semibold text-center border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Total Calls</th>
                                     </tr>
                                 </thead>
@@ -568,6 +573,13 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                                     <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.admissionCount || 0}</span>
                                                 )}
                                             </td>
+                                            <td className="p-4 text-center font-bold text-cyan-500">
+                                                {row.serviceCalls > 0 ? (
+                                                    <span onClick={() => handleCountClick(row, 'SERVICE_CALL')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.serviceCalls}</span>
+                                                ) : (
+                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.serviceCalls || 0}</span>
+                                                )}
+                                            </td>
                                             <td className="p-4 text-center font-extrabold text-cyan-400">
                                                 {row.totalCalls > 0 ? (
                                                     <span onClick={() => handleCountClick(row, 'ALL')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.totalCalls}</span>
@@ -589,6 +601,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                         <td className="p-4 text-center text-amber-600 font-extrabold">{totals.previousFollowUp}</td>
                                         <td className="p-4 text-center text-emerald-500 font-extrabold">{totals.walkInCount}</td>
                                         <td className="p-4 text-center text-indigo-500 font-extrabold">{totals.admissionCount}</td>
+                                        <td className="p-4 text-center text-cyan-500 font-extrabold">{totals.serviceCalls}</td>
                                         <td className="p-4 text-center text-cyan-400 font-extrabold">{totals.totalCalls}</td>
                                     </tr>
                                 </tbody>
@@ -669,6 +682,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                          : selectedLeadType === 'ADMISSION' ? 'Loading admissions list...' 
                                          : selectedLeadType === 'TODAYS_FOLLOWUP' ? 'Loading todays follow-ups...' 
                                          : selectedLeadType === 'PREVIOUS_FOLLOWUP' ? 'Loading previous follow-ups...' 
+                                         : selectedLeadType === 'SERVICE_CALL' ? 'Loading service calls...' 
                                          : 'Loading calls list...'}
                                     </p>
                                 </div>
@@ -680,6 +694,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                          : selectedLeadType === 'ADMISSION' ? 'No admission entries found matching criteria' 
                                          : selectedLeadType === 'TODAYS_FOLLOWUP' ? 'No todays follow-up entries found' 
                                          : selectedLeadType === 'PREVIOUS_FOLLOWUP' ? 'No previous follow-up entries found' 
+                                         : selectedLeadType === 'SERVICE_CALL' ? 'No service call entries found' 
                                          : 'No call entries found matching criteria'}
                                     </p>
                                 </div>
@@ -775,6 +790,59 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                                             <td className={`p-4 text-xs max-w-[150px] truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} title={call.remarks}>{call.remarks || '-'}</td>
                                                             <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
                                                                 {new Date(call.date).toLocaleString('en-GB')}
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </>
+                                        ) : selectedLeadType === 'SERVICE_CALL' ? (
+                                            <>
+                                                <thead>
+                                                    <tr className={`text-xs uppercase tracking-wider ${isDarkMode ? 'bg-[#131619] text-gray-400' : 'bg-gray-50 text-gray-500'}`}>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>#</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Student Name</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Enrollment No</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Phone Number</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Class</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Course</th>
+                                                        <th className={`p-4 font-semibold text-center border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Call Type</th>
+                                                        <th className={`p-4 font-semibold text-center border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Lead Status</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Feedback</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Remarks</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Next Follow Up</th>
+                                                        <th className={`p-4 font-semibold border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Date & Time</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody className="text-sm">
+                                                    {filteredPopupCalls.map((call, index) => (
+                                                        <tr key={index} className={`border-b last:border-b-0 transition-colors ${
+                                                            isDarkMode ? 'border-gray-800 hover:bg-[#1f252b] text-gray-200' : 'border-gray-100 hover:bg-gray-50 text-gray-700'
+                                                        }`}>
+                                                            <td className={`p-4 text-xs font-semibold ${isDarkMode ? 'text-gray-500' : 'text-gray-600'}`}>{index + 1}</td>
+                                                            <td className={`p-4 font-medium uppercase tracking-wide ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{call.studentName}</td>
+                                                            <td className={`p-4 font-mono text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{call.enrollmentNo || '-'}</td>
+                                                            <td className={`p-4 font-mono text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{call.phoneNumber}</td>
+                                                            <td className={`p-4 text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{call.className || '-'}</td>
+                                                            <td className={`p-4 text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{call.courseName || '-'}</td>
+                                                            <td className="p-4 text-center text-xs">
+                                                                <span className={`px-2 py-0.5 rounded-[2px] border text-[9px] font-black uppercase ${
+                                                                    isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'
+                                                                }`}>
+                                                                    {call.callType}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4 text-center">
+                                                                <span className={`inline-block px-2.5 py-0.5 rounded-[2px] text-[9px] font-extrabold uppercase tracking-tight ${getLeadBadge(call.leadType)}`}>
+                                                                    {call.leadType}
+                                                                </span>
+                                                            </td>
+                                                            <td className={`p-4 text-xs max-w-[150px] truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} title={call.feedback}>{call.feedback || '-'}</td>
+                                                            <td className={`p-4 text-xs max-w-[150px] truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} title={call.remarks}>{call.remarks || '-'}</td>
+                                                            <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
+                                                                {call.nextFollowUpDate ? new Date(call.nextFollowUpDate).toLocaleDateString('en-GB') : '-'}
+                                                            </td>
+                                                            <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
+                                                                {call.date ? new Date(call.date).toLocaleString('en-GB') : '-'}
                                                             </td>
                                                         </tr>
                                                     ))}

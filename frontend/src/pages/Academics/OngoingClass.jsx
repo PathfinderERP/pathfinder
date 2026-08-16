@@ -51,12 +51,13 @@ const OngoingClass = () => {
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const ALL_ROLES_FOR_CLASS = [
-        'teacher', 'admin', 'superAdmin', 'telecaller', 'centralizedTelecaller',
-        'counsellor', 'RM', 'Class_Coordinator', 'HOD', 'marketing',
-        'centerIncharge', 'zonalManager', 'areaManager', 'zonalHead', 'hr', 'accounts',
-        'coordinator', 'digital', 'assistantZonalManager', 'assistantCenterIncharge'
+        'teacher', 'admin', 'superAdmin', 'superadmin', 'telecaller', 'centralizedTelecaller',
+        'counsellor', 'RM', 'Class_Coordinator', 'classcoordinator', 'class_coordinator',
+        'HOD', 'hod', 'marketing', 'centerIncharge', 'centreincharge', 'zonalManager',
+        'areaManager', 'zonalHead', 'hr', 'accounts', 'coordinator', 'digital',
+        'assistantZonalManager', 'assistantCenterIncharge', 'supportStaff'
     ];
-    const isAcademicAdmin = ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase());
+    const isAcademicAdmin = !!user.role || ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase());
     const isTeacher = user.role === "teacher";
     const isHod = user.role === "hod" || user.role === "HOD";
 

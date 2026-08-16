@@ -113,7 +113,7 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
     // Aggregate student service calls
     const serviceCallMatchStage = {
         centre: { $in: actualCenterIds },
-        callDate: dateFilter
+        createdAt: dateFilter
     };
     if (isRestrictIndividual && reqUser) {
         serviceCallMatchStage["userName"] = { $regex: new RegExp(`^${reqUser.name.trim()}$`, "i") };
@@ -134,6 +134,7 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
                 },
                 originalUserName: { $first: "$userName" },
                 totalCalls: { $sum: 1 },
+                serviceCalls: { $sum: 1 },
                 hot: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /hot/i } }, 1, 0] } },
                 warm: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /warm/i } }, 1, 0] } },
                 cold: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /cold/i } }, 1, 0] } },
@@ -149,7 +150,7 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
 
     aggregatedCalls.forEach(item => {
         const key = makeKey(item._id?.centre, item._id?.userName);
-        callsMap.set(key, { ...item });
+        callsMap.set(key, { ...item, serviceCalls: 0 });
     });
 
     aggregatedServiceCalls.forEach(sc => {
@@ -157,13 +158,14 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
         if (callsMap.has(key)) {
             const existing = callsMap.get(key);
             existing.totalCalls += sc.totalCalls;
+            existing.serviceCalls = (existing.serviceCalls || 0) + sc.totalCalls;
             existing.hot += sc.hot;
             existing.warm += sc.warm;
             existing.cold += sc.cold;
             existing.neutral += sc.neutral;
             existing.invalid += sc.invalid;
         } else {
-            callsMap.set(key, { ...sc });
+            callsMap.set(key, { ...sc, serviceCalls: sc.totalCalls });
         }
     });
 
@@ -500,6 +502,7 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
             role: finalRole,
             employeeId: finalEmployeeId,
             totalCalls: aggCall.totalCalls || 0,
+            serviceCalls: aggCall.serviceCalls || 0,
             hot: aggCall.hot || 0,
             warm: aggCall.warm || 0,
             cold: aggCall.cold || 0,
@@ -611,8 +614,36 @@ export const getDailyTracking = async (req, res) => {
                     unique: { $sum: 1 }
                 } }
             ]);
-            const dailyCallsCount = dailyCallsCountResult.length > 0 ? dailyCallsCountResult[0].total : 0;
-            const uniqueCallsCount = dailyCallsCountResult.length > 0 ? dailyCallsCountResult[0].unique : 0;
+            const leadCallsCount = dailyCallsCountResult.length > 0 ? dailyCallsCountResult[0].total : 0;
+            const leadUniqueCallsCount = dailyCallsCountResult.length > 0 ? dailyCallsCountResult[0].unique : 0;
+
+            // --- Student Service Calls ---
+            const serviceCallMatch = {
+                centre: centerId,
+                createdAt: dateFilter
+            };
+            if (agentIds) {
+                serviceCallMatch.userName = { $in: agentNames };
+            } else if (isRestricted) {
+                serviceCallMatch.userName = req.user.name;
+            }
+
+            const serviceCallsResult = await StudentServiceCall.aggregate([
+                { $match: serviceCallMatch },
+                {
+                    $group: {
+                        _id: null,
+                        total: { $sum: 1 },
+                        unique: { $addToSet: "$studentPhone" }
+                    }
+                }
+            ]);
+
+            const serviceCallsTotal = serviceCallsResult.length > 0 ? serviceCallsResult[0].total : 0;
+            const serviceCallsUnique = serviceCallsResult.length > 0 ? serviceCallsResult[0].unique.filter(Boolean).length : 0;
+
+            const dailyCallsCount = leadCallsCount + serviceCallsTotal;
+            const uniqueCallsCount = leadUniqueCallsCount + serviceCallsUnique;
             const sameNoCallsCount = Math.max(0, dailyCallsCount - uniqueCallsCount);
 
             // --- Daily Walk-ins ---
@@ -1001,6 +1032,7 @@ export const getDailyTracking = async (req, res) => {
                 dailyCalls: dailyCallsCount,
                 uniqueCalls: uniqueCallsCount,
                 sameNoCalls: sameNoCallsCount,
+                serviceCalls: serviceCallsTotal,
                 walkIns: walkInsCount,
                 walkInsCounselled: walkInsCounselledCount,
                 walkInsAdmission: walkInsAdmissionCount,
@@ -3196,6 +3228,7 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
                 "Previous Follow Up": item.previousFollowUp,
                 "Walk Ins": item.walkInCount,
                 "Admissions": item.admissionCount,
+                "Service Calls": item.serviceCalls || 0,
                 "Total Calls": item.totalCalls
             };
         });
@@ -3592,6 +3625,124 @@ export const getDailyUserPreviousFollowUps = async (req, res) => {
     } catch (error) {
         console.error("GET_DAILY_USER_PREVIOUS_FOLLOWUPS_ERROR:", error);
         res.status(500).json({ message: "Failed to fetch user previous follow ups", error: error.message });
+    }
+};
+
+export const getDailyUserServiceCalls = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { fromDate, toDate, centerId } = req.query;
+
+        const { start: startDate, end: endDate } = parseDateRangeIST(fromDate, toDate);
+        const dateFilter = { $gte: startDate, $lte: endDate };
+
+        const query = {
+            user: userId,
+            createdAt: dateFilter
+        };
+        if (centerId) {
+            query.centre = centerId;
+        }
+
+        const calls = await StudentServiceCall.find(query)
+            .sort({ createdAt: -1 })
+            .lean();
+
+        const studentIds = calls.map(c => c.student).filter(Boolean);
+        const admissionIds = calls.map(c => c.admission).filter(Boolean);
+        const phoneNumbers = calls.map(c => c.studentPhone).filter(p => p && p !== '-');
+        const enrollNos = calls.map(c => c.enrollmentNo).filter(e => e && e !== '-');
+
+        const [normalAdmissions, boardAdmissions, leads] = await Promise.all([
+            Admission.find({
+                $or: [
+                    { _id: { $in: admissionIds } },
+                    { student: { $in: studentIds } },
+                    { admissionNumber: { $in: enrollNos } }
+                ]
+            }).populate('course', 'courseName').populate('class', 'name').populate('board', 'boardName').lean(),
+            BoardCourseAdmission.find({
+                $or: [
+                    { _id: { $in: admissionIds } },
+                    { studentId: { $in: studentIds } },
+                    { admissionNumber: { $in: enrollNos } }
+                ]
+            }).populate('boardId', 'boardName boardCourse').lean(),
+            LeadManagement.find({
+                phoneNumber: { $in: phoneNumbers }
+            }).populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean()
+        ]);
+
+        const admissionMapByStudent = {};
+        const admissionMapById = {};
+        const admissionMapByNum = {};
+        normalAdmissions.forEach(adm => {
+            if (adm._id) admissionMapById[adm._id.toString()] = adm;
+            if (adm.student) admissionMapByStudent[adm.student.toString()] = adm;
+            if (adm.admissionNumber) admissionMapByNum[adm.admissionNumber] = adm;
+        });
+
+        const boardMapByStudent = {};
+        const boardMapById = {};
+        const boardMapByNum = {};
+        boardAdmissions.forEach(bAdm => {
+            if (bAdm._id) boardMapById[bAdm._id.toString()] = bAdm;
+            if (bAdm.studentId) boardMapByStudent[bAdm.studentId.toString()] = bAdm;
+            if (bAdm.admissionNumber) boardMapByNum[bAdm.admissionNumber] = bAdm;
+        });
+
+        const leadMapByPhone = {};
+        leads.forEach(l => {
+            if (l.phoneNumber) leadMapByPhone[l.phoneNumber] = l;
+        });
+
+        const data = calls.map(c => {
+            let className = '-';
+            let courseName = '-';
+
+            const adm = (c.admission && admissionMapById[c.admission.toString()]) || 
+                        (c.student && admissionMapByStudent[c.student.toString()]) ||
+                        (c.enrollmentNo && admissionMapByNum[c.enrollmentNo]);
+            const bAdm = (c.admission && boardMapById[c.admission.toString()]) || 
+                         (c.student && boardMapByStudent[c.student.toString()]) ||
+                         (c.enrollmentNo && boardMapByNum[c.enrollmentNo]);
+            const lead = c.studentPhone ? leadMapByPhone[c.studentPhone] : null;
+
+            if (adm) {
+                className = adm.class?.name || className;
+                courseName = adm.course?.courseName || courseName;
+            } else if (bAdm) {
+                className = bAdm.lastClass || className;
+                courseName = bAdm.boardCourseName || bAdm.boardId?.boardCourse || courseName;
+            }
+
+            if ((className === '-' || courseName === '-') && lead) {
+                if (className === '-') className = lead.className?.name || '-';
+                if (courseName === '-') courseName = lead.course?.courseName || lead.courseText || '-';
+            }
+
+            return {
+                leadId: c._id,
+                studentName: c.studentName,
+                phoneNumber: c.studentPhone || '-',
+                enrollmentNo: c.enrollmentNo || (adm?.admissionNumber) || (bAdm?.admissionNumber) || '-',
+                className,
+                courseName,
+                callType: 'SERVICE_CALL',
+                leadType: (c.status || 'NEUTRAL').toUpperCase(),
+                servicePurpose: c.servicePurpose || 'Service Call',
+                feedback: c.servicePurpose || 'Service Call',
+                remarks: c.remarks || '',
+                nextFollowUpDate: c.nextFollowUpDate || null,
+                date: c.createdAt,
+                centreName: c.centreName || ''
+            };
+        });
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error("GET_DAILY_USER_SERVICE_CALLS_ERROR:", error);
+        res.status(500).json({ message: "Failed to fetch user service calls", error: error.message });
     }
 };
 

@@ -12,7 +12,8 @@ import {
     getDailyUserWalkIns,
     getDailyUserAdmissions,
     getDailyUserTodaysFollowUps,
-    getDailyUserPreviousFollowUps
+    getDailyUserPreviousFollowUps,
+    getDailyUserServiceCalls
 } from "../../controllers/Operations/dailyTrackingController.js";
 import protect from "../../middleware/authMiddleware.js";
 import { requireGranularPermission } from "../../middleware/permissionMiddleware.js";
@@ -34,5 +35,6 @@ router.get("/user/:userId/walk-ins", protect, requireGranularPermission("trackin
 router.get("/user/:userId/admissions", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserAdmissions);
 router.get("/user/:userId/todays-followups", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserTodaysFollowUps);
 router.get("/user/:userId/previous-followups", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserPreviousFollowUps);
+router.get("/user/:userId/service-calls", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserServiceCalls);
 
 export default router;

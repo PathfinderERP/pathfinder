@@ -8,12 +8,16 @@ import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
 export const getConversionDetails = async (req, res) => {
     try {
         const { type } = req.query;
-        if (!type || !["counselled", "admitted"].includes(type.toLowerCase())) {
-            return res.status(400).json({ message: "Invalid type parameter. Must be 'counselled' or 'admitted'." });
+        const normalizedType = (type || "").toLowerCase();
+        const validTypes = ["counselled", "admitted", "uploaded_admissions", "uploaded_admitted", "manual_admissions", "manual_admitted"];
+        if (!type || !validTypes.includes(normalizedType)) {
+            return res.status(400).json({ message: "Invalid type parameter." });
         }
 
         // Build base query (we bypass the default isCounseled restriction for this lookup)
-        const baseQuery = await buildLeadQuery(req.query, req.user);
+        const queryParams = { ...req.query };
+        delete queryParams.followUpStatus;
+        const baseQuery = await buildLeadQuery(queryParams, req.user);
         delete baseQuery.isCounseled;
         if (baseQuery.$and) {
             baseQuery.$and = baseQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
@@ -63,7 +67,7 @@ export const getConversionDetails = async (req, res) => {
         ])].filter(Boolean);
 
         // Apply type-specific filter
-        if (type.toLowerCase() === "admitted") {
+        if (normalizedType === "admitted") {
             const admittedCondition = [
                 { phoneNumber: { $in: allAdmittedPhoneNumbers } },
                 { secondPhoneNumber: { $in: allAdmittedPhoneNumbers } }
@@ -76,6 +80,66 @@ export const getConversionDetails = async (req, res) => {
             } else {
                 baseQuery.$or = admittedCondition;
             }
+        } else if (normalizedType === "uploaded_admissions" || normalizedType === "uploaded_admitted") {
+            const admittedCondition = [
+                { phoneNumber: { $in: allAdmittedPhoneNumbers } },
+                { secondPhoneNumber: { $in: allAdmittedPhoneNumbers } }
+            ];
+            baseQuery.$and = baseQuery.$and || [];
+            if (baseQuery.$or) {
+                baseQuery.$and.push({ $or: baseQuery.$or });
+                delete baseQuery.$or;
+            }
+            baseQuery.$and.push({ $or: admittedCondition });
+            baseQuery.$and.push({
+                $or: [
+                    { isBulkUpload: true },
+                    { campaign: { $exists: true, $ne: null } },
+                    { campaignFrom: { $exists: true, $ne: null, $ne: "" } },
+                    { source: { $regex: /bulk|import|excel|campaign|facebook|meta|google|ad|online|landing|upload/i } }
+                ]
+            });
+        } else if (normalizedType === "manual_admissions" || normalizedType === "manual_admitted") {
+            const admittedCondition = [
+                { phoneNumber: { $in: allAdmittedPhoneNumbers } },
+                { secondPhoneNumber: { $in: allAdmittedPhoneNumbers } }
+            ];
+            baseQuery.$and = baseQuery.$and || [];
+            if (baseQuery.$or) {
+                baseQuery.$and.push({ $or: baseQuery.$or });
+                delete baseQuery.$or;
+            }
+            baseQuery.$and.push({ $or: admittedCondition });
+            baseQuery.$and.push({
+                $and: [
+                    {
+                        $or: [
+                            { isBulkUpload: false },
+                            { isBulkUpload: { $exists: false } }
+                        ]
+                    },
+                    {
+                        $or: [
+                            { campaign: { $exists: false } },
+                            { campaign: null }
+                        ]
+                    },
+                    {
+                        $or: [
+                            { campaignFrom: { $exists: false } },
+                            { campaignFrom: null },
+                            { campaignFrom: "" }
+                        ]
+                    },
+                    {
+                        $or: [
+                            { source: { $exists: false } },
+                            { source: null },
+                            { source: { $not: { $regex: /bulk|import|excel|campaign|facebook|meta|google|ad|online|landing|upload/i } } }
+                        ]
+                    }
+                ]
+            });
         } else {
             // counselled
             const counselledCondition = [

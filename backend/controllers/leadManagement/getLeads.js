@@ -170,11 +170,75 @@ export const getLeads = async (req, res) => {
             admittedLeadQuery.$and = admittedLeadQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
         }
 
-        const admittedCount = await LeadManagement.countDocuments({
-            ...admittedLeadQuery,
+        const phoneAdmittedOr = [
+            { phoneNumber: { $in: allAdmittedPhoneNumbers } },
+            { secondPhoneNumber: { $in: allAdmittedPhoneNumbers } }
+        ];
+
+        const admittedBaseQuery = { ...admittedLeadQuery };
+        const baseAnd = admittedBaseQuery.$and ? [...admittedBaseQuery.$and] : [];
+        if (admittedBaseQuery.$or) {
+            baseAnd.push({ $or: admittedBaseQuery.$or });
+            delete admittedBaseQuery.$or;
+        }
+        baseAnd.push({ $or: phoneAdmittedOr });
+        admittedBaseQuery.$and = baseAnd;
+
+        const admittedCount = await LeadManagement.countDocuments(admittedBaseQuery);
+
+        const uploadedLeadCondition = {
             $or: [
-                { phoneNumber: { $in: allAdmittedPhoneNumbers } },
-                { secondPhoneNumber: { $in: allAdmittedPhoneNumbers } }
+                { isBulkUpload: true },
+                { campaign: { $exists: true, $ne: null } },
+                { campaignFrom: { $exists: true, $ne: null, $ne: "" } },
+                { source: { $regex: /bulk|import|excel|campaign|facebook|meta|google|ad|online|landing|upload/i } }
+            ]
+        };
+
+        const manualLeadCondition = {
+            $and: [
+                {
+                    $or: [
+                        { isBulkUpload: false },
+                        { isBulkUpload: { $exists: false } }
+                    ]
+                },
+                {
+                    $or: [
+                        { campaign: { $exists: false } },
+                        { campaign: null }
+                    ]
+                },
+                {
+                    $or: [
+                        { campaignFrom: { $exists: false } },
+                        { campaignFrom: null },
+                        { campaignFrom: "" }
+                    ]
+                },
+                {
+                    $or: [
+                        { source: { $exists: false } },
+                        { source: null },
+                        { source: { $not: { $regex: /bulk|import|excel|campaign|facebook|meta|google|ad|online|landing|upload/i } } }
+                    ]
+                }
+            ]
+        };
+
+        const uploadedAdmittedCount = await LeadManagement.countDocuments({
+            ...admittedBaseQuery,
+            $and: [
+                ...admittedBaseQuery.$and,
+                uploadedLeadCondition
+            ]
+        });
+
+        const manualAdmittedCount = await LeadManagement.countDocuments({
+            ...admittedBaseQuery,
+            $and: [
+                ...admittedBaseQuery.$and,
+                manualLeadCondition
             ]
         });
 
@@ -214,7 +278,9 @@ export const getLeads = async (req, res) => {
                 remainingCount,
                 walkInCount,
                 counselledCount,
-                admittedCount
+                admittedCount,
+                uploadedAdmittedCount,
+                manualAdmittedCount
             }
         });
 

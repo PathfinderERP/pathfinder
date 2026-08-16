@@ -147,11 +147,24 @@ const BulkUpdateLeadModal = ({ selectedLeadIds, isAllFilteredSelected, filters, 
             });
             const userData = await userResponse.json();
             if (userResponse.ok) {
+                const loggedUser = JSON.parse(localStorage.getItem("user") || "{}");
+                const isAreaManager = (loggedUser.role || "").toLowerCase().replace(/[\s\-_]+/g, "") === "areamanager";
+                const areaManagerAllowedRoles = [
+                    "telecaller", "centralizedtelecaller", "counsellor", "marketing",
+                    "assistantcentreincharge", "assistantcenterincharge", "centreincharge", "centerincharge",
+                    "zonalmanager", "zonalhead", "assistantzonalmanager", "areamanager"
+                ];
+
                 const leadUsers = (userData.users || []).filter(u => {
-                    const r = u.role?.toLowerCase()?.replace(/\s+/g, '') || '';
+                    const r = u.role?.toLowerCase()?.replace(/[\s\-_]+/g, '') || '';
                     const isActive = u.isActive !== false;
-                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge'];
-                    return isActive && allowedRoles.includes(r);
+                    if (!isActive) return false;
+
+                    if (isAreaManager) {
+                        return areaManagerAllowedRoles.includes(r);
+                    }
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'areamanager'];
+                    return allowedRoles.includes(r);
                 });
 
                 // Find duplicate active user names
