@@ -4,6 +4,10 @@ import mongoose from "mongoose";
 import DraftPlanner from "../../models/DraftPlanner.js";
 import { uploadToR2, getSignedFileUrl } from "../../utils/r2Upload.js";
 import SchoolForTask from "../../models/Master_data/SchoolForTask.js";
+import TomorrowPlanner from "../../models/TomorrowPlanner.js";
+import AssignedTask from "../../models/AssignedTask.js";
+import LogCalendar from "../../models/LogCalendar.js";
+import { syncPlanToLogCalendar } from "../tomorrowPlannerController.js";
 
 const isBase64 = (str) => {
     if (!str || typeof str !== "string") return false;
@@ -177,6 +181,81 @@ export const createPlanner = async (req, res) => {
                 ...recObj,
                 id: newRecord._id.toString()
             });
+            // Sync completed status to LogCalendar, TomorrowPlanner, and AssignedTask
+            try {
+                const targetDateStr = date;
+                const actPlace = (act.place || act.institution || "").trim();
+
+                const dateStart = new Date(`${targetDateStr}T00:00:00.000Z`);
+                const dateEnd = new Date(`${targetDateStr}T23:59:59.999Z`);
+                const dateBufferStart = new Date(dateStart.getTime() - 12 * 60 * 60 * 1000);
+                const dateBufferEnd = new Date(dateEnd.getTime() + 12 * 60 * 60 * 1000);
+
+                // 1. Update matching LogCalendar entries to Completed
+                const logOrConditions = [];
+                if (act._id && mongoose.Types.ObjectId.isValid(act._id)) {
+                    logOrConditions.push({ marketingTaskId: String(act._id) });
+                }
+                if (actPlace) {
+                    logOrConditions.push({ place: { $regex: new RegExp(`^${actPlace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+                    logOrConditions.push({ title: { $regex: new RegExp(actPlace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i') } });
+                }
+                if (logOrConditions.length > 0) {
+                    await LogCalendar.updateMany({
+                        user: req.user._id || req.user.id,
+                        startDate: { $gte: dateBufferStart, $lte: dateBufferEnd },
+                        $or: logOrConditions
+                    }, {
+                        $set: { status: "Completed" }
+                    });
+                }
+
+                // 2. Update matching TomorrowPlanner tasks to Completed
+                const planners = await TomorrowPlanner.find({
+                    user: req.user._id || req.user.id,
+                    $or: [
+                        { planDate: { $gte: dateBufferStart, $lte: dateBufferEnd } },
+                        { plantDate: { $gte: dateBufferStart, $lte: dateBufferEnd } }
+                    ]
+                });
+
+                for (const p of planners) {
+                    let updated = false;
+                    for (const t of (p.tasks || [])) {
+                        const tPlace = (t.place || "").trim();
+                        const isMatch = (act._id && String(t._id) === String(act._id)) ||
+                            (validSchoolRef && t.schoolRef && String(t.schoolRef) === String(validSchoolRef)) ||
+                            (actPlace && tPlace && tPlace.toLowerCase() === actPlace.toLowerCase());
+                        if (isMatch) {
+                            t.status = "Completed";
+                            updated = true;
+                        }
+                    }
+                    if (updated) {
+                        await p.save();
+                        const pDate = p.planDate || p.plantDate;
+                        await syncPlanToLogCalendar(req.user, pDate, p.tasks);
+                    }
+                }
+
+                // 3. Update matching AssignedTask to Completed
+                if (validSchoolRef || actPlace) {
+                    const assignedOr = [];
+                    if (validSchoolRef) assignedOr.push({ schoolRef: validSchoolRef });
+                    if (actPlace) assignedOr.push({ schoolName: { $regex: new RegExp(`^${actPlace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+                    if (assignedOr.length > 0) {
+                        await AssignedTask.updateMany({
+                            assignedTo: req.user._id || req.user.id,
+                            taskDate: targetDateStr,
+                            $or: assignedOr
+                        }, {
+                            $set: { status: "Completed" }
+                        });
+                    }
+                }
+            } catch (syncErr) {
+                console.error("Error updating completed status across modules on planner submit:", syncErr);
+            }
         }
 
         // Delete draft if exists for the user and date

@@ -24,82 +24,140 @@ export const toggleStudentStatus = async (req, res) => {
         const oldStatus = student.status;
         const deactivationDate = student.deactivationDate;
 
-        // If reactivating and we have a deactivation date, shift installments
-        if (status === 'Active' && oldStatus === 'Deactivated' && deactivationDate) {
-            const now = new Date();
-            const daysDeactivated = Math.floor((now - new Date(deactivationDate)) / (1000 * 60 * 60 * 24));
+        // If reactivating, shift installments if deactivationDate exists
+        if (status === 'Active') {
+            let daysDeactivated = 0;
+            if (oldStatus === 'Deactivated' && deactivationDate) {
+                const now = new Date();
+                daysDeactivated = Math.floor((now - new Date(deactivationDate)) / (1000 * 60 * 60 * 24));
+            }
 
-            if (daysDeactivated > 0) {
-                // Fetch Normal Admissions and Board Admissions in parallel
-                const [admissions, boardAdmissions] = await Promise.all([
-                    Admission.find({ student: studentId }),
-                    BoardCourseAdmission.find({ studentId: studentId })
-                ]);
+            // Fetch Normal Admissions and Board Admissions in parallel
+            const [admissions, boardAdmissions] = await Promise.all([
+                Admission.find({ student: studentId }),
+                BoardCourseAdmission.find({ studentId: studentId })
+            ]);
 
-                // Mutate Normal Admissions in memory (no DB calls yet)
-                admissions.forEach(admission => {
-                    admission.paymentBreakdown.forEach(inst => {
-                        // Only shift future or currently due installments
-                        if (inst.status === 'PENDING' || inst.status === 'OVERDUE') {
-                            const oldDueDate = new Date(inst.dueDate);
-                            oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
-                            inst.dueDate = oldDueDate;
+            const updatePromises = [];
 
-                            // Re-calculate status if it was overdue but now shifted to future
-                            if (inst.status === 'OVERDUE' && oldDueDate > now) {
-                                inst.status = 'PENDING';
+            // Update Normal Admissions
+            for (const admission of admissions) {
+                let updatedBreakdown = admission.paymentBreakdown || [];
+                if (daysDeactivated > 0 && Array.isArray(updatedBreakdown)) {
+                    const now = new Date();
+                    updatedBreakdown = updatedBreakdown.map(inst => {
+                        const instObj = inst.toObject ? inst.toObject() : { ...inst };
+                        if ((instObj.status === 'PENDING' || instObj.status === 'OVERDUE') && instObj.dueDate) {
+                            const oldDueDate = new Date(instObj.dueDate);
+                            if (!isNaN(oldDueDate.getTime())) {
+                                oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
+                                instObj.dueDate = oldDueDate;
+                                if (instObj.status === 'OVERDUE' && oldDueDate > now) {
+                                    instObj.status = 'PENDING';
+                                }
                             }
                         }
+                        return instObj;
                     });
-                    // ALWAYS set admissionStatus back to ACTIVE when student is reactivated
-                    admission.admissionStatus = 'ACTIVE';
-                });
-
-                // Mutate Board Admissions in memory (no DB calls yet)
-                boardAdmissions.forEach(bAdmission => {
-                    bAdmission.installments.forEach(inst => {
-                        if (inst.status === 'PENDING' || inst.status === 'PARTIAL' || inst.status === 'PARTIALLY_PAID') {
-                            const oldDueDate = new Date(inst.dueDate);
-                            oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
-                            inst.dueDate = oldDueDate;
+                }
+                updatePromises.push(
+                    Admission.updateOne(
+                        { _id: admission._id },
+                        {
+                            $set: {
+                                admissionStatus: 'ACTIVE',
+                                paymentBreakdown: updatedBreakdown
+                            }
                         }
-                    });
-                });
-
-                // Save all in parallel — one round-trip per document, all concurrent
-                await Promise.all([
-                    ...admissions.map(a => a.save()),
-                    ...boardAdmissions.map(b => b.save())
-                ]);
-            } else {
-                // Even if 0 days, ensure admissions are set to ACTIVE
-                await Admission.updateMany(
-                    { student: studentId },
-                    { admissionStatus: 'ACTIVE' }
+                    )
                 );
             }
-            student.deactivationDate = null;
-            student.deactivatedBy = null;
-            student.deactivatedByUserId = null;
-        } else if (status === 'Deactivated') {
-            student.deactivationDate = new Date();
-            student.deactivatedBy = req.user?.name || 'System';
-            student.deactivatedByUserId = req.user?.id || null;
 
-            // Set all admissions to INACTIVE
-            await Admission.updateMany(
-                { student: studentId },
-                { admissionStatus: 'INACTIVE' }
+            // Update Board Admissions
+            for (const bAdmission of boardAdmissions) {
+                let updatedInstallments = bAdmission.installments || [];
+                if (daysDeactivated > 0 && Array.isArray(updatedInstallments)) {
+                    updatedInstallments = updatedInstallments.map(inst => {
+                        const instObj = inst.toObject ? inst.toObject() : { ...inst };
+                        if (['PENDING', 'PARTIAL', 'PARTIALLY_PAID', 'OVERDUE'].includes(instObj.status) && instObj.dueDate) {
+                            const oldDueDate = new Date(instObj.dueDate);
+                            if (!isNaN(oldDueDate.getTime())) {
+                                oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
+                                instObj.dueDate = oldDueDate;
+                            }
+                        }
+                        return instObj;
+                    });
+                }
+                updatePromises.push(
+                    BoardCourseAdmission.updateOne(
+                        { _id: bAdmission._id },
+                        {
+                            $set: {
+                                status: 'ACTIVE',
+                                installments: updatedInstallments
+                            }
+                        }
+                    )
+                );
+            }
+
+            await Promise.all(updatePromises);
+
+            // Update student status with findByIdAndUpdate to avoid schema validation errors on unrelated fields
+            const updatedStudent = await Student.findByIdAndUpdate(
+                studentId,
+                {
+                    $set: {
+                        status: 'Active',
+                        deactivationDate: null,
+                        deactivatedBy: null,
+                        deactivatedByUserId: null
+                    }
+                },
+                { new: true }
             );
+
+            return res.status(200).json({
+                message: "Student successfully reactivated",
+                student: updatedStudent
+            });
+
+        } else if (status === 'Deactivated') {
+            const deactivationDate = new Date();
+            const deactivatedBy = req.user?.name || 'System';
+            const deactivatedByUserId = req.user?._id || req.user?.id || null;
+
+            await Promise.all([
+                Admission.updateMany(
+                    { student: studentId },
+                    { $set: { admissionStatus: 'INACTIVE' } }
+                ),
+                BoardCourseAdmission.updateMany(
+                    { studentId: studentId },
+                    { $set: { status: 'INACTIVE' } }
+                )
+            ]);
+
+            const updatedStudent = await Student.findByIdAndUpdate(
+                studentId,
+                {
+                    $set: {
+                        status: 'Deactivated',
+                        deactivationDate,
+                        deactivatedBy,
+                        deactivatedByUserId
+                    }
+                },
+                { new: true }
+            );
+
+            return res.status(200).json({
+                message: "Student successfully deactivated",
+                student: updatedStudent
+            });
         }
 
-        student.status = status;
-        await student.save();
-
-        res.status(200).json({
-            message: `Student successfully ${status === 'Active' ? 'reactivated' : 'deactivated'}`,
-            student
-        });
     } catch (err) {
         console.error("Toggle Student Status Error:", err);
         res.status(500).json({ message: "Server error", error: err.message });

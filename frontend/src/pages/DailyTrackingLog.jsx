@@ -54,6 +54,18 @@ const getDateRangeLimits = (range, customStart, customEnd) => {
             start = formatDate(yesterday);
             end = formatDate(yesterday);
             break;
+        case "Tomorrow":
+            const tomorrow = new Date(today);
+            tomorrow.setDate(today.getDate() + 1);
+            start = formatDate(tomorrow);
+            end = formatDate(tomorrow);
+            break;
+        case "Next 7 Days":
+            start = formatDate(today);
+            const nextSeven = new Date(today);
+            nextSeven.setDate(today.getDate() + 6);
+            end = formatDate(nextSeven);
+            break;
         case "Last 7 Days":
             const sevenDaysAgo = new Date(today);
             sevenDaysAgo.setDate(today.getDate() - 6);
@@ -62,8 +74,9 @@ const getDateRangeLimits = (range, customStart, customEnd) => {
             break;
         case "This Month":
             const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            const endOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
             start = formatDate(startOfMonth);
-            end = formatDate(today);
+            end = formatDate(endOfMonth);
             break;
         case "Last Month":
             const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
@@ -73,12 +86,17 @@ const getDateRangeLimits = (range, customStart, customEnd) => {
             break;
         case "This Year":
             const startOfYear = new Date(today.getFullYear(), 0, 1);
+            const endOfYear = new Date(today.getFullYear(), 11, 31);
             start = formatDate(startOfYear);
-            end = formatDate(today);
+            end = formatDate(endOfYear);
+            break;
+        case "All Upcoming":
+            start = formatDate(today);
+            end = "2035-12-31";
             break;
         case "All":
             start = "2020-01-01";
-            end = formatDate(today);
+            end = "2035-12-31";
             break;
         case "Custom":
             start = customStart || formatDate(today);
@@ -162,8 +180,11 @@ const DailyTrackingLog = () => {
     }, [tabParam, navigate]);
     const [selectedDate, setSelectedDate] = useState(getTodayDateString());
     const [dateRangeOption, setDateRangeOption] = useState("Today");
+    const [upcomingDateRange, setUpcomingDateRange] = useState("Today");
     const [customStartDate, setCustomStartDate] = useState("");
     const [customEndDate, setCustomEndDate] = useState("");
+    const [customUpcomingStartDate, setCustomUpcomingStartDate] = useState(getTodayDateString());
+    const [customUpcomingEndDate, setCustomUpcomingEndDate] = useState(getTodayDateString());
     const [statusFilter, setStatusFilter] = useState("ALL"); // "ALL" | "FILLED" | "PENDING"
     const [summaryData, setSummaryData] = useState({
         totalUsers: 0,
@@ -559,34 +580,77 @@ const DailyTrackingLog = () => {
 
     const handleExportExcel = async () => {
         try {
-            const { start, end } = getDateRangeLimits(dateRangeOption, customStartDate, customEndDate);
-            let url = `${apiUrl}/daily-tracking-logs/board/export?fromDate=${start}&toDate=${end}`;
-
-            // Handle multi-select roles
-            let rolesParam = "";
-            if (selectedDept) {
-                if (Array.isArray(selectedDept)) {
-                    rolesParam = selectedDept.map(r => r.value).join(",");
-                } else if (selectedDept !== "All") {
-                    rolesParam = selectedDept;
-                }
-            }
-            if (rolesParam) url += `&role=${rolesParam}`;
-
-            if (searchEmployee) url += `&employeeName=${encodeURIComponent(searchEmployee)}`;
-
-            // Handle multi-select centres
-            let centresParam = "";
-            if (selectedCentre) {
-                if (Array.isArray(selectedCentre)) {
-                    centresParam = selectedCentre.map(c => c.value).join(",");
-                } else if (selectedCentre !== "All") {
-                    centresParam = selectedCentre;
-                }
-            }
-            if (centresParam) url += `&centreId=${centresParam}`;
-
             toast.info("Preparing Excel download...");
+
+            let url = "";
+            let start = "";
+            let end = "";
+            let filename = "";
+
+            if (boardViewMode === "submitted") {
+                const limits = getDateRangeLimits(dateRangeOption, customStartDate, customEndDate);
+                start = limits.start;
+                end = limits.end;
+                url = `${apiUrl}/daily-tracking-logs/board/export?fromDate=${start}&toDate=${end}`;
+
+                // Handle multi-select roles
+                let rolesParam = "";
+                if (selectedDept) {
+                    if (Array.isArray(selectedDept)) {
+                        rolesParam = selectedDept.map(r => r.value).join(",");
+                    } else if (selectedDept !== "All") {
+                        rolesParam = selectedDept;
+                    }
+                }
+                if (rolesParam) url += `&role=${rolesParam}`;
+
+                if (searchEmployee) url += `&employeeName=${encodeURIComponent(searchEmployee)}`;
+
+                // Handle multi-select centres
+                let centresParam = "";
+                if (selectedCentre) {
+                    if (Array.isArray(selectedCentre)) {
+                        centresParam = selectedCentre.map(c => c.value).join(",");
+                    } else if (selectedCentre !== "All") {
+                        centresParam = selectedCentre;
+                    }
+                }
+                if (centresParam) url += `&centreId=${centresParam}`;
+
+                filename = `Daily_Tracking_Logs_${start}_to_${end}.xlsx`;
+            } else {
+                // Upcoming Calendar Logs Export
+                const limits = getDateRangeLimits(upcomingDateRange || "Today", customUpcomingStartDate, customUpcomingEndDate);
+                start = limits.start;
+                end = limits.end;
+                url = `${apiUrl}/log-calendar/board/export?startDate=${start}&endDate=${end}`;
+
+                let rolesParam = "";
+                if (selectedDept) {
+                    if (Array.isArray(selectedDept)) {
+                        rolesParam = selectedDept.map(r => r.value).join(",");
+                    } else if (selectedDept !== "All") {
+                        rolesParam = selectedDept;
+                    }
+                }
+                if (rolesParam) url += `&roles=${rolesParam}`;
+
+                if (searchEmployee) url += `&search=${encodeURIComponent(searchEmployee)}`;
+
+                let centresParam = "";
+                if (selectedCentre) {
+                    if (Array.isArray(selectedCentre)) {
+                        centresParam = selectedCentre.map(c => c.value).join(",");
+                    } else if (selectedCentre !== "All") {
+                        centresParam = selectedCentre;
+                    }
+                }
+                if (centresParam) url += `&centres=${centresParam}`;
+
+                if (statusFilter && statusFilter !== "ALL") url += `&status=${statusFilter}`;
+
+                filename = `Upcoming_Calendar_Logs_${start}_to_${end}.xlsx`;
+            }
 
             const res = await fetch(url, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -601,8 +665,7 @@ const DailyTrackingLog = () => {
             const downloadUrl = window.URL.createObjectURL(blob);
             const link = document.createElement("a");
             link.href = downloadUrl;
-
-            link.setAttribute("download", `Daily_Tracking_Logs_${start}_to_${end}.xlsx`);
+            link.setAttribute("download", filename);
             document.body.appendChild(link);
             link.click();
             link.parentNode.removeChild(link);
@@ -617,7 +680,7 @@ const DailyTrackingLog = () => {
     const fetchUpcomingBoardLogs = async (rangeOption, customStart, customEnd, role, name, centreId, status) => {
         setLoading(true);
         try {
-            const { start, end } = getDateRangeLimits(rangeOption, customStart, customEnd);
+            const { start, end } = getDateRangeLimits(rangeOption || "Today", customStart, customEnd);
             let url = `${apiUrl}/log-calendar/board?startDate=${start}&endDate=${end}`;
 
             let rolesParam = "";
@@ -670,10 +733,10 @@ const DailyTrackingLog = () => {
             if (boardViewMode === "submitted") {
                 fetchBoardLogs(dateRangeOption, customStartDate, customEndDate, selectedDept, searchEmployee, selectedCentre);
             } else {
-                fetchUpcomingBoardLogs(dateRangeOption, customStartDate, customEndDate, selectedDept, searchEmployee, selectedCentre, statusFilter);
+                fetchUpcomingBoardLogs(upcomingDateRange, customUpcomingStartDate, customUpcomingEndDate, selectedDept, searchEmployee, selectedCentre, statusFilter);
             }
         }
-    }, [activeTab, boardViewMode, selectedDate, dateRangeOption, customStartDate, customEndDate, selectedDept, searchEmployee, selectedCentre, statusFilter]);
+    }, [activeTab, boardViewMode, selectedDate, dateRangeOption, upcomingDateRange, customStartDate, customEndDate, customUpcomingStartDate, customUpcomingEndDate, selectedDept, searchEmployee, selectedCentre, statusFilter]);
 
     // Handle Form Submit
     const handleAddActivity = async (e) => {
@@ -905,7 +968,7 @@ const DailyTrackingLog = () => {
                                         }`}
                                 />
                             </div>
-                        ) : activeTab === "deptBoard" ? (
+                        ) : (activeTab === "deptBoard" && boardViewMode === "submitted") ? (
                             <div className="flex flex-wrap items-center gap-3">
                                 <div className={`flex flex-col border rounded-xl px-3 py-1.5 ${isDarkMode ? "bg-gray-800/80 border-gray-700" : "bg-white border-slate-200 shadow-sm"}`}>
                                     <label className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-0.5">DATE RANGE</label>
@@ -1508,6 +1571,51 @@ const DailyTrackingLog = () => {
                                         onChange={(val) => setSelectedDept(val || [])}
                                     />
                                 </div>
+
+                                {/* Date Range Filter (Upcoming View) */}
+                                {boardViewMode === "upcoming" && (
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <div className="w-full sm:w-48">
+                                            <select
+                                                value={upcomingDateRange}
+                                                onChange={(e) => setUpcomingDateRange(e.target.value)}
+                                                className={`w-full p-2.5 rounded-xl border text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500/50 ${
+                                                    isDarkMode ? "bg-gray-800/80 border-gray-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
+                                                }`}
+                                            >
+                                                <option value="Today">Today Only</option>
+                                                <option value="Tomorrow">Tomorrow Only</option>
+                                                <option value="Next 7 Days">Next 7 Days</option>
+                                                <option value="This Month">This Month</option>
+                                                <option value="All Upcoming">All Upcoming Plans</option>
+                                                <option value="All">All Time</option>
+                                                <option value="Custom">Custom</option>
+                                            </select>
+                                        </div>
+
+                                        {upcomingDateRange === "Custom" && (
+                                            <div className="flex items-center gap-2">
+                                                <input
+                                                    type="date"
+                                                    value={customUpcomingStartDate}
+                                                    onChange={(e) => setCustomUpcomingStartDate(e.target.value)}
+                                                    className={`p-2 rounded-xl border text-xs font-semibold ${
+                                                        isDarkMode ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-slate-300 text-gray-800"
+                                                    }`}
+                                                />
+                                                <span className="text-gray-400 font-bold text-xs">to</span>
+                                                <input
+                                                    type="date"
+                                                    value={customUpcomingEndDate}
+                                                    onChange={(e) => setCustomUpcomingEndDate(e.target.value)}
+                                                    className={`p-2 rounded-xl border text-xs font-semibold ${
+                                                        isDarkMode ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-slate-300 text-gray-800"
+                                                    }`}
+                                                />
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
                             </div>
 
                             {/* Search field and Export Excel */}

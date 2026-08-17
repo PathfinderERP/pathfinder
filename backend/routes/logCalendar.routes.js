@@ -3,6 +3,7 @@ import {
     createLog,
     getMyLogs,
     getAllUpcomingLogs,
+    exportUpcomingLogs,
     updateLog,
     deleteLog
 } from "../controllers/logCalendarController.js";
@@ -23,6 +24,13 @@ router.get(
     protect,
     requireGranularPermission("dailyTrackingLog", "myDailyLog", "view"),
     getMyLogs
+);
+
+router.get(
+    "/board/export",
+    protect,
+    requireGranularPermission("dailyTrackingLog", "logTracking", "view"),
+    exportUpcomingLogs
 );
 
 router.get(

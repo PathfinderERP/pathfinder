@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import Employee from "../models/HR/Employee.js";
 import AssignedTask from "../models/AssignedTask.js";
 import LogCalendar from "../models/LogCalendar.js";
+import MarketingPlanner from "../models/MarketingPlanner.js";
 
 // Helper: convert a YYYY-MM-DD string or Date → midnight UTC for that calendar date
 const getMidnightUTC = (dateInput) => {
@@ -45,21 +46,36 @@ const mapRoleToDepartment = (role) => {
 // Helper: Sync TomorrowPlanner tasks into LogCalendar collection
 export const syncPlanToLogCalendar = async (userObj, targetDate, tasks) => {
     try {
-        const startOfDay = new Date(targetDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        const endOfDay = new Date(targetDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        const targetDateStr = (targetDate instanceof Date)
+            ? targetDate.toISOString().split("T")[0]
+            : String(targetDate).split("T")[0];
+
+        const startOfDay = new Date(`${targetDateStr}T00:00:00.000Z`);
+        const endOfDay = new Date(`${targetDateStr}T23:59:59.999Z`);
 
         const userId = userObj._id || userObj;
 
-        // Delete existing synced MarketingPlanner items for this date & user
-        await LogCalendar.deleteMany({
-            user: userId,
-            sourceModule: "MarketingPlanner",
-            startDate: { $gte: startOfDay, $lte: endOfDay }
-        });
+        const currentTaskIds = (tasks || []).map(t => t._id ? String(t._id) : "").filter(Boolean);
 
-        if (!tasks || tasks.length === 0) return;
+        // Delete any synced MarketingPlanner entries for this user and date that NO LONGER exist in tasks
+        const deleteRangeStart = new Date(startOfDay.getTime() - 12 * 60 * 60 * 1000);
+        const deleteRangeEnd = new Date(endOfDay.getTime() + 12 * 60 * 60 * 1000);
+
+        if (currentTaskIds.length > 0) {
+            await LogCalendar.deleteMany({
+                user: userId,
+                sourceModule: "MarketingPlanner",
+                startDate: { $gte: deleteRangeStart, $lte: deleteRangeEnd },
+                marketingTaskId: { $nin: currentTaskIds, $ne: "" }
+            });
+        } else {
+            await LogCalendar.deleteMany({
+                user: userId,
+                sourceModule: "MarketingPlanner",
+                startDate: { $gte: deleteRangeStart, $lte: deleteRangeEnd }
+            });
+            return;
+        }
 
         const department = mapRoleToDepartment(userObj.role);
         const userRoleStr = Array.isArray(userObj.role) ? userObj.role.join(", ") : (userObj.role || "");
@@ -71,7 +87,8 @@ export const syncPlanToLogCalendar = async (userObj, targetDate, tasks) => {
             userCentreName = userObj.centres[0].centreName || "";
         }
 
-        const logEntries = tasks.map(t => {
+        for (const t of tasks) {
+            const taskIdStr = t._id ? String(t._id) : "";
             const purposeStr = t.activityPurpose ? `${t.activityPurpose} - ` : "";
             const placeStr = t.place ? ` @ ${t.place}` : "";
             const title = `[Marketing] ${purposeStr}${t.activityType || 'Field Activity'}${placeStr}`;
@@ -81,30 +98,104 @@ export const syncPlanToLogCalendar = async (userObj, targetDate, tasks) => {
             if (t.notes) noteParts.push(`Notes: ${t.notes}`);
             if (t.estimatedDuration) noteParts.push(`Duration: ${t.estimatedDuration}`);
             const notes = noteParts.join(" | ");
+            const taskDate = t.targetDate || targetDate;
+            const taskDateStr = (taskDate instanceof Date)
+                ? taskDate.toISOString().split("T")[0]
+                : String(taskDate).split("T")[0];
+            const taskStartOfDay = new Date(`${taskDateStr}T00:00:00.000Z`);
+            const taskEndOfDay = new Date(`${taskDateStr}T23:59:59.999Z`);
 
-            return {
-                user: userId,
-                userName: userObj.name || userObj.userName || "Marketing Executive",
-                userRole: userRoleStr,
-                department,
-                centre: userCentre,
-                centreName: userCentreName,
-                title,
-                activityType: t.activityType || "School Visit",
-                startDate: startOfDay,
-                endDate: endOfDay,
-                time: t.time || "",
-                place: t.place || "",
-                priority: t.priority || "Medium",
-                status: t.status === "Completed" ? "Completed" : "Upcoming",
-                notes: notes || "Marketing Plan Activity",
-                color: "#3b82f6",
-                sourceModule: "MarketingPlanner",
-                marketingTaskId: t._id ? String(t._id) : ""
-            };
-        });
+            // Check if this activity was submitted in Marketing CRM (MarketingPlanner)
+            let isDoneInMarketing = false;
+            try {
+                const tPlace = (t.place || "").trim();
+                const mpConditions = [];
+                if (tPlace) {
+                    mpConditions.push({ institution: { $regex: new RegExp(`^${tPlace.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } });
+                }
+                if (t.schoolRef && mongoose.Types.ObjectId.isValid(t.schoolRef)) {
+                    mpConditions.push({ schoolRef: t.schoolRef });
+                }
+                if (mpConditions.length > 0) {
+                    const mpMatch = await MarketingPlanner.findOne({
+                        user: userId,
+                        date: taskDateStr,
+                        $or: mpConditions
+                    });
+                    if (mpMatch) isDoneInMarketing = true;
+                }
+            } catch (mpErr) {
+                // Ignore lookup errors
+            }
 
-        await LogCalendar.insertMany(logEntries);
+            const status = (t.status === "Completed" || isDoneInMarketing) ? "Completed" : "Upcoming";
+
+            if (taskIdStr) {
+                const existing = await LogCalendar.findOne({
+                    user: userId,
+                    marketingTaskId: taskIdStr
+                });
+
+                if (existing) {
+                    existing.title = title;
+                    existing.activityType = t.activityType || "School Visit";
+                    existing.startDate = taskStartOfDay;
+                    existing.endDate = taskEndOfDay;
+                    existing.time = t.time || "";
+                    existing.place = t.place || "";
+                    existing.priority = t.priority || "Medium";
+                    existing.status = status;
+                    if (!existing.notes || existing.sourceModule === "MarketingPlanner") {
+                        existing.notes = notes || "Marketing Plan Activity";
+                    }
+                    if (userCentre) existing.centre = userCentre;
+                    if (userCentreName) existing.centreName = userCentreName;
+                    await existing.save();
+                } else {
+                    await LogCalendar.create({
+                        user: userId,
+                        userName: userObj.name || userObj.userName || "Marketing Executive",
+                        userRole: userRoleStr,
+                        department,
+                        centre: userCentre,
+                        centreName: userCentreName,
+                        title,
+                        activityType: t.activityType || "School Visit",
+                        startDate: taskStartOfDay,
+                        endDate: taskEndOfDay,
+                        time: t.time || "",
+                        place: t.place || "",
+                        priority: t.priority || "Medium",
+                        status,
+                        notes: notes || "Marketing Plan Activity",
+                        color: "#3b82f6",
+                        sourceModule: "MarketingPlanner",
+                        marketingTaskId: taskIdStr
+                    });
+                }
+            } else {
+                await LogCalendar.create({
+                    user: userId,
+                    userName: userObj.name || userObj.userName || "Marketing Executive",
+                    userRole: userRoleStr,
+                    department,
+                    centre: userCentre,
+                    centreName: userCentreName,
+                    title,
+                    activityType: t.activityType || "School Visit",
+                    startDate: taskStartOfDay,
+                    endDate: taskEndOfDay,
+                    time: t.time || "",
+                    place: t.place || "",
+                    priority: t.priority || "Medium",
+                    status,
+                    notes: notes || "Marketing Plan Activity",
+                    color: "#3b82f6",
+                    sourceModule: "MarketingPlanner",
+                    marketingTaskId: ""
+                });
+            }
+        }
     } catch (err) {
         console.error("Error in syncPlanToLogCalendar:", err);
     }
