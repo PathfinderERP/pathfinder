@@ -1564,17 +1564,10 @@ const MarketingCRM = ({ initialTab }) => {
             return;
         }
 
-        // Auto-assign default activityStatus and nextActivityDate if missing
+        // Auto-assign default activityStatus if missing
         todayActivities.forEach(act => {
             if (!act.activityStatus) act.activityStatus = "Success";
-            if (!act.nextActivityDate) act.nextActivityDate = getTomorrowDateString();
         });
-
-        const missingStatusOrNextDate = todayActivities.some(act => !act.activityStatus || !act.nextActivityDate);
-        if (missingStatusOrNextDate) {
-            toast.error("Activity Status and Next Activity Date (Follow-up Date) are required for all activity blocks.");
-            return;
-        }
 
         // Capture real submission datetime
         const now = new Date();
@@ -1599,7 +1592,7 @@ const MarketingCRM = ({ initialTab }) => {
             notes: act.notes || "",
             priority: act.priority || "Medium",
             activityStatus: act.activityStatus || "Success",
-            nextActivityDate: act.nextActivityDate || getTomorrowDateString(),
+            nextActivityDate: act.nextActivityDate || "",
             schoolRef: act.schoolRef || null,
             schoolStatus: act.schoolStatus || ""
         }));
@@ -3059,11 +3052,11 @@ const MarketingCRM = ({ initialTab }) => {
 
                                                             {/* Next Activity / Follow-up Date input */}
                                                             <div className="col-span-1 md:col-span-1">
-                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Next Date *</label>
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Next Date</label>
                                                                 <input
                                                                     type="date"
                                                                     disabled={activity.isSaved}
-                                                                    value={activity.nextActivityDate || getTomorrowDateString()}
+                                                                    value={activity.nextActivityDate || ""}
                                                                     onChange={(e) => {
                                                                         const newActs = [...todayActivities];
                                                                         newActs[idx].nextActivityDate = e.target.value;

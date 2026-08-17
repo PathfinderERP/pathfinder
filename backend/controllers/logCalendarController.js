@@ -3,6 +3,7 @@ import LogCalendar from "../models/LogCalendar.js";
 import User from "../models/User.js";
 import TomorrowPlanner from "../models/TomorrowPlanner.js";
 import AssignedTask from "../models/AssignedTask.js";
+import Employee from "../models/HR/Employee.js";
 import { syncPlanToLogCalendar } from "./tomorrowPlannerController.js";
 import XLSX from "xlsx";
 
@@ -467,24 +468,6 @@ export const exportUpcomingLogs = async (req, res) => {
 
             query.startDate = { $lte: reqEnd };
             query.endDate = { $gte: reqStart };
-
-            // On-the-fly sync check for any TomorrowPlanner items in this date range
-            try {
-                const plans = await TomorrowPlanner.find({
-                    $or: [
-                        { planDate: { $gte: new Date(reqStart.getTime() - 12 * 60 * 60 * 1000), $lte: new Date(reqEnd.getTime() + 12 * 60 * 60 * 1000) } },
-                        { plantDate: { $gte: new Date(reqStart.getTime() - 12 * 60 * 60 * 1000), $lte: new Date(reqEnd.getTime() + 12 * 60 * 60 * 1000) } }
-                    ]
-                }).populate("user");
-                for (const p of plans) {
-                    if (p.user && p.tasks && p.tasks.length > 0) {
-                        const pDate = p.planDate || p.plantDate;
-                        await syncPlanToLogCalendar(p.user, pDate, p.tasks);
-                    }
-                }
-            } catch (syncErr) {
-                console.error("Error on-the-fly syncing in exportUpcomingLogs:", syncErr);
-            }
         }
 
         if (status && status !== "ALL") {
@@ -492,16 +475,26 @@ export const exportUpcomingLogs = async (req, res) => {
         }
 
         if (centres) {
-            const centreList = centres.split(",").filter(Boolean);
-            if (centreList.length > 0) {
-                query.centre = { $in: centreList };
+            const centreList = centres.split(",").map(c => c.trim()).filter(Boolean);
+            if (centreList.length > 0 && !centreList.includes("All")) {
+                const objectIdCentres = centreList.map(id => {
+                    try {
+                        return mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
+                    } catch (e) {
+                        return null;
+                    }
+                }).filter(Boolean);
+
+                if (objectIdCentres.length > 0) {
+                    query.centre = { $in: objectIdCentres };
+                }
             }
         }
 
         if (roles) {
-            const roleList = roles.split(",").filter(Boolean);
-            if (roleList.length > 0) {
-                const regexList = roleList.map(r => new RegExp(r, "i"));
+            const roleList = roles.split(",").map(r => r.trim()).filter(Boolean);
+            if (roleList.length > 0 && !roleList.includes("All")) {
+                const regexList = roleList.map(r => new RegExp(r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i"));
                 query.userRole = { $in: regexList };
             }
         }
@@ -515,35 +508,209 @@ export const exportUpcomingLogs = async (req, res) => {
         }
 
         const logs = await LogCalendar.find(query)
-            .populate("user", "name email role centre department")
+            .populate("user", "name email role department isActive")
             .populate("centre", "centreName")
             .sort({ startDate: 1 });
 
-        // Group by user for Sheet 1
-        const userMap = new Map();
-        logs.forEach(log => {
-            const userId = log.user?._id?.toString() || log.userName || "Unknown";
-            if (!userMap.has(userId)) {
-                userMap.set(userId, {
-                    userName: log.userName || log.user?.name || "Unknown",
-                    userRole: log.userRole || (Array.isArray(log.user?.role) ? log.user.role.join(", ") : log.user?.role) || "",
-                    centreName: log.centreName || log.centre?.centreName || "N/A",
-                    totalCount: 0,
-                    completedCount: 0,
-                    upcomingCount: 0
+        // Role mappings for target roles: marketing, centre in charge, assistant centre incharge, zonal manager, assistant zonal manager, counsellor, telecaller, area manager
+        const roleDBMapping = {
+            marketing: ["marketing"],
+            centreincharge: ["centerIncharge", "centreIncharge"],
+            centerincharge: ["centerIncharge", "centreIncharge"],
+            assistantcenterincharge: ["assistantCenterIncharge", "assistantCentreIncharge"],
+            assistantcentreincharge: ["assistantCenterIncharge", "assistantCentreIncharge"],
+            zonalmanager: ["zonalManager", "zonalmanager"],
+            assistantzonalmanager: ["assistantZonalManager", "assistantzonalmanager"],
+            counsellor: ["counsellor"],
+            telecaller: ["telecaller", "centralizedTelecaller"],
+            areamanager: ["areaManager", "areamanager"],
+            teacher: ["teacher"],
+            admin: ["admin"],
+            superadmin: ["superAdmin", "superadmin"],
+            coordinator: ["coordinator", "Class_Coordinator"],
+            accounts: ["accounts"],
+            hr: ["hr"],
+            digital: ["digital"],
+            supportstaff: ["supportStaff"],
+            hod: ["HOD", "hod"],
+            rm: ["RM", "rm"]
+        };
+
+        const defaultTargetRoles = [
+            "marketing",
+            "centerIncharge", "centreIncharge",
+            "assistantCenterIncharge", "assistantCentreIncharge",
+            "zonalManager", "zonalmanager",
+            "assistantZonalManager", "assistantzonalmanager",
+            "counsellor",
+            "telecaller", "centralizedTelecaller",
+            "areaManager", "areamanager"
+        ];
+
+        // ONLY active users under User Management
+        const userQuery = { isActive: { $ne: false } };
+
+        if (roles) {
+            const roleList = roles.split(",").map(r => r.trim()).filter(Boolean);
+            if (roleList.length > 0 && !roleList.includes("All")) {
+                const mappedRoles = [];
+                for (const r of roleList) {
+                    const key = r.toLowerCase().replace(/[\s_-]+/g, "");
+                    if (roleDBMapping[key]) {
+                        mappedRoles.push(...roleDBMapping[key]);
+                    } else {
+                        mappedRoles.push(r);
+                    }
+                }
+                userQuery.role = { $in: mappedRoles };
+            } else {
+                userQuery.role = { $in: defaultTargetRoles };
+            }
+        } else {
+            userQuery.role = { $in: defaultTargetRoles };
+        }
+
+        if (search && search.trim()) {
+            userQuery.name = { $regex: search.trim(), $options: "i" };
+        }
+
+        if (centres) {
+            const centreList = centres.split(",").map(c => c.trim()).filter(Boolean);
+            if (centreList.length > 0 && !centreList.includes("All")) {
+                const objectIdCentres = centreList.map(id => {
+                    try {
+                        return mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
+                    } catch (e) {
+                        return null;
+                    }
+                }).filter(Boolean);
+
+                if (objectIdCentres.length > 0) {
+                    try {
+                        const employees = await Employee.find({
+                            $or: [
+                                { primaryCentre: { $in: objectIdCentres } },
+                                { centres: { $in: objectIdCentres } }
+                            ]
+                        }).select("user");
+                        const allowedUserIdsFromEmp = employees.map(emp => emp.user).filter(Boolean);
+
+                        const usersWithCentres = await User.find({
+                            centres: { $in: objectIdCentres },
+                            isActive: { $ne: false }
+                        }).select("_id");
+
+                        const combinedUserIds = [
+                            ...new Set([
+                                ...allowedUserIdsFromEmp.map(id => id.toString()),
+                                ...usersWithCentres.map(u => u._id.toString())
+                            ])
+                        ];
+
+                        userQuery._id = { $in: combinedUserIds };
+                    } catch (centreErr) {
+                        console.error("Centre query error in exportUpcomingLogs:", centreErr);
+                    }
+                }
+            }
+        }
+
+        let targetUsers = [];
+        try {
+            targetUsers = await User.find(userQuery)
+                .populate("centres", "centreName")
+                .select("name role designation centres isActive");
+        } catch (uErr) {
+            console.error("Error fetching target users for upcoming export:", uErr);
+        }
+
+        const employeeMap = new Map();
+        try {
+            if (targetUsers.length > 0) {
+                const employeesForUsers = await Employee.find({
+                    user: { $in: targetUsers.map(u => u._id) }
+                }).populate("primaryCentre", "centreName");
+
+                employeesForUsers.forEach(emp => {
+                    if (emp.user) {
+                        employeeMap.set(emp.user.toString(), emp.primaryCentre?.centreName || "");
+                    }
                 });
             }
-            const u = userMap.get(userId);
-            u.totalCount++;
-            if (log.status === "Completed") {
-                u.completedCount++;
-            } else {
-                u.upcomingCount++;
+        } catch (empErr) {
+            console.error("Error fetching employee primaryCentre in exportUpcomingLogs:", empErr);
+        }
+
+        const getDisplayRole = (role) => {
+            if (!role) return "Employee";
+            const r = Array.isArray(role) ? role.join(", ") : String(role);
+            const normalized = r.toLowerCase().replace(/[\s_-]+/g, "");
+            if (normalized.includes("marketing")) return "Marketing";
+            if (normalized.includes("assistantcenterincharge") || normalized.includes("assistantcentreincharge")) return "Assistant Center Incharge";
+            if (normalized.includes("centerincharge") || normalized.includes("centreincharge")) return "Center Incharge";
+            if (normalized.includes("assistantzonalmanager")) return "Assistant Zonal Manager";
+            if (normalized.includes("zonalmanager")) return "Zonal Manager";
+            if (normalized.includes("areamanager")) return "Area Manager";
+            if (normalized.includes("counsellor")) return "Counsellor";
+            if (normalized.includes("telecaller")) return "Telecaller";
+            if (normalized.includes("superadmin")) return "SuperAdmin";
+            if (normalized.includes("admin")) return "Admin";
+            if (normalized.includes("teacher")) return "Teacher";
+            if (normalized.includes("coordinator")) return "Coordinator";
+            if (normalized.includes("accounts")) return "Accounts";
+            if (normalized.includes("hr")) return "HR";
+            if (normalized.includes("digital")) return "Digital";
+            if (normalized.includes("supportstaff")) return "Support Staff";
+            return r;
+        };
+
+        const getCentreNameForUser = (u) => {
+            const empCentre = employeeMap.get(u._id.toString());
+            if (empCentre) return empCentre;
+            if (Array.isArray(u.centres) && u.centres.length > 0 && u.centres[0]?.centreName) {
+                return u.centres.map(c => c.centreName).filter(Boolean).join(", ");
+            }
+            return "N/A";
+        };
+
+        // Initialize userSummaryMap for ONLY active target users with 0 counts
+        const userSummaryMap = new Map();
+
+        targetUsers.forEach(u => {
+            const userIdStr = u._id.toString();
+            userSummaryMap.set(userIdStr, {
+                userName: u.name || "Unknown",
+                userRole: getDisplayRole(u.role),
+                centreName: getCentreNameForUser(u),
+                totalCount: 0,
+                completedCount: 0,
+                upcomingCount: 0
+            });
+        });
+
+        // Count logs for active users only
+        const activeLogs = [];
+        logs.forEach(log => {
+            // If log user is populated and explicitly deactivated, skip
+            if (log.user && log.user.isActive === false) return;
+
+            const userIdStr = log.user?._id?.toString() || log.user?.toString();
+            if (userIdStr && userSummaryMap.has(userIdStr)) {
+                const u = userSummaryMap.get(userIdStr);
+                u.totalCount++;
+                if (log.status === "Completed") {
+                    u.completedCount++;
+                } else {
+                    u.upcomingCount++;
+                }
+                activeLogs.push(log);
+            } else if (!userIdStr) {
+                activeLogs.push(log);
             }
         });
 
-        // Sheet 1: User-wise Log Counts Summary
-        const userSummaryData = Array.from(userMap.values()).map((u, idx) => ({
+        // Sheet 1: User-wise Log Counts Summary (only active users under User Management)
+        const userSummaryData = Array.from(userSummaryMap.values()).map((u, idx) => ({
             "SL No.": idx + 1,
             "User Name": u.userName,
             "Role": u.userRole,
@@ -554,7 +721,7 @@ export const exportUpcomingLogs = async (req, res) => {
         }));
 
         // Sheet 2: Detailed Report Summary
-        const detailedReportData = logs.map((log, idx) => {
+        const detailedReportData = activeLogs.map((log, idx) => {
             const sStr = log.startDate ? new Date(log.startDate).toISOString().split("T")[0] : "";
             const eStr = log.endDate ? new Date(log.endDate).toISOString().split("T")[0] : "";
             const dateDisplay = (sStr && eStr && sStr !== eStr) ? `${sStr} to ${eStr}` : sStr;
@@ -563,7 +730,7 @@ export const exportUpcomingLogs = async (req, res) => {
                 "SL No.": idx + 1,
                 "Date": dateDisplay,
                 "User Name": log.userName || log.user?.name || "Unknown",
-                "Role": log.userRole || (Array.isArray(log.user?.role) ? log.user.role.join(", ") : log.user?.role) || "",
+                "Role": getDisplayRole(log.userRole || log.user?.role),
                 "Centre": log.centreName || log.centre?.centreName || "N/A",
                 "Activity Title": log.title || "",
                 "Activity Type": log.activityType || "",
@@ -576,8 +743,8 @@ export const exportUpcomingLogs = async (req, res) => {
         });
 
         const wb = XLSX.utils.book_new();
-        const wsSummary = XLSX.utils.json_to_sheet(userSummaryData.length > 0 ? userSummaryData : [{ "Message": "No upcoming logs found for this date range / filter selection." }]);
-        const wsDetail = XLSX.utils.json_to_sheet(detailedReportData.length > 0 ? detailedReportData : [{ "Message": "No upcoming log entries." }]);
+        const wsSummary = XLSX.utils.json_to_sheet(userSummaryData.length > 0 ? userSummaryData : [{ "Message": "No users found matching current filter selection." }]);
+        const wsDetail = XLSX.utils.json_to_sheet(detailedReportData.length > 0 ? detailedReportData : [{ "Message": "No upcoming log entries for this date range / filter selection." }]);
 
         XLSX.utils.book_append_sheet(wb, wsSummary, "User Wise Log Summary");
         XLSX.utils.book_append_sheet(wb, wsDetail, "Detailed Report Summary");
@@ -586,9 +753,11 @@ export const exportUpcomingLogs = async (req, res) => {
 
         const startLabel = startDate ? String(startDate).split("T")[0] : "All";
         const endLabel = endDate ? String(endDate).split("T")[0] : "All";
+        const filename = `Upcoming_Calendar_Logs_${startLabel}_to_${endLabel}.xlsx`;
+
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename=Upcoming_Calendar_Logs_${startLabel}_to_${endLabel}.xlsx`);
-        res.send(buffer);
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return res.send(Buffer.from(buffer));
 
     } catch (error) {
         console.error("Error exporting upcoming logs to Excel:", error);
