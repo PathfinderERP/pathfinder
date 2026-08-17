@@ -62,10 +62,21 @@ const pntseStudentSchema = new mongoose.Schema({
         ref: 'ExamTag',
         required: true,
     },
+    board: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Boards',
+        required: true,
+    },
     course: {
         type: String,
         required: true,
         enum: [
+            'PNTSE 5',
+            'PNTSE 6',
+            'PNTSE 7',
+            'PNTSE 8',
+            'PNTSE 9',
+            'PNTSE 10',
             'PNTSE CLASS 5',
             'PNTSE CLASS 6',
             'PNTSE CLASS 7',

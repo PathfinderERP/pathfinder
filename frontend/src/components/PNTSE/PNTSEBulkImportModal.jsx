@@ -23,6 +23,11 @@ const COL_MAP = {
     "Class Name* (e.g. 6)":           "className",
     "Class Name*":                    "className",
     "Class Name":                     "className",
+    "Board Name* (exact)":           "boardName",
+    "Board Name*":                    "boardName",
+    "Board Name":                     "boardName",
+    "Board*":                         "boardName",
+    "Board":                          "boardName",
     "Centre Name* (exact)":           "centreName",
     "Centre Name*":                   "centreName",
     "Centre Name":                    "centreName",
@@ -32,6 +37,7 @@ const COL_MAP = {
     "ExamTag Name* (e.g. PNTSE 6)":   "examTagName",
     "ExamTag Name*":                   "examTagName",
     "ExamTag Name":                    "examTagName",
+    "Course* (e.g. PNTSE 6)":         "course",
     "Course* (e.g. PNTSE CLASS 6)":   "course",
     "Course*":                        "course",
     "Course":                         "course",
@@ -54,7 +60,13 @@ const parseRow = (rawRow) => {
     const row = {};
     Object.entries(rawRow).forEach(([key, val]) => {
         const field = COL_MAP[key.trim()];
-        if (field) row[field] = (val !== undefined && val !== null) ? String(val).trim() : "";
+        if (field) {
+            let strVal = (val !== undefined && val !== null) ? String(val).trim() : "";
+            if (field === "course" && /^PNTSE\s+CLASS\s+(\d+)$/i.test(strVal)) {
+                strVal = strVal.toUpperCase().replace(/PNTSE\s+CLASS\s+(\d+)/i, 'PNTSE $1');
+            }
+            row[field] = strVal;
+        }
     });
     return row;
 };
@@ -64,6 +76,7 @@ const validateRow = (row) => {
     if (!row.name?.trim())        errors.push("Name required");
     if (!row.mobile?.trim())      errors.push("Mobile required");
     if (!row.className?.trim())   errors.push("Class required");
+    if (!row.boardName?.trim())   errors.push("Board required");
     if (!row.centreName?.trim())  errors.push("Centre required");
     if (!row.sessionName?.trim()) errors.push("Session required");
     if (!row.examTagName?.trim()) errors.push("ExamTag required");
@@ -212,10 +225,11 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                 "DOB (YYYY-MM-DD)": r.dob || "",
                 "Gender": r.gender || "",
                 "Class Name* (e.g. 6)": r.className,
+                "Board Name* (exact)": r.boardName,
                 "Centre Name* (exact)": r.centreName,
                 "Session Name* (e.g. 2025-2026)": r.sessionName,
                 "ExamTag Name* (e.g. PNTSE 6)": r.examTagName,
-                "Course* (e.g. PNTSE CLASS 6)": r.course,
+                "Course* (e.g. PNTSE 6)": r.course,
                 "School": r.school || "",
                 "Guardian Name": r.guardianName || "",
                 "Guardian Mobile": r.guardianMobile || "",
@@ -587,7 +601,7 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                     <table className="w-full text-left border-collapse" style={{ minWidth: "1400px" }}>
                                         <thead className="sticky top-0 z-10 bg-[#131619] border-b border-gray-800">
                                             <tr>
-                                                {["#","Status","Name","Mobile","Email","Class","Centre","Session","ExamTag","Course","School","DOB","Gender","Actions"].map(h => (
+                                                {["#","Status","Name","Mobile","Email","Class","Board","Centre","Session","ExamTag","Course","School","DOB","Gender","Actions"].map(h => (
                                                     <th key={h} className="px-3 py-3 text-[9px] font-black uppercase tracking-[0.15em] whitespace-nowrap text-gray-500">{h}</th>
                                                 ))}
                                             </tr>
@@ -670,10 +684,11 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                                                   </span>}
                                                         </td>
                                                         <td className="px-2 py-2.5 min-w-[80px]">{cell("className", "e.g. 6", "70px")}</td>
+                                                        <td className="px-2 py-2.5 min-w-[90px]">{cell("boardName", "e.g. CBSE", "80px")}</td>
                                                         <td className="px-2 py-2.5 min-w-[110px]">{cell("centreName", "e.g. Hazra", "100px")}</td>
                                                         <td className="px-2 py-2.5 min-w-[110px]">{cell("sessionName", "e.g. 2025-26", "100px")}</td>
                                                         <td className="px-2 py-2.5 min-w-[110px]">{cell("examTagName", "e.g. PNTSE 6", "100px")}</td>
-                                                        <td className="px-2 py-2.5 min-w-[150px]">{cell("course", "e.g. PNTSE CLASS 6", "140px")}</td>
+                                                        <td className="px-2 py-2.5 min-w-[150px]">{cell("course", "e.g. PNTSE 6", "140px")}</td>
                                                         <td className="px-2 py-2.5 min-w-[100px]">{cell("school", "—", "90px")}</td>
                                                         <td className="px-2 py-2.5 min-w-[110px]">{cell("dob", "YYYY-MM-DD", "100px")}</td>
                                                         <td className="px-2 py-2.5 min-w-[80px]">{cell("gender", "—", "70px")}</td>

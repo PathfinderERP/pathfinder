@@ -18,6 +18,7 @@ import protect from "./middleware/authMiddleware.js"; // Direct import
 // import loggingMiddleware from "./middleware/loggingMiddleware.js";
 import connectDB from "./db/connect.js";
 import { migrateCentres } from "./utils/centreMigration.js";
+import { migratePNTSECourses } from "./utils/pntseMigration.js";
 import adminRoutes from "./routes/superAdmin/superAdminControllers.routes.js";
 import normalAdmin from "./routes/admin/createStudentByAdmin.routes.js";
 import studentRoutes from "./routes/admin/students.routes.js";
@@ -124,6 +125,7 @@ app.use("/api/uploads", express.static(path.join(__dirname, "uploads")));
 
 connectDB().then(() => {
     migrateCentres();
+    migratePNTSECourses();
 });
 
 // Start automated payment reminder cron jobs

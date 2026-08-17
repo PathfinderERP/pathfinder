@@ -161,6 +161,7 @@ const PNTSEAllStudentsContent = () => {
     const [students, setStudents] = useState([]);
     const [dbCentres, setDbCentres] = useState([]);
     const [dbClasses, setDbClasses] = useState([]);
+    const [dbBoards, setDbBoards] = useState([]);
     const [dbSessions, setDbSessions] = useState([]);
     const [dbExamTags, setDbExamTags] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -175,7 +176,7 @@ const PNTSEAllStudentsContent = () => {
     const [editStudent, setEditStudent] = useState(null);
     const [editForm, setEditForm] = useState({
         name: '', mobile: '', secondaryMobile: '', email: '', dob: '', gender: '',
-        class: '', centre: '', session: '', examTag: '', course: '',
+        class: '', board: '', centre: '', session: '', examTag: '', course: '',
         school: '', guardianName: '', guardianMobile: '',
         address: '', city: '', state: '', pincode: '',
         remarks: '', status: '', score: '', rank: ''
@@ -184,12 +185,12 @@ const PNTSEAllStudentsContent = () => {
     const [editSubmitting, setEditSubmitting] = useState(false);
 
     const courses = [
-        'PNTSE CLASS 5',
-        'PNTSE CLASS 6',
-        'PNTSE CLASS 7',
-        'PNTSE CLASS 8',
-        'PNTSE CLASS 9',
-        'PNTSE CLASS 10'
+        'PNTSE 5',
+        'PNTSE 6',
+        'PNTSE 7',
+        'PNTSE 8',
+        'PNTSE 9',
+        'PNTSE 10'
     ];
     const genders = ['Male', 'Female', 'Other'];
 
@@ -208,6 +209,7 @@ const PNTSEAllStudentsContent = () => {
             dob: student.dob || '',
             gender: student.gender || '',
             class: student.class?._id || student.class || '',
+            board: student.board?._id || student.board || '',
             centre: student.centre?._id || student.centre || '',
             session: student.session?._id || student.session || '',
             examTag: student.examTag?._id || student.examTag || '',
@@ -239,6 +241,7 @@ const PNTSEAllStudentsContent = () => {
         if (!editForm.name.trim()) errs.name = 'Name is required';
         if (!editForm.mobile.trim()) errs.mobile = 'Mobile is required';
         if (!editForm.class) errs.class = 'Class is required';
+        if (!editForm.board) errs.board = 'Board is required';
         if (!editForm.course) errs.course = 'Course is required';
         if (!editForm.centre) errs.centre = 'Centre is required';
         if (!editForm.session) errs.session = 'Session is required';
@@ -316,14 +319,16 @@ const PNTSEAllStudentsContent = () => {
         const fetchMasterData = async () => {
             try {
                 const headers = getHeaders();
-                const [centresRes, classesRes, sessionsRes, examTagsRes] = await Promise.all([
+                const [centresRes, classesRes, sessionsRes, examTagsRes, boardsRes] = await Promise.all([
                     fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
-                    fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers })
+                    fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
+                    fetch(`${import.meta.env.VITE_API_URL}/board`, { headers })
                 ]);
                 if (centresRes.ok) setDbCentres(await centresRes.json());
                 if (classesRes.ok) setDbClasses(await classesRes.json());
+                if (boardsRes.ok) setDbBoards(await boardsRes.json());
                 if (sessionsRes.ok) {
                     const data = await sessionsRes.json();
                     setDbSessions(Array.isArray(data) ? data : (data.sessions || []));
@@ -435,7 +440,7 @@ const PNTSEAllStudentsContent = () => {
                 "Student Name": student.name || '',
                 "Mobile": student.mobile || '',
                 "Secondary Mobile": student.secondaryMobile || '',
-                "Email": student.email || '',
+                "Board": student.board?.boardCourse || student.board?.boardName || student.board || '',
                 "Class": student.class?.name || student.class || '',
                 "Centre": student.centre?.centreName || student.centre?.enterCode || student.centre || '',
                 "Course": student.course || '',
@@ -741,6 +746,7 @@ const PNTSEAllStudentsContent = () => {
                                 </th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Roll No.</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Class</th>
+                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Board</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Centre</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Mobile</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Secondary Mobile</th>
@@ -754,7 +760,7 @@ const PNTSEAllStudentsContent = () => {
                         <tbody className="divide-y divide-gray-800/50">
                             {sortedStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={12} className="text-center py-16 text-gray-500">
+                                    <td colSpan={13} className="text-center py-16 text-gray-500">
                                         <FaGraduationCap className="text-4xl mx-auto mb-3 opacity-30" />
                                         <p>No students found</p>
                                     </td>
@@ -772,6 +778,7 @@ const PNTSEAllStudentsContent = () => {
                                     </td>
                                     <td className="px-5 py-4 text-cyan-400 font-mono text-xs font-semibold">{student.rollNo}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.class?.name || student.class}</td>
+                                    <td className="px-5 py-4 text-gray-300">{student.board?.boardCourse || student.board?.boardName || student.board || '—'}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.centre?.centreName || student.centre?.enterCode || student.centre}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.mobile}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.secondaryMobile || '—'}</td>
@@ -1111,6 +1118,10 @@ const PNTSEAllStudentsContent = () => {
                                         <p className="text-sm text-gray-200 mt-0.5">{viewStudent.class?.name || viewStudent.class || '—'}</p>
                                     </div>
                                     <div>
+                                        <p className="text-[10px] text-gray-400 uppercase font-semibold">Board</p>
+                                        <p className="text-sm text-gray-200 mt-0.5">{viewStudent.board?.boardCourse || viewStudent.board?.boardName || viewStudent.board || '—'}</p>
+                                    </div>
+                                    <div>
                                         <p className="text-[10px] text-gray-400 uppercase font-semibold">Course</p>
                                         <p className="text-sm text-gray-200 mt-0.5">{viewStudent.course || '—'}</p>
                                     </div>
@@ -1369,6 +1380,18 @@ const PNTSEAllStudentsContent = () => {
                                             {courses.map(c => <option key={c} value={c}>{c}</option>)}
                                         </select>
                                         {editErrors.course && <p className="text-[10px] text-red-400">{editErrors.course}</p>}
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-400 font-semibold">Board *</label>
+                                        <select
+                                            value={editForm.board}
+                                            onChange={e => setEditForm(p => ({ ...p, board: e.target.value }))}
+                                            className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer"
+                                        >
+                                            <option value="">Select Board</option>
+                                            {dbBoards.map(b => <option key={b._id} value={b._id}>{b.boardCourse || b.boardName}</option>)}
+                                        </select>
+                                        {editErrors.board && <p className="text-[10px] text-red-400">{editErrors.board}</p>}
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-xs text-gray-400 font-semibold">Centre *</label>

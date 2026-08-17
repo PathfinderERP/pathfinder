@@ -1039,10 +1039,6 @@ const MarketingCRM = ({ initialTab }) => {
             toast.error("Please select Activity Type.");
             return;
         }
-        if (!newTaskForm.place) {
-            toast.error("Place / Institution is required.");
-            return;
-        }
         if (!newTaskForm.time) {
             toast.error("Time is required.");
             return;
@@ -1057,7 +1053,7 @@ const MarketingCRM = ({ initialTab }) => {
             targetDate: tomorrowPlanDate,
             activityType: newTaskForm.activityType,
             activityPurpose: newTaskForm.activityPurpose || "",
-            place: newTaskForm.place,
+            place: newTaskForm.place || "",
             schoolRef: newTaskForm.schoolRef || null,
             time: newTaskForm.time,
             estimatedDuration: newTaskForm.estimatedDuration,
@@ -1106,11 +1102,10 @@ const MarketingCRM = ({ initialTab }) => {
     };
 
     const handleUpdateTomorrowTask = (taskId) => {
-        if (!editTaskForm.place) { toast.error("School / Place selection is required."); return; }
         if (!editTaskForm.time) { toast.error("Time is required."); return; }
         if (!editTaskForm.estimatedDuration) { toast.error("Duration is required."); return; }
         setTomorrowTasks(prev => prev.map(t =>
-            t._id === taskId ? { ...t, ...editTaskForm } : t
+            t._id === taskId ? { ...t, ...editTaskForm, place: editTaskForm.place || "" } : t
         ));
         setEditingTaskId(null);
         setEditTaskForm({});
@@ -3452,7 +3447,7 @@ const MarketingCRM = ({ initialTab }) => {
 
                                         <div className="col-span-1 md:col-span-3 z-10 flex flex-col gap-1.5 relative">
                                             <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">
-                                                Place / Institution *
+                                                Place / Institution (Optional)
                                             </label>
                                             <CustomSearchSelect
                                                 options={(() => {
@@ -3627,7 +3622,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                             {/* Place / School */}
                                                             <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
                                                                 <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">
-                                                                    Place / Institution *
+                                                                    Place / Institution (Optional)
                                                                 </label>
                                                                 <CustomSearchSelect
                                                                     options={(() => {

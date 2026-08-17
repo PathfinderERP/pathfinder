@@ -15,6 +15,7 @@ const INITIAL_FORM = {
     dob: '',
     gender: '',
     class: '',
+    board: '',
     school: '',
     centre: '',
     session: '',
@@ -66,6 +67,7 @@ const PNTSEAddStudentContent = () => {
 
     const [dbCentres, setDbCentres] = useState([]);
     const [dbClasses, setDbClasses] = useState([]);
+    const [dbBoards, setDbBoards] = useState([]);
     const [dbSessions, setDbSessions] = useState([]);
     const [dbExamTags, setDbExamTags] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -79,8 +81,8 @@ const PNTSEAddStudentContent = () => {
     const [cfStudentDetails, setCfStudentDetails] = useState(null);
 
     const courses = [
-        'PNTSE CLASS 5', 'PNTSE CLASS 6', 'PNTSE CLASS 7', 'PNTSE CLASS 8',
-        'PNTSE CLASS 9', 'PNTSE CLASS 10'
+        'PNTSE 5', 'PNTSE 6', 'PNTSE 7', 'PNTSE 8',
+        'PNTSE 9', 'PNTSE 10'
     ];
     const genders = ['Male', 'Female', 'Other'];
     const paymentTypes = [
@@ -96,14 +98,16 @@ const PNTSEAddStudentContent = () => {
             try {
                 const token = localStorage.getItem("token");
                 const headers = { "Authorization": `Bearer ${token}` };
-                const [centresRes, classesRes, sessionsRes, tagsRes] = await Promise.all([
+                const [centresRes, classesRes, sessionsRes, tagsRes, boardsRes] = await Promise.all([
                     fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
-                    fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers })
+                    fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
+                    fetch(`${import.meta.env.VITE_API_URL}/board`, { headers })
                 ]);
                 if (centresRes.ok) setDbCentres(await centresRes.json());
                 if (classesRes.ok) setDbClasses(await classesRes.json());
+                if (boardsRes.ok) setDbBoards(await boardsRes.json());
                 if (sessionsRes.ok) {
                     const d = await sessionsRes.json();
                     setDbSessions(Array.isArray(d) ? d : (d.sessions || []));
@@ -137,11 +141,23 @@ const PNTSEAddStudentContent = () => {
             if (matched) matchedClassId = matched._id;
         }
 
+        // Match Board
+        let matchedBoardId = "";
+        const studentBoard = s.examSchema?.[0]?.board || s.board || "";
+        if (studentBoard && dbBoards.length > 0) {
+            const matched = dbBoards.find(b =>
+                b.boardCourse?.toLowerCase().trim() === String(studentBoard).toLowerCase().trim() ||
+                b.boardName?.toLowerCase().trim() === String(studentBoard).toLowerCase().trim() ||
+                String(b._id) === String(studentBoard)
+            );
+            if (matched) matchedBoardId = matched._id;
+        }
+
         // Match Course based on Class
         let matchedCourse = "";
         const studentClassDigit = studentClassStr.replace(/\D/g, "");
         if (studentClassDigit) {
-            matchedCourse = `PNTSE CLASS ${studentClassDigit}`;
+            matchedCourse = `PNTSE ${studentClassDigit}`;
         }
 
         setForm(prev => ({
@@ -160,6 +176,7 @@ const PNTSEAddStudentContent = () => {
             guardianMobile: details.guardians?.[0]?.guardianMobile || s.guardians?.[0]?.guardianMobile || '',
             centre: matchedCentreId || prev.centre,
             class: matchedClassId || prev.class,
+            board: matchedBoardId || prev.board,
             course: matchedCourse || prev.course,
             studentId: s._id,
             rollNo: customRollNo || ''
@@ -170,7 +187,7 @@ const PNTSEAddStudentContent = () => {
         if (location.state?.student && dbCentres.length > 0 && dbClasses.length > 0) {
             applyCarryForward(location.state.student, location.state.rollNo);
         }
-    }, [location.state, dbCentres, dbClasses]);
+    }, [location.state, dbCentres, dbClasses, dbBoards]);
 
     const debounceTimeout = React.useRef({});
 
@@ -220,6 +237,7 @@ const PNTSEAddStudentContent = () => {
         if (!form.name.trim()) errs.name = 'Full Name is required';
         if (!form.mobile.trim() || !/^\d{10}$/.test(form.mobile)) errs.mobile = 'Valid 10-digit mobile is required';
         if (!form.class) errs.class = 'Class is required';
+        if (!form.board) errs.board = 'Board is required';
         if (!form.centre) errs.centre = 'Centre is required';
         if (!form.session) errs.session = 'Session is required';
         if (!form.examTag) errs.examTag = 'Exam Tag is required';
@@ -526,6 +544,16 @@ const PNTSEAddStudentContent = () => {
                                         {courses.map(c => <option key={c} value={c}>{c}</option>)}
                                     </select>
                                     {errors.course && <p className="text-xs text-red-400 mt-0.5">{errors.course}</p>}
+                                </div>
+
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Board <span className="text-red-400">*</span></label>
+                                    <select name="board" value={form.board} onChange={handleChange}
+                                        className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 focus:outline-none focus:ring-1 transition-all cursor-pointer ${errors.board ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}>
+                                        <option value="">Select Board</option>
+                                        {dbBoards.map(b => <option key={b._id} value={b._id}>{b.boardCourse || b.boardName}</option>)}
+                                    </select>
+                                    {errors.board && <p className="text-xs text-red-400 mt-0.5">{errors.board}</p>}
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">

@@ -4,6 +4,7 @@ import User from "../models/User.js";
 import TomorrowPlanner from "../models/TomorrowPlanner.js";
 import AssignedTask from "../models/AssignedTask.js";
 import Employee from "../models/HR/Employee.js";
+import Zone from "../models/Zone.js";
 import { syncPlanToLogCalendar } from "./tomorrowPlannerController.js";
 import XLSX from "xlsx";
 
@@ -624,6 +625,24 @@ export const exportUpcomingLogs = async (req, res) => {
             console.error("Error fetching target users for upcoming export:", uErr);
         }
 
+        // Fetch all zones for centre -> zone mapping
+        const centreToZoneMap = new Map();
+        try {
+            const zones = await Zone.find({ isActive: { $ne: false } }).populate("centres", "centreName");
+            zones.forEach(zone => {
+                (zone.centres || []).forEach(c => {
+                    if (c._id) {
+                        centreToZoneMap.set(c._id.toString(), zone.name);
+                    }
+                    if (c.centreName) {
+                        centreToZoneMap.set(c.centreName.trim().toUpperCase(), zone.name);
+                    }
+                });
+            });
+        } catch (zErr) {
+            console.error("Error fetching zones in exportUpcomingLogs:", zErr);
+        }
+
         const employeeMap = new Map();
         try {
             if (targetUsers.length > 0) {
@@ -633,7 +652,10 @@ export const exportUpcomingLogs = async (req, res) => {
 
                 employeesForUsers.forEach(emp => {
                     if (emp.user) {
-                        employeeMap.set(emp.user.toString(), emp.primaryCentre?.centreName || "");
+                        employeeMap.set(emp.user.toString(), {
+                            centreName: emp.primaryCentre?.centreName || "",
+                            centreId: emp.primaryCentre?._id?.toString() || ""
+                        });
                     }
                 });
             }
@@ -664,11 +686,50 @@ export const exportUpcomingLogs = async (req, res) => {
             return r;
         };
 
-        const getCentreNameForUser = (u) => {
-            const empCentre = employeeMap.get(u._id.toString());
-            if (empCentre) return empCentre;
-            if (Array.isArray(u.centres) && u.centres.length > 0 && u.centres[0]?.centreName) {
-                return u.centres.map(c => c.centreName).filter(Boolean).join(", ");
+        const getZoneAndCentreForUser = (u) => {
+            const empInfo = employeeMap.get(u._id.toString());
+            let centreName = "";
+            let centreId = "";
+
+            if (empInfo) {
+                centreName = empInfo.centreName || "";
+                centreId = empInfo.centreId || "";
+            } else if (Array.isArray(u.centres) && u.centres.length > 0 && u.centres[0]?.centreName) {
+                centreName = u.centres.map(c => c.centreName).filter(Boolean).join(", ");
+                centreId = u.centres[0]._id?.toString() || "";
+            }
+
+            centreName = centreName || "N/A";
+            let zoneName = "N/A";
+
+            if (centreId && centreToZoneMap.has(centreId)) {
+                zoneName = centreToZoneMap.get(centreId);
+            } else if (centreName && centreName !== "N/A") {
+                const parts = centreName.split(",");
+                for (const p of parts) {
+                    const cleanP = p.trim().toUpperCase();
+                    if (centreToZoneMap.has(cleanP)) {
+                        zoneName = centreToZoneMap.get(cleanP);
+                        break;
+                    }
+                }
+            }
+
+            return { centreName, zoneName };
+        };
+
+        const getZoneForLog = (log) => {
+            const centreId = log.centre?._id?.toString() || "";
+            const centreName = log.centreName || log.centre?.centreName || "";
+
+            if (centreId && centreToZoneMap.has(centreId)) {
+                return centreToZoneMap.get(centreId);
+            }
+            if (centreName) {
+                const clean = centreName.trim().toUpperCase();
+                if (centreToZoneMap.has(clean)) {
+                    return centreToZoneMap.get(clean);
+                }
             }
             return "N/A";
         };
@@ -678,10 +739,12 @@ export const exportUpcomingLogs = async (req, res) => {
 
         targetUsers.forEach(u => {
             const userIdStr = u._id.toString();
+            const { centreName, zoneName } = getZoneAndCentreForUser(u);
             userSummaryMap.set(userIdStr, {
                 userName: u.name || "Unknown",
                 userRole: getDisplayRole(u.role),
-                centreName: getCentreNameForUser(u),
+                zoneName: zoneName,
+                centreName: centreName,
                 totalCount: 0,
                 completedCount: 0,
                 upcomingCount: 0
@@ -709,28 +772,31 @@ export const exportUpcomingLogs = async (req, res) => {
             }
         });
 
-        // Sheet 1: User-wise Log Counts Summary (only active users under User Management)
+        // Sheet 1: User-wise Log Counts Summary (with Zone and Centre)
         const userSummaryData = Array.from(userSummaryMap.values()).map((u, idx) => ({
             "SL No.": idx + 1,
             "User Name": u.userName,
             "Role": u.userRole,
+            "Zone": u.zoneName,
             "Centre": u.centreName,
             "Total Log Counts": u.totalCount,
             "Completed Log Counts": u.completedCount,
             "Upcoming / Pending Log Counts": u.upcomingCount
         }));
 
-        // Sheet 2: Detailed Report Summary
+        // Sheet 2: Detailed Report Summary (with Zone and Centre)
         const detailedReportData = activeLogs.map((log, idx) => {
             const sStr = log.startDate ? new Date(log.startDate).toISOString().split("T")[0] : "";
             const eStr = log.endDate ? new Date(log.endDate).toISOString().split("T")[0] : "";
             const dateDisplay = (sStr && eStr && sStr !== eStr) ? `${sStr} to ${eStr}` : sStr;
+            const logZone = getZoneForLog(log);
 
             return {
                 "SL No.": idx + 1,
                 "Date": dateDisplay,
                 "User Name": log.userName || log.user?.name || "Unknown",
                 "Role": getDisplayRole(log.userRole || log.user?.role),
+                "Zone": logZone,
                 "Centre": log.centreName || log.centre?.centreName || "N/A",
                 "Activity Title": log.title || "",
                 "Activity Type": log.activityType || "",

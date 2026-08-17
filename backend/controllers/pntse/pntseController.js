@@ -3,6 +3,7 @@ import Class from "../../models/Master_data/Class.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import Session from "../../models/Master_data/Session.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
+import Boards from "../../models/Master_data/Boards.js";
 import Payment from "../../models/Payment/Payment.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import XLSX from "xlsx";
@@ -15,15 +16,15 @@ export const createPNTSEStudent = async (req, res) => {
     try {
         const {
             name, mobile, secondaryMobile, email, dob, gender, address, city, state, pincode,
-            class: classId, centre: centreId, session: sessionId, examTag: examTagId,
+            class: classId, centre: centreId, session: sessionId, examTag: examTagId, board: boardId,
             course, paymentType, school, guardianName, guardianMobile, examDate, examVenue, reportingTime, timeSlot, remarks, status, score, rank,
             // Payment fields (only used when paymentType === 'paid')
             paymentMethod, transactionId, accountHolderName, chequeDate, receivedDate, waiver,
             studentId, rollNo: customRollNo
         } = req.body;
 
-        if (!name || !mobile || !classId || !centreId || !sessionId || !examTagId || !course) {
-            return res.status(400).json({ message: "Required fields are missing" });
+        if (!name || !mobile || !classId || !centreId || !sessionId || !examTagId || !course || !boardId) {
+            return res.status(400).json({ message: "Required fields are missing (Name, Mobile, Class, Centre, Session, ExamTag, Board, Course)" });
         }
 
         // Sanitize: empty string studentId/rollNo causes ObjectId cast errors
@@ -160,6 +161,7 @@ export const createPNTSEStudent = async (req, res) => {
             centre: centreId,
             session: sessionId,
             examTag: examTagId,
+            board: boardId,
             course,
             paymentType: paymentType || 'free',
             amountPaid,
@@ -328,6 +330,7 @@ export const getPNTSEStudents = async (req, res) => {
         if (classId) query.class = classId;
         if (session) query.session = session;
         if (examTag) query.examTag = examTag;
+        if (req.query.board) query.board = req.query.board;
         if (status) query.status = status;
 
         const students = await PNTSEStudent.find(query)
@@ -335,6 +338,7 @@ export const getPNTSEStudents = async (req, res) => {
             .populate('centre')
             .populate('session')
             .populate('examTag')
+            .populate('board')
             .populate('paymentId')
             .sort({ createdAt: -1 });
 
@@ -504,10 +508,11 @@ export const downloadTemplate = async (req, res) => {
                 "DOB (YYYY-MM-DD)": "2012-05-15",
                 "Gender": "Male",
                 "Class Name* (e.g. 6)": "6",
+                "Board Name* (exact)": "CBSE",
                 "Centre Name* (exact)": "HAZRA H.O",
                 "Session Name* (e.g. 2025-2026)": "2025-2026",
                 "ExamTag Name* (e.g. PNTSE 6)": "PNTSE 6",
-                "Course* (e.g. PNTSE CLASS 6)": "PNTSE CLASS 6",
+                "Course* (e.g. PNTSE 6)": "PNTSE 6",
                 "School": "ABC High School",
                 "Guardian Name": "Rajesh Sharma",
                 "Guardian Mobile": "9876543200",
@@ -529,10 +534,11 @@ export const downloadTemplate = async (req, res) => {
                 "DOB (YYYY-MM-DD)": "2011-08-20",
                 "Gender": "Female",
                 "Class Name* (e.g. 6)": "7",
+                "Board Name* (exact)": "ICSE",
                 "Centre Name* (exact)": "DUMDUM",
                 "Session Name* (e.g. 2025-2026)": "2025-2026",
                 "ExamTag Name* (e.g. PNTSE 6)": "PNTSE 7",
-                "Course* (e.g. PNTSE CLASS 6)": "PNTSE CLASS 7",
+                "Course* (e.g. PNTSE 6)": "PNTSE 7",
                 "School": "XYZ School",
                 "Guardian Name": "Suresh Verma",
                 "Guardian Mobile": "9876543201",
@@ -554,7 +560,7 @@ export const downloadTemplate = async (req, res) => {
         // Set column widths
         ws['!cols'] = [
             { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 10 },
-            { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
+            { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
             { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 25 }, { wch: 15 },
             { wch: 18 }, { wch: 10 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 30 }, { wch: 30 }
         ];
@@ -587,11 +593,12 @@ export const importExcel = async (req, res) => {
         }
 
         // Pre-fetch all master data to avoid repeated DB calls per row
-        const [allCentres, allClasses, allSessions, allExamTags] = await Promise.all([
+        const [allCentres, allClasses, allSessions, allExamTags, allBoards] = await Promise.all([
             CentreSchema.find(),
             Class.find(),
             Session.find(),
-            ExamTag.find()
+            ExamTag.find(),
+            Boards.find()
         ]);
 
         const results = { success: 0, failed: 0, errors: [] };
@@ -613,10 +620,14 @@ export const importExcel = async (req, res) => {
                 const dob = String(getRowValue("DOB") ?? "").trim() || undefined;
                 const gender = String(getRowValue("Gender") ?? "").trim() || undefined;
                 const className = String(getRowValue("Class Name") ?? "").trim();
+                const boardName = String(getRowValue("Board Name") ?? getRowValue("Board") ?? "").trim();
                 const centreName = String(getRowValue("Centre Name") ?? "").trim();
                 const sessionName = String(getRowValue("Session Name") ?? "").trim();
                 const examTagName = String(getRowValue("ExamTag Name") ?? "").trim();
-                const course = String(getRowValue("Course") ?? "").trim();
+                let course = String(getRowValue("Course") ?? "").trim();
+                if (/^PNTSE\s+CLASS\s+(\d+)$/i.test(course)) {
+                    course = course.toUpperCase().replace(/PNTSE\s+CLASS\s+(\d+)/i, 'PNTSE $1');
+                }
                 const school = String(getRowValue("School") ?? "").trim() || undefined;
                 const guardianName = String(getRowValue("Guardian Name") ?? "").trim() || undefined;
                 const guardianMobile = String(getRowValue("Guardian Mobile") ?? "").trim() || undefined;
@@ -632,17 +643,32 @@ export const importExcel = async (req, res) => {
                 const studentId = getRowValue("studentId") || undefined;
 
                 // Validate required
-                if (!name || !mobile || !className || !centreName || !sessionName || !examTagName || !course) {
+                if (!name || !mobile || !className || !boardName || !centreName || !sessionName || !examTagName || !course) {
                     results.failed++;
-                    results.errors.push(`Row ${rowNum}: Missing required fields (Name, Mobile, Class, Centre, Session, ExamTag, Course)`);
+                    results.errors.push(`Row ${rowNum}: Missing required fields (Name, Mobile, Class, Board, Centre, Session, ExamTag, Course)`);
                     continue;
                 }
 
-                // Resolve references by name (case-insensitive)
-                const centreObj = allCentres.find(c =>
-                    c.centreName?.toLowerCase() === centreName.toLowerCase() ||
-                    c.enterCode?.toLowerCase() === centreName.toLowerCase()
-                );
+                // Resolve references by name (case-insensitive & trimmed with flexible matching)
+                const centreTarget = centreName.trim().toLowerCase();
+                const centreTargetClean = centreTarget.replace(/[^a-z0-9]/g, '');
+
+                const centreObj = allCentres.find(c => {
+                    const cName = c.centreName?.trim().toLowerCase() || '';
+                    const cCode = c.enterCode?.trim().toLowerCase() || '';
+                    const cShort = c.centreCode?.trim().toLowerCase() || '';
+                    return cName === centreTarget || cCode === centreTarget || cShort === centreTarget;
+                }) || allCentres.find(c => {
+                    const cNameClean = c.centreName?.replace(/[^a-z0-9]/g, '').toLowerCase() || '';
+                    const cCodeClean = c.enterCode?.replace(/[^a-z0-9]/g, '').toLowerCase() || '';
+                    return (cNameClean && cNameClean === centreTargetClean) || (cCodeClean && cCodeClean === centreTargetClean);
+                }) || allCentres.find(c => {
+                    const cName = c.centreName?.trim().toLowerCase() || '';
+                    const cCode = c.enterCode?.trim().toLowerCase() || '';
+                    return (cName && (cName.startsWith(centreTarget) || centreTarget.startsWith(cName) || cName.includes(centreTarget) || centreTarget.includes(cName))) ||
+                           (cCode && (cCode.startsWith(centreTarget) || centreTarget.startsWith(cCode)));
+                });
+
                 if (!centreObj) {
                     results.failed++;
                     results.errors.push(`Row ${rowNum}: Centre "${centreName}" not found`);
@@ -660,21 +686,53 @@ export const importExcel = async (req, res) => {
                     }
                 }
 
-                const classObj = allClasses.find(c => c.name?.toLowerCase() === className.toLowerCase());
+                const classTarget = className.trim().toLowerCase();
+                const classDigits = className.replace(/\D/g, '');
+                const classObj = allClasses.find(c => c.name?.trim().toLowerCase() === classTarget) ||
+                                 (classDigits ? allClasses.find(c => c.name?.replace(/\D/g, '') === classDigits) : null);
                 if (!classObj) {
                     results.failed++;
                     results.errors.push(`Row ${rowNum}: Class "${className}" not found`);
                     continue;
                 }
 
-                const sessionObj = allSessions.find(s => s.sessionName?.toLowerCase() === sessionName.toLowerCase());
+                const boardTarget = boardName.trim().toLowerCase();
+                const boardClean = boardTarget.replace(/[^a-z0-9]/g, '');
+                const boardObj = allBoards.find(b =>
+                    b.boardCourse?.trim().toLowerCase() === boardTarget ||
+                    b.boardName?.trim().toLowerCase() === boardTarget
+                ) || allBoards.find(b => {
+                    const bCourseClean = b.boardCourse?.replace(/[^a-z0-9]/g, '').toLowerCase() || '';
+                    const bNameClean = b.boardName?.replace(/[^a-z0-9]/g, '').toLowerCase() || '';
+                    return (bCourseClean && bCourseClean === boardClean) || (bNameClean && bNameClean === boardClean);
+                });
+
+                if (!boardObj) {
+                    results.failed++;
+                    results.errors.push(`Row ${rowNum}: Board "${boardName}" not found in master data`);
+                    continue;
+                }
+
+                const sessionTarget = sessionName.trim().toLowerCase();
+                const sessionClean = sessionTarget.replace(/[^a-z0-9]/g, '');
+                const sessionObj = allSessions.find(s =>
+                    s.sessionName?.trim().toLowerCase() === sessionTarget ||
+                    s.name?.trim().toLowerCase() === sessionTarget
+                ) || allSessions.find(s => {
+                    const sNameClean = (s.sessionName || s.name || '').replace(/[^a-z0-9]/g, '').toLowerCase();
+                    return sNameClean && (sNameClean === sessionClean || sNameClean.includes(sessionClean) || sessionClean.includes(sNameClean));
+                });
+
                 if (!sessionObj) {
                     results.failed++;
                     results.errors.push(`Row ${rowNum}: Session "${sessionName}" not found`);
                     continue;
                 }
 
-                const examTagObj = allExamTags.find(t => t.name?.toLowerCase() === examTagName.toLowerCase());
+                const examTagTarget = examTagName.trim().toLowerCase();
+                const examTagClean = examTagTarget.replace(/[^a-z0-9]/g, '');
+                const examTagObj = allExamTags.find(t => t.name?.trim().toLowerCase() === examTagTarget) ||
+                                   allExamTags.find(t => t.name?.replace(/[^a-z0-9]/g, '').toLowerCase() === examTagClean);
                 if (!examTagObj) {
                     results.failed++;
                     results.errors.push(`Row ${rowNum}: ExamTag "${examTagName}" not found`);
@@ -749,6 +807,7 @@ export const importExcel = async (req, res) => {
                     centre: centreObj._id,
                     session: sessionObj._id,
                     examTag: examTagObj._id,
+                    board: boardObj._id,
                     course,
                     paymentType: 'free',
                     amountPaid: 0,
@@ -806,7 +865,7 @@ export const setStudentFree = async (req, res) => {
         student.amountPaid = 0;
         student.waiver = 0;
         await student.save();
-        await student.populate(['class', 'centre', 'session', 'examTag']);
+        await student.populate(['class', 'centre', 'session', 'examTag', 'board']);
         res.status(200).json({ message: "Student payment type updated to free", student });
     } catch (err) {
         console.error(err);
@@ -892,7 +951,7 @@ export const processStudentPayment = async (req, res) => {
         student.paymentId = paymentRecord._id;
         student.isPaymentPending = false;
         await student.save();
-        await student.populate(['class', 'centre', 'session', 'examTag']);
+        await student.populate(['class', 'centre', 'session', 'examTag', 'board']);
 
         const billData = {
             billId,
@@ -1027,6 +1086,7 @@ export const updatePNTSEStudent = async (req, res) => {
             .populate('centre')
             .populate('session')
             .populate('examTag')
+            .populate('board')
             .populate('paymentId');
 
         res.status(200).json({ message: "Student updated successfully", student: updatedStudent });
