@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import {
@@ -580,57 +580,57 @@ const EmployeesAttendance = () => {
     const [itemsPerPage] = useState(10);
     const [jumpToPage, setJumpToPage] = useState('');
 
+    const activeParamsRef = useRef({
+        viewMode,
+        date: selectedDate,
+        month: filters.month,
+        year: filters.year,
+        centreId: filters.centreId,
+        department: filters.department,
+        designation: filters.designation,
+        role: filters.role,
+        status: filters.status,
+        fromDate: filters.fromDate,
+        toDate: filters.toDate
+    });
 
+    useEffect(() => {
+        activeParamsRef.current = {
+            viewMode,
+            date: selectedDate,
+            month: filters.month,
+            year: filters.year,
+            centreId: filters.centreId,
+            department: filters.department,
+            designation: filters.designation,
+            role: filters.role,
+            status: filters.status,
+            fromDate: filters.fromDate,
+            toDate: filters.toDate
+        };
+    }, [viewMode, selectedDate, filters]);
 
     useEffect(() => {
         fetchMetadata();
     }, []);
 
-    useEffect(() => {
-        fetchAttendanceData();
-    }, [filters.month, filters.year, filters.centreId, filters.department, filters.designation, filters.role, filters.status, viewMode, selectedDate, filters.fromDate, filters.toDate]);
-
-    const fetchMetadata = async () => {
-        try {
-            const token = localStorage.getItem("token");
-            const [centresRes, deptRes, desigRes] = await Promise.all([
-                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers: { Authorization: `Bearer ${token}` } }),
-                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers: { Authorization: `Bearer ${token}` } }),
-                fetch(`${import.meta.env.VITE_API_URL}/designation`, { headers: { Authorization: `Bearer ${token}` } })
-            ]);
-
-            if (centresRes.ok) {
-                const allCentres = await centresRes.json();
-                const activeCentres = allCentres.filter(c => c.status === 'active');
-                if (!isSuperAdmin && userCentres.length > 0) {
-                    setCentres(activeCentres.filter(c => userCentres.includes(c._id)));
-                } else {
-                    setCentres(activeCentres);
-                }
-            }
-            if (deptRes.ok) setDepartments(await deptRes.json());
-            if (desigRes.ok) setDesignations(await desigRes.json());
-        } catch (error) {
-            console.error("Metadata fetch error:", error);
-        }
-    };
-
-    const fetchAttendanceData = async (isBackground = false) => {
+    const fetchAttendanceData = useCallback(async (isBackground = false) => {
         if (!isBackground) setLoading(true);
         try {
             const token = localStorage.getItem("token");
+            const q = activeParamsRef.current;
             const queryParams = new URLSearchParams({
-                viewMode,
-                date: selectedDate,
-                month: filters.month,
-                year: filters.year,
-                centreId: filters.centreId.length > 0 ? filters.centreId.join(',') : (!isSuperAdmin ? userCentres.join(',') : ''),
-                department: filters.department.join(','),
-                designation: filters.designation.join(','),
-                role: filters.role.join(','),
-                status: filters.status.join(','),
-                fromDate: viewMode === 'range' ? filters.fromDate : '',
-                toDate: viewMode === 'range' ? filters.toDate : ''
+                viewMode: q.viewMode,
+                date: q.date,
+                month: q.month,
+                year: q.year,
+                centreId: q.centreId?.length > 0 ? q.centreId.join(',') : (!isSuperAdmin ? userCentres.join(',') : ''),
+                department: (q.department || []).join(','),
+                designation: (q.designation || []).join(','),
+                role: (q.role || []).join(','),
+                status: (q.status || []).join(','),
+                fromDate: q.viewMode === 'range' ? q.fromDate : '',
+                toDate: q.viewMode === 'range' ? q.toDate : ''
             }).toString();
 
             // Fetch Stats and List in parallel
@@ -662,7 +662,36 @@ const EmployeesAttendance = () => {
             if (!isBackground) toast.error("Failed to load attendance records");
         } finally {
             if (!isBackground) setLoading(false);
-            setCurrentPage(1); // Reset to first page on new fetch
+            if (!isBackground) setCurrentPage(1); // Reset to first page on new fetch
+        }
+    }, [isSuperAdmin, userCentres, selectedUser]);
+
+    useEffect(() => {
+        fetchAttendanceData();
+    }, [fetchAttendanceData, filters.month, filters.year, filters.centreId, filters.department, filters.designation, filters.role, filters.status, viewMode, selectedDate, filters.fromDate, filters.toDate]);
+
+    const fetchMetadata = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const [centresRes, deptRes, desigRes] = await Promise.all([
+                fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${import.meta.env.VITE_API_URL}/designation`, { headers: { Authorization: `Bearer ${token}` } })
+            ]);
+
+            if (centresRes.ok) {
+                const allCentres = await centresRes.json();
+                const activeCentres = allCentres.filter(c => c.status === 'active');
+                if (!isSuperAdmin && userCentres.length > 0) {
+                    setCentres(activeCentres.filter(c => userCentres.includes(c._id)));
+                } else {
+                    setCentres(activeCentres);
+                }
+            }
+            if (deptRes.ok) setDepartments(await deptRes.json());
+            if (desigRes.ok) setDesignations(await desigRes.json());
+        } catch (error) {
+            console.error("Metadata fetch error:", error);
         }
     };
 
@@ -672,7 +701,7 @@ const EmployeesAttendance = () => {
             fetchAttendanceData(true);
         }, 30000);
         return () => clearInterval(interval);
-    }, [filters]);
+    }, [fetchAttendanceData]);
 
     const handleExportEmployeeExcel = () => {
         if (!selectedUser || !userAnalysisData) return toast.error("No analysis data available to export");
@@ -775,7 +804,18 @@ const EmployeesAttendance = () => {
     const handleExportExcel = () => {
         if (!attendanceList.length) return toast.error("No data to export");
 
-        const exportData = attendanceList.map(att => ({
+        let exportList = attendanceList;
+        if (filters.search?.trim()) {
+            const q = filters.search.trim().toLowerCase();
+            exportList = exportList.filter(att =>
+                att.employeeId?.name?.toLowerCase().includes(q) ||
+                att.employeeId?.employeeId?.toLowerCase().includes(q)
+            );
+        }
+
+        if (!exportList.length) return toast.error("No matching data to export");
+
+        const exportData = exportList.map(att => ({
             'Date': format(new Date(att.date), 'dd MMM yyyy'),
             'Employee ID': att.employeeId?.employeeId || 'N/A',
             'Name': att.employeeId?.name || 'N/A',
@@ -800,7 +840,19 @@ const EmployeesAttendance = () => {
         XLSX.utils.book_append_sheet(wb, ws, "Attendance Report");
         const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
         const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-        saveAs(data, `Attendance_Report_${viewMode}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+
+        let dateLabel = '';
+        if (viewMode === 'month') {
+            dateLabel = `${format(new Date(filters.year, filters.month - 1, 1), 'MMMM_yyyy')}`;
+        } else if (viewMode === 'range') {
+            dateLabel = `${filters.fromDate}_to_${filters.toDate}`;
+        } else if (viewMode === 'week') {
+            dateLabel = `Week_${selectedDate}`;
+        } else {
+            dateLabel = `${selectedDate}`;
+        }
+
+        saveAs(data, `Attendance_Report_${viewMode}_${dateLabel}.xlsx`);
         toast.success("Excel Report Downloaded");
     };
 

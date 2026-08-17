@@ -507,32 +507,33 @@ export const getAllAttendance = async (req, res) => {
         let query = {};
 
         // Date Filtering (Priority: Custom Range > View Mode)
-        const { fromDate, toDate } = req.query;
-        if (fromDate && toDate) {
-            query.date = { $gte: startOfDay(new Date(fromDate)), $lte: endOfDay(new Date(toDate)) };
-        } else {
-            const referenceDate = date ? new Date(date) : new Date();
-            const vMode = req.query.viewMode || 'month';
+        const { fromDate, toDate, viewMode } = req.query;
+        const vMode = viewMode || (fromDate && toDate ? 'range' : 'month');
 
-            if (vMode === 'day') {
-                const dayStart = startOfDay(referenceDate);
-                const dayEnd = endOfDay(referenceDate);
-                query.date = { $gte: dayStart, $lte: dayEnd };
-            } else if (vMode === 'week') {
-                const weekStart = startOfWeek(referenceDate, { weekStartsOn: 1 });
-                const weekEnd = endOfWeek(referenceDate, { weekStartsOn: 1 });
-                query.date = { $gte: weekStart, $lte: weekEnd };
-            } else if (vMode === 'month') {
-                const monthVal = month || (referenceDate.getMonth() + 1);
-                const yearVal = year || referenceDate.getFullYear();
-                const monthStart = new Date(yearVal, monthVal - 1, 1);
-                const monthEnd = endOfMonth(monthStart);
-                query.date = { $gte: monthStart, $lte: monthEnd };
-            } else if (date) {
-                const dayStart = startOfDay(new Date(date));
-                const dayEnd = endOfDay(new Date(date));
-                query.date = { $gte: dayStart, $lte: dayEnd };
-            }
+        if (vMode === 'range' || (fromDate && toDate)) {
+            const fDate = fromDate ? new Date(fromDate) : new Date();
+            const tDate = toDate ? new Date(toDate) : fDate;
+            query.date = { $gte: startOfDay(fDate), $lte: endOfDay(tDate) };
+        } else if (vMode === 'day') {
+            const referenceDate = date ? new Date(date) : new Date();
+            const dayStart = startOfDay(referenceDate);
+            const dayEnd = endOfDay(referenceDate);
+            query.date = { $gte: dayStart, $lte: dayEnd };
+        } else if (vMode === 'week') {
+            const referenceDate = date ? new Date(date) : new Date();
+            const weekStart = startOfWeek(referenceDate, { weekStartsOn: 1 });
+            const weekEnd = endOfWeek(referenceDate, { weekStartsOn: 1 });
+            query.date = { $gte: weekStart, $lte: weekEnd };
+        } else if (vMode === 'month') {
+            const monthVal = parseInt(month || (date ? new Date(date).getMonth() + 1 : new Date().getMonth() + 1), 10);
+            const yearVal = parseInt(year || (date ? new Date(date).getFullYear() : new Date().getFullYear()), 10);
+            const monthStart = startOfMonth(new Date(yearVal, monthVal - 1, 1));
+            const monthEnd = endOfMonth(new Date(yearVal, monthVal - 1, 1));
+            query.date = { $gte: monthStart, $lte: monthEnd };
+        } else if (date) {
+            const dayStart = startOfDay(new Date(date));
+            const dayEnd = endOfDay(new Date(date));
+            query.date = { $gte: dayStart, $lte: dayEnd };
         }
 
         // Status Filter
@@ -874,7 +875,7 @@ export const getAttendanceAnalysis = async (req, res) => {
 // Get Attendance Dashboard Stats (Totals, Charts, etc.)
 export const getAttendanceDashboardStats = async (req, res) => {
     try {
-        const { month, year, centreId, department, designation, viewMode = 'month', date } = req.query;
+        const { month, year, centreId, department, designation, viewMode, date, fromDate, toDate } = req.query;
 
         // 1. Build Employee Filter
         const empQuery = { status: "Active" };
@@ -896,25 +897,27 @@ export const getAttendanceDashboardStats = async (req, res) => {
 
         // 2. Build Attendance Filter (Priority: Custom Range > View Mode)
         let startDate, endDate;
-        const { fromDate, toDate } = req.query;
+        const vMode = viewMode || (fromDate && toDate ? 'range' : 'month');
 
-        if (fromDate && toDate) {
-            startDate = startOfDay(new Date(fromDate));
-            endDate = endOfDay(new Date(toDate));
-        } else {
+        if (vMode === 'range' || (fromDate && toDate)) {
+            const fDate = fromDate ? new Date(fromDate) : new Date();
+            const tDate = toDate ? new Date(toDate) : fDate;
+            startDate = startOfDay(fDate);
+            endDate = endOfDay(tDate);
+        } else if (vMode === 'day') {
             const referenceDate = date ? new Date(date) : new Date();
-
-            if (viewMode === 'day') {
-                startDate = startOfDay(referenceDate);
-                endDate = endOfDay(referenceDate);
-            } else if (viewMode === 'week') {
-                startDate = startOfWeek(referenceDate, { weekStartsOn: 1 });
-                endDate = endOfWeek(referenceDate, { weekStartsOn: 1 });
-            } else {
-                // Default to month
-                startDate = startOfMonth(new Date(year, month - 1, 1));
-                endDate = endOfMonth(new Date(year, month - 1, 1));
-            }
+            startDate = startOfDay(referenceDate);
+            endDate = endOfDay(referenceDate);
+        } else if (vMode === 'week') {
+            const referenceDate = date ? new Date(date) : new Date();
+            startDate = startOfWeek(referenceDate, { weekStartsOn: 1 });
+            endDate = endOfWeek(referenceDate, { weekStartsOn: 1 });
+        } else {
+            // Default to month
+            const mVal = parseInt(month || (date ? new Date(date).getMonth() + 1 : new Date().getMonth() + 1), 10);
+            const yVal = parseInt(year || (date ? new Date(date).getFullYear() : new Date().getFullYear()), 10);
+            startDate = startOfMonth(new Date(yVal, mVal - 1, 1));
+            endDate = endOfMonth(new Date(yVal, mVal - 1, 1));
         }
 
         const attQuery = {
