@@ -525,36 +525,7 @@ export default function CampaignUploadLeads() {
                                                         />
                                                     </td>
                                                 ))}
-                                                <td className="px-2 py-1.5">
-                                                    <select
-                                                        value={row.board || ""}
-                                                        onChange={(e) => handleEdit(idx, "board", e.target.value)}
-                                                        className={`w-full min-w-[100px] px-2 py-1.5 rounded-[4px] border text-[10px] font-semibold outline-none transition-all ${isDark ? "bg-[#131619] border-gray-700 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500"}`}
-                                                    >
-                                                        <option value="">-- Select --</option>
-                                                        {boards.map(b => <option key={b._id} value={b.boardName || b.boardCourse || b.name}>{b.boardName || b.boardCourse || b.name}</option>)}
-                                                    </select>
-                                                </td>
-                                                <td className="px-2 py-1.5">
-                                                    <select
-                                                        value={row.centre || ""}
-                                                        onChange={(e) => handleEdit(idx, "centre", e.target.value)}
-                                                        className={`w-full min-w-[100px] px-2 py-1.5 rounded-[4px] border text-[10px] font-semibold outline-none transition-all ${isDark ? "bg-[#131619] border-gray-700 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500"}`}
-                                                    >
-                                                        <option value="">-- Select --</option>
-                                                        {centres.map(c => <option key={c._id} value={c.centreName || c.name}>{c.centreName || c.name}</option>)}
-                                                    </select>
-                                                </td>
-                                                <td className="px-2 py-1.5">
-                                                    <select
-                                                        value={row.className || ""}
-                                                        onChange={(e) => handleEdit(idx, "className", e.target.value)}
-                                                        className={`w-full min-w-[100px] px-2 py-1.5 rounded-[4px] border text-[10px] font-semibold outline-none transition-all ${isDark ? "bg-[#131619] border-gray-700 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500"}`}
-                                                    >
-                                                        <option value="">-- Select --</option>
-                                                        {classes.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
-                                                    </select>
-                                                </td>
+                                                {/* Lead Type */}
                                                 <td className="px-2 py-1.5">
                                                     <select
                                                         value={row.leadType || ""}
@@ -567,6 +538,7 @@ export default function CampaignUploadLeads() {
                                                         ))}
                                                     </select>
                                                 </td>
+                                                {/* Course */}
                                                 <td className="px-2 py-1.5">
                                                     <input
                                                         type="text"
@@ -577,6 +549,40 @@ export default function CampaignUploadLeads() {
                                                         placeholder="Course name"
                                                     />
                                                 </td>
+                                                {/* Board */}
+                                                <td className="px-2 py-1.5">
+                                                    <select
+                                                        value={row.board || ""}
+                                                        onChange={(e) => handleEdit(idx, "board", e.target.value)}
+                                                        className={`w-full min-w-[100px] px-2 py-1.5 rounded-[4px] border text-[10px] font-semibold outline-none transition-all ${isDark ? "bg-[#131619] border-gray-700 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500"}`}
+                                                    >
+                                                        <option value="">-- Select --</option>
+                                                        {boards.map(b => <option key={b._id} value={b.boardName || b.boardCourse || b.name}>{b.boardName || b.boardCourse || b.name}</option>)}
+                                                    </select>
+                                                </td>
+                                                {/* Center */}
+                                                <td className="px-2 py-1.5">
+                                                    <select
+                                                        value={row.centre || ""}
+                                                        onChange={(e) => handleEdit(idx, "centre", e.target.value)}
+                                                        className={`w-full min-w-[100px] px-2 py-1.5 rounded-[4px] border text-[10px] font-semibold outline-none transition-all ${isDark ? "bg-[#131619] border-gray-700 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500"}`}
+                                                    >
+                                                        <option value="">-- Select --</option>
+                                                        {centres.map(c => <option key={c._id} value={c.centreName || c.name}>{c.centreName || c.name}</option>)}
+                                                    </select>
+                                                </td>
+                                                {/* Class */}
+                                                <td className="px-2 py-1.5">
+                                                    <select
+                                                        value={row.className || ""}
+                                                        onChange={(e) => handleEdit(idx, "className", e.target.value)}
+                                                        className={`w-full min-w-[100px] px-2 py-1.5 rounded-[4px] border text-[10px] font-semibold outline-none transition-all ${isDark ? "bg-[#131619] border-gray-700 text-white focus:border-cyan-500/50" : "bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500"}`}
+                                                    >
+                                                        <option value="">-- Select --</option>
+                                                        {classes.map(c => <option key={c._id} value={c.name}>{c.name}</option>)}
+                                                    </select>
+                                                </td>
+                                                {/* Assign To */}
                                                 <td className="px-2 py-1.5">
                                                     <select
                                                         value={row.leadResponsibility || ""}
