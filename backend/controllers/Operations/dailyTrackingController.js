@@ -1162,12 +1162,12 @@ export const getDailyCenterDetails = async (req, res) => {
                 createdAt: dateFilter
             });
 
-            // 3.3 Daily Calls & 5-Day Call History (Optimized Bulk Query)
-            const historyStart = new Date(endDate);
-            historyStart.setDate(historyStart.getDate() - 4);
+            // 3.3 Daily Calls & Date-Range Call History (Optimized Bulk Query across filtered date range)
+            const historyStart = new Date(startDate);
             historyStart.setHours(0, 0, 0, 0);
             
             const historyEnd = new Date(endDate);
+            historyEnd.setHours(23, 59, 59, 999);
 
             const allLeadsHistory = await LeadManagement.find({
                 followUps: { $elemMatch: { updatedBy: user.name, date: { $gte: historyStart, $lte: historyEnd } } }
@@ -1280,28 +1280,29 @@ export const getDailyCenterDetails = async (req, res) => {
             }
 
             let callHistory = [];
-            for (let i = 4; i >= 0; i--) {
-                let dDate = new Date(endDate);
-                dDate.setDate(dDate.getDate() - i);
-                let dStart = new Date(dDate);
-                dStart.setHours(0,0,0,0);
-                let dEnd = new Date(dDate);
-                dEnd.setHours(23,59,59,999);
+            let currDate = new Date(historyStart);
+            while (currDate <= historyEnd) {
+                let dStart = new Date(currDate);
+                dStart.setHours(0, 0, 0, 0);
+                let dEnd = new Date(currDate);
+                dEnd.setHours(23, 59, 59, 999);
 
                 const cCount = getCallsCountForDay(dStart, dEnd);
                 
                 let targetCalls = 50;
                 if (user.role) {
-                    const role = user.role.toLowerCase();
+                    const role = (user.role || '').toLowerCase();
                     if (role === 'counsellor') targetCalls = 30;
                     else if (role === 'marketing') targetCalls = 40;
-                    else if (role === 'areamanager' || role === 'zonalmanager' || role === 'centerincharge') targetCalls = 30;
+                    else if (['areamanager', 'zonalmanager', 'centerincharge', 'centreincharge', 'assistantcenterincharge', 'assistantcentreincharge', 'assistantzonalmanager'].includes(role)) targetCalls = 30;
                 }
                 callHistory.push({
                     date: dStart.toISOString(),
                     calls: cCount,
                     target: targetCalls
                 });
+
+                currDate.setDate(currDate.getDate() + 1);
             }
 
             return {
