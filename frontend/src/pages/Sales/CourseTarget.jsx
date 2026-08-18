@@ -11,6 +11,69 @@ import { hasPermission } from "../../config/permissions";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
+const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const quarters = ["Q1", "Q2", "Q3", "Q4"];
+const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
+
+const getWeeksForMonth = (year, monthName) => {
+    const mIdx = monthNames.indexOf(monthName);
+    const daysInMonth = new Date(year, mIdx + 1, 0).getDate();
+    const firstDowJS = new Date(year, mIdx, 1).getDay();
+    const firstMonOffset = (firstDowJS + 6) % 7; // Mon=0, Tue=1 … Sun=6
+    
+    const weeks = [];
+    let day = 1;
+    let weekNum = 1;
+    
+    while (day <= daysInMonth) {
+        const days = [];
+        const startOffset = weekNum === 1 ? firstMonOffset : 0;
+        
+        for (let i = 0; i < startOffset; i++) {
+            days.push({ isEmpty: true });
+        }
+        
+        while (day <= daysInMonth && days.length < 7) {
+            days.push({ day, isEmpty: false });
+            day++;
+        }
+        
+        while (days.length < 7) {
+            days.push({ isEmpty: true });
+        }
+        
+        const startDay = days.find(d => !d.isEmpty)?.day ?? null;
+        const endDay = [...days].reverse().find(d => !d.isEmpty)?.day ?? null;
+        
+        weeks.push({ weekNumber: weekNum, startDay, endDay });
+        weekNum++;
+    }
+    return weeks;
+};
+
+const getCurrentRunningWeek = (year, monthName) => {
+    const today = new Date();
+    const currentDay = today.getDate();
+    const currentMonthName = monthNames[today.getMonth()];
+    const currentYear = today.getFullYear();
+
+    const weeks = getWeeksForMonth(year, monthName);
+    if (!weeks || weeks.length === 0) return 1;
+
+    if (monthName === currentMonthName && parseInt(year, 10) === currentYear) {
+        const matchedWeek = weeks.find(w => currentDay >= w.startDay && currentDay <= w.endDay);
+        return matchedWeek ? matchedWeek.weekNumber : 1;
+    }
+    return 1;
+};
+
+const formatDateLocal = (date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+};
+
 const CourseTarget = () => {
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
@@ -152,65 +215,6 @@ const CourseTarget = () => {
     const handleTargetSuccess = () => {
         setShowTargetModal(false);
         fetchData();
-    };
-
-    const getWeeksForMonth = (year, monthName) => {
-        const mIdx = monthNames.indexOf(monthName);
-        const daysInMonth = new Date(year, mIdx + 1, 0).getDate();
-        const firstDowJS = new Date(year, mIdx, 1).getDay();
-        const firstMonOffset = (firstDowJS + 6) % 7; // Mon=0, Tue=1 … Sun=6
-        
-        const weeks = [];
-        let day = 1;
-        let weekNum = 1;
-        
-        while (day <= daysInMonth) {
-            const days = [];
-            const startOffset = weekNum === 1 ? firstMonOffset : 0;
-            
-            for (let i = 0; i < startOffset; i++) {
-                days.push({ isEmpty: true });
-            }
-            
-            while (day <= daysInMonth && days.length < 7) {
-                days.push({ day, isEmpty: false });
-                day++;
-            }
-            
-            while (days.length < 7) {
-                days.push({ isEmpty: true });
-            }
-            
-            const startDay = days.find(d => !d.isEmpty)?.day ?? null;
-            const endDay = [...days].reverse().find(d => !d.isEmpty)?.day ?? null;
-            
-            weeks.push({ weekNumber: weekNum, startDay, endDay });
-            weekNum++;
-        }
-        return weeks;
-    };
-
-    const getCurrentRunningWeek = (year, monthName) => {
-        const today = new Date();
-        const currentDay = today.getDate();
-        const currentMonthName = monthNames[today.getMonth()];
-        const currentYear = today.getFullYear();
-
-        const weeks = getWeeksForMonth(year, monthName);
-        if (!weeks || weeks.length === 0) return 1;
-
-        if (monthName === currentMonthName && parseInt(year, 10) === currentYear) {
-            const matchedWeek = weeks.find(w => currentDay >= w.startDay && currentDay <= w.endDay);
-            return matchedWeek ? matchedWeek.weekNumber : 1;
-        }
-        return 1;
-    };
-
-    const formatDateLocal = (date) => {
-        const y = date.getFullYear();
-        const m = String(date.getMonth() + 1).padStart(2, '0');
-        const d = String(date.getDate()).padStart(2, '0');
-        return `${y}-${m}-${d}`;
     };
 
     // Compute date range from current filter settings for the admissions API
@@ -379,10 +383,6 @@ const CourseTarget = () => {
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const canCreate = user.role === 'superAdmin' || user.role === 'admin' || hasPermission(user, 'sales', 'centreTarget', 'create') || hasPermission(user, 'sales', 'courseTarget', 'create') || true;
-
-    const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    const quarters = ["Q1", "Q2", "Q3", "Q4"];
-    const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 2 + i);
 
     // Save filters to localStorage on changes
     useEffect(() => {
