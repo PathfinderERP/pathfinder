@@ -204,9 +204,9 @@ export const syncPlanToLogCalendar = async (userObj, targetDate, tasks) => {
 // ─── Add a task to tomorrow's planner ───────────────────────────────────────
 export const addTask = async (req, res) => {
     try {
-        const { taskDetails, activityType, place, schoolRef, schoolStatus, time, priority, estimatedDuration, notes, planDate } = req.body;
-        if (!taskDetails && !activityType) {
-            return res.status(400).json({ message: "Task details or Activity Type is required." });
+        const { taskDetails, activityType, activityPurpose, place, schoolRef, schoolStatus, time, priority, estimatedDuration, notes, planDate } = req.body;
+        if (!activityType || !activityType.trim() || !activityPurpose || !activityPurpose.trim()) {
+            return res.status(400).json({ message: "Both Activity Type and Activity Purpose are mandatory." });
         }
 
         // planDate can be explicitly passed (e.g. admin adding for a future date).
@@ -738,6 +738,14 @@ export const savePlan = async (req, res) => {
         const { tasks, planDate } = req.body;
         if (!Array.isArray(tasks)) {
             return res.status(400).json({ message: "Tasks must be an array." });
+        }
+
+        for (const t of tasks) {
+            const aType = (t.activityType || "").trim();
+            const aPurpose = (t.activityPurpose || "").trim();
+            if (!aType || !aPurpose) {
+                return res.status(400).json({ message: "Both Activity Type and Activity Purpose are mandatory for all planned tasks." });
+            }
         }
 
         const fallbackTargetDate = planDate ? getMidnightUTC(planDate) : getTomorrowMidnightUTC();

@@ -115,6 +115,14 @@ export const createPlanner = async (req, res) => {
             return res.status(400).json({ error: "Missing required fields or activities is not an array" });
         }
 
+        for (const act of activities) {
+            const actType = (act.type || act.activityType || "").trim();
+            const actPurpose = (act.activityPurpose || "").trim();
+            if (!actType || !actPurpose) {
+                return res.status(400).json({ error: "Both Activity Type and Activity Purpose are mandatory for all activities." });
+            }
+        }
+
         const createdRecords = [];
         const processedActivities = await processActivitiesImages(activities);
         for (const act of processedActivities) {

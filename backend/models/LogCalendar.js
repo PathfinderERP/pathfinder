@@ -81,6 +81,11 @@ const logCalendarSchema = new mongoose.Schema({
 
 logCalendarSchema.index({ user: 1, startDate: 1, endDate: 1 });
 logCalendarSchema.index({ startDate: 1, endDate: 1 });
+logCalendarSchema.index({ startDate: 1, endDate: 1, status: 1 });
+logCalendarSchema.index({ startDate: 1, endDate: 1, centre: 1 });
+logCalendarSchema.index({ startDate: 1, endDate: 1, userRole: 1 });
+logCalendarSchema.index({ marketingTaskId: 1 });
+logCalendarSchema.index({ user: 1, sourceModule: 1 });
 
 const LogCalendar = mongoose.model("LogCalendar", logCalendarSchema);
 export default LogCalendar;

@@ -84,6 +84,10 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
     const [previewPhotos, setPreviewPhotos] = useState(null);
     const [previewPhotoIndex, setPreviewPhotoIndex] = useState(0);
 
+    // Modal state for viewing specific Activity Type or Purpose breakdown entries
+    const [selectedBreakdownModal, setSelectedBreakdownModal] = useState(null);
+    const [breakdownModalSearch, setBreakdownModalSearch] = useState("");
+
     useEffect(() => {
         const fetchMasterPurposes = async () => {
             try {
@@ -547,37 +551,80 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                         </div>
                                     </div>
 
-                                    {/* Activity type & purpose breakdown pill badges */}
-                                    {((person.activityBreakdown && Object.keys(person.activityBreakdown).length > 0) || (person.purposeBreakdown && Object.keys(person.purposeBreakdown).length > 0)) && (
-                                        <div className="space-y-1 my-2 pt-2 border-t border-gray-800/30">
-                                            {person.activityBreakdown && Object.keys(person.activityBreakdown).length > 0 && (
-                                                <div className="flex flex-wrap gap-1">
-                                                    {Object.entries(person.activityBreakdown).map(([actType, count]) => (
-                                                        <span key={actType} className="px-2 py-0.5 rounded text-[9px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
-                                                            {actType}: {count}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                            {person.purposeBreakdown && Object.keys(person.purposeBreakdown).length > 0 && (
-                                                <div className="flex flex-wrap gap-1">
-                                                    {Object.entries(person.purposeBreakdown).map(([purp, count]) => (
-                                                        <span key={purp} className="px-2 py-0.5 rounded text-[9px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20">
-                                                            {purp}: {count}
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
+                                    <div>
+                                        {/* Activity type & purpose breakdown pill badges */}
+                                        <div className="space-y-3 my-3 pt-3 border-t border-gray-800/30">
+                                            <div>
+                                                <span className={`text-[9px] font-black uppercase tracking-widest block mb-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    Activity Type Breakdown
+                                                </span>
+                                                {person.activityBreakdown && Object.keys(person.activityBreakdown).length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {Object.entries(person.activityBreakdown).map(([actType, count]) => (
+                                                            <button
+                                                                key={actType}
+                                                                onClick={() => {
+                                                                    setSelectedBreakdownModal({
+                                                                        staff: person,
+                                                                        filterCategory: "type",
+                                                                        filterValue: actType,
+                                                                        title: `Activity Type: ${actType}`,
+                                                                        count: count
+                                                                    });
+                                                                    setBreakdownModalSearch("");
+                                                                }}
+                                                                className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 hover:bg-cyan-500 hover:text-black transition-all cursor-pointer shadow-sm hover:scale-105"
+                                                                title={`Click to view all ${actType} activities for ${person.name}`}
+                                                            >
+                                                                {actType}: <span className="font-extrabold">{count}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] text-gray-500 font-bold uppercase">No activities logged</span>
+                                                )}
+                                            </div>
 
-                                    <div className="pt-4 border-t border-gray-800/40 flex items-center justify-between text-[10px] font-bold">
+                                            <div>
+                                                <span className={`text-[9px] font-black uppercase tracking-widest block mb-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    Activity Purpose Breakdown
+                                                </span>
+                                                {person.purposeBreakdown && Object.keys(person.purposeBreakdown).length > 0 ? (
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {Object.entries(person.purposeBreakdown).map(([purp, count]) => (
+                                                            <button
+                                                                key={purp}
+                                                                onClick={() => {
+                                                                    setSelectedBreakdownModal({
+                                                                        staff: person,
+                                                                        filterCategory: "purpose",
+                                                                        filterValue: purp,
+                                                                        title: `Activity Purpose: ${purp}`,
+                                                                        count: count
+                                                                    });
+                                                                    setBreakdownModalSearch("");
+                                                                }}
+                                                                className="px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider bg-purple-500/10 text-purple-300 border border-purple-500/20 hover:bg-purple-500 hover:text-white transition-all cursor-pointer shadow-sm hover:scale-105"
+                                                                title={`Click to view all ${purp} purpose activities for ${person.name}`}
+                                                            >
+                                                                {purp}: <span className="font-extrabold">{count}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] text-gray-500 font-bold uppercase">No purpose logged</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-4 border-t border-gray-800/40 flex items-center justify-between text-[10px] font-bold mt-2">
                                         <span className="text-gray-400">
                                             {person.centres && person.centres.length > 0 ? person.centres.map(formatCentreName).slice(0, 2).join(", ") : "All Centres"}
                                         </span>
                                         <button
                                             onClick={() => setSelectedStaffForModal(person)}
-                                            className="px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500 hover:text-black font-black uppercase tracking-widest transition-all"
+                                            className="px-3 py-1.5 rounded-lg bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500 hover:text-black font-black uppercase tracking-widest transition-all cursor-pointer"
                                         >
                                             View Logs
                                         </button>
@@ -688,12 +735,26 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                             </td>
 
                                             <td className="p-5">
-                                                <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                                <div className="flex flex-wrap gap-1 max-w-[200px]">
                                                     {staff.activityBreakdown && Object.keys(staff.activityBreakdown).length > 0 ? (
                                                         Object.entries(staff.activityBreakdown).map(([actType, count]) => (
-                                                            <span key={actType} className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20">
+                                                            <button
+                                                                key={actType}
+                                                                onClick={() => {
+                                                                    setSelectedBreakdownModal({
+                                                                        staff,
+                                                                        filterCategory: "type",
+                                                                        filterValue: actType,
+                                                                        title: `Activity Type: ${actType}`,
+                                                                        count: count
+                                                                    });
+                                                                    setBreakdownModalSearch("");
+                                                                }}
+                                                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 hover:bg-cyan-500 hover:text-black transition-all cursor-pointer shadow-sm hover:scale-105"
+                                                                title={`Click to view all ${actType} activities for ${staff.name}`}
+                                                            >
                                                                 {actType}: {count}
-                                                            </span>
+                                                            </button>
                                                         ))
                                                     ) : (
                                                         <span className="text-gray-500 text-[10px]">None</span>
@@ -702,12 +763,26 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                             </td>
 
                                             <td className="p-5">
-                                                <div className="flex flex-wrap gap-1 max-w-[180px]">
+                                                <div className="flex flex-wrap gap-1 max-w-[200px]">
                                                     {staff.purposeBreakdown && Object.keys(staff.purposeBreakdown).length > 0 ? (
                                                         Object.entries(staff.purposeBreakdown).map(([purp, count]) => (
-                                                            <span key={purp} className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20">
+                                                            <button
+                                                                key={purp}
+                                                                onClick={() => {
+                                                                    setSelectedBreakdownModal({
+                                                                        staff,
+                                                                        filterCategory: "purpose",
+                                                                        filterValue: purp,
+                                                                        title: `Activity Purpose: ${purp}`,
+                                                                        count: count
+                                                                    });
+                                                                    setBreakdownModalSearch("");
+                                                                }}
+                                                                className="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20 hover:bg-purple-500 hover:text-white transition-all cursor-pointer shadow-sm hover:scale-105"
+                                                                title={`Click to view all ${purp} purpose activities for ${staff.name}`}
+                                                            >
                                                                 {purp}: {count}
-                                                            </span>
+                                                            </button>
                                                         ))
                                                     ) : (
                                                         <span className="text-gray-500 text-[10px]">None</span>
@@ -1522,6 +1597,200 @@ const TeamPerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                 ))}
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+
+            {/* DETAILED ACTIVITY TYPE & PURPOSE BREAKDOWN MODAL */}
+            {selectedBreakdownModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                    <div className={`w-full max-w-5xl max-h-[88vh] rounded-3xl border overflow-hidden flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} shadow-2xl`}>
+                        {/* Modal Header */}
+                        <div className="p-6 border-b border-gray-800/40 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-cyan-500/10 to-purple-500/10">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className={`px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                                        selectedBreakdownModal.filterCategory === "type"
+                                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                                            : 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                                    }`}>
+                                        {selectedBreakdownModal.filterCategory === "type" ? "Activity Type" : "Activity Purpose"}
+                                    </span>
+                                    <span className="text-xs font-bold text-gray-400">
+                                        • {selectedBreakdownModal.count} {selectedBreakdownModal.count === 1 ? 'Record' : 'Records'}
+                                    </span>
+                                </div>
+                                <h3 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    {selectedBreakdownModal.title} — <span className="text-cyan-400">{selectedBreakdownModal.staff.name}</span>
+                                </h3>
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">
+                                    {selectedBreakdownModal.staff.designation || selectedBreakdownModal.staff.role} • Centres: {(selectedBreakdownModal.staff.centres || []).join(", ")}
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={() => setSelectedBreakdownModal(null)}
+                                className="p-2.5 rounded-xl bg-gray-800/50 text-gray-400 hover:text-white hover:bg-gray-800 transition-all cursor-pointer self-start md:self-auto"
+                            >
+                                <FaTimes className="text-lg" />
+                            </button>
+                        </div>
+
+                        {/* Modal Sub-toolbar Search */}
+                        <div className={`p-4 border-b ${isDarkMode ? 'bg-black/30 border-gray-800' : 'bg-gray-50 border-gray-200'} flex items-center justify-between gap-4`}>
+                            <div className="relative w-full md:w-80">
+                                <FaSearch className="absolute left-3 top-3 text-gray-400 text-xs" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by school, venue, notes, date, status..."
+                                    value={breakdownModalSearch}
+                                    onChange={(e) => setBreakdownModalSearch(e.target.value)}
+                                    className={`w-full border rounded-xl py-2 pl-8 pr-3 font-bold text-xs outline-none focus:border-cyan-500/50 ${
+                                        isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                    }`}
+                                />
+                            </div>
+                            <span className="text-xs font-bold text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20">
+                                Filtered: {selectedBreakdownModal.filterValue}
+                            </span>
+                        </div>
+
+                        {/* Modal Body - Activities List */}
+                        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                            {(() => {
+                                const allLogs = selectedBreakdownModal.staff.visitLogs || [];
+                                const matchedLogs = allLogs.filter(log => {
+                                    if (selectedBreakdownModal.filterCategory === "type") {
+                                        return (log.type || "").trim().toLowerCase() === selectedBreakdownModal.filterValue.trim().toLowerCase();
+                                    } else {
+                                        return (log.activityPurpose || "").trim().toLowerCase() === selectedBreakdownModal.filterValue.trim().toLowerCase();
+                                    }
+                                });
+
+                                const filteredLogs = matchedLogs.filter(log => {
+                                    if (!breakdownModalSearch.trim()) return true;
+                                    const q = breakdownModalSearch.toLowerCase();
+                                    return (log.institution || "").toLowerCase().includes(q) ||
+                                        (log.locationName || "").toLowerCase().includes(q) ||
+                                        (log.notes || "").toLowerCase().includes(q) ||
+                                        (log.date || "").toLowerCase().includes(q) ||
+                                        (log.status || "").toLowerCase().includes(q);
+                                });
+
+                                if (filteredLogs.length === 0) {
+                                    return (
+                                        <div className="p-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
+                                            No detailed activity logs found matching the search query
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div className="space-y-4">
+                                        {filteredLogs.map((vLog, vIdx) => (
+                                            <div
+                                                key={vLog.id || vIdx}
+                                                className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-200'} space-y-3 hover:border-cyan-500/40 transition-all`}
+                                            >
+                                                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 border-gray-800/40">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="px-2.5 py-1 rounded-lg bg-cyan-500/10 text-cyan-400 font-black text-xs">
+                                                            #{vIdx + 1}
+                                                        </span>
+                                                        <span className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                            {vLog.institution || "Field Activity"}
+                                                        </span>
+                                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                                                            vLog.status === "Approved" ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                            vLog.status === "Rejected" ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                                            'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                        }`}>
+                                                            {vLog.status || "Pending"}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2 text-xs font-mono font-bold text-gray-400">
+                                                        <FaCalendarAlt className="text-cyan-500" />
+                                                        <span>{vLog.date}</span>
+                                                        {vLog.planTime && <span>({vLog.planTime})</span>}
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-bold">
+                                                    <div>
+                                                        <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Activity Type</span>
+                                                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 inline-block mt-0.5">
+                                                            {vLog.type || "School Visit"}
+                                                        </span>
+                                                    </div>
+
+                                                    <div>
+                                                        <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Activity Purpose</span>
+                                                        {vLog.activityPurpose ? (
+                                                            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20 inline-block mt-0.5">
+                                                                {vLog.activityPurpose}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-500 font-bold mt-0.5 block">—</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div>
+                                                        <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Leads Gathered</span>
+                                                        <span className="text-purple-400 font-black text-xs block mt-0.5">{vLog.leads || 0} Leads</span>
+                                                    </div>
+
+                                                    <div>
+                                                        <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Location / Centre</span>
+                                                        <span className="text-amber-400 block mt-0.5 truncate">{vLog.locationName || (selectedBreakdownModal.staff.centres || [])[0] || "N/A"}</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Detailed Feedback & Remarks */}
+                                                {vLog.notes && (
+                                                    <div className={`text-xs p-3 rounded-xl space-y-1 ${isDarkMode ? 'bg-white/5' : 'bg-white border border-gray-200'}`}>
+                                                        <span className="font-black text-cyan-400 uppercase tracking-wider text-[10px] block">Notes & Remarks:</span>
+                                                        <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'} font-normal leading-relaxed`}>
+                                                            {vLog.notes}
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                {/* GPS & Photo proof */}
+                                                {(vLog.latitude || (vLog.photos && vLog.photos.length > 0)) && (
+                                                    <div className="pt-2 flex flex-wrap items-center justify-between gap-3 text-xs border-t border-gray-800/40">
+                                                        {vLog.latitude && vLog.longitude ? (
+                                                            <a
+                                                                href={`https://maps.google.com/?q=${vLog.latitude},${vLog.longitude}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="text-cyan-400 hover:underline flex items-center gap-1 font-bold text-[11px]"
+                                                            >
+                                                                <FaMapMarkerAlt /> GPS ({Number(vLog.latitude).toFixed(4)}, {Number(vLog.longitude).toFixed(4)}) <FaExternalLinkAlt className="text-[9px]" />
+                                                            </a>
+                                                        ) : <div />}
+
+                                                        {vLog.photos && vLog.photos.length > 0 && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setPreviewPhotos(vLog.photos);
+                                                                    setPreviewPhotoIndex(0);
+                                                                }}
+                                                                className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1 rounded-xl border border-emerald-500/30 font-bold text-[11px] cursor-pointer transition-all hover:scale-105"
+                                                                title="Click to view photo proof(s) in full resolution"
+                                                            >
+                                                                <FaCamera className="text-emerald-400" />
+                                                                <span>{vLog.photos.length} Photo Proof(s) (Click to View)</span>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+                        </div>
                     </div>
                 </div>
             )}
