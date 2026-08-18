@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { FaTimes, FaSearch, FaUser, FaPhoneAlt, FaEnvelope, FaBuilding, FaGraduationCap, FaAward, FaCalendarAlt } from 'react-icons/fa';
+import { FaTimes, FaSearch, FaUser, FaUserCheck, FaPhoneAlt, FaEnvelope, FaBuilding, FaGraduationCap, FaAward, FaCalendarAlt } from 'react-icons/fa';
 
 const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -13,7 +13,8 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                 (lead.name || '').toLowerCase().includes(q) ||
                 (lead.phoneNumber || '').includes(q) ||
                 (lead.email || '').toLowerCase().includes(q) ||
-                (lead.schoolName || '').toLowerCase().includes(q)
+                (lead.schoolName || '').toLowerCase().includes(q) ||
+                (lead.admittedBy || '').toLowerCase().includes(q)
             );
         });
     }, [leads, searchQuery]);
@@ -60,7 +61,7 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                         <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={12} />
                         <input
                             type="text"
-                            placeholder="Search by name, email, or mobile..."
+                            placeholder="Search by name, email, mobile, or admitted by..."
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
                             className={`w-full bg-[#131619] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-xs font-bold outline-none transition-all focus:border-purple-500 ${isDarkMode ? 'text-white placeholder-gray-600' : 'text-gray-800 placeholder-gray-400'}`}
@@ -126,6 +127,15 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                                                     <FaAward size={10} className="text-purple-400 shrink-0" />
                                                     <span className={`truncate font-bold ${isDarkMode ? 'text-purple-300' : 'text-purple-700'}`} title={courseDisplay}>
                                                         {courseDisplay}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 col-span-2">
+                                                    <FaUserCheck size={10} className="text-emerald-400 shrink-0" />
+                                                    <span className="truncate">
+                                                        <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Admitted By:</span>
+                                                        <span className={`font-black uppercase tracking-wider text-[10px] ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
+                                                            {lead.admittedBy || '—'}
+                                                        </span>
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 col-span-2">

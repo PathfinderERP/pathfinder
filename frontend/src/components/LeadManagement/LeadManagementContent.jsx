@@ -579,6 +579,46 @@ const LeadManagementContent = () => {
         }
     };
 
+    // ── Date preset helper ────────────────────────────────────────────────────
+    const [datePreset, setDatePreset] = useState("");
+    const [showCustomDates, setShowCustomDates] = useState(false);
+
+    const applyDatePreset = (preset) => {
+        const now = new Date();
+        const fmt = (d) => d.toISOString().split('T')[0];
+        const today = fmt(now);
+        const yesterday = fmt(new Date(now.getTime() - 86400000));
+        const dayOfWeek = now.getDay();
+        const diffToMon = (dayOfWeek + 6) % 7;
+        const thisWeekMon = new Date(now); thisWeekMon.setDate(now.getDate() - diffToMon);
+        const prevWeekMon = new Date(thisWeekMon); prevWeekMon.setDate(thisWeekMon.getDate() - 7);
+        const prevWeekSun = new Date(thisWeekMon); prevWeekSun.setDate(thisWeekMon.getDate() - 1);
+        const y = now.getFullYear(), m = now.getMonth();
+        const thisMonStart = fmt(new Date(y, m, 1));
+        const prevMonStart = fmt(new Date(y, m - 1, 1));
+        const prevMonEnd = fmt(new Date(y, m, 0));
+        const thisYearStart = fmt(new Date(y, 0, 1));
+        const prevYearStart = fmt(new Date(y - 1, 0, 1));
+        const prevYearEnd = fmt(new Date(y - 1, 11, 31));
+
+        setDatePreset(preset);
+        if (preset === 'custom') { setShowCustomDates(true); return; }
+        setShowCustomDates(false);
+        const ranges = {
+            today:     [today, today],
+            yesterday: [yesterday, yesterday],
+            thisWeek:  [fmt(thisWeekMon), today],
+            prevWeek:  [fmt(prevWeekMon), fmt(prevWeekSun)],
+            thisMonth: [thisMonStart, today],
+            prevMonth: [prevMonStart, prevMonEnd],
+            thisYear:  [thisYearStart, today],
+            prevYear:  [prevYearStart, prevYearEnd],
+        };
+        const [from, to] = ranges[preset] || ['', ''];
+        setFilters(prev => ({ ...prev, fromDate: from, toDate: to }));
+        setCurrentPage(1);
+    };
+
     const handleFollowUpStatusCardClick = (statusValue) => {
         const isSelected = filters.followUpStatus?.some(item => item.value === statusValue);
         if (isSelected) {
@@ -721,6 +761,8 @@ const LeadManagementContent = () => {
             zone: [],
             uploadedBy: []
         });
+        setDatePreset("");
+        setShowCustomDates(false);
         setSortField(null);
         setSortDirection('asc');
         setSearchTerm("");
@@ -1055,30 +1097,6 @@ const LeadManagementContent = () => {
         });
     };
 
-    const setDatePreset = (preset) => {
-        const today = new Date().toISOString().split('T')[0];
-        const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
-        const last7Days = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
-        const lastMonth = new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0];
-
-        setCurrentPage(1);
-        switch (preset) {
-            case 'today':
-                setDashboardFilters(prev => ({ ...prev, fromDate: today, toDate: today }));
-                break;
-            case 'yesterday':
-                setDashboardFilters(prev => ({ ...prev, fromDate: yesterday, toDate: yesterday }));
-                break;
-            case '7days':
-                setDashboardFilters(prev => ({ ...prev, fromDate: last7Days, toDate: today }));
-                break;
-            case 'lastMonth':
-                setDashboardFilters(prev => ({ ...prev, fromDate: lastMonth, toDate: today }));
-                break;
-            default:
-                break;
-        }
-    };
 
     return (
         <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
@@ -1173,351 +1191,6 @@ const LeadManagementContent = () => {
                     </div>
                 </div>
 
-                {/* Localized Analytics Filters */}
-                <div className={`p-4 rounded-[2px] border flex flex-col md:flex-row items-center justify-between gap-6 transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'}`}>
-                    <div className="flex flex-wrap items-center justify-center gap-2">
-                        <span className={`text-[9px] font-black uppercase tracking-widest mr-2 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>Follo</span>
-                        <button
-                            onClick={() => setDatePreset('today')}
-                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${dashboardFilters.fromDate === new Date().toISOString().split('T')[0] && dashboardFilters.toDate === new Date().toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
-                        >
-                            Today
-                        </button>
-                        <button
-                            onClick={() => setDatePreset('yesterday')}
-                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${dashboardFilters.fromDate === new Date(Date.now() - 86400000).toISOString().split('T')[0] && dashboardFilters.toDate === new Date(Date.now() - 86400000).toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
-                        >
-                            Yesterday
-                        </button>
-                        <button
-                            onClick={() => setDatePreset('7days')}
-                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${dashboardFilters.fromDate === new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
-                        >
-                            Last 7 Days
-                        </button>
-                        <button
-                            onClick={() => setDatePreset('lastMonth')}
-                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border ${dashboardFilters.fromDate === new Date(Date.now() - 30 * 86400000).toISOString().split('T')[0] && dashboardFilters.toDate === new Date().toISOString().split('T')[0] ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-600 border-gray-200 hover:border-cyan-500')}`}
-                        >
-                            Last Month
-                        </button>
-                        <button
-                            onClick={resetDashboardFilters}
-                            className={`px-4 py-2 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all border flex items-center gap-2 ${isDarkMode ? 'bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white' : 'bg-red-50 text-red-600 border-red-100 hover:bg-red-500 hover:text-white'}`}
-                        >
-                            <FaRedo size={10} /> Reset Analytics
-                        </button>
-                    </div>
-
-                    <div className="flex flex-wrap items-center justify-center gap-4">
-                        <div className={`h-8 w-[1px] mx-2 hidden sm:block ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
-                        {/* <div className="flex flex-col sm:flex-row items-center gap-2">
-                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Scheduled Call Date</span>
-                            <input
-                                type="date"
-                                value={dashboardFilters.scheduledDate}
-                                onChange={(e) => handleDashboardFilterChange('scheduledDate', e.target.value)}
-                                className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-black outline-none transition-all w-full sm:w-auto ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400 focus:border-cyan-500' : 'bg-cyan-50 border-cyan-100 text-cyan-700 focus:border-cyan-500'}`}
-                            />
-                        </div> */}
-                        <div className={`h-8 w-[1px] mx-2 hidden sm:block ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
-                        <div className="flex flex-col sm:flex-row items-center gap-2">
-                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>From</span>
-                            <input
-                                type="date"
-                                value={dashboardFilters.fromDate}
-                                onChange={(e) => handleDashboardFilterChange('fromDate', e.target.value)}
-                                className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all w-full sm:w-auto ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                            />
-                        </div>
-                        <div className="flex flex-col sm:flex-row items-center gap-2">
-                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>To</span>
-                            <input
-                                type="date"
-                                value={dashboardFilters.toDate}
-                                onChange={(e) => handleDashboardFilterChange('toDate', e.target.value)}
-                                className={`px-3 py-1.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all w-full sm:w-auto ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                            />
-                        </div>
-                    </div>
-                </div>
-
-                {/* Activity Analysis */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-3">
-                    {statsLoading ? (
-                        <>
-                            <CardSkeleton isDarkMode={isDarkMode} />
-                            <CardSkeleton isDarkMode={isDarkMode} />
-                            <CardSkeleton isDarkMode={isDarkMode} />
-                            <CardSkeleton isDarkMode={isDarkMode} />
-                            <CardSkeleton isDarkMode={isDarkMode} />
-                            <CardSkeleton isDarkMode={isDarkMode} />
-                            <CardSkeleton isDarkMode={isDarkMode} />
-                            <CardSkeleton isDarkMode={isDarkMode} />
-                        </>
-                    ) : (
-                        <>
-                            {/* Centre Analysis Card */}
-
-                            {/* Previous Follow Ups Not Done Card */}
-                            <div
-                                onClick={() => handleCardClick('previous_pending')}
-                                className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-amber-500/10 hover:border-amber-500/30 ${isDarkMode ? 'bg-amber-500/5 border-amber-500/20' : 'bg-amber-50 border-amber-100 shadow-sm'}`}
-                            >
-                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                    <div>
-                                        <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>Previous Follow Ups Not Done</p>
-                                        <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalPreviousPending || 0}</h3>
-                                    </div>
-                                    <div className={`p-2.5 rounded-[20px] transition-all bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.4)]`}>
-                                        <FaExclamationTriangle size={16} />
-                                    </div>
-                                </div>
-                                <div className="absolute -right-4 -bottom-4 opacity-[0.03] transform group-hover:scale-110 transition-transform text-amber-500">
-                                    <FaExclamationTriangle size={100} />
-                                </div>
-                            </div>
-
-                            {/* Scheduled Follow-ups Card (New Target Section) */}
-                            <div
-                                onClick={() => handleCardClick('scheduled')}
-                                className={`p-5 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-100 shadow-sm'}`}
-                            >
-                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                    <div>
-                                        <p className={`text-[9px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Upcoming Followups</p>
-                                        {/* <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                {followUpStats.totalFollowUps} / {followUpStats.totalScheduled + followUpStats.totalFollowUps}
-                                            </h3> */}
-                                        <h3 className={`text-2xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalScheduled}</h3>
-                                    </div>
-                                    <div className={`p-2.5 rounded-[20px] transition-all bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]`}>
-                                        <FaCalendarAlt size={16} />
-                                    </div>
-                                </div>
-                                <div className="absolute -right-4 -bottom-4 opacity-[0.03] transform group-hover:scale-110 transition-transform text-cyan-500">
-                                    <FaCalendarAlt size={100} />
-                                </div>
-                            </div>
-
-                            {/* Total Follow-ups Card */}
-                            <div
-                                onClick={() => handleCardClick('total')}
-                                className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-cyan-500/10 hover:border-cyan-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                            >
-                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                    <div>
-                                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                            {filters.fromDate || filters.toDate ? "Filtered Follow Up" : "Followed Up Till Date"}
-                                        </p>
-                                        <h3 className={`text-3xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalFollowUps}</h3>
-                                        {/* <p className="text-[9px] font-bold text-cyan-500 mt-1 uppercase tracking-widest">Follow-ups Recorded</p> */}
-                                    </div>
-                                    <button
-                                        onClick={(e) => { e.stopPropagation(); fetchFollowUpStats(); }}
-                                        className={`p-3 rounded-[2px] transition-all hover:rotate-180 duration-500 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-50 text-cyan-600'}`}
-                                    >
-                                        <FaHistory size={20} />
-                                    </button>
-                                </div>
-                                <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
-                                    <FaHistory size={100} />
-                                </div>
-                            </div>
-
-                            {/* Hot Leads Card */}
-                            <div
-                                onClick={() => handleCardClick('hot')}
-                                className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-red-500/10 hover:border-red-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                            >
-                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                    <div>
-                                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                            {filters.fromDate || filters.toDate ? "Hot Leads" : "Hot Leads"}
-                                        </p>
-                                        <h3 className="text-3xl font-black italic tracking-tighter text-red-500">{followUpStats.hotLeads}</h3>
-                                        {/* <p className="text-[9px] font-bold text-red-500/80 mt-1 uppercase tracking-widest">Positive Feedback</p> */}
-                                    </div>
-                                    <div className="p-3 bg-red-500/10 text-red-500 rounded-[2px]">
-                                        <FaChartLine size={20} />
-                                    </div>
-                                </div>
-                                <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
-                                    <FaChartLine size={100} />
-                                </div>
-                            </div>
-
-                            {/* Warm Leads Card */}
-                            <div
-                                onClick={() => handleCardClick('warm')}
-                                className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-orange-500/10 hover:border-orange-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                            >
-                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                    <div>
-                                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                            Warm Leads
-                                        </p>
-                                        <h3 className="text-3xl font-black italic tracking-tighter text-orange-500">{followUpStats.warmLeads}</h3>
-                                        {/* <p className="text-[9px] font-bold text-orange-500/80 mt-1 uppercase tracking-widest">Growing Interest</p> */}
-                                    </div>
-                                    <div className="p-3 bg-orange-500/10 text-orange-500 rounded-[2px]">
-                                        <FaStar size={20} />
-                                    </div>
-                                </div>
-                                <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-orange-500">
-                                    <FaStar size={100} />
-                                </div>
-                            </div>
-
-                            {/* Cold Leads Card */}
-                            <div
-                                onClick={() => handleCardClick('cold')}
-                                className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-blue-500/10 hover:border-blue-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                            >
-                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                    <div>
-                                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                            {filters.fromDate || filters.toDate ? "Cold Leads" : "Cold Leads"}
-                                        </p>
-                                        <h3 className="text-3xl font-black italic tracking-tighter text-blue-500">{followUpStats.coldLeads}</h3>
-                                        {/* <p className="text-[9px] font-bold text-blue-500/80 mt-1 uppercase tracking-widest">Cold Leads</p> */}
-                                    </div>
-                                    <div className="p-3 bg-blue-500/10 text-blue-500 rounded-[2px]">
-                                        <FaSearch size={20} />
-                                    </div>
-                                </div>
-                                <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform">
-                                    <FaSearch size={100} />
-                                </div>
-                            </div>
-
-                            {/* Neutral Leads Card */}
-                            <div
-                                onClick={() => handleCardClick('neutral')}
-                                className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-purple-500/10 hover:border-purple-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                            >
-                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                    <div>
-                                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                            Neutral Leads
-                                        </p>
-                                        <h3 className="text-3xl font-black italic tracking-tighter text-purple-500">{followUpStats.neutralLeads || 0}</h3>
-                                    </div>
-                                    <div className="p-3 bg-purple-500/10 text-purple-500 rounded-[2px]">
-                                        <FaSearch size={20} />
-                                    </div>
-                                </div>
-                                <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-purple-500">
-                                    <FaSearch size={100} />
-                                </div>
-                            </div>
-
-                            {/* Invalid Leads Card */}
-                            <div
-                                onClick={() => handleCardClick('invalid')}
-                                className={`p-6 rounded-[2px] border relative overflow-hidden group transition-all cursor-pointer hover:shadow-gray-500/10 hover:border-gray-500/30 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}
-                            >
-                                <div className="flex justify-between items-start relative z-10 transition-transform group-hover:-translate-y-1">
-                                    <div>
-                                        <p className={`text-[10px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                            Invalid Leads
-                                        </p>
-                                        <h3 className="text-3xl font-black italic tracking-tighter text-gray-500">{followUpStats.invalidLeads || 0}</h3>
-                                    </div>
-                                    <div className="p-3 bg-gray-500/10 text-gray-500 rounded-[2px]">
-                                        <FaTimes size={20} />
-                                    </div>
-                                </div>
-                                <div className="absolute -right-4 -bottom-4 opacity-5 transform group-hover:scale-110 transition-transform text-gray-500">
-                                    <FaTimes size={100} />
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                {/* Daily Goal Progress Bars – Telecaller only */}
-                {user?.role?.toLowerCase() === 'telecaller' && (
-                    <div className="mb-8 grid grid-cols-1 gap-6">
-
-                        {/* Daily Call Progress – telecaller only */}
-                        <div className={`border rounded-[2px] p-5 transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                            <div className="flex items-center justify-between gap-4 mb-4">
-                                <div className="flex items-center gap-3">
-                                    <div className={`p-2 rounded-[2px] ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-green-500/10 text-green-500' : (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-red-500/10 text-red-500'}`}>
-                                        <FaChartLine size={13} />
-                                    </div>
-                                    <div>
-                                        <h3 className={`text-[11px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Daily Calls</h3>
-                                        <p className="text-[8px] font-black text-gray-500 uppercase tracking-widest mt-0.5">Goal: 50 calls / day</p>
-                                    </div>
-                                </div>
-                                <span className={`text-[9px] font-black px-2.5 py-1 rounded-[2px] border ${followUpStats.totalFollowUps >= 50 ? 'bg-green-500/10 text-green-400 border-green-500/30' : 'bg-red-500/10 text-red-400 border-red-500/30'}`}>
-                                    {followUpStats.totalFollowUps || 0} / 50
-                                </span>
-                            </div>
-                            <div className="relative h-3.5 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
-                                <div
-                                    className={`absolute inset-y-0 left-0 transition-all duration-1000 ease-out ${(followUpStats.totalFollowUps / 50 * 100) >= 70 ? 'bg-gradient-to-r from-green-600 to-green-400' : (followUpStats.totalFollowUps / 50 * 100) >= 30 ? 'bg-gradient-to-r from-yellow-600 to-yellow-400' : 'bg-gradient-to-r from-red-600 to-red-400'}`}
-                                    style={{ width: `${Math.min((followUpStats.totalFollowUps / 50) * 100, 100)}%` }}
-                                />
-                            </div>
-                            <div className="flex justify-between mt-1.5 px-0.5">
-                                <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest">
-                                    {Math.min(Math.round((followUpStats.totalFollowUps / 50) * 100), 100)}% complete
-                                </span>
-                                {followUpStats.totalFollowUps >= 50 ? (
-                                    <span className="flex items-center gap-1 text-green-500 text-[8px] font-black uppercase tracking-widest animate-bounce"><FaCheckCircle size={9} /> Goal Met!</span>
-                                ) : followUpStats.totalFollowUps < 15 ? (
-                                    <span className="flex items-center gap-1 text-red-500 text-[8px] font-black uppercase tracking-widest animate-pulse"><FaExclamationTriangle size={9} /> Low Activity</span>
-                                ) : null}
-                            </div>
-                        </div>
-
-                    </div>
-                )}
-
-
-
-                {/* Status Quick Filters */}
-                <div className="flex flex-wrap gap-2 sm:gap-3 items-center">
-                    <button
-                        onClick={() => handleFilterChange('leadType', [])}
-                        className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-[2px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all border ${filters.leadType.length === 0 ? 'bg-cyan-500 text-black border-cyan-500 shadow-[0_0_15px_rgba(6,182,212,0.3)]' : (isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800 hover:text-white hover:border-gray-700' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300')}`}
-                    >
-                        All Data
-                    </button>
-                    <button
-                        onClick={() => handleFilterChange('leadType', [{ value: "HOT LEAD", label: "HOT LEAD" }])}
-                        className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-[2px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all border ${filters.leadType.length === 1 && filters.leadType[0].value === "HOT LEAD" ? 'bg-red-500 text-white border-red-500 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : (isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800 hover:text-red-500 hover:border-red-500/50' : 'bg-white text-gray-500 border-gray-200 hover:border-red-500')}`}
-                    >
-                        Only Hot Lead
-                    </button>
-                    <button
-                        onClick={() => handleFilterChange('leadType', [{ value: "WARM LEAD", label: "WARM LEAD" }])}
-                        className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-[2px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all border ${filters.leadType.length === 1 && filters.leadType[0].value === "WARM LEAD" ? 'bg-orange-500 text-white border-orange-500 shadow-[0_0_15px_rgba(249,115,22,0.3)]' : (isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800 hover:text-orange-500 hover:border-orange-500/50' : 'bg-white text-gray-500 border-gray-200 hover:border-orange-500')}`}
-                    >
-                        Only Warm Lead
-                    </button>
-                    <button
-                        onClick={() => handleFilterChange('leadType', [{ value: "COLD LEAD", label: "COLD LEAD" }])}
-                        className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-[2px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all border ${filters.leadType.length === 1 && filters.leadType[0].value === "COLD LEAD" ? 'bg-blue-500 text-white border-blue-500 shadow-[0_0_15px_rgba(59,130,246,0.3)]' : (isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800 hover:text-blue-500 hover:border-blue-500/50' : 'bg-white text-gray-500 border-gray-200 hover:border-blue-500')}`}
-                    >
-                        Only Cold Lead
-                    </button>
-                    <button
-                        onClick={() => handleFilterChange('leadType', [{ value: "NEUTRAL LEAD", label: "NEUTRAL LEAD" }])}
-                        className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-[2px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all border ${filters.leadType.length === 1 && filters.leadType[0].value === "NEUTRAL LEAD" ? 'bg-purple-500 text-white border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.3)]' : (isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800 hover:text-purple-500 hover:border-purple-500/50' : 'bg-white text-gray-500 border-gray-200 hover:border-purple-500')}`}
-                    >
-                        Only Neutral Lead
-                    </button>
-                    <button
-                        onClick={() => handleFilterChange('leadType', [{ value: "INVALID LEAD", label: "INVALID LEAD" }])}
-                        className={`px-4 sm:px-6 py-2.5 sm:py-3 rounded-[2px] text-[9px] sm:text-[10px] font-black uppercase tracking-widest transition-all border ${filters.leadType.length === 1 && filters.leadType[0].value === "INVALID LEAD" ? 'bg-gray-500 text-white border-gray-500 shadow-[0_0_15px_rgba(107,114,128,0.3)]' : (isDarkMode ? 'bg-[#131619] text-gray-500 border-gray-800 hover:text-gray-400 hover:border-gray-500/50' : 'bg-white text-gray-500 border-gray-200 hover:border-gray-500')}`}
-                    >
-                        Only Invalid Lead
-                    </button>
-                </div>
 
                 {/* Search Bar - Reduced Padding (p-4 instead of p-6) */}
                 <div className={`border rounded-[2px] p-4 relative group transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 focus-within:border-cyan-500/30' : 'bg-white border-gray-200 focus-within:border-cyan-500/30 shadow-sm'}`}>
@@ -1678,14 +1351,31 @@ const LeadManagementContent = () => {
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>
+                        {/* ── Date Range Dropdown ── */}
                         <div className="space-y-2">
-                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>From Date</label>
-                            <input
-                                type="date"
-                                value={filters.fromDate || ""}
-                                onChange={(e) => handleFilterChange('fromDate', e.target.value)}
-                                className={`w-full px-4 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                            />
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Date Range</label>
+                            <select
+                                value={datePreset}
+                                onChange={(e) => applyDatePreset(e.target.value)}
+                                className={`w-full px-4 py-2.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all cursor-pointer ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'} ${datePreset && datePreset !== 'custom' ? (isDarkMode ? 'border-cyan-500/50 text-cyan-400' : 'border-cyan-500 text-cyan-700') : ''}`}
+                            >
+                                <option value="">-- Select Range --</option>
+                                <option value="today">Today</option>
+                                <option value="yesterday">Yesterday</option>
+                                <option value="thisWeek">This Week</option>
+                                <option value="prevWeek">Previous Week</option>
+                                <option value="thisMonth">This Month</option>
+                                <option value="prevMonth">Previous Month</option>
+                                <option value="thisYear">This Year</option>
+                                <option value="prevYear">Previous Year</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                            {/* Active range badge */}
+                            {filters.fromDate && filters.toDate && datePreset !== 'custom' && (
+                                <p className={`text-[9px] font-bold mt-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                    {filters.fromDate} → {filters.toDate}
+                                </p>
+                            )}
                         </div>
                         <div className="space-y-2">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Feedback</label>
@@ -1711,15 +1401,29 @@ const LeadManagementContent = () => {
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>
-                        <div className="space-y-2">
-                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>To Date</label>
-                            <input
-                                type="date"
-                                value={filters.toDate || ""}
-                                onChange={(e) => handleFilterChange('toDate', e.target.value)}
-                                className={`w-full px-4 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
-                            />
-                        </div>
+                        {/* Custom date pickers — only shown when Custom is selected */}
+                        {showCustomDates && (
+                            <>
+                                <div className="space-y-2">
+                                    <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>From Date</label>
+                                    <input
+                                        type="date"
+                                        value={filters.fromDate || ""}
+                                        onChange={(e) => handleFilterChange('fromDate', e.target.value)}
+                                        className={`w-full px-4 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-cyan-500/40 text-white focus:border-cyan-500' : 'bg-gray-50 border-cyan-400 text-gray-900 focus:border-cyan-500'}`}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>To Date</label>
+                                    <input
+                                        type="date"
+                                        value={filters.toDate || ""}
+                                        onChange={(e) => handleFilterChange('toDate', e.target.value)}
+                                        className={`w-full px-4 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-cyan-500/40 text-white focus:border-cyan-500' : 'bg-gray-50 border-cyan-400 text-gray-900 focus:border-cyan-500'}`}
+                                    />
+                                </div>
+                            </>
+                        )}
                         <div className="space-y-2">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Follow Up Status</label>
                             <CustomMultiSelect

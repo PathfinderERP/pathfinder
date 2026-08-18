@@ -531,6 +531,10 @@ export const PERMISSION_MODULES = {
                 label: "Leads",
                 operations: ["create", "edit", "delete", "upload", "export"]
             },
+            allFollowups: {
+                label: "All Follow Ups",
+                operations: ["view", "create", "edit", "delete"]
+            },
             teacherSchedule: {
                 label: "Teacher Schedule",
                 operations: ["view", "create", "edit", "delete"]
@@ -640,6 +644,13 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         (typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
 
     const hasGranularObject = granularPermissions && typeof granularPermissions === 'object' && Object.keys(granularPermissions).length > 0;
+
+    if (module === 'leadManagement' && section === 'allFollowups') {
+        const hasDirectPermission = granularPermissions?.[module]?.[section];
+        if (!hasDirectPermission) {
+            return hasPermission(granularPermissionsOrUser, 'leadManagement', 'leads', operation);
+        }
+    }
 
     // Digital role: default superadmin-like full access; if custom granular permissions are set in User Management, enforce them strictly
     if (cleanRoleStr === 'digital') {

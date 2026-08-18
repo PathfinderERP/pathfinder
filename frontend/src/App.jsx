@@ -48,6 +48,7 @@ import UserManagement from "./pages/UserManagement";
 import Profile from "./pages/Profile";
 import LeadManagement from "./pages/LeadManagement";
 import LeadDashboard from "./pages/LeadManagement/LeadDashboard";
+import AllFollowUpsPage from "./pages/LeadManagement/AllFollowUpsPage";
 import MasterDataBatch from "./pages/MasterDataBatch";
 import MasterDataSource from "./pages/MasterDataSource";
 import MasterDataSession from "./pages/MasterDataSession";
@@ -212,6 +213,7 @@ function App() {
         {/* <Route path="/community" element={<ProtectedRoute><Community /></ProtectedRoute>} /> */}
         <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
         <Route path="/lead-management" element={<ProtectedRoute><LeadManagement /></ProtectedRoute>} />
+        <Route path="/lead-management/all-followups" element={<ProtectedRoute><AllFollowUpsPage /></ProtectedRoute>} />
         <Route path="/lead-management/dashboard" element={<ProtectedRoute><LeadDashboard /></ProtectedRoute>} />
         <Route path="/lead-management/conversion-report" element={<ProtectedRoute><ConversionReportPage /></ProtectedRoute>} />
         {/* <Route path="/ceo-control-tower" element={<ProtectedRoute><CEOControlTower /></ProtectedRoute>} /> */}
