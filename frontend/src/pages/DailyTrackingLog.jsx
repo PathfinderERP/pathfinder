@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -186,6 +186,10 @@ const DailyTrackingLog = () => {
     const [customUpcomingStartDate, setCustomUpcomingStartDate] = useState(getTodayDateString());
     const [customUpcomingEndDate, setCustomUpcomingEndDate] = useState(getTodayDateString());
     const [statusFilter, setStatusFilter] = useState("ALL"); // "ALL" | "FILLED" | "PENDING"
+    const [selectedZone, setSelectedZone] = useState([]);
+    const [availableZones, setAvailableZones] = useState([]);
+    const [selectedSchools, setSelectedSchools] = useState([]);
+    const [schoolOptions, setSchoolOptions] = useState([]);
     const [summaryData, setSummaryData] = useState({
         totalUsers: 0,
         filledUsersCount: 0,
@@ -435,6 +439,55 @@ const DailyTrackingLog = () => {
     }, [apiUrl, token, isSuperAdmin]);
 
     useEffect(() => {
+        const fetchZones = async () => {
+            try {
+                const res = await fetch(`${apiUrl}/zone`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const zoneList = data.data || [];
+                    zoneList.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                    setAvailableZones(zoneList);
+                }
+            } catch (err) {
+                console.error("Failed to fetch zones:", err);
+            }
+        };
+        fetchZones();
+    }, [apiUrl, token]);
+
+    useEffect(() => {
+        const fetchSchoolForTaskOptions = async () => {
+            try {
+                let url = `${apiUrl}/school-for-task?limit=5000`;
+                if (selectedCentre && selectedCentre.length > 0) {
+                    const cIds = selectedCentre.map(c => c.value).filter(Boolean).join(",");
+                    if (cIds && !cIds.includes("All")) {
+                        url += `&centerName=${cIds}`;
+                    }
+                }
+                const res = await fetch(url, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    const schools = data.data || data.schools || [];
+                    const uniqueSchoolNames = [...new Set(schools.map(s => (s.schoolName || s.name || "").trim()).filter(Boolean))]
+                        .sort((a, b) => a.localeCompare(b));
+                    setSchoolOptions(uniqueSchoolNames.map(name => ({ value: name, label: name })));
+                }
+            } catch (err) {
+                console.error("Failed to fetch school for task options:", err);
+            }
+        };
+
+        if (activeTab === "deptBoard" && boardViewMode === "upcoming") {
+            fetchSchoolForTaskOptions();
+        }
+    }, [activeTab, boardViewMode, selectedCentre, apiUrl, token]);
+
+    useEffect(() => {
         if (availableCentres.length > 0 && !selectedEntryCentre) {
             const userObj = JSON.parse(localStorage.getItem("user") || "{}");
             const primaryId = userObj.centre?._id || userObj.centre;
@@ -493,6 +546,38 @@ const DailyTrackingLog = () => {
         return role.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
     };
 
+    const zoneOptions = useMemo(() => {
+        return (availableZones || [])
+            .map(z => ({
+                value: z._id,
+                label: z.name
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [availableZones]);
+
+    const filteredCentres = useMemo(() => {
+        if (!selectedZone || selectedZone.length === 0) return availableCentres;
+        const selectedZoneIds = selectedZone.map(z => z.value || z);
+        const allowedCentreIds = new Set();
+        availableZones.forEach(z => {
+            if (selectedZoneIds.includes(z._id)) {
+                (z.centres || []).forEach(c => {
+                    allowedCentreIds.add(c._id ? c._id.toString() : c.toString());
+                });
+            }
+        });
+        return availableCentres.filter(c => allowedCentreIds.has(c._id?.toString()));
+    }, [availableCentres, availableZones, selectedZone]);
+
+    const centreOptions = useMemo(() => {
+        return (filteredCentres || [])
+            .map(c => ({
+                value: c._id,
+                label: c.centreName
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [filteredCentres]);
+
     const rolesOptions = availableRoles
         .map(role => ({
             value: role,
@@ -537,7 +622,7 @@ const DailyTrackingLog = () => {
     };
 
     // Fetch board logs
-    const fetchBoardLogs = async (rangeOption, customStart, customEnd, role, name, centreId, signal) => {
+    const fetchBoardLogs = async (rangeOption, customStart, customEnd, role, name, centreId, zones, signal) => {
         setLoading(true);
         try {
             const { start, end } = getDateRangeLimits(rangeOption, customStart, customEnd);
@@ -566,6 +651,17 @@ const DailyTrackingLog = () => {
                 }
             }
             if (centresParam) url += `&centreId=${centresParam}`;
+
+            // Handle multi-select zones
+            let zonesParam = "";
+            if (zones) {
+                if (Array.isArray(zones)) {
+                    zonesParam = zones.map(z => z.value || z).join(",");
+                } else if (zones !== "All") {
+                    zonesParam = zones;
+                }
+            }
+            if (zonesParam) url += `&zones=${encodeURIComponent(zonesParam)}`;
 
             const res = await fetch(url, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -641,6 +737,16 @@ const DailyTrackingLog = () => {
                 }
                 if (centresParam) url += `&centreId=${centresParam}`;
 
+                let zonesParam = "";
+                if (selectedZone) {
+                    if (Array.isArray(selectedZone)) {
+                        zonesParam = selectedZone.map(z => z.value || z).join(",");
+                    } else if (selectedZone !== "All") {
+                        zonesParam = selectedZone;
+                    }
+                }
+                if (zonesParam) url += `&zones=${encodeURIComponent(zonesParam)}`;
+
                 filename = `Daily_Tracking_Logs_${start}_to_${end}.xlsx`;
             } else {
                 // Upcoming Calendar Logs Export
@@ -671,7 +777,27 @@ const DailyTrackingLog = () => {
                 }
                 if (centresParam) url += `&centres=${centresParam}`;
 
+                let zonesParam = "";
+                if (selectedZone) {
+                    if (Array.isArray(selectedZone)) {
+                        zonesParam = selectedZone.map(z => z.value || z).join(",");
+                    } else if (selectedZone !== "All") {
+                        zonesParam = selectedZone;
+                    }
+                }
+                if (zonesParam) url += `&zones=${encodeURIComponent(zonesParam)}`;
+
                 if (statusFilter && statusFilter !== "ALL") url += `&status=${statusFilter}`;
+
+                let schoolsParam = "";
+                if (selectedSchools) {
+                    if (Array.isArray(selectedSchools)) {
+                        schoolsParam = selectedSchools.map(s => s.value || s).join(",");
+                    } else if (selectedSchools !== "All") {
+                        schoolsParam = selectedSchools;
+                    }
+                }
+                if (schoolsParam) url += `&schools=${encodeURIComponent(schoolsParam)}`;
 
                 filename = `Upcoming_Calendar_Logs_${start}_to_${end}.xlsx`;
             }
@@ -701,7 +827,7 @@ const DailyTrackingLog = () => {
     };
 
     // Fetch upcoming board logs
-    const fetchUpcomingBoardLogs = async (rangeOption, customStart, customEnd, role, name, centreId, status, signal) => {
+    const fetchUpcomingBoardLogs = async (rangeOption, customStart, customEnd, role, name, centreId, status, schools, zones, signal) => {
         setLoading(true);
         try {
             const { start, end } = getDateRangeLimits(rangeOption || "Today", customStart, customEnd);
@@ -729,7 +855,27 @@ const DailyTrackingLog = () => {
             }
             if (centresParam) url += `&centres=${centresParam}`;
 
+            let zonesParam = "";
+            if (zones) {
+                if (Array.isArray(zones)) {
+                    zonesParam = zones.map(z => z.value || z).join(",");
+                } else if (zones !== "All") {
+                    zonesParam = zones;
+                }
+            }
+            if (zonesParam) url += `&zones=${encodeURIComponent(zonesParam)}`;
+
             if (status && status !== "ALL") url += `&status=${status}`;
+
+            let schoolsParam = "";
+            if (schools) {
+                if (Array.isArray(schools)) {
+                    schoolsParam = schools.map(s => s.value || s).join(",");
+                } else if (schools !== "All") {
+                    schoolsParam = schools;
+                }
+            }
+            if (schoolsParam) url += `&schools=${encodeURIComponent(schoolsParam)}`;
 
             const res = await fetch(url, {
                 headers: { Authorization: `Bearer ${token}` },
@@ -759,13 +905,13 @@ const DailyTrackingLog = () => {
             fetchMyLog(selectedDate);
         } else if (activeTab === "deptBoard") {
             if (boardViewMode === "submitted") {
-                fetchBoardLogs(dateRangeOption, customStartDate, customEndDate, selectedDept, debouncedSearchEmployee, selectedCentre, controller.signal);
+                fetchBoardLogs(dateRangeOption, customStartDate, customEndDate, selectedDept, debouncedSearchEmployee, selectedCentre, selectedZone, controller.signal);
             } else {
-                fetchUpcomingBoardLogs(upcomingDateRange, customUpcomingStartDate, customUpcomingEndDate, selectedDept, debouncedSearchEmployee, selectedCentre, statusFilter, controller.signal);
+                fetchUpcomingBoardLogs(upcomingDateRange, customUpcomingStartDate, customUpcomingEndDate, selectedDept, debouncedSearchEmployee, selectedCentre, statusFilter, selectedSchools, selectedZone, controller.signal);
             }
         }
         return () => controller.abort();
-    }, [activeTab, boardViewMode, selectedDate, dateRangeOption, upcomingDateRange, customStartDate, customEndDate, customUpcomingStartDate, customUpcomingEndDate, selectedDept, debouncedSearchEmployee, selectedCentre, statusFilter]);
+    }, [activeTab, boardViewMode, selectedDate, dateRangeOption, upcomingDateRange, customStartDate, customEndDate, customUpcomingStartDate, customUpcomingEndDate, selectedDept, debouncedSearchEmployee, selectedCentre, selectedZone, statusFilter, selectedSchools]);
 
     // Handle Form Submit
     const handleAddActivity = async (e) => {
@@ -945,12 +1091,6 @@ const DailyTrackingLog = () => {
             toast.error("Failed to change status.");
         }
     };
-
-    const centreOptions = availableCentres.map(c => ({
-        value: c._id,
-        label: c.centreName || 'Unknown Centre'
-    }));
-
 
     const handleSearchChange = (val) => {
         setSearchEmployee(val);
@@ -1585,6 +1725,18 @@ const DailyTrackingLog = () => {
                             <div className="flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center gap-4 w-full lg:w-auto">
                                 <span className="text-xs font-bold text-gray-500 uppercase tracking-widest self-center">Filter:</span>
 
+                                {/* Zone Filter */}
+                                {availableZones.length > 0 && (
+                                    <div className="w-full sm:w-64">
+                                        <CustomMultiSelect
+                                            placeholder="ALL ZONES"
+                                            options={zoneOptions}
+                                            value={selectedZone}
+                                            onChange={(val) => setSelectedZone(val || [])}
+                                        />
+                                    </div>
+                                )}
+
                                 {/* Centre Filter */}
                                 {(availableCentres.length > 0 || currentUser.role === "superAdmin") && (
                                     <div className="w-full sm:w-64">
@@ -1606,6 +1758,18 @@ const DailyTrackingLog = () => {
                                         onChange={(val) => setSelectedDept(val || [])}
                                     />
                                 </div>
+
+                                {/* School For Task MultiSelect (Upcoming View) */}
+                                {boardViewMode === "upcoming" && (
+                                    <div className="w-full sm:w-64">
+                                        <CustomMultiSelect
+                                            placeholder="ALL SCHOOLS FOR TASK"
+                                            options={schoolOptions}
+                                            value={selectedSchools}
+                                            onChange={(val) => setSelectedSchools(val || [])}
+                                        />
+                                    </div>
+                                )}
 
                                 {/* Date Range Filter (Upcoming View) */}
                                 {boardViewMode === "upcoming" && (

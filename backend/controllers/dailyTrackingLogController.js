@@ -3,6 +3,7 @@ import DailyTrackingLog from "../models/DailyTrackingLog.js";
 import User from "../models/User.js";
 import Employee from "../models/HR/Employee.js";
 import CentreSchema from "../models/Master_data/Centre.js";
+import Zone from "../models/Zone.js";
 import XLSX from "xlsx";
 
 // Helper to get midnight in India Standard Time as a standardized UTC Date object
@@ -130,7 +131,8 @@ export const getMyLog = async (req, res) => {
 
 // Helper to query and construct board logs data shared by get and export
 const getLogsDataHelper = async (req) => {
-    const { date, fromDate, toDate, startDate: reqStart, endDate: reqEnd, role, employeeName, centreId } = req.query;
+    const { date, fromDate, toDate, startDate: reqStart, endDate: reqEnd, role, employeeName, centreId, zones, zoneId } = req.query;
+    const activeZones = zones || zoneId;
 
     let startRange, endRange, targetDate;
     const fDate = fromDate || reqStart;
@@ -148,7 +150,7 @@ const getLogsDataHelper = async (req) => {
         endRange = new Date(targetDate.getTime() + 12 * 60 * 60 * 1000);
     }
 
-    const userQuery = { isActive: true };
+    const userQuery = { isActive: { $ne: false } };
     
     const roleDBMapping = {
         admin: ["admin"],
@@ -172,29 +174,31 @@ const getLogsDataHelper = async (req) => {
         rm: ["RM", "rm"]
     };
 
-    // Handle multi-select roles
-    let rolesFilter = [];
-    if (role) {
+    // Filter by role if provided
+    if (role && role !== "All") {
+        let rolesList = [];
         if (Array.isArray(role)) {
-            rolesFilter = role;
+            rolesList = role;
         } else if (typeof role === "string") {
-            rolesFilter = role.split(",").map(r => r.trim()).filter(Boolean);
+            rolesList = role.split(",").map(r => r.trim()).filter(Boolean);
         }
-    }
 
-    if (rolesFilter.length > 0 && !rolesFilter.includes("All")) {
-        let mappedRoles = [];
-        for (const r of rolesFilter) {
-            const dbRoles = roleDBMapping[r.toLowerCase()];
-            if (dbRoles) {
-                mappedRoles.push(...dbRoles);
-            } else {
-                mappedRoles.push(r);
+        if (rolesList.length > 0 && !rolesList.includes("All")) {
+            const mappedRoles = [];
+            for (const r of rolesList) {
+                const key = r.toLowerCase().replace(/[\s_-]+/g, "");
+                if (roleDBMapping[key]) {
+                    mappedRoles.push(...roleDBMapping[key]);
+                } else {
+                    mappedRoles.push(r);
+                }
             }
+            userQuery.role = { $in: mappedRoles };
+        } else {
+            const allSupportedRoles = Object.values(roleDBMapping).flat();
+            userQuery.role = { $in: allSupportedRoles };
         }
-        userQuery.role = { $in: mappedRoles };
     } else {
-        // If empty or "All", limit to users with any of the supported roles
         const allSupportedRoles = Object.values(roleDBMapping).flat();
         userQuery.role = { $in: allSupportedRoles };
     }
@@ -207,6 +211,33 @@ const getLogsDataHelper = async (req) => {
         ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
         : req.user.role === "superAdmin" || req.user.role === "superadmin";
 
+    // Handle multi-select zones
+    let zoneCentreIds = [];
+    if (activeZones) {
+        const zoneList = (Array.isArray(activeZones) ? activeZones : activeZones.split(",")).map(z => z.trim()).filter(Boolean);
+        if (zoneList.length > 0 && !zoneList.includes("All")) {
+            const objectIdZones = zoneList.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null).filter(Boolean);
+            const nameZones = zoneList.filter(z => !mongoose.Types.ObjectId.isValid(z));
+
+            const zoneQuery = [];
+            if (objectIdZones.length > 0) zoneQuery.push({ _id: { $in: objectIdZones } });
+            if (nameZones.length > 0) zoneQuery.push({ name: { $in: nameZones } });
+
+            if (zoneQuery.length > 0) {
+                const matchedZones = await Zone.find({ $or: zoneQuery }).select("centres").lean();
+                matchedZones.forEach(z => {
+                    (z.centres || []).forEach(c => {
+                        if (c) zoneCentreIds.push(c.toString());
+                    });
+                });
+                zoneCentreIds = [...new Set(zoneCentreIds)];
+                if (zoneCentreIds.length === 0) {
+                    return { combinedLogs: [], targetDate };
+                }
+            }
+        }
+    }
+
     // Handle multi-select centres
     let centresFilter = [];
     if (centreId) {
@@ -214,6 +245,17 @@ const getLogsDataHelper = async (req) => {
             centresFilter = centreId;
         } else if (typeof centreId === "string") {
             centresFilter = centreId.split(",").map(c => c.trim()).filter(Boolean);
+        }
+    }
+
+    if (zoneCentreIds.length > 0) {
+        if (centresFilter.length > 0 && !centresFilter.includes("All")) {
+            centresFilter = centresFilter.filter(c => zoneCentreIds.includes(c));
+            if (centresFilter.length === 0) {
+                return { combinedLogs: [], targetDate };
+            }
+        } else {
+            centresFilter = zoneCentreIds;
         }
     }
 
@@ -380,8 +422,9 @@ const getLogsDataHelper = async (req) => {
 
         if (userLogs.length > 0) {
             const firstLog = userLogs[0];
-            const logObj = firstLog.toObject ? firstLog.toObject() : firstLog;
+            const logObj = firstLog.toObject ? firstLog.toObject() : { ...firstLog };
             logObj.user = formattedUser;
+            logObj.userName = user.name || "Unknown";
             logObj.activities = mergedActivities;
             logObj.noEntry = mergedActivities.length === 0;
             return logObj;
@@ -390,7 +433,7 @@ const getLogsDataHelper = async (req) => {
         return {
             _id: `temp_${user._id}`,
             user: formattedUser,
-            userName: user.name,
+            userName: user.name || "Unknown",
             department: user.role,
             date: targetDate,
             activities: [],
@@ -399,7 +442,11 @@ const getLogsDataHelper = async (req) => {
     });
 
     // Sort combined list by userName
-    combinedLogs.sort((a, b) => a.userName.localeCompare(b.userName));
+    combinedLogs.sort((a, b) => {
+        const nameA = a.userName || a.user?.name || "";
+        const nameB = b.userName || b.user?.name || "";
+        return nameA.localeCompare(nameB);
+    });
 
     return { combinedLogs, targetDate };
 };
