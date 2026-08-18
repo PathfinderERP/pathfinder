@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import Layout from "../components/Layout";
 import CustomMultiSelect from "../components/common/CustomMultiSelect";
 import CustomSearchSelect from "../components/common/CustomSearchSelect";
@@ -907,7 +907,7 @@ const MarketingCRM = ({ initialTab }) => {
                 }
             }
 
-            // Step 2.5: Overlay saved draft progress onto planner tasks (geo-tags, actual time, photos)
+            // Step 2.5: Overlay saved draft progress onto planner tasks (geo-tags, actual time, photos, and newly added rows)
             try {
                 const draftRes = await fetch(
                     `${import.meta.env.VITE_API_URL}/lead-management/planner/draft?date=${todayStr}`,
@@ -917,33 +917,47 @@ const MarketingCRM = ({ initialTab }) => {
                     const draftData = await draftRes.json();
                     const draftActs = draftData.draft?.activities || [];
 
-                    if (plannerActivities && plannerActivities.length > 0 && draftActs.length > 0) {
-                        // Merge draft progress onto matched planner tasks (by _id)
-                        const draftMap = new Map(draftActs.map(a => [String(a._id), a]));
-                        plannerActivities = plannerActivities.map(act => {
-                            const saved = draftMap.get(String(act._id));
-                            if (!saved) return act;
-                            return {
-                                ...act,
-                                geoTagged: saved.geoTagged || act.geoTagged,
-                                latitude: saved.latitude ?? act.latitude,
-                                longitude: saved.longitude ?? act.longitude,
-                                locationName: saved.locationName || act.locationName,
-                                photos: saved.photos?.length ? saved.photos : act.photos,
-                                photo: saved.photo || act.photo,
-                                actualTime: saved.actualTime || act.actualTime,
-                                captureDateTime: saved.captureDateTime || act.captureDateTime,
-                                expectedLeads: saved.expectedLeads || act.expectedLeads,
-                                isSaved: saved.isSaved || act.isSaved,
-                                activityStatus: saved.activityStatus || act.activityStatus || "Success",
-                                nextActivityDate: saved.nextActivityDate || act.nextActivityDate || getTomorrowDateString()
-                            };
-                        });
-                        setExpectedLeadTarget(draftData.draft.expectedLeadTarget || "");
-                        setExpectedHotLeads(draftData.draft.expectedHotLeads || "");
-                    } else if (!plannerActivities && draftActs.length > 0) {
-                        // No planner for today — fall back to draft
-                        setTodayActivities(draftActs);
+                    if (draftActs && draftActs.length > 0) {
+                        // Draft exists: The draft contains the user's latest today activities (including any added activities and edited fields)
+                        let mergedActivities = draftActs.map(act => ({
+                            type: act.type || act.activityType || "",
+                            activityPurpose: act.activityPurpose || "",
+                            place: act.place || "",
+                            schoolRef: act.schoolRef?._id?.toString() || (typeof act.schoolRef === 'string' ? act.schoolRef : (act.schoolRef || null)),
+                            schoolStatus: act.schoolStatus || "",
+                            time: act.time || "",
+                            expectedLeads: act.expectedLeads || "",
+                            isSaved: act.isSaved || false,
+                            geoTagged: act.geoTagged || false,
+                            latitude: act.latitude ?? null,
+                            longitude: act.longitude ?? null,
+                            locationName: act.locationName || "",
+                            photos: act.photos?.length ? act.photos : (act.photo ? [act.photo] : []),
+                            photo: act.photo || (act.photos?.[0] || null),
+                            actualTime: act.actualTime || "",
+                            captureDateTime: act.captureDateTime || "",
+                            estimatedDuration: act.estimatedDuration || "",
+                            notes: act.notes || "",
+                            priority: act.priority || "Medium",
+                            activityStatus: act.activityStatus || "Success",
+                            nextActivityDate: act.nextActivityDate || getTomorrowDateString(),
+                            _id: act._id || null
+                        }));
+
+                        // If there are any planner activities that were not yet in the draft, append them
+                        if (plannerActivities && plannerActivities.length > 0) {
+                            const draftIds = new Set(
+                                draftActs.map(a => a._id ? String(a._id) : "").filter(Boolean)
+                            );
+                            plannerActivities.forEach(pAct => {
+                                const pId = pAct._id ? String(pAct._id) : "";
+                                if (pId && !draftIds.has(pId)) {
+                                    mergedActivities.push(pAct);
+                                }
+                            });
+                        }
+
+                        setTodayActivities(mergedActivities);
                         setExpectedLeadTarget(draftData.draft.expectedLeadTarget || "");
                         setExpectedHotLeads(draftData.draft.expectedHotLeads || "");
                         return;
@@ -2081,17 +2095,36 @@ const MarketingCRM = ({ initialTab }) => {
             latitude: null,
             longitude: null,
             locationName: "",
+            photos: [],
             photo: null,
+            actualTime: "",
+            captureDateTime: "",
             estimatedDuration: "",
             notes: "",
             priority: "Medium",
-            activityStatus: "Neutral",
-            nextActivityDate: ""
+            activityStatus: "Success",
+            nextActivityDate: getTomorrowDateString(),
+            _id: `custom_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
         }];
         setTodayActivities(newActs);
         // Auto-save draft
         saveDraft(newActs);
     };
+
+    // Auto-save draft whenever todayActivities or targets change with debounce
+    const todayActivitiesAutoSaveRef = useRef(false);
+    useEffect(() => {
+        if (!todayActivitiesAutoSaveRef.current) {
+            todayActivitiesAutoSaveRef.current = true;
+            return;
+        }
+        if (activeTab === "Today Task" && todayActivities.length > 0 && !todayTaskSubmitted && !todayTaskLoading) {
+            const timeoutId = setTimeout(() => {
+                saveDraft(todayActivities, expectedLeadTarget, expectedHotLeads);
+            }, 600);
+            return () => clearTimeout(timeoutId);
+        }
+    }, [todayActivities, expectedLeadTarget, expectedHotLeads, activeTab, todayTaskSubmitted, todayTaskLoading]);
 
     useEffect(() => {
         if (marketingPerformance.length > 0 && !selectedStaff) {
