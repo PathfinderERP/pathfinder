@@ -2,6 +2,7 @@ import mongoose from "mongoose";
 import SchoolForTask from "../../models/Master_data/SchoolForTask.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import Boards from "../../models/Master_data/Boards.js";
+import Zone from "../../models/Zone.js";
 
 // ─────────────────────────────────────────────
 //  Populate helper
@@ -12,10 +13,43 @@ const withPopulate = (query) =>
         .populate("board", "boardCourse name");
 
 // ─────────────────────────────────────────────
-//  Build filter query with User Centre Restriction
+//  Attach Zone helper
 // ─────────────────────────────────────────────
-const buildFilterQuery = (filters = {}, user = null) => {
-    const { search, schoolName, tier, schoolAccess, status, board, centerName } = filters;
+const attachZonesToRecords = async (records) => {
+    if (!records || records.length === 0) return records;
+    try {
+        const zones = await Zone.find({ isActive: { $ne: false } }).select("name centres").lean();
+        const centreToZoneMap = new Map();
+        zones.forEach(z => {
+            (z.centres || []).forEach(cId => {
+                centreToZoneMap.set(cId.toString(), { _id: z._id, name: z.name });
+            });
+        });
+
+        return records.map(rec => {
+            const recObj = rec.toObject ? rec.toObject() : { ...rec };
+            const cId = recObj.centerName?._id ? recObj.centerName._id.toString() : (recObj.centerName ? recObj.centerName.toString() : null);
+            if (cId && centreToZoneMap.has(cId)) {
+                const z = centreToZoneMap.get(cId);
+                recObj.zone = z;
+                recObj.zoneName = z.name;
+            } else {
+                recObj.zone = null;
+                recObj.zoneName = "—";
+            }
+            return recObj;
+        });
+    } catch (err) {
+        console.error("Error attaching zones to school records:", err);
+        return records;
+    }
+};
+
+// ─────────────────────────────────────────────
+//  Build filter query with User Centre Restriction & Zone
+// ─────────────────────────────────────────────
+const buildFilterQuery = async (filters = {}, user = null) => {
+    const { search, schoolName, tier, schoolAccess, status, board, centerName, zone } = filters;
     const query = {};
 
     if (search) {
@@ -56,13 +90,42 @@ const buildFilterQuery = (filters = {}, user = null) => {
     // Centre restriction check based on assigned user centres (ignored for Superadmin)
     const userCentreIds = (user?.centres || []).map((c) => (c._id || c).toString()).filter(Boolean);
 
+    // Zone filter processing
+    let zoneCentreIds = null;
+    if (zone) {
+        const zoneIds = zone.split(",").map((v) => v.trim()).filter(Boolean);
+        const validObjectZoneIds = zoneIds.filter(id => mongoose.Types.ObjectId.isValid(id));
+        const zoneDocs = await Zone.find({
+            $or: [
+                { _id: { $in: validObjectZoneIds } },
+                { name: { $in: zoneIds.map(z => new RegExp(`^${z}$`, "i")) } }
+            ]
+        }).select("centres").lean();
+
+        const cIds = [];
+        zoneDocs.forEach(z => {
+            (z.centres || []).forEach(c => cIds.push(c.toString()));
+        });
+        zoneCentreIds = [...new Set(cIds)];
+    }
+
     if (centerName) {
-        const requestedIds = centerName.split(",").map((v) => v.trim()).filter(Boolean);
+        let requestedIds = centerName.split(",").map((v) => v.trim()).filter(Boolean);
+        if (zoneCentreIds !== null) {
+            requestedIds = requestedIds.filter(id => zoneCentreIds.includes(id));
+        }
         if (!isSuperAdmin && userCentreIds.length > 0) {
             const allowedRequestedIds = requestedIds.filter((id) => userCentreIds.includes(id));
             query.centerName = { $in: allowedRequestedIds.length > 0 ? allowedRequestedIds : userCentreIds };
         } else {
             query.centerName = requestedIds.length === 1 ? requestedIds[0] : { $in: requestedIds };
+        }
+    } else if (zoneCentreIds !== null) {
+        if (!isSuperAdmin && userCentreIds.length > 0) {
+            const allowedZoneCentres = zoneCentreIds.filter(id => userCentreIds.includes(id));
+            query.centerName = { $in: allowedZoneCentres };
+        } else {
+            query.centerName = { $in: zoneCentreIds };
         }
     } else if (!isSuperAdmin && userCentreIds.length > 0) {
         query.centerName = { $in: userCentreIds };
@@ -94,7 +157,8 @@ export const createSchoolForTask = async (req, res) => {
         await school.save();
 
         const populated = await withPopulate(SchoolForTask.findById(school._id));
-        res.status(201).json({ message: "School record created", data: populated });
+        const [recordWithZone] = await attachZonesToRecords([populated]);
+        res.status(201).json({ message: "School record created", data: recordWithZone || populated });
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });
     }
@@ -112,7 +176,7 @@ export const getSchoolsForTask = async (req, res) => {
             sortOrder = "desc",
         } = req.query;
 
-        const query = buildFilterQuery(req.query, req.user);
+        const query = await buildFilterQuery(req.query, req.user);
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const sort = { [sortBy]: sortOrder === "asc" ? 1 : -1 };
 
@@ -123,8 +187,10 @@ export const getSchoolsForTask = async (req, res) => {
             ),
         ]);
 
+        const recordsWithZone = await attachZonesToRecords(records);
+
         res.status(200).json({
-            data: records,
+            data: recordsWithZone,
             totalItems: total,
             totalPages: Math.ceil(total / parseInt(limit)),
             currentPage: parseInt(page),
@@ -139,11 +205,12 @@ export const getSchoolsForTask = async (req, res) => {
 // ─────────────────────────────────────────────
 export const exportAllSchoolsForTask = async (req, res) => {
     try {
-        const query = buildFilterQuery(req.query, req.user);
+        const query = await buildFilterQuery(req.query, req.user);
         const records = await withPopulate(
             SchoolForTask.find(query).sort({ createdAt: -1 })
         );
-        res.status(200).json({ data: records, totalItems: records.length });
+        const recordsWithZone = await attachZonesToRecords(records);
+        res.status(200).json({ data: recordsWithZone, totalItems: recordsWithZone.length });
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });
     }
@@ -154,7 +221,7 @@ export const exportAllSchoolsForTask = async (req, res) => {
 // ─────────────────────────────────────────────
 export const getAllSchoolForTaskIds = async (req, res) => {
     try {
-        const query = buildFilterQuery(req.query, req.user);
+        const query = await buildFilterQuery(req.query, req.user);
         const records = await SchoolForTask.find(query).select("_id").lean();
         res.status(200).json({ ids: records.map(r => r._id) });
     } catch (err) {

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import {
     FaPlus, FaEdit, FaTrash, FaSearch, FaFileImport, FaFileExport,
-    FaSchool, FaTimes, FaCheck, FaFilter, FaChevronDown, FaBuilding, FaBook
+    FaSchool, FaTimes, FaCheck, FaFilter, FaChevronDown, FaBuilding, FaBook,
+    FaGlobe
 } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -135,6 +136,7 @@ const MultiSelect = ({ options, selected, onChange, placeholder = "All" }) => {
 
 export default function MasterDataSchoolForTaskContent() {
     const [schools, setSchools] = useState([]);
+    const [zones, setZones] = useState([]);
     const [centres, setCentres] = useState([]);
     const [boards, setBoards] = useState([]);
     const [distinctFields, setDistinctFields] = useState({ schools: [], tiers: [], accessLevels: [] });
@@ -145,6 +147,7 @@ export default function MasterDataSchoolForTaskContent() {
 
     // Filters
     const [search, setSearch] = useState("");
+    const [selectedZones, setSelectedZones] = useState([]);
     const [selectedSchoolNames, setSelectedSchoolNames] = useState([]);
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedBoards, setSelectedBoards] = useState([]);
@@ -178,12 +181,18 @@ export default function MasterDataSchoolForTaskContent() {
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, "masterData", "schoolForTask", "delete");
 
     useEffect(() => {
-        const fetchCentresAndBoards = async () => {
+        const fetchMasterOptions = async () => {
             try {
-                const [cRes, bRes] = await Promise.all([
+                const [zRes, cRes, bRes] = await Promise.all([
+                    fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers: { Authorization: `Bearer ${token}` } }),
                     fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers: { Authorization: `Bearer ${token}` } }),
                     fetch(`${import.meta.env.VITE_API_URL}/board`, { headers: { Authorization: `Bearer ${token}` } })
                 ]);
+                if (zRes.ok) {
+                    const zData = await zRes.json();
+                    const zList = Array.isArray(zData) ? zData : (zData.zones || zData.data || []);
+                    setZones(zList.filter(z => z.isActive !== false && z.status !== "deactive"));
+                }
                 if (cRes.ok) {
                     const cData = await cRes.json();
                     const cList = Array.isArray(cData) ? cData : (cData.centres || []);
@@ -202,7 +211,7 @@ export default function MasterDataSchoolForTaskContent() {
                 console.error("Failed to load options", err);
             }
         };
-        fetchCentresAndBoards();
+        fetchMasterOptions();
     }, [token]);
 
     const fetchDistinctFields = async () => {
@@ -230,6 +239,7 @@ export default function MasterDataSchoolForTaskContent() {
                 page,
                 limit: 50,
                 search,
+                zone: selectedZones.join(","),
                 schoolName: selectedSchoolNames.join(","),
                 centerName: selectedCentres.join(","),
                 board: selectedBoards.join(","),
@@ -258,7 +268,7 @@ export default function MasterDataSchoolForTaskContent() {
 
     useEffect(() => {
         fetchSchools();
-    }, [page, search, selectedSchoolNames, selectedCentres, selectedBoards, selectedTiers, selectedAccessLevels, selectedStatuses, sortBy, sortOrder, token]);
+    }, [page, search, selectedZones, selectedSchoolNames, selectedCentres, selectedBoards, selectedTiers, selectedAccessLevels, selectedStatuses, sortBy, sortOrder, token]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -444,6 +454,7 @@ export default function MasterDataSchoolForTaskContent() {
             toast.info("Preparing export...", { autoClose: 1500 });
             const params = new URLSearchParams({
                 search,
+                zone: selectedZones.join(","),
                 schoolName: selectedSchoolNames.join(","),
                 centerName: selectedCentres.join(","),
                 board: selectedBoards.join(","),
@@ -459,6 +470,7 @@ export default function MasterDataSchoolForTaskContent() {
 
             const exportData = allData.map((s, idx) => ({
                 "SL No": idx + 1,
+                "Zone": s.zone?.name || s.zoneName || "N/A",
                 "Center Name": s.centerName?.centreName || "N/A",
                 "School Name": s.schoolName || "",
                 "Board": s.board?.boardCourse || s.board?.name || "N/A",
@@ -655,7 +667,7 @@ export default function MasterDataSchoolForTaskContent() {
                     <FaFilter /> Filters & Search
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3">
                     {/* General Search */}
                     <div>
                         <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Search</label>
@@ -671,14 +683,14 @@ export default function MasterDataSchoolForTaskContent() {
                         </div>
                     </div>
 
-                    {/* School Name MultiSelect */}
+                    {/* Zone MultiSelect */}
                     <div>
-                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">School Name</label>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Zone</label>
                         <MultiSelect
-                            options={distinctFields.schools}
-                            selected={selectedSchoolNames}
-                            onChange={setSelectedSchoolNames}
-                            placeholder="All Schools"
+                            options={zones.map(z => ({ value: z._id, label: z.name }))}
+                            selected={selectedZones}
+                            onChange={setSelectedZones}
+                            placeholder="All Zones"
                         />
                     </div>
 
@@ -690,6 +702,17 @@ export default function MasterDataSchoolForTaskContent() {
                             selected={selectedCentres}
                             onChange={setSelectedCentres}
                             placeholder="All Centers"
+                        />
+                    </div>
+
+                    {/* School Name MultiSelect */}
+                    <div>
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">School Name</label>
+                        <MultiSelect
+                            options={distinctFields.schools}
+                            selected={selectedSchoolNames}
+                            onChange={setSelectedSchoolNames}
+                            placeholder="All Schools"
                         />
                     </div>
 
@@ -727,14 +750,15 @@ export default function MasterDataSchoolForTaskContent() {
                     </div>
 
                     {/* Status MultiSelect */}
-                    <div>
+                    <div className="sm:col-span-2 md:col-span-4 lg:col-span-7">
                         <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Status</label>
                         <MultiSelect
                             options={[
                                 "MOCK TEST TIE-UP",
                                 "CRP TIE-UP",
                                 "(INDERICT TIE-UP) WORKSHOP /PNTSE/PMO/PSAT",
-                                "ONLY INFORMATION GIVEN TO STUDENTS"
+                                "ONLY INFORMATION GIVEN TO STUDENTS",
+                                "OTHERS"
                             ]}
                             selected={selectedStatuses}
                             onChange={setSelectedStatuses}
@@ -759,6 +783,7 @@ export default function MasterDataSchoolForTaskContent() {
                                     />
                                 </th>
                                 <th className="p-4">#</th>
+                                <th className="p-4">Zone</th>
                                 <th className="p-4">Center Name</th>
                                 <th className="p-4">School Name</th>
                                 <th className="p-4">Board</th>
@@ -773,7 +798,7 @@ export default function MasterDataSchoolForTaskContent() {
                         {schools.every(s => selectedIds.includes(s._id)) && schools.length > 0 && !isAllSelected && selectedIds.length < totalItems && (
                             <tbody>
                                 <tr>
-                                    <td colSpan="10" className="bg-cyan-500/10 border-b border-cyan-500/20 px-4 py-2 text-center text-xs font-bold text-cyan-300">
+                                    <td colSpan="11" className="bg-cyan-500/10 border-b border-cyan-500/20 px-4 py-2 text-center text-xs font-bold text-cyan-300">
                                         All {schools.length} records on this page are selected.{" "}
                                         <button
                                             onClick={toggleSelectAll}
@@ -788,7 +813,7 @@ export default function MasterDataSchoolForTaskContent() {
                         {isAllSelected && (
                             <tbody>
                                 <tr>
-                                    <td colSpan="10" className="bg-emerald-500/10 border-b border-emerald-500/20 px-4 py-2 text-center text-xs font-bold text-emerald-300">
+                                    <td colSpan="11" className="bg-emerald-500/10 border-b border-emerald-500/20 px-4 py-2 text-center text-xs font-bold text-emerald-300">
                                         All {selectedIds.length} records are selected.{" "}
                                         <button
                                             onClick={() => { setSelectedIds([]); setIsAllSelected(false); }}
@@ -803,13 +828,13 @@ export default function MasterDataSchoolForTaskContent() {
                         <tbody className="divide-y divide-gray-800 text-xs font-semibold">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="10" className="p-8 text-center text-gray-500 font-mono uppercase tracking-widest text-xs">
+                                    <td colSpan="11" className="p-8 text-center text-gray-500 font-mono uppercase tracking-widest text-xs">
                                         Loading Schools...
                                     </td>
                                 </tr>
                             ) : schools.length === 0 ? (
                                 <tr>
-                                    <td colSpan="10" className="p-8 text-center text-gray-500 italic">
+                                    <td colSpan="11" className="p-8 text-center text-gray-500 italic">
                                         No school records found matching filters
                                     </td>
                                 </tr>
@@ -825,6 +850,12 @@ export default function MasterDataSchoolForTaskContent() {
                                             />
                                         </td>
                                         <td className="p-4 text-gray-500 font-mono">{(page - 1) * 50 + index + 1}</td>
+                                        <td className="p-4 font-bold text-gray-200">
+                                            <span className="flex items-center gap-2">
+                                                <FaGlobe className="text-emerald-400 text-xs" />
+                                                {row.zone?.name || row.zoneName || "—"}
+                                            </span>
+                                        </td>
                                         <td className="p-4 font-bold text-gray-200">
                                             <span className="flex items-center gap-2">
                                                 <FaBuilding className="text-cyan-400 text-xs" />
