@@ -25,7 +25,7 @@ const FollowUpHistoryModal = ({ lead, onClose, isDarkMode }) => {
     const sortedFollowUps = [...(lead.followUps || [])].sort((a, b) => new Date(b.date) - new Date(a.date));
 
     return (
-        <div className={`fixed inset-0 z-[70] overflow-y-auto backdrop-blur-md transition-all ${isDarkMode ? 'bg-black/90' : 'bg-white/80'}`}>
+        <div className={`fixed inset-0 z-[150] overflow-y-auto backdrop-blur-md transition-all ${isDarkMode ? 'bg-black/90' : 'bg-white/80'}`}>
             <div className="min-h-screen p-6 md:p-10 relative">
                 {/* Close Button */}
                 <button
