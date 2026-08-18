@@ -20,7 +20,7 @@ const checkRestricted = (role) => {
 
 const checkRestrictCentres = (role) => {
     const r = (role || '').toLowerCase();
-    return ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'centreincharge', 'centerincharge', 'zonalmanager', 'admin', 'assistantcenterincharge', 'assistantzonalmanager'].includes(r);
+    return ['telecaller', 'counsellor', 'marketing', 'centralizedtelecaller', 'centreincharge', 'centerincharge', 'zonalmanager', 'areamanager', 'admin', 'assistantcenterincharge', 'assistantzonalmanager'].includes(r);
 };
 
 const checkRestrictIndividual = (role) => {
@@ -183,7 +183,8 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
             'assistantcentreincharge',
             'zonalmanager',
             'assistantzonalmanager',
-            'centralizedtelecaller'
+            'centralizedtelecaller',
+            'areamanager'
         ].includes(rClean);
     };
 
@@ -198,6 +199,7 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
             /centerincharge/i,
             /centreincharge/i,
             /zonalmanager/i,
+            /areamanager/i,
             /assistant/i
         ] }
     }).select('name role employeeId centres').lean();
@@ -1088,7 +1090,16 @@ export const getDailyCenterDetails = async (req, res) => {
         }
 
         // 2. Fetch only ACTIVE users with operational roles assigned to this center
-        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager', 'assistantCenterIncharge', 'assistantZonalManager'];
+        const operationalRoles = [
+            'telecaller', 'centralizedTelecaller', 'centralizedtelecaller',
+            'counsellor', 'counselor',
+            'marketing',
+            'centerIncharge', 'centreincharge', 'centerincharge', 'CenterIncharge',
+            'zonalManager', 'zonalmanager', 'ZonalManager',
+            'areaManager', 'areamanager', 'AreaManager', 'Area Manager',
+            'assistantCenterIncharge', 'assistantcenterincharge',
+            'assistantZonalManager', 'assistantzonalmanager'
+        ];
         const userQuery = {
             centres: centerId,
             isActive: true,
@@ -1284,6 +1295,7 @@ export const getDailyCenterDetails = async (req, res) => {
                     const role = user.role.toLowerCase();
                     if (role === 'counsellor') targetCalls = 30;
                     else if (role === 'marketing') targetCalls = 40;
+                    else if (role === 'areamanager' || role === 'zonalmanager' || role === 'centerincharge') targetCalls = 30;
                 }
                 callHistory.push({
                     date: dStart.toISOString(),
@@ -1879,7 +1891,16 @@ export const exportCenterPerformanceExcel = async (req, res) => {
             }
         }
 
-        const operationalRoles = ['telecaller', 'centralizedTelecaller', 'counsellor', 'marketing', 'centerIncharge', 'zonalManager'];
+        const operationalRoles = [
+            'telecaller', 'centralizedTelecaller', 'centralizedtelecaller',
+            'counsellor', 'counselor',
+            'marketing',
+            'centerIncharge', 'centreincharge', 'centerincharge', 'CenterIncharge',
+            'zonalManager', 'zonalmanager', 'ZonalManager',
+            'areaManager', 'areamanager', 'AreaManager', 'Area Manager',
+            'assistantCenterIncharge', 'assistantcenterincharge',
+            'assistantZonalManager', 'assistantzonalmanager'
+        ];
         
         const userQuery = {
             centres: centerId,

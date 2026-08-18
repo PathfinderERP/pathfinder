@@ -141,6 +141,18 @@ const DailyCenterTrackingDetails = () => {
         );
     };
 
+    const formatRoleLabel = (role) => {
+        if (!role) return '';
+        const rLower = role.toLowerCase().replace(/[\s\-_]+/g, '');
+        if (rLower === 'areamanager') return 'Area Manager';
+        if (rLower === 'zonalmanager') return 'Zonal Manager';
+        if (rLower === 'centerincharge' || rLower === 'centreincharge') return 'Center Incharge';
+        if (rLower === 'assistantcenterincharge' || rLower === 'assistantcentreincharge') return 'Assistant Center Incharge';
+        if (rLower === 'assistantzonalmanager') return 'Assistant Zonal Manager';
+        if (rLower === 'centralizedtelecaller') return 'Centralized Telecaller';
+        return role.replace(/([A-Z])/g, ' $1').trim();
+    };
+
     return (
         <Layout activePage="Tracking & Flagging">
             <div className={`p-4 md:p-6 min-h-screen ${isDarkMode ? 'bg-[#0f1214] text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
@@ -230,7 +242,7 @@ const DailyCenterTrackingDetails = () => {
                                     }`}
                                 >
                                     <span className="flex items-center gap-2">
-                                        {role}
+                                        {formatRoleLabel(role)}
                                         <span className={`px-2 py-0.5 rounded-full text-[10px] ${isActive ? 'bg-cyan-500/20 text-cyan-500' : 'bg-gray-800 text-gray-500'}`}>
                                             {userCount}
                                         </span>
