@@ -316,10 +316,17 @@ const DailyTrackingLog = () => {
     const [selectedEntryCentre, setSelectedEntryCentre] = useState("");
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Board filters
     const [selectedDept, setSelectedDept] = useState([]);
     const [selectedCentre, setSelectedCentre] = useState([]);
     const [searchEmployee, setSearchEmployee] = useState("");
+    const [debouncedSearchEmployee, setDebouncedSearchEmployee] = useState("");
+
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchEmployee(searchEmployee);
+        }, 300);
+        return () => clearTimeout(timer);
+    }, [searchEmployee]);
 
     // Get current user's centres
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -493,6 +500,20 @@ const DailyTrackingLog = () => {
         }))
         .sort((a, b) => a.label.localeCompare(b.label));
 
+    const upcomingTargetRoles = [
+        "marketing",
+        "centerIncharge",
+        "assistantCenterIncharge",
+        "zonalManager",
+        "assistantZonalManager",
+        "areaManager"
+    ];
+
+    const upcomingRolesOptions = upcomingTargetRoles.map(role => ({
+        value: role,
+        label: getDisplayRoleName(role)
+    })).sort((a, b) => a.label.localeCompare(b.label));
+
     // Fetch user's logs
     const fetchMyLog = async (date) => {
         setLoading(true);
@@ -516,7 +537,7 @@ const DailyTrackingLog = () => {
     };
 
     // Fetch board logs
-    const fetchBoardLogs = async (rangeOption, customStart, customEnd, role, name, centreId) => {
+    const fetchBoardLogs = async (rangeOption, customStart, customEnd, role, name, centreId, signal) => {
         setLoading(true);
         try {
             const { start, end } = getDateRangeLimits(rangeOption, customStart, customEnd);
@@ -547,7 +568,8 @@ const DailyTrackingLog = () => {
             if (centresParam) url += `&centreId=${centresParam}`;
 
             const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                signal
             });
             const data = await res.json();
             if (res.ok) {
@@ -571,8 +593,10 @@ const DailyTrackingLog = () => {
                 toast.error(data.message || "Failed to fetch board logs.");
             }
         } catch (error) {
-            console.error("Error fetching board logs:", error);
-            toast.error("Error connecting to server.");
+            if (error.name !== "AbortError") {
+                console.error("Error fetching board logs:", error);
+                toast.error("Error connecting to server.");
+            }
         } finally {
             setLoading(false);
         }
@@ -677,7 +701,7 @@ const DailyTrackingLog = () => {
     };
 
     // Fetch upcoming board logs
-    const fetchUpcomingBoardLogs = async (rangeOption, customStart, customEnd, role, name, centreId, status) => {
+    const fetchUpcomingBoardLogs = async (rangeOption, customStart, customEnd, role, name, centreId, status, signal) => {
         setLoading(true);
         try {
             const { start, end } = getDateRangeLimits(rangeOption || "Today", customStart, customEnd);
@@ -708,7 +732,8 @@ const DailyTrackingLog = () => {
             if (status && status !== "ALL") url += `&status=${status}`;
 
             const res = await fetch(url, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                signal
             });
             const data = await res.json();
             if (res.ok) {
@@ -720,23 +745,27 @@ const DailyTrackingLog = () => {
                 toast.error(data.message || "Failed to fetch upcoming logs.");
             }
         } catch (error) {
-            console.error("Error fetching upcoming board logs:", error);
+            if (error.name !== "AbortError") {
+                console.error("Error fetching upcoming board logs:", error);
+            }
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
+        const controller = new AbortController();
         if (activeTab === "myLog") {
             fetchMyLog(selectedDate);
         } else if (activeTab === "deptBoard") {
             if (boardViewMode === "submitted") {
-                fetchBoardLogs(dateRangeOption, customStartDate, customEndDate, selectedDept, searchEmployee, selectedCentre);
+                fetchBoardLogs(dateRangeOption, customStartDate, customEndDate, selectedDept, debouncedSearchEmployee, selectedCentre, controller.signal);
             } else {
-                fetchUpcomingBoardLogs(upcomingDateRange, customUpcomingStartDate, customUpcomingEndDate, selectedDept, searchEmployee, selectedCentre, statusFilter);
+                fetchUpcomingBoardLogs(upcomingDateRange, customUpcomingStartDate, customUpcomingEndDate, selectedDept, debouncedSearchEmployee, selectedCentre, statusFilter, controller.signal);
             }
         }
-    }, [activeTab, boardViewMode, selectedDate, dateRangeOption, upcomingDateRange, customStartDate, customEndDate, customUpcomingStartDate, customUpcomingEndDate, selectedDept, searchEmployee, selectedCentre, statusFilter]);
+        return () => controller.abort();
+    }, [activeTab, boardViewMode, selectedDate, dateRangeOption, upcomingDateRange, customStartDate, customEndDate, customUpcomingStartDate, customUpcomingEndDate, selectedDept, debouncedSearchEmployee, selectedCentre, statusFilter]);
 
     // Handle Form Submit
     const handleAddActivity = async (e) => {
@@ -1427,7 +1456,10 @@ const DailyTrackingLog = () => {
                             isDarkMode ? "bg-[#1a1f24]/80 border-gray-800" : "bg-white border-slate-200 shadow-sm"
                         }`}>
                             <button
-                                onClick={() => setBoardViewMode("submitted")}
+                                onClick={() => {
+                                    setBoardViewMode("submitted");
+                                    setSelectedDept([]);
+                                }}
                                 className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
                                     boardViewMode === "submitted"
                                         ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
@@ -1437,7 +1469,10 @@ const DailyTrackingLog = () => {
                                 <FaCheckCircle /> Submitted Daily Logs
                             </button>
                             <button
-                                onClick={() => setBoardViewMode("upcoming")}
+                                onClick={() => {
+                                    setBoardViewMode("upcoming");
+                                    setSelectedDept([]);
+                                }}
                                 className={`px-4 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition ${
                                     boardViewMode === "upcoming"
                                         ? "bg-indigo-600 text-white shadow-md shadow-indigo-600/20"
@@ -1566,7 +1601,7 @@ const DailyTrackingLog = () => {
                                 <div className="w-full sm:w-64">
                                     <CustomMultiSelect
                                         placeholder="ALL ROLES"
-                                        options={rolesOptions}
+                                        options={boardViewMode === "upcoming" ? upcomingRolesOptions : rolesOptions}
                                         value={selectedDept}
                                         onChange={(val) => setSelectedDept(val || [])}
                                     />

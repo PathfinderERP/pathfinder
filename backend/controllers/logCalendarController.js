@@ -102,30 +102,12 @@ export const getMyLogs = async (req, res) => {
                 startDate: { $lte: reqEnd },
                 endDate: { $gte: reqStart }
             };
-
-            // On-the-fly sync check for any TomorrowPlanner items in this date range
-            try {
-                const plans = await TomorrowPlanner.find({
-                    user: req.user._id,
-                    $or: [
-                        { planDate: { $gte: new Date(reqStart.getTime() - 12 * 60 * 60 * 1000), $lte: new Date(reqEnd.getTime() + 12 * 60 * 60 * 1000) } },
-                        { plantDate: { $gte: new Date(reqStart.getTime() - 12 * 60 * 60 * 1000), $lte: new Date(reqEnd.getTime() + 12 * 60 * 60 * 1000) } }
-                    ]
-                });
-                for (const p of plans) {
-                    if (p.tasks && p.tasks.length > 0) {
-                        const pDate = p.planDate || p.plantDate;
-                        await syncPlanToLogCalendar(req.user, pDate, p.tasks);
-                    }
-                }
-            } catch (syncErr) {
-                console.error("Error on-the-fly syncing in getMyLogs:", syncErr);
-            }
         }
 
         const logs = await LogCalendar.find(query)
             .populate("centre", "centreName")
-            .sort({ startDate: 1 });
+            .sort({ startDate: 1 })
+            .lean();
 
         res.status(200).json({ logs });
     } catch (error) {
@@ -134,12 +116,206 @@ export const getMyLogs = async (req, res) => {
     }
 };
 
+// Target role DB mappings for Upcoming Calendar Logs
+const UPCOMING_ROLE_DB_MAPPING = {
+    marketing: ["marketing"],
+    centreincharge: ["centerIncharge", "centreIncharge"],
+    centerincharge: ["centerIncharge", "centreIncharge"],
+    assistantcenterincharge: ["assistantCenterIncharge", "assistantCentreIncharge"],
+    assistantcentreincharge: ["assistantCenterIncharge", "assistantCentreIncharge"],
+    zonalmanager: ["zonalManager", "zonalmanager"],
+    assistantzonalmanager: ["assistantZonalManager", "assistantzonalmanager"],
+    areamanager: ["areaManager", "areamanager"]
+};
+
+const UPCOMING_DEFAULT_TARGET_ROLES = [
+    "marketing",
+    "centerIncharge", "centreIncharge",
+    "assistantCenterIncharge", "assistantCentreIncharge",
+    "zonalManager", "zonalmanager",
+    "assistantZonalManager", "assistantzonalmanager",
+    "areaManager", "areamanager"
+];
+
+// Helper to resolve centre restrictions for logged-in user and target users in target roles
+const getTargetUsersForUpcoming = async (req, centresFilterInput, rolesFilterInput, searchInput) => {
+    const isSuperAdmin = Array.isArray(req.user.role)
+        ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
+        : req.user.role === "superAdmin" || req.user.role === "superadmin";
+
+    let centresFilter = [];
+    if (centresFilterInput) {
+        if (Array.isArray(centresFilterInput)) {
+            centresFilter = centresFilterInput;
+        } else if (typeof centresFilterInput === "string") {
+            centresFilter = centresFilterInput.split(",").map(c => c.trim()).filter(Boolean);
+        }
+    }
+
+    let allowedCentreIds = [];
+    let shouldFilterCentres = false;
+
+    if (!isSuperAdmin) {
+        // Find logged-in user's Employee document to get their primaryCentre and assigned centres
+        const loggedInEmployee = await Employee.findOne({ user: req.user._id }).lean();
+        const userCentreIds = [];
+
+        if (loggedInEmployee) {
+            if (loggedInEmployee.primaryCentre) {
+                userCentreIds.push(loggedInEmployee.primaryCentre.toString());
+            }
+            if (Array.isArray(loggedInEmployee.centres)) {
+                loggedInEmployee.centres.forEach(c => {
+                    userCentreIds.push(c.toString());
+                });
+            }
+        }
+
+        // Fallback / User model centres
+        const userCentres = req.user.centres || [];
+        userCentres.forEach(c => {
+            userCentreIds.push(c._id ? c._id.toString() : c.toString());
+        });
+        if (req.user.centre) {
+            userCentreIds.push(req.user.centre._id ? req.user.centre._id.toString() : req.user.centre.toString());
+        }
+
+        const uniqueUserCentreIds = [...new Set(userCentreIds)].filter(Boolean);
+
+        if (uniqueUserCentreIds.length > 0) {
+            shouldFilterCentres = true;
+            if (centresFilter.length > 0 && !centresFilter.includes("All")) {
+                allowedCentreIds = uniqueUserCentreIds.filter(c => centresFilter.includes(c));
+                if (allowedCentreIds.length === 0) {
+                    return { targetUsers: [], targetUserIds: [], employeeMap: new Map() };
+                }
+            } else {
+                allowedCentreIds = uniqueUserCentreIds;
+            }
+        } else {
+            // User has no specific centre restrictions
+            if (centresFilter.length > 0 && !centresFilter.includes("All")) {
+                shouldFilterCentres = true;
+                allowedCentreIds = centresFilter;
+            }
+        }
+    } else {
+        // SuperAdmin
+        if (centresFilter.length > 0 && !centresFilter.includes("All")) {
+            shouldFilterCentres = true;
+            allowedCentreIds = centresFilter;
+        }
+    }
+
+    const userQuery = { isActive: { $ne: false } };
+
+    // Role filtering: only the specified target roles
+    let mappedRoles = UPCOMING_DEFAULT_TARGET_ROLES;
+    if (rolesFilterInput) {
+        const roleList = (Array.isArray(rolesFilterInput) ? rolesFilterInput : rolesFilterInput.split(",")).map(r => r.trim()).filter(Boolean);
+        if (roleList.length > 0 && !roleList.includes("All")) {
+            mappedRoles = [];
+            for (const r of roleList) {
+                const key = r.toLowerCase().replace(/[\s_-]+/g, "");
+                if (UPCOMING_ROLE_DB_MAPPING[key]) {
+                    mappedRoles.push(...UPCOMING_ROLE_DB_MAPPING[key]);
+                } else {
+                    mappedRoles.push(r);
+                }
+            }
+        }
+    }
+    userQuery.role = { $in: mappedRoles };
+
+    if (searchInput && searchInput.trim()) {
+        userQuery.name = { $regex: searchInput.trim(), $options: "i" };
+    }
+
+    if (shouldFilterCentres) {
+        const objectIdCentres = allowedCentreIds.map(id => {
+            try {
+                return mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
+            } catch (e) {
+                return null;
+            }
+        }).filter(Boolean);
+
+        const employees = await Employee.find({
+            $or: [
+                { primaryCentre: { $in: objectIdCentres } },
+                { centres: { $in: objectIdCentres } }
+            ]
+        }).select("user").lean();
+        const allowedUserIdsFromEmp = employees.map(emp => emp.user).filter(Boolean);
+
+        const usersWithCentres = await User.find({
+            $or: [
+                { centres: { $in: objectIdCentres } },
+                { centre: { $in: objectIdCentres } }
+            ],
+            isActive: { $ne: false }
+        }).select("_id").lean();
+
+        const combinedUserIds = [
+            ...new Set([
+                ...allowedUserIdsFromEmp.map(id => id.toString()),
+                ...usersWithCentres.map(u => u._id.toString())
+            ])
+        ];
+
+        userQuery._id = { $in: combinedUserIds };
+    }
+
+    const targetUsers = await User.find(userQuery).select("name role designation centres centre profileImage").lean();
+    const targetUserIds = targetUsers.map(u => u._id);
+
+    const employeeMap = new Map();
+    if (targetUserIds.length > 0) {
+        const employeesForUsers = await Employee.find({
+            user: { $in: targetUserIds }
+        }).populate("primaryCentre", "centreName").lean();
+
+        employeesForUsers.forEach(emp => {
+            if (emp.user) {
+                employeeMap.set(emp.user.toString(), {
+                    centreName: emp.primaryCentre?.centreName || "",
+                    centreId: emp.primaryCentre?._id?.toString() || ""
+                });
+            }
+        });
+    }
+
+    return { targetUsers, targetUserIds, employeeMap };
+};
+
 // Get all upcoming logs for Log Tracking department board
 export const getAllUpcomingLogs = async (req, res) => {
     try {
         const { startDate, endDate, centres, roles, search, status } = req.query;
 
-        let query = {};
+        const { targetUsers, targetUserIds, employeeMap } = await getTargetUsersForUpcoming(
+            req,
+            centres,
+            roles,
+            search
+        );
+
+        if (targetUserIds.length === 0) {
+            return res.status(200).json({
+                logs: [],
+                groupedUsers: [],
+                summary: {
+                    totalLogs: 0,
+                    upcomingCount: 0,
+                    inProgressCount: 0,
+                    completedCount: 0
+                }
+            });
+        }
+
+        let query = {
+            user: { $in: targetUserIds }
+        };
 
         if (startDate && endDate) {
             const startStr = typeof startDate === "string" ? startDate.split("T")[0] : new Date(startDate).toISOString().split("T")[0];
@@ -149,57 +325,23 @@ export const getAllUpcomingLogs = async (req, res) => {
 
             query.startDate = { $lte: reqEnd };
             query.endDate = { $gte: reqStart };
-
-            // On-the-fly sync check for any TomorrowPlanner items in this date range
-            try {
-                const plans = await TomorrowPlanner.find({
-                    $or: [
-                        { planDate: { $gte: new Date(reqStart.getTime() - 12 * 60 * 60 * 1000), $lte: new Date(reqEnd.getTime() + 12 * 60 * 60 * 1000) } },
-                        { plantDate: { $gte: new Date(reqStart.getTime() - 12 * 60 * 60 * 1000), $lte: new Date(reqEnd.getTime() + 12 * 60 * 60 * 1000) } }
-                    ]
-                }).populate("user");
-                for (const p of plans) {
-                    if (p.user && p.tasks && p.tasks.length > 0) {
-                        const pDate = p.planDate || p.plantDate;
-                        await syncPlanToLogCalendar(p.user, pDate, p.tasks);
-                    }
-                }
-            } catch (syncErr) {
-                console.error("Error on-the-fly syncing in getAllUpcomingLogs:", syncErr);
-            }
         }
 
         if (status && status !== "ALL") {
-            query.status = status;
-        }
-
-        if (centres) {
-            const centreList = centres.split(",").filter(Boolean);
-            if (centreList.length > 0) {
-                query.centre = { $in: centreList };
+            if (status === "FILLED" || status === "Completed") {
+                query.status = "Completed";
+            } else if (status === "PENDING" || status === "Upcoming") {
+                query.status = { $in: ["Upcoming", "In Progress"] };
+            } else {
+                query.status = status;
             }
-        }
-
-        if (roles) {
-            const roleList = roles.split(",").filter(Boolean);
-            if (roleList.length > 0) {
-                const regexList = roleList.map(r => new RegExp(r, "i"));
-                query.userRole = { $in: regexList };
-            }
-        }
-
-        if (search && search.trim()) {
-            query.$or = [
-                { userName: { $regex: search.trim(), $options: "i" } },
-                { title: { $regex: search.trim(), $options: "i" } },
-                { place: { $regex: search.trim(), $options: "i" } }
-            ];
         }
 
         const logs = await LogCalendar.find(query)
             .populate("user", "name email role centre department")
             .populate("centre", "centreName")
-            .sort({ startDate: 1 });
+            .sort({ startDate: 1 })
+            .lean();
 
         // Calculate summary stats
         const totalLogs = logs.length;
@@ -213,12 +355,15 @@ export const getAllUpcomingLogs = async (req, res) => {
         logs.forEach(log => {
             const userIdStr = log.user?._id?.toString() || log.user?.toString() || log.userName;
             if (!groupedByUserMap.has(userIdStr)) {
+                const foundUser = targetUsers.find(u => u._id.toString() === userIdStr);
+                const empInfo = employeeMap.get(userIdStr);
+                const centreName = empInfo?.centreName || log.centreName || log.centre?.centreName || (foundUser?.centre?.centreName) || "";
                 groupedByUserMap.set(userIdStr, {
-                    user: log.user || { name: log.userName, role: log.userRole },
-                    userName: log.userName,
-                    userRole: log.userRole,
+                    user: log.user || foundUser || { name: log.userName, role: log.userRole },
+                    userName: log.userName || foundUser?.name,
+                    userRole: log.userRole || foundUser?.role,
                     department: log.department,
-                    centreName: log.centreName || log.centre?.centreName || "",
+                    centreName: centreName,
                     logs: []
                 });
             }
@@ -459,7 +604,16 @@ export const exportUpcomingLogs = async (req, res) => {
     try {
         const { startDate, endDate, centres, roles, search, status } = req.query;
 
-        let query = {};
+        const { targetUsers, targetUserIds, employeeMap } = await getTargetUsersForUpcoming(
+            req,
+            centres,
+            roles,
+            search
+        );
+
+        let query = {
+            user: { $in: targetUserIds }
+        };
 
         if (startDate && endDate) {
             const startStr = typeof startDate === "string" ? startDate.split("T")[0] : new Date(startDate).toISOString().split("T")[0];
@@ -472,158 +626,22 @@ export const exportUpcomingLogs = async (req, res) => {
         }
 
         if (status && status !== "ALL") {
-            query.status = status;
-        }
-
-        if (centres) {
-            const centreList = centres.split(",").map(c => c.trim()).filter(Boolean);
-            if (centreList.length > 0 && !centreList.includes("All")) {
-                const objectIdCentres = centreList.map(id => {
-                    try {
-                        return mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
-                    } catch (e) {
-                        return null;
-                    }
-                }).filter(Boolean);
-
-                if (objectIdCentres.length > 0) {
-                    query.centre = { $in: objectIdCentres };
-                }
-            }
-        }
-
-        if (roles) {
-            const roleList = roles.split(",").map(r => r.trim()).filter(Boolean);
-            if (roleList.length > 0 && !roleList.includes("All")) {
-                const regexList = roleList.map(r => new RegExp(r.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), "i"));
-                query.userRole = { $in: regexList };
-            }
-        }
-
-        if (search && search.trim()) {
-            query.$or = [
-                { userName: { $regex: search.trim(), $options: "i" } },
-                { title: { $regex: search.trim(), $options: "i" } },
-                { place: { $regex: search.trim(), $options: "i" } }
-            ];
-        }
-
-        const logs = await LogCalendar.find(query)
-            .populate("user", "name email role department isActive")
-            .populate("centre", "centreName")
-            .sort({ startDate: 1 });
-
-        // Role mappings for target roles: marketing, centre in charge, assistant centre incharge, zonal manager, assistant zonal manager, counsellor, telecaller, area manager
-        const roleDBMapping = {
-            marketing: ["marketing"],
-            centreincharge: ["centerIncharge", "centreIncharge"],
-            centerincharge: ["centerIncharge", "centreIncharge"],
-            assistantcenterincharge: ["assistantCenterIncharge", "assistantCentreIncharge"],
-            assistantcentreincharge: ["assistantCenterIncharge", "assistantCentreIncharge"],
-            zonalmanager: ["zonalManager", "zonalmanager"],
-            assistantzonalmanager: ["assistantZonalManager", "assistantzonalmanager"],
-            counsellor: ["counsellor"],
-            telecaller: ["telecaller", "centralizedTelecaller"],
-            areamanager: ["areaManager", "areamanager"],
-            teacher: ["teacher"],
-            admin: ["admin"],
-            superadmin: ["superAdmin", "superadmin"],
-            coordinator: ["coordinator", "Class_Coordinator"],
-            accounts: ["accounts"],
-            hr: ["hr"],
-            digital: ["digital"],
-            supportstaff: ["supportStaff"],
-            hod: ["HOD", "hod"],
-            rm: ["RM", "rm"]
-        };
-
-        const defaultTargetRoles = [
-            "marketing",
-            "centerIncharge", "centreIncharge",
-            "assistantCenterIncharge", "assistantCentreIncharge",
-            "zonalManager", "zonalmanager",
-            "assistantZonalManager", "assistantzonalmanager",
-            "counsellor",
-            "telecaller", "centralizedTelecaller",
-            "areaManager", "areamanager"
-        ];
-
-        // ONLY active users under User Management
-        const userQuery = { isActive: { $ne: false } };
-
-        if (roles) {
-            const roleList = roles.split(",").map(r => r.trim()).filter(Boolean);
-            if (roleList.length > 0 && !roleList.includes("All")) {
-                const mappedRoles = [];
-                for (const r of roleList) {
-                    const key = r.toLowerCase().replace(/[\s_-]+/g, "");
-                    if (roleDBMapping[key]) {
-                        mappedRoles.push(...roleDBMapping[key]);
-                    } else {
-                        mappedRoles.push(r);
-                    }
-                }
-                userQuery.role = { $in: mappedRoles };
+            if (status === "FILLED" || status === "Completed") {
+                query.status = "Completed";
+            } else if (status === "PENDING" || status === "Upcoming") {
+                query.status = { $in: ["Upcoming", "In Progress"] };
             } else {
-                userQuery.role = { $in: defaultTargetRoles };
-            }
-        } else {
-            userQuery.role = { $in: defaultTargetRoles };
-        }
-
-        if (search && search.trim()) {
-            userQuery.name = { $regex: search.trim(), $options: "i" };
-        }
-
-        if (centres) {
-            const centreList = centres.split(",").map(c => c.trim()).filter(Boolean);
-            if (centreList.length > 0 && !centreList.includes("All")) {
-                const objectIdCentres = centreList.map(id => {
-                    try {
-                        return mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
-                    } catch (e) {
-                        return null;
-                    }
-                }).filter(Boolean);
-
-                if (objectIdCentres.length > 0) {
-                    try {
-                        const employees = await Employee.find({
-                            $or: [
-                                { primaryCentre: { $in: objectIdCentres } },
-                                { centres: { $in: objectIdCentres } }
-                            ]
-                        }).select("user");
-                        const allowedUserIdsFromEmp = employees.map(emp => emp.user).filter(Boolean);
-
-                        const usersWithCentres = await User.find({
-                            centres: { $in: objectIdCentres },
-                            isActive: { $ne: false }
-                        }).select("_id");
-
-                        const combinedUserIds = [
-                            ...new Set([
-                                ...allowedUserIdsFromEmp.map(id => id.toString()),
-                                ...usersWithCentres.map(u => u._id.toString())
-                            ])
-                        ];
-
-                        userQuery._id = { $in: combinedUserIds };
-                    } catch (centreErr) {
-                        console.error("Centre query error in exportUpcomingLogs:", centreErr);
-                    }
-                }
+                query.status = status;
             }
         }
 
-        let targetUsers = [];
-        try {
-            targetUsers = await User.find(userQuery)
-                .populate("centres", "centreName")
-                .select("name role designation centres isActive");
-        } catch (uErr) {
-            console.error("Error fetching target users for upcoming export:", uErr);
-        }
+        const logs = targetUserIds.length > 0
+            ? await LogCalendar.find(query)
+                .populate("user", "name email role department isActive")
+                .populate("centre", "centreName")
+                .sort({ startDate: 1 })
+                .lean()
+            : [];
 
         // Fetch all zones for centre -> zone mapping
         const centreToZoneMap = new Map();
@@ -643,26 +661,6 @@ export const exportUpcomingLogs = async (req, res) => {
             console.error("Error fetching zones in exportUpcomingLogs:", zErr);
         }
 
-        const employeeMap = new Map();
-        try {
-            if (targetUsers.length > 0) {
-                const employeesForUsers = await Employee.find({
-                    user: { $in: targetUsers.map(u => u._id) }
-                }).populate("primaryCentre", "centreName");
-
-                employeesForUsers.forEach(emp => {
-                    if (emp.user) {
-                        employeeMap.set(emp.user.toString(), {
-                            centreName: emp.primaryCentre?.centreName || "",
-                            centreId: emp.primaryCentre?._id?.toString() || ""
-                        });
-                    }
-                });
-            }
-        } catch (empErr) {
-            console.error("Error fetching employee primaryCentre in exportUpcomingLogs:", empErr);
-        }
-
         const getDisplayRole = (role) => {
             if (!role) return "Employee";
             const r = Array.isArray(role) ? role.join(", ") : String(role);
@@ -673,16 +671,6 @@ export const exportUpcomingLogs = async (req, res) => {
             if (normalized.includes("assistantzonalmanager")) return "Assistant Zonal Manager";
             if (normalized.includes("zonalmanager")) return "Zonal Manager";
             if (normalized.includes("areamanager")) return "Area Manager";
-            if (normalized.includes("counsellor")) return "Counsellor";
-            if (normalized.includes("telecaller")) return "Telecaller";
-            if (normalized.includes("superadmin")) return "SuperAdmin";
-            if (normalized.includes("admin")) return "Admin";
-            if (normalized.includes("teacher")) return "Teacher";
-            if (normalized.includes("coordinator")) return "Coordinator";
-            if (normalized.includes("accounts")) return "Accounts";
-            if (normalized.includes("hr")) return "HR";
-            if (normalized.includes("digital")) return "Digital";
-            if (normalized.includes("supportstaff")) return "Support Staff";
             return r;
         };
 

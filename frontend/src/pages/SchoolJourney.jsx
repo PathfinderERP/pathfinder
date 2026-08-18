@@ -224,7 +224,12 @@ const SchoolJourney = () => {
                 
                 // Populate available center options if returned
                 if (data.availableCenters && data.availableCenters.length > 0) {
-                    setAvailableCenterOptions(data.availableCenters.map(c => ({ value: c, label: c })));
+                    setAvailableCenterOptions(
+                        data.availableCenters.map(c => {
+                            const name = typeof c === "object" && c !== null ? (c.centreName || c.name || c.label || c.value) : c;
+                            return { value: name, label: name };
+                        }).sort((a, b) => (a.label || "").localeCompare(b.label || ""))
+                    );
                 }
 
                 const rawList = data.data || [];
@@ -328,6 +333,36 @@ const SchoolJourney = () => {
             setLoading(false);
         }
     };
+
+    // Fetch master centres list on mount
+    useEffect(() => {
+        const fetchAllCentres = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/centre?status=active&fetchAll=true`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    if (Array.isArray(data) && data.length > 0) {
+                        const centreOpts = data
+                            .map(c => ({
+                                value: c.centreName || c.name,
+                                label: c.centreName || c.name
+                            }))
+                            .filter(c => Boolean(c.value))
+                            .sort((a, b) => a.label.localeCompare(b.label));
+                        if (centreOpts.length > 0) {
+                            setAvailableCenterOptions(centreOpts);
+                        }
+                    }
+                }
+            } catch (err) {
+                console.error("Failed to fetch centres list in SchoolJourney:", err);
+            }
+        };
+        fetchAllCentres();
+    }, []);
 
     // Fetch data on mount
     useEffect(() => {

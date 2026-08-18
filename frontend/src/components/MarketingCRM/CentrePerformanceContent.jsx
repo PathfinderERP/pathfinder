@@ -4,7 +4,7 @@ import {
     FaBuilding, FaTrophy, FaCalendarAlt, FaSearch, FaRedo,
     FaSync, FaMapMarkerAlt, FaFileAlt, FaCheckCircle, FaUserCheck,
     FaUsers, FaUniversity, FaTimes, FaExternalLinkAlt, FaImage,
-    FaMedal, FaLayerGroup, FaChevronLeft, FaChevronRight
+    FaMedal, FaLayerGroup, FaChevronLeft, FaChevronRight, FaCamera
 } from "react-icons/fa";
 
 const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
@@ -43,6 +43,10 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
     // Lightbox Modal for Photo Proofs
     const [previewPhotos, setPreviewPhotos] = useState(null);
     const [activePhotoIdx, setActivePhotoIdx] = useState(0);
+
+    // Modal state for viewing specific Activity Type or Purpose breakdown entries
+    const [selectedBreakdownModal, setSelectedBreakdownModal] = useState(null);
+    const [breakdownModalSearch, setBreakdownModalSearch] = useState("");
 
     // Fetch master activity purposes
     useEffect(() => {
@@ -202,7 +206,7 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
         setActivePhotoIdx(initialIndex);
     };
 
-    const renderActivityPills = (breakdown = {}) => {
+    const renderActivityPills = (breakdown = {}, centre = null) => {
         const entries = Object.entries(breakdown);
         if (entries.length === 0) {
             return <span className="text-[10px] text-gray-400 font-bold uppercase">No activities logged</span>;
@@ -210,22 +214,35 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
         return (
             <div className="flex flex-wrap gap-1.5">
                 {entries.map(([act, count]) => (
-                    <span
+                    <button
                         key={act}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+                        onClick={() => {
+                            if (centre) {
+                                setSelectedBreakdownModal({
+                                    centre,
+                                    filterCategory: "type",
+                                    filterValue: act,
+                                    title: `Activity Type: ${act}`,
+                                    count
+                                });
+                                setBreakdownModalSearch("");
+                            }
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border cursor-pointer transition-all hover:scale-105 ${
                             isDarkMode
-                                ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-300'
-                                : 'bg-cyan-50 border-cyan-200 text-cyan-800'
+                                ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-300 hover:bg-cyan-500 hover:text-black'
+                                : 'bg-cyan-50 border-cyan-200 text-cyan-800 hover:bg-cyan-600 hover:text-white'
                         }`}
+                        title={centre ? `Click to view all ${act} activities for ${centre.centreName}` : ""}
                     >
-                        {act}: <span className="text-cyan-400 font-extrabold">{count}</span>
-                    </span>
+                        {act}: <span className="font-extrabold">{count}</span>
+                    </button>
                 ))}
             </div>
         );
     };
 
-    const renderPurposePills = (breakdown = {}) => {
+    const renderPurposePills = (breakdown = {}, centre = null) => {
         const entries = Object.entries(breakdown);
         if (entries.length === 0) {
             return <span className="text-[10px] text-gray-400 font-bold uppercase">No purpose logged</span>;
@@ -233,16 +250,29 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
         return (
             <div className="flex flex-wrap gap-1.5">
                 {entries.map(([purp, count]) => (
-                    <span
+                    <button
                         key={purp}
-                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border ${
+                        onClick={() => {
+                            if (centre) {
+                                setSelectedBreakdownModal({
+                                    centre,
+                                    filterCategory: "purpose",
+                                    filterValue: purp,
+                                    title: `Activity Purpose: ${purp}`,
+                                    count
+                                });
+                                setBreakdownModalSearch("");
+                            }
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border cursor-pointer transition-all hover:scale-105 ${
                             isDarkMode
-                                ? 'bg-purple-950/60 border-purple-500/40 text-purple-300'
-                                : 'bg-purple-50 border-purple-200 text-purple-800'
+                                ? 'bg-purple-950/60 border-purple-500/40 text-purple-300 hover:bg-purple-500 hover:text-white'
+                                : 'bg-purple-50 border-purple-200 text-purple-800 hover:bg-purple-600 hover:text-white'
                         }`}
+                        title={centre ? `Click to view all ${purp} purpose activities for ${centre.centreName}` : ""}
                     >
-                        {purp}: <span className="text-purple-400 font-extrabold">{count}</span>
-                    </span>
+                        {purp}: <span className="font-extrabold">{count}</span>
+                    </button>
                 ))}
             </div>
         );
@@ -533,71 +563,73 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                             return (
                                 <div
                                     key={centre.centreId || idx}
-                                    className={`p-6 rounded-3xl border shadow-xl relative overflow-hidden transition-all hover:-translate-y-1 ${cardBorder}`}
+                                    className={`p-6 rounded-3xl border shadow-xl relative flex flex-col justify-between transition-all hover:-translate-y-1 ${cardBorder}`}
                                 >
-                                    {/* Top Rank Header */}
-                                    <div className="flex items-center justify-between mb-4">
-                                        <div className="flex items-center gap-3 min-w-0">
-                                            <div className={`w-12 h-12 rounded-2xl ${rankBadgeBg} flex items-center justify-center font-black text-xl shadow-lg flex-shrink-0`}>
-                                                {isGold ? <FaTrophy className="w-6 h-6" /> : `#${idx + 1}`}
+                                    <div>
+                                        {/* Top Rank Header */}
+                                        <div className="flex items-center justify-between mb-4">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className={`w-12 h-12 rounded-2xl ${rankBadgeBg} flex items-center justify-center font-black text-xl shadow-lg flex-shrink-0`}>
+                                                    {isGold ? <FaTrophy className="w-6 h-6" /> : `#${idx + 1}`}
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <h3 className={`font-black text-lg uppercase tracking-tight leading-tight truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                        {centre.centreName}
+                                                    </h3>
+                                                </div>
                                             </div>
-                                            <div className="min-w-0">
-                                                <h3 className={`font-black text-lg uppercase tracking-tight leading-tight truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                    {centre.centreName}
-                                                </h3>
-                                            </div>
-                                        </div>
-                                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex-shrink-0 ${rankBadgeBg}`}>
-                                            RANK #{centre.rank || idx + 1}
-                                        </span>
-                                    </div>
-
-                                    {/* Stats Grid */}
-                                    <div className={`grid grid-cols-2 gap-3 py-3 border-y my-3 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
-                                        <div>
-                                            <span className={`text-[9px] font-black uppercase tracking-wider block ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Activities</span>
-                                            <span className="text-xl font-black text-cyan-400">{centre.totalActivities}</span>
-                                        </div>
-
-                                        <div>
-                                            <span className={`text-[9px] font-black uppercase tracking-wider block ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Unique Schools</span>
-                                            <button
-                                                onClick={() => setSelectedCentreForSchoolsModal(centre)}
-                                                className="text-amber-400 hover:text-amber-300 font-black text-sm uppercase tracking-wider underline cursor-pointer"
-                                            >
-                                                {centre.uniqueSchoolsVisitedCount} Schools ➔
-                                            </button>
-                                        </div>
-
-                                        <div>
-                                            <span className={`text-[9px] font-black uppercase tracking-wider block ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Leads Gathered</span>
-                                            <button
-                                                onClick={() => setSelectedCentreForLeadsModal(centre)}
-                                                className="text-purple-400 hover:text-purple-300 font-black text-sm uppercase tracking-wider underline cursor-pointer"
-                                            >
-                                                {centre.totalLeads} Leads ➔
-                                            </button>
-                                        </div>
-
-                                        <div>
-                                            <span className={`text-[9px] font-black uppercase tracking-wider block ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Active Staff</span>
-                                            <span className="text-sm font-black text-emerald-400">
-                                                👥 {centre.activePersonnelCount} Staff
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest flex-shrink-0 ${rankBadgeBg}`}>
+                                                RANK #{centre.rank || idx + 1}
                                             </span>
                                         </div>
-                                    </div>
 
-                                    {/* Activity Type Breakdown & Activity Purpose Breakdown */}
-                                     <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
-                                         <div>
-                                             <span className={`text-[9px] font-black uppercase tracking-widest block mb-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Activity Type Breakdown</span>
-                                             {renderActivityPills(centre.activityBreakdown)}
-                                         </div>
-                                         <div>
-                                             <span className={`text-[9px] font-black uppercase tracking-widest block mb-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Activity Purpose Breakdown</span>
-                                             {renderPurposePills(centre.purposeBreakdown)}
-                                         </div>
-                                     </div>
+                                        {/* Stats Grid */}
+                                        <div className={`grid grid-cols-2 gap-3 py-3 border-y my-3 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                            <div>
+                                                <span className={`text-[9px] font-black uppercase tracking-wider block ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Activities</span>
+                                                <span className="text-xl font-black text-cyan-400">{centre.totalActivities}</span>
+                                            </div>
+
+                                            <div>
+                                                <span className={`text-[9px] font-black uppercase tracking-wider block ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Unique Schools</span>
+                                                <button
+                                                    onClick={() => setSelectedCentreForSchoolsModal(centre)}
+                                                    className="text-amber-400 hover:text-amber-300 font-black text-sm uppercase tracking-wider underline cursor-pointer"
+                                                >
+                                                    {centre.uniqueSchoolsVisitedCount} Schools ➔
+                                                </button>
+                                            </div>
+
+                                            <div>
+                                                <span className={`text-[9px] font-black uppercase tracking-wider block ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Leads Gathered</span>
+                                                <button
+                                                    onClick={() => setSelectedCentreForLeadsModal(centre)}
+                                                    className="text-purple-400 hover:text-purple-300 font-black text-sm uppercase tracking-wider underline cursor-pointer"
+                                                >
+                                                    {centre.totalLeads} Leads ➔
+                                                </button>
+                                            </div>
+
+                                            <div>
+                                                <span className={`text-[9px] font-black uppercase tracking-wider block ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Active Staff</span>
+                                                <span className="text-sm font-black text-emerald-400">
+                                                    👥 {centre.activePersonnelCount} Staff
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        {/* Activity Type Breakdown & Activity Purpose Breakdown */}
+                                        <div className="space-y-3 my-2 pt-2">
+                                            <div>
+                                                <span className={`text-[9px] font-black uppercase tracking-widest block mb-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Activity Type Breakdown</span>
+                                                {renderActivityPills(centre.activityBreakdown, centre)}
+                                            </div>
+                                            <div>
+                                                <span className={`text-[9px] font-black uppercase tracking-widest block mb-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Activity Purpose Breakdown</span>
+                                                {renderPurposePills(centre.purposeBreakdown, centre)}
+                                            </div>
+                                        </div>
+                                    </div>
 
                                     {/* Footer Button */}
                                     <button
@@ -710,12 +742,12 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
 
                                             {/* Activity Type Breakdown */}
                                             <td className="p-4 max-w-[240px]">
-                                                {renderActivityPills(centre.activityBreakdown)}
+                                                {renderActivityPills(centre.activityBreakdown, centre)}
                                             </td>
 
                                             {/* Activity Purpose Breakdown */}
                                             <td className="p-4 max-w-[240px]">
-                                                {renderPurposePills(centre.purposeBreakdown)}
+                                                {renderPurposePills(centre.purposeBreakdown, centre)}
                                             </td>
 
                                             {/* Unique Schools (Clickable Modal) */}
@@ -1289,6 +1321,202 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                 ))}
                             </div>
                         )}
+                    </div>
+                </div>
+            )}
+            {/* DETAILED ACTIVITY TYPE & PURPOSE BREAKDOWN MODAL FOR CENTRES */}
+            {selectedBreakdownModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fade-in">
+                    <div className={`w-full max-w-5xl max-h-[88vh] rounded-3xl border overflow-hidden flex flex-col ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} shadow-2xl`}>
+                        {/* Modal Header */}
+                        <div className="p-6 border-b border-gray-800/40 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-gradient-to-r from-emerald-500/10 to-cyan-500/10">
+                            <div>
+                                <div className="flex items-center gap-2 mb-1">
+                                    <span className={`px-3 py-0.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${
+                                        selectedBreakdownModal.filterCategory === "type"
+                                            ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/30'
+                                            : 'bg-purple-500/20 text-purple-300 border-purple-500/30'
+                                    }`}>
+                                        {selectedBreakdownModal.filterCategory === "type" ? "Activity Type" : "Activity Purpose"}
+                                    </span>
+                                    <span className="text-xs font-bold text-gray-400">
+                                        • {selectedBreakdownModal.count} {selectedBreakdownModal.count === 1 ? 'Record' : 'Records'}
+                                    </span>
+                                </div>
+                                <h3 className={`text-xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    {selectedBreakdownModal.title} — <span className="text-emerald-400">{selectedBreakdownModal.centre.centreName}</span>
+                                </h3>
+                                <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mt-0.5">
+                                    Total Centre Activities: {selectedBreakdownModal.centre.totalActivities} • Active Staff: {selectedBreakdownModal.centre.activePersonnelCount}
+                                </p>
+                            </div>
+
+                            <button
+                                onClick={() => setSelectedBreakdownModal(null)}
+                                className="p-2.5 rounded-xl bg-gray-800/50 text-gray-400 hover:text-white hover:bg-gray-800 transition-all cursor-pointer self-start md:self-auto"
+                            >
+                                <FaTimes className="text-lg" />
+                            </button>
+                        </div>
+
+                        {/* Modal Sub-toolbar Search */}
+                        <div className={`p-4 border-b ${isDarkMode ? 'bg-black/30 border-gray-800' : 'bg-gray-50 border-gray-200'} flex items-center justify-between gap-4`}>
+                            <div className="relative w-full md:w-80">
+                                <FaSearch className="absolute left-3 top-3 text-gray-400 text-xs" />
+                                <input
+                                    type="text"
+                                    placeholder="Search by school, executive, notes, date, status..."
+                                    value={breakdownModalSearch}
+                                    onChange={(e) => setBreakdownModalSearch(e.target.value)}
+                                    className={`w-full border rounded-xl py-2 pl-8 pr-3 font-bold text-xs outline-none focus:border-emerald-500/50 ${
+                                        isDarkMode ? 'bg-black/40 border-gray-800 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                    }`}
+                                />
+                            </div>
+                            <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
+                                Filtered: {selectedBreakdownModal.filterValue}
+                            </span>
+                        </div>
+
+                        {/* Modal Body - Activities List */}
+                        <div className="p-6 overflow-y-auto flex-1 space-y-4">
+                            {(() => {
+                                const allLogs = selectedBreakdownModal.centre.detailedLogsList || selectedBreakdownModal.centre.activityLogs || [];
+                                const matchedLogs = allLogs.filter(log => {
+                                    if (selectedBreakdownModal.filterCategory === "type") {
+                                        return (log.type || "").trim().toLowerCase() === selectedBreakdownModal.filterValue.trim().toLowerCase();
+                                    } else {
+                                        return (log.activityPurpose || "").trim().toLowerCase() === selectedBreakdownModal.filterValue.trim().toLowerCase();
+                                    }
+                                });
+
+                                const filteredLogs = matchedLogs.filter(log => {
+                                    if (!breakdownModalSearch.trim()) return true;
+                                    const q = breakdownModalSearch.toLowerCase();
+                                    return (log.institution || "").toLowerCase().includes(q) ||
+                                        (log.staffName || "").toLowerCase().includes(q) ||
+                                        (log.locationName || "").toLowerCase().includes(q) ||
+                                        (log.notes || "").toLowerCase().includes(q) ||
+                                        (log.date || "").toLowerCase().includes(q) ||
+                                        (log.status || "").toLowerCase().includes(q);
+                                });
+
+                                if (filteredLogs.length === 0) {
+                                    return (
+                                        <div className="p-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
+                                            No detailed activity logs found matching the search query
+                                        </div>
+                                    );
+                                }
+
+                                return (
+                                    <div className="space-y-4">
+                                        {filteredLogs.map((vLog, vIdx) => (
+                                            <div
+                                                key={vLog.id || vIdx}
+                                                className={`p-5 rounded-2xl border ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-200'} space-y-3 hover:border-emerald-500/40 transition-all`}
+                                            >
+                                                <div className="flex flex-wrap items-center justify-between gap-2 border-b pb-3 border-gray-800/40">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className="px-2.5 py-1 rounded-lg bg-emerald-500/10 text-emerald-400 font-black text-xs">
+                                                            #{vIdx + 1}
+                                                        </span>
+                                                        <span className={`text-sm font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                            {vLog.institution || "Field Activity"}
+                                                        </span>
+                                                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider border ${
+                                                            vLog.status === "Approved" ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' :
+                                                            vLog.status === "Rejected" ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                                                            'bg-amber-500/10 text-amber-400 border-amber-500/20'
+                                                        }`}>
+                                                            {vLog.status || "Pending"}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex items-center gap-2 text-xs font-mono font-bold text-gray-400">
+                                                        <FaCalendarAlt className="text-emerald-500" />
+                                                        <span>{vLog.date}</span>
+                                                        {vLog.planTime && <span>({vLog.planTime})</span>}
+                                                    </div>
+                                                </div>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 text-xs font-bold">
+                                                    <div>
+                                                        <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Executive / Staff</span>
+                                                        <span className="text-cyan-400 font-bold block mt-0.5">
+                                                            👤 {vLog.staffName || "Staff Member"}
+                                                        </span>
+                                                    </div>
+
+                                                    <div>
+                                                        <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Activity Type</span>
+                                                        <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-cyan-500/10 text-cyan-300 border border-cyan-500/20 inline-block mt-0.5">
+                                                            {vLog.type || "School Visit"}
+                                                        </span>
+                                                    </div>
+
+                                                    <div>
+                                                        <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Activity Purpose</span>
+                                                        {vLog.activityPurpose ? (
+                                                            <span className="px-2 py-0.5 rounded-md text-[11px] font-bold bg-purple-500/10 text-purple-300 border border-purple-500/20 inline-block mt-0.5">
+                                                                {vLog.activityPurpose}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-gray-500 font-bold mt-0.5 block">—</span>
+                                                        )}
+                                                    </div>
+
+                                                    <div>
+                                                        <span className="text-gray-500 uppercase tracking-widest text-[10px] block">Leads Gathered</span>
+                                                        <span className="text-purple-400 font-black text-xs block mt-0.5">{vLog.leads || 0} Leads</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Detailed Feedback & Remarks */}
+                                                {vLog.notes && (
+                                                    <div className={`text-xs p-3 rounded-xl space-y-1 ${isDarkMode ? 'bg-white/5' : 'bg-white border border-gray-200'}`}>
+                                                        <span className="font-black text-emerald-400 uppercase tracking-wider text-[10px] block">Notes & Remarks:</span>
+                                                        <p className={`${isDarkMode ? 'text-gray-300' : 'text-gray-700'} font-normal leading-relaxed`}>
+                                                            {vLog.notes}
+                                                        </p>
+                                                    </div>
+                                                )}
+
+                                                {/* GPS & Photo proof */}
+                                                {(vLog.latitude || (vLog.photos && vLog.photos.length > 0)) && (
+                                                    <div className="pt-2 flex flex-wrap items-center justify-between gap-3 text-xs border-t border-gray-800/40">
+                                                        {vLog.latitude && vLog.longitude ? (
+                                                            <a
+                                                                href={`https://maps.google.com/?q=${vLog.latitude},${vLog.longitude}`}
+                                                                target="_blank"
+                                                                rel="noreferrer"
+                                                                className="text-cyan-400 hover:underline flex items-center gap-1 font-bold text-[11px]"
+                                                            >
+                                                                <FaMapMarkerAlt /> GPS ({Number(vLog.latitude).toFixed(4)}, {Number(vLog.longitude).toFixed(4)}) <FaExternalLinkAlt className="text-[9px]" />
+                                                            </a>
+                                                        ) : <div />}
+
+                                                        {vLog.photos && vLog.photos.length > 0 && (
+                                                            <button
+                                                                onClick={() => {
+                                                                    setPreviewPhotos(vLog.photos);
+                                                                    setActivePhotoIdx(0);
+                                                                }}
+                                                                className="flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 bg-emerald-500/10 hover:bg-emerald-500/20 px-3 py-1 rounded-xl border border-emerald-500/30 font-bold text-[11px] cursor-pointer transition-all hover:scale-105"
+                                                                title="Click to view photo proof(s) in full resolution"
+                                                            >
+                                                                <FaCamera className="text-emerald-400" />
+                                                                <span>{vLog.photos.length} Photo Proof(s) (Click to View)</span>
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
+                                    </div>
+                                );
+                            })()}
+                        </div>
                     </div>
                 </div>
             )}

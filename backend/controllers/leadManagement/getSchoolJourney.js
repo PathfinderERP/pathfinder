@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import SchoolForTask from "../../models/Master_data/SchoolForTask.js";
 import MarketingPlanner from "../../models/MarketingPlanner.js";
 import AssignedTask from "../../models/AssignedTask.js";
@@ -26,8 +27,14 @@ export const getSchoolJourney = async (req, res) => {
         const userRoleStr = (req.user?.role || "").toLowerCase();
         const isSuperAdmin = userRoleStr === "superadmin" || userRoleStr === "super admin";
         if (!isSuperAdmin && req.user) {
-            const userCentreIds = (req.user.centres || []).map(c => (c._id || c));
-            schoolQuery.centerName = { $in: userCentreIds };
+            const rawCentres = req.user.centres || (req.user.centre ? [req.user.centre] : []);
+            const userCentreIds = rawCentres.map(c => {
+                const id = c._id || c;
+                return mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null;
+            }).filter(Boolean);
+            if (userCentreIds.length > 0) {
+                schoolQuery.centerName = { $in: userCentreIds };
+            }
         }
 
         if (search && search.trim()) {
@@ -36,11 +43,23 @@ export const getSchoolJourney = async (req, res) => {
 
         if (center && center.trim() && center !== "All") {
             const centerList = center.split(",").map(c => c.trim()).filter(Boolean);
-            if (centerList.length === 1) {
-                schoolQuery.centerName = { $regex: `^${centerList[0]}$`, $options: "i" };
-            } else if (centerList.length > 1) {
-                const regexArr = centerList.map(c => new RegExp(`^${c}$`, "i"));
-                schoolQuery.centerName = { $in: regexArr };
+            if (centerList.length > 0) {
+                const objectIdList = centerList.filter(c => mongoose.Types.ObjectId.isValid(c)).map(c => new mongoose.Types.ObjectId(c));
+                const nameRegexList = centerList.map(c => new RegExp(`^${c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i"));
+
+                const matchedCentres = await Centre.find({
+                    $or: [
+                        { _id: { $in: objectIdList } },
+                        { centreName: { $in: nameRegexList } }
+                    ]
+                }).select("_id centreName").lean();
+
+                const matchedCentreIds = matchedCentres.map(c => c._id);
+
+                schoolQuery.$or = [
+                    { centerName: { $in: matchedCentreIds } },
+                    { centerName: { $in: nameRegexList } }
+                ];
             }
         }
 
@@ -315,7 +334,39 @@ export const getSchoolJourney = async (req, res) => {
             };
         });
 
-        const availableCenters = await SchoolForTask.distinct("centerName");
+        const [distinctCenterIds, allActiveCentres] = await Promise.all([
+            SchoolForTask.distinct("centerName"),
+            Centre.find({ status: { $ne: "inactive" } }).select("centreName").lean()
+        ]);
+
+        const validCenterObjectIds = distinctCenterIds.filter(id => id && mongoose.Types.ObjectId.isValid(id));
+        const centreDocs = await Centre.find({ _id: { $in: validCenterObjectIds } }).select("centreName").lean();
+
+        const centreNameMap = new Map();
+        centreDocs.forEach(c => {
+            if (c._id && c.centreName) {
+                centreNameMap.set(c._id.toString(), c.centreName);
+            }
+        });
+
+        const availableCenterNames = [];
+        distinctCenterIds.forEach(id => {
+            if (!id) return;
+            const strId = id.toString();
+            if (centreNameMap.has(strId)) {
+                availableCenterNames.push(centreNameMap.get(strId));
+            } else if (typeof id === "string" && !mongoose.Types.ObjectId.isValid(id)) {
+                availableCenterNames.push(id);
+            }
+        });
+
+        if (availableCenterNames.length === 0) {
+            allActiveCentres.forEach(c => {
+                if (c.centreName) availableCenterNames.push(c.centreName);
+            });
+        }
+
+        const sortedAvailableCenters = [...new Set(availableCenterNames)].filter(Boolean).sort((a, b) => a.localeCompare(b));
 
         res.status(200).json({
             success: true,
@@ -323,7 +374,7 @@ export const getSchoolJourney = async (req, res) => {
             totalItems: responseTotalItems,
             totalPages: Math.max(1, Math.ceil(responseTotalItems / parseInt(limit))),
             currentPage: parseInt(page),
-            availableCenters: availableCenters.filter(Boolean),
+            availableCenters: sortedAvailableCenters,
             stats: {
                 totalSchools: totalSchoolsCount,
                 totalVisits: totalVisitsAcrossAll,

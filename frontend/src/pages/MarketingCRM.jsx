@@ -997,6 +997,11 @@ const MarketingCRM = ({ initialTab }) => {
     };
 
     const autoSaveTomorrowPlan = async (tasksToSave) => {
+        const hasMissing = tasksToSave.some(t => !t.activityType?.trim() || !t.activityPurpose?.trim());
+        if (hasMissing) {
+            toast.error("Both Activity Type and Activity Purpose are mandatory for all tasks.");
+            return false;
+        }
         setSavingTomorrowPlan(true);
         try {
             const token = localStorage.getItem("token");
@@ -1035,8 +1040,12 @@ const MarketingCRM = ({ initialTab }) => {
 
     const handleAddTomorrowTask = (e) => {
         e.preventDefault();
-        if (!newTaskForm.activityType) {
-            toast.error("Please select Activity Type.");
+        if (!newTaskForm.activityPurpose || !newTaskForm.activityPurpose.trim()) {
+            toast.error("Activity Purpose is mandatory. Please select Activity Purpose.");
+            return;
+        }
+        if (!newTaskForm.activityType || !newTaskForm.activityType.trim()) {
+            toast.error("Activity Type is mandatory. Please select Activity Type.");
             return;
         }
         if (!newTaskForm.time) {
@@ -1102,6 +1111,14 @@ const MarketingCRM = ({ initialTab }) => {
     };
 
     const handleUpdateTomorrowTask = (taskId) => {
+        if (!editTaskForm.activityPurpose || !editTaskForm.activityPurpose.trim()) {
+            toast.error("Activity Purpose is mandatory. Please select Activity Purpose.");
+            return;
+        }
+        if (!editTaskForm.activityType || !editTaskForm.activityType.trim()) {
+            toast.error("Activity Type is mandatory. Please select Activity Type.");
+            return;
+        }
         if (!editTaskForm.time) { toast.error("Time is required."); return; }
         if (!editTaskForm.estimatedDuration) { toast.error("Duration is required."); return; }
         setTomorrowTasks(prev => prev.map(t =>
@@ -1120,6 +1137,11 @@ const MarketingCRM = ({ initialTab }) => {
     const handleSaveTomorrowPlan = async () => {
         if (tomorrowTasks.length === 0) {
             toast.error("No planned tasks to save. Add tasks first using the form above.");
+            return;
+        }
+        const hasMissingFields = tomorrowTasks.some(t => !t.activityType?.trim() || !t.activityPurpose?.trim());
+        if (hasMissingFields) {
+            toast.error("Both Activity Type and Activity Purpose are mandatory for all planned tasks.");
             return;
         }
         setSavingTomorrowPlan(true);
@@ -1553,6 +1575,12 @@ const MarketingCRM = ({ initialTab }) => {
             return;
         }
 
+        const hasMissingMandatory = todayActivities.some(act => !act.activityPurpose?.trim() || !act.type?.trim());
+        if (hasMissingMandatory) {
+            toast.error("Both Activity Type and Activity Purpose are mandatory for all activity blocks before saving or submitting.");
+            return;
+        }
+
         const hasUnverified = todayActivities.some(act => !act.geoTagged);
         if (hasUnverified) {
             toast.error("All activity blocks must be Geo-Tagged and verified before submission.");
@@ -1968,9 +1996,20 @@ const MarketingCRM = ({ initialTab }) => {
 
     const toggleSaveActivity = (idx) => {
         const newActs = [...todayActivities];
-        newActs[idx].isSaved = !newActs[idx].isSaved;
+        const targetAct = newActs[idx];
+        if (!targetAct.isSaved) {
+            if (!targetAct.activityPurpose || !targetAct.activityPurpose.trim()) {
+                toast.error(`Activity Purpose is mandatory. Please select Activity Purpose for Row ${idx + 1}.`);
+                return;
+            }
+            if (!targetAct.type || !targetAct.type.trim()) {
+                toast.error(`Activity Type is mandatory. Please select Activity Type for Row ${idx + 1}.`);
+                return;
+            }
+        }
+        targetAct.isSaved = !targetAct.isSaved;
         setTodayActivities(newActs);
-        if (newActs[idx].isSaved) {
+        if (targetAct.isSaved) {
             toast.success(`Row ${idx + 1} locked/saved.`);
         } else {
             toast.info(`Row ${idx + 1} unlocked for editing.`);
@@ -2832,8 +2871,8 @@ const MarketingCRM = ({ initialTab }) => {
                                                 <div className={`p-6 rounded-2xl border space-y-4 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-[#f4f6f8] border-gray-100'}`}>
                                                     {/* Grid Column Headers (Desktop only) */}
                                                     <div className="hidden md:grid grid-cols-12 gap-2 px-2 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
-                                                        <div className="col-span-1">Activity Purpose</div>
-                                                        <div className="col-span-2">Activity Type</div>
+                                                        <div className="col-span-1">Activity Purpose *</div>
+                                                        <div className="col-span-2">Activity Type *</div>
 
                                                         <div className="col-span-2">Place / Institution</div>
                                                         <div className="col-span-1">Time</div>
@@ -2850,7 +2889,7 @@ const MarketingCRM = ({ initialTab }) => {
 
                                                         <div key={idx} className="grid grid-cols-1 md:grid-cols-12 gap-4 items-center animate-fadeIn border-b border-gray-800/10 dark:border-gray-800/30 pb-4 md:pb-0 md:border-b-0">
                                                             <div className="col-span-1 md:col-span-1">
-                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Purpose</label>
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Purpose *</label>
                                                                 {activity.isSaved ? (
                                                                     <div className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed`}>
                                                                         {activity.activityPurpose || '—'}
@@ -2875,7 +2914,7 @@ const MarketingCRM = ({ initialTab }) => {
 
                                                             {/* Activity Type select — sourced from Master Data /source */}
                                                             <div className="col-span-1 md:col-span-2">
-                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Type</label>
+                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Activity Type *</label>
                                                                 <select
                                                                     disabled={activity.isSaved}
                                                                     className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold outline-none transition-all ${activity.isSaved ? 'bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed' : isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 shadow-sm'}`}
@@ -3405,7 +3444,7 @@ const MarketingCRM = ({ initialTab }) => {
                                         </div>
 
                                         <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
-                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Activity Purpose</label>
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Activity Purpose *</label>
                                             <select
                                                 value={newTaskForm.activityPurpose}
                                                 onChange={(e) => setNewTaskForm(prev => ({ ...prev, activityPurpose: e.target.value }))}
@@ -3419,7 +3458,7 @@ const MarketingCRM = ({ initialTab }) => {
                                         </div>
 
                                         <div className="col-span-1 md:col-span-2 z-10 flex flex-col gap-1.5">
-                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Activity Type</label>
+                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">Activity Type *</label>
                                             <select
                                                 value={newTaskForm.activityType}
                                                 onChange={(e) => {
@@ -3561,8 +3600,8 @@ const MarketingCRM = ({ initialTab }) => {
                                                 {/* Grid Column Headers (Desktop only) */}
                                                 <div className="hidden md:grid grid-cols-12 gap-4 px-4 text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2 border-b border-gray-800/10 dark:border-gray-800/50 pb-2">
                                                     <div className="col-span-1">Target Date</div>
-                                                    <div className="col-span-1">Purpose</div>
-                                                    <div className="col-span-2">Activity Type</div>
+                                                    <div className="col-span-1">Purpose *</div>
+                                                    <div className="col-span-2">Activity Type *</div>
                                                     <div className="col-span-2">Place / Institution Name</div>
                                                     <div className="col-span-1 text-center">From Time</div>
                                                     <div className="col-span-1 text-center">Duration</div>
@@ -3584,7 +3623,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                             </div>
                                                             {/* Activity Purpose */}
                                                             <div className="col-span-1 md:col-span-1 flex flex-col gap-1">
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Purpose</label>
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Purpose *</label>
                                                                 <select
                                                                     value={editTaskForm.activityPurpose || ""}
                                                                     onChange={(e) => setEditTaskForm(prev => ({ ...prev, activityPurpose: e.target.value }))}
@@ -3598,7 +3637,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                             </div>
                                                             {/* Activity Type */}
                                                             <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Activity Type</label>
+                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">Activity Type *</label>
                                                                 <select
                                                                     value={editTaskForm.activityType}
                                                                     onChange={(e) => {
