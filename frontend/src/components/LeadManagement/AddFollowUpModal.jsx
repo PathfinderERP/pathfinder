@@ -162,7 +162,7 @@ const AddFollowUpModal = ({ lead, onClose, onSuccess, isDarkMode, startCall = fa
     };
 
     return (
-        <div className={`fixed inset-0 flex items-center justify-center z-[70] p-0 sm:p-4 backdrop-blur-md transition-all ${isDarkMode ? 'bg-black/70' : 'bg-white/60'}`}>
+        <div className={`fixed inset-0 flex items-center justify-center z-[150] p-0 sm:p-4 backdrop-blur-md transition-all ${isDarkMode ? 'bg-black/70' : 'bg-white/60'}`}>
             <div className={`w-full h-full sm:h-auto sm:max-h-[90vh] max-w-md rounded-none sm:rounded-[4px] border shadow-2xl overflow-hidden transition-all flex flex-col ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-cyan-500/10' : 'bg-white border-gray-200'}`}>
 
                 {/* Header */}

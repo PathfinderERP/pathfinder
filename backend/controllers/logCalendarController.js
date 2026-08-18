@@ -138,10 +138,37 @@ const UPCOMING_DEFAULT_TARGET_ROLES = [
 ];
 
 // Helper to resolve centre restrictions for logged-in user and target users in target roles
-const getTargetUsersForUpcoming = async (req, centresFilterInput, rolesFilterInput, searchInput) => {
+const getTargetUsersForUpcoming = async (req, centresFilterInput, rolesFilterInput, searchInput, zonesFilterInput) => {
     const isSuperAdmin = Array.isArray(req.user.role)
         ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
         : req.user.role === "superAdmin" || req.user.role === "superadmin";
+
+    // Handle multi-select zones
+    let zoneCentreIds = [];
+    if (zonesFilterInput) {
+        const zoneList = (Array.isArray(zonesFilterInput) ? zonesFilterInput : zonesFilterInput.split(",")).map(z => z.trim()).filter(Boolean);
+        if (zoneList.length > 0 && !zoneList.includes("All")) {
+            const objectIdZones = zoneList.map(id => mongoose.Types.ObjectId.isValid(id) ? new mongoose.Types.ObjectId(id) : null).filter(Boolean);
+            const nameZones = zoneList.filter(z => !mongoose.Types.ObjectId.isValid(z));
+
+            const zoneQuery = [];
+            if (objectIdZones.length > 0) zoneQuery.push({ _id: { $in: objectIdZones } });
+            if (nameZones.length > 0) zoneQuery.push({ name: { $in: nameZones } });
+
+            if (zoneQuery.length > 0) {
+                const matchedZones = await Zone.find({ $or: zoneQuery }).select("centres").lean();
+                matchedZones.forEach(z => {
+                    (z.centres || []).forEach(c => {
+                        if (c) zoneCentreIds.push(c.toString());
+                    });
+                });
+                zoneCentreIds = [...new Set(zoneCentreIds)];
+                if (zoneCentreIds.length === 0) {
+                    return { targetUsers: [], targetUserIds: [], employeeMap: new Map() };
+                }
+            }
+        }
+    }
 
     let centresFilter = [];
     if (centresFilterInput) {
@@ -149,6 +176,17 @@ const getTargetUsersForUpcoming = async (req, centresFilterInput, rolesFilterInp
             centresFilter = centresFilterInput;
         } else if (typeof centresFilterInput === "string") {
             centresFilter = centresFilterInput.split(",").map(c => c.trim()).filter(Boolean);
+        }
+    }
+
+    if (zoneCentreIds.length > 0) {
+        if (centresFilter.length > 0 && !centresFilter.includes("All")) {
+            centresFilter = centresFilter.filter(c => zoneCentreIds.includes(c));
+            if (centresFilter.length === 0) {
+                return { targetUsers: [], targetUserIds: [], employeeMap: new Map() };
+            }
+        } else {
+            centresFilter = zoneCentreIds;
         }
     }
 
@@ -291,13 +329,14 @@ const getTargetUsersForUpcoming = async (req, centresFilterInput, rolesFilterInp
 // Get all upcoming logs for Log Tracking department board
 export const getAllUpcomingLogs = async (req, res) => {
     try {
-        const { startDate, endDate, centres, roles, search, status } = req.query;
+        const { startDate, endDate, centres, roles, search, status, schools, zones } = req.query;
 
         const { targetUsers, targetUserIds, employeeMap } = await getTargetUsersForUpcoming(
             req,
             centres,
             roles,
-            search
+            search,
+            zones
         );
 
         if (targetUserIds.length === 0) {
@@ -334,6 +373,25 @@ export const getAllUpcomingLogs = async (req, res) => {
                 query.status = { $in: ["Upcoming", "In Progress"] };
             } else {
                 query.status = status;
+            }
+        }
+
+        if (schools) {
+            const schoolList = (Array.isArray(schools) ? schools : schools.split(","))
+                .map(s => s.trim())
+                .filter(Boolean);
+            if (schoolList.length > 0 && !schoolList.includes("All")) {
+                const schoolRegexConditions = schoolList.map(schoolName => {
+                    const escaped = schoolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    return [
+                        { place: { $regex: new RegExp(`^${escaped}$`, 'i') } },
+                        { place: { $regex: new RegExp(escaped, 'i') } },
+                        { title: { $regex: new RegExp(escaped, 'i') } }
+                    ];
+                }).flat();
+
+                if (!query.$and) query.$and = [];
+                query.$and.push({ $or: schoolRegexConditions });
             }
         }
 
@@ -602,13 +660,14 @@ export const deleteLog = async (req, res) => {
 // Export upcoming logs to Excel with 2 sheets: User-wise summary and Detailed report
 export const exportUpcomingLogs = async (req, res) => {
     try {
-        const { startDate, endDate, centres, roles, search, status } = req.query;
+        const { startDate, endDate, centres, roles, search, status, schools, zones } = req.query;
 
         const { targetUsers, targetUserIds, employeeMap } = await getTargetUsersForUpcoming(
             req,
             centres,
             roles,
-            search
+            search,
+            zones
         );
 
         let query = {
@@ -632,6 +691,25 @@ export const exportUpcomingLogs = async (req, res) => {
                 query.status = { $in: ["Upcoming", "In Progress"] };
             } else {
                 query.status = status;
+            }
+        }
+
+        if (schools) {
+            const schoolList = (Array.isArray(schools) ? schools : schools.split(","))
+                .map(s => s.trim())
+                .filter(Boolean);
+            if (schoolList.length > 0 && !schoolList.includes("All")) {
+                const schoolRegexConditions = schoolList.map(schoolName => {
+                    const escaped = schoolName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                    return [
+                        { place: { $regex: new RegExp(`^${escaped}$`, 'i') } },
+                        { place: { $regex: new RegExp(escaped, 'i') } },
+                        { title: { $regex: new RegExp(escaped, 'i') } }
+                    ];
+                }).flat();
+
+                if (!query.$and) query.$and = [];
+                query.$and.push({ $or: schoolRegexConditions });
             }
         }
 

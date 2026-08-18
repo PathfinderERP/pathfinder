@@ -6,6 +6,7 @@ import {
 import { CardSkeleton } from "../common/Skeleton";
 import { useTheme } from "../../context/ThemeContext";
 import FollowUpActivityModal from "./FollowUpActivityModal";
+import AddFollowUpModal from "./AddFollowUpModal";
 
 // ── Date helpers ────────────────────────────────────────────────────────────
 const fmt = (d) => d.toISOString().split("T")[0];
@@ -82,6 +83,8 @@ const AllFollowUpsContent = () => {
 
     const [leadTypeFilter, setLeadTypeFilter] = useState([]);
     const [activityModal, setActivityModal] = useState({ isOpen: false, title: "", data: [] });
+    const [selectedLead, setSelectedLead] = useState(null);
+    const [showFollowUpModal, setShowFollowUpModal] = useState(false);
 
     // ── Fetch stats ───────────────────────────────────────────────────────────
     const fetchFollowUpStats = useCallback(async () => {
@@ -430,7 +433,29 @@ const AllFollowUpsContent = () => {
                 title={activityModal.title}
                 data={activityModal.data}
                 isDarkMode={isDarkMode}
+                onAddFollowUp={(leadObj) => {
+                    setSelectedLead(leadObj);
+                    setShowFollowUpModal(true);
+                }}
             />
+
+            {/* Add Follow Up Modal */}
+            {showFollowUpModal && selectedLead && (
+                <AddFollowUpModal
+                    isDarkMode={isDarkMode}
+                    lead={selectedLead}
+                    onClose={() => {
+                        setShowFollowUpModal(false);
+                        setSelectedLead(null);
+                    }}
+                    onSuccess={() => {
+                        setShowFollowUpModal(false);
+                        setSelectedLead(null);
+                        fetchFollowUpStats();
+                        setActivityModal(prev => ({ ...prev, isOpen: false }));
+                    }}
+                />
+            )}
         </div>
     );
 };
