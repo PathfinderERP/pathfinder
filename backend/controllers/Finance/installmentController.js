@@ -1,9 +1,11 @@
+import mongoose from "mongoose";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import Student from "../../models/Students.js";
 import Payment from "../../models/Payment/Payment.js";
 import User from "../../models/User.js";
 import Centre from "../../models/Master_data/Centre.js";
+import Zone from "../../models/Zone.js";
 
 // Search student by name, email, or admission number
 export const searchStudent = async (req, res) => {
@@ -477,19 +479,45 @@ export const getFeeDueList = async (req, res) => {
 // Get all admissions with filters
 export const getAllAdmissions = async (req, res) => {
     try {
-        const { centre, course, department, examTag, startDate, endDate, searchTerm, minRemaining, maxRemaining } = req.query;
+        const { centre, course, department, examTag, startDate, endDate, searchTerm, minRemaining, maxRemaining, zone } = req.query;
 
         const filter = { admissionStatus: "ACTIVE" };
+
+        let zoneCentreNames = null;
+        if (zone) {
+            const requestedZones = Array.isArray(zone) ? zone : [zone];
+            const validZoneIds = requestedZones.filter(z => mongoose.Types.ObjectId.isValid(z));
+            const zoneDocs = await Zone.find({
+                $or: [
+                    { _id: { $in: validZoneIds } },
+                    { name: { $in: requestedZones } }
+                ]
+            }).populate("centres").lean();
+
+            zoneCentreNames = [];
+            zoneDocs.forEach(z => {
+                (z.centres || []).forEach(c => {
+                    const cName = (c && typeof c === 'object' ? (c.centreName || c.name) : c) || '';
+                    if (cName) zoneCentreNames.push(cName.trim());
+                });
+            });
+        }
 
         // Center Visibility Restriction
         if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
             const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
-            const userCentreNames = currentUser 
+            let userCentreNames = currentUser 
                 ? currentUser.centres
                     .filter(c => c.status !== "deactive")
                     .map(c => (c.centreName || "").trim())
                     .filter(Boolean) 
                 : [];
+
+            if (zoneCentreNames !== null) {
+                const normZoneCentres = zoneCentreNames.map(c => c.toLowerCase());
+                userCentreNames = userCentreNames.filter(c => normZoneCentres.includes(c.toLowerCase()));
+            }
+
             // Normalize centre names for case-insensitive comparison
             const normalizedUserCentres = userCentreNames.map(c => c.toLowerCase());
 
@@ -522,10 +550,17 @@ export const getAllAdmissions = async (req, res) => {
             filter.centre = {
                 $in: requestedCentres.map(c => new RegExp(`^\\s*${(c || "").trim()}\\s*$`, 'i'))
             };
+        } else if (zoneCentreNames !== null) {
+            filter.centre = {
+                $in: zoneCentreNames.map(c => new RegExp(`^\\s*${c}\\s*$`, 'i'))
+            };
         } else {
-            // If superAdmin hasn't filtered by a specific centre, default to only showing active centres
+            const excludeCentreRegex = /franchise|phsps|rkm/i;
+            // If superAdmin hasn't filtered by a specific centre, default to only showing active centres (excluding franchise/phsps/rkm)
             const activeCentres = await Centre.find({ status: { $ne: "deactive" } }).lean();
-            const activeCentreNames = activeCentres.map(c => (c.centreName || "").trim()).filter(Boolean);
+            const activeCentreNames = activeCentres
+                .map(c => (c.centreName || "").trim())
+                .filter(name => Boolean(name) && !excludeCentreRegex.test(name));
             filter.centre = {
                 $in: activeCentreNames.map(c => new RegExp(`^\\s*${c}\\s*$`, 'i'))
             };
@@ -565,7 +600,8 @@ export const getAllAdmissions = async (req, res) => {
             .populate("examTag", "name")
             .sort({ createdAt: -1 });
 
-        // Filter out admissions of deactivated students and cancelled admissions
+        const excludeCentreRegex = /franchise|phsps|rkm/i;
+        // Filter out admissions of deactivated students, cancelled admissions, and Franchise/PHSPS/RKM centres
         admissions = admissions.filter(adm => {
             if (!adm.student) return false;
             const studentStatus = (adm.student.status || "").trim().toLowerCase();
@@ -573,6 +609,9 @@ export const getAllAdmissions = async (req, res) => {
 
             const admissionStatus = (adm.status || adm.admissionStatus || "").trim().toUpperCase();
             if (admissionStatus === "CANCELLED" || admissionStatus === "DEACTIVATED") return false;
+
+            const cName = (adm.centre || "").trim();
+            if (excludeCentreRegex.test(cName)) return false;
 
             return true;
         });

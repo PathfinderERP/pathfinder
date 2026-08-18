@@ -249,6 +249,7 @@ const InstallmentPayment = () => {
     const [boardCurrentPage, setBoardCurrentPage] = useState(1);
     const [boardItemsPerPage, setBoardItemsPerPage] = useState(10);
     const [boardFilters, setBoardFilters] = useState({
+        zone: [],
         centre: [],
         course: [],
         department: [],
@@ -273,6 +274,7 @@ const InstallmentPayment = () => {
     // Admissions List & Filters
     const [rawAdmissionsList, setRawAdmissionsList] = useState([]);
     const [filters, setFilters] = useState({
+        zone: [],
         centre: [],
         course: [],
         department: [],
@@ -288,33 +290,97 @@ const InstallmentPayment = () => {
         searchTerm: ""
     });
 
-    const admissionsList = React.useMemo(() => {
-        if (filters.centre && filters.centre.length > 0) {
-            return rawAdmissionsList;
-        }
-        return rawAdmissionsList.filter(adm => {
-            const name = (adm.centre || "").trim().toLowerCase();
-            return !name.includes("phsps") && !name.includes("rkm") && !name.includes("franchise");
-        });
-    }, [rawAdmissionsList, filters.centre]);
-
-    const boardAdmissionsList = React.useMemo(() => {
-        if (boardFilters.centre && boardFilters.centre.length > 0) {
-            return rawBoardAdmissionsList;
-        }
-        return rawBoardAdmissionsList.filter(adm => {
-            const name = (adm.centre || "").trim().toLowerCase();
-            return !name.includes("phsps") && !name.includes("rkm") && !name.includes("franchise");
-        });
-    }, [rawBoardAdmissionsList, boardFilters.centre]);
-
     const [metadata, setMetadata] = useState({
         centres: [],
         courses: [],
         departments: [],
         examTags: [],
-        classes: []
+        classes: [],
+        zones: []
     });
+
+    const isExcludedCentre = (centreName) => {
+        if (!centreName) return false;
+        const name = centreName.toString().trim().toLowerCase();
+        return name.includes("phsps") || name.includes("franchise") || name.includes("rkm");
+    };
+
+    const getZoneCentreNames = (selectedZoneIds) => {
+        if (!selectedZoneIds || selectedZoneIds.length === 0) return null;
+        const activeZones = (metadata.zones || []).filter(z => 
+            selectedZoneIds.includes(z._id) || selectedZoneIds.includes(z.name)
+        );
+        const zoneCentreNames = new Set();
+        const zoneCentreIds = new Set();
+        activeZones.forEach(z => {
+            if (z.centres && Array.isArray(z.centres)) {
+                z.centres.forEach(c => {
+                    const name = c && typeof c === 'object' ? (c.centreName || c.name) : null;
+                    const id = c && typeof c === 'object' ? (c._id || c.id) : c;
+                    if (name && !isExcludedCentre(name)) zoneCentreNames.add(name.toLowerCase().trim());
+                    if (id) zoneCentreIds.add(id.toString().toLowerCase().trim());
+                });
+            }
+        });
+        (metadata.centres || []).forEach(mc => {
+            if (mc._id && zoneCentreIds.has(mc._id.toString().toLowerCase().trim())) {
+                if (mc.centreName && !isExcludedCentre(mc.centreName)) zoneCentreNames.add(mc.centreName.toLowerCase().trim());
+            }
+        });
+        return zoneCentreNames;
+    };
+
+    const admissionsList = React.useMemo(() => {
+        let list = rawAdmissionsList.filter(adm => !isExcludedCentre(adm.centre));
+        const zoneCentreNames = getZoneCentreNames(filters.zone);
+        if (zoneCentreNames) {
+            list = list.filter(adm => {
+                const cName = (adm.centre || "").trim().toLowerCase();
+                return zoneCentreNames.has(cName);
+            });
+        }
+        if (filters.centre && filters.centre.length > 0) {
+            list = list.filter(adm => filters.centre.includes(adm.centre));
+        }
+        return list;
+    }, [rawAdmissionsList, filters.centre, filters.zone, metadata.zones, metadata.centres]);
+
+    const boardAdmissionsList = React.useMemo(() => {
+        let list = rawBoardAdmissionsList.filter(adm => !isExcludedCentre(adm.centre));
+        const zoneCentreNames = getZoneCentreNames(boardFilters.zone);
+        if (zoneCentreNames) {
+            list = list.filter(adm => {
+                const cName = (adm.centre || "").trim().toLowerCase();
+                return zoneCentreNames.has(cName);
+            });
+        }
+        if (boardFilters.centre && boardFilters.centre.length > 0) {
+            list = list.filter(adm => boardFilters.centre.includes(adm.centre));
+        }
+        return list;
+    }, [rawBoardAdmissionsList, boardFilters.centre, boardFilters.zone, metadata.zones, metadata.centres]);
+
+    const filteredCentresForRegular = React.useMemo(() => {
+        const baseCentres = (metadata.centres || []).filter(c => !isExcludedCentre(c.centreName));
+        const zoneCentreNames = getZoneCentreNames(filters.zone);
+        if (!zoneCentreNames) return baseCentres;
+        return baseCentres.filter(c => {
+            const name = (c.centreName || "").trim().toLowerCase();
+            return zoneCentreNames.has(name);
+        });
+    }, [metadata.centres, metadata.zones, filters.zone]);
+
+    const filteredCentresForBoard = React.useMemo(() => {
+        const allBoardCentres = [...new Set(rawBoardAdmissionsList.map(a => a.centre).filter(Boolean))]
+            .filter(c => !isExcludedCentre(c))
+            .sort();
+        const zoneCentreNames = getZoneCentreNames(boardFilters.zone);
+        if (!zoneCentreNames) return allBoardCentres;
+        return allBoardCentres.filter(c => {
+            const name = (c || "").trim().toLowerCase();
+            return zoneCentreNames.has(name);
+        });
+    }, [rawBoardAdmissionsList, metadata.zones, metadata.centres, boardFilters.zone]);
 
     // Pagination State
     const [currentPage, setCurrentPage] = useState(1);
@@ -391,12 +457,13 @@ const InstallmentPayment = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [centresRes, coursesRes, deptsRes, examTagsRes, classesRes] = await Promise.all([
+            const [centresRes, coursesRes, deptsRes, examTagsRes, classesRes, zonesRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/department`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/class`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
             ]);
 
             const centres = await centresRes.json();
@@ -404,6 +471,11 @@ const InstallmentPayment = () => {
             const depts = await deptsRes.json();
             const examTags = examTagsRes.ok ? await examTagsRes.json() : [];
             const classes = classesRes.ok ? await classesRes.json() : [];
+            let zonesData = [];
+            if (zonesRes.ok) {
+                const zJson = await zonesRes.json();
+                zonesData = zJson.data || zJson || [];
+            }
             const filteredDepts = Array.isArray(depts) ? depts.filter(dept => dept.showInAdmission !== false) : [];
 
             // Filter centres based on permissions with case-insensitive comparison
@@ -420,15 +492,16 @@ const InstallmentPayment = () => {
                 });
             }
 
-            // Exclude deactive centres
-            filteredCentres = filteredCentres.filter(c => c.status !== 'deactive');
+            // Exclude deactive and franchise/phsps/rkm centres
+            filteredCentres = filteredCentres.filter(c => c.status !== 'deactive' && !isExcludedCentre(c.centreName));
 
             setMetadata({
                 centres: filteredCentres,
                 courses: (Array.isArray(courses) ? courses : []).filter(c => c.department?.showInAdmission !== false),
                 departments: filteredDepts,
                 examTags: Array.isArray(examTags) ? examTags : [],
-                classes: Array.isArray(classes) ? classes : []
+                classes: Array.isArray(classes) ? classes : [],
+                zones: Array.isArray(zonesData) ? zonesData : []
             });
         } catch (error) {
             console.error("Error fetching metadata:", error);
@@ -546,6 +619,7 @@ const InstallmentPayment = () => {
 
     const resetFilters = () => {
         const cleanFilters = {
+            zone: [],
             centre: [],
             course: [],
             department: [],
@@ -880,7 +954,14 @@ const InstallmentPayment = () => {
     }, [boardAdmissionsList, isBoardDetailedView, boardFilters]);
 
     const displayedBoardListAllDetails = React.useMemo(() => {
-        let filtered = boardAdmissionsList;
+        let filtered = rawBoardAdmissionsList.filter(adm => !isExcludedCentre(adm.centre));
+        const zoneCentreNames = getZoneCentreNames(filters.zone);
+        if (zoneCentreNames) {
+            filtered = filtered.filter(adm => {
+                const cName = (adm.centre || "").trim().toLowerCase();
+                return zoneCentreNames.has(cName);
+            });
+        }
 
         if (filters.centre && filters.centre.length > 0) {
             filtered = filtered.filter(adm => filters.centre.includes(adm.centre));
@@ -1381,6 +1462,7 @@ const InstallmentPayment = () => {
 
     const resetBoardFilters = () => {
         setBoardFilters({
+            zone: [],
             centre: [],
             course: [],
             department: [],
@@ -2021,12 +2103,26 @@ const InstallmentPayment = () => {
                                             />
                                         </div>
 
+                                        {/* Zone Filter */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Zone</label>
+                                            <Select
+                                                isMulti
+                                                options={(metadata.zones || []).map(z => ({ value: z._id, label: z.name }))}
+                                                value={(metadata.zones || []).filter(z => (boardFilters.zone || []).includes(z._id)).map(z => ({ value: z._id, label: z.name }))}
+                                                onChange={(selected) => setBoardFilters(prev => ({ ...prev, zone: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL ZONES"
+                                                isClearable
+                                            />
+                                        </div>
+
                                         {/* Centre Filter */}
                                         <div>
                                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
                                             <Select
                                                 isMulti
-                                                options={[...new Set(boardAdmissionsList.map(a => a.centre).filter(Boolean))].sort().map(c => ({ value: c, label: c }))}
+                                                options={filteredCentresForBoard.map(c => ({ value: c, label: c }))}
                                                 value={boardFilters.centre.map(val => ({ value: val, label: val }))}
                                                 onChange={(selected) => setBoardFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
                                                 styles={selectStyles}
@@ -2277,12 +2373,26 @@ const InstallmentPayment = () => {
                                     />
                                 </div>
 
+                                {/* Zone Filter */}
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Zone</label>
+                                    <Select
+                                        isMulti
+                                        options={(metadata.zones || []).map(z => ({ value: z._id, label: z.name }))}
+                                        value={(metadata.zones || []).filter(z => (boardFilters.zone || []).includes(z._id)).map(z => ({ value: z._id, label: z.name }))}
+                                        onChange={(selected) => setBoardFilters(prev => ({ ...prev, zone: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL ZONES"
+                                        isClearable
+                                    />
+                                </div>
+
                                 {/* Centre Filter - Multi-select */}
                                 <div>
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
                                     <Select
                                         isMulti
-                                        options={[...new Set(boardAdmissionsList.map(a => a.centre).filter(Boolean))].sort().map(c => ({ value: c, label: c }))}
+                                        options={filteredCentresForBoard.map(c => ({ value: c, label: c }))}
                                         value={boardFilters.centre.map(val => ({ value: val, label: val }))}
                                         onChange={(selected) => setBoardFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
                                         styles={selectStyles}
@@ -2762,12 +2872,26 @@ const InstallmentPayment = () => {
                                             />
                                         </div>
 
+                                        {/* Zone Filter - Multi-select */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Zone</label>
+                                            <Select
+                                                isMulti
+                                                options={(metadata.zones || []).map(z => ({ value: z._id, label: z.name }))}
+                                                value={(metadata.zones || []).filter(z => (filters.zone || []).includes(z._id)).map(z => ({ value: z._id, label: z.name }))}
+                                                onChange={(selected) => setFilters(prev => ({ ...prev, zone: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL ZONES"
+                                                isClearable
+                                            />
+                                        </div>
+
                                         {/* Centre Filter - Multi-select */}
                                         <div>
                                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
                                             <Select
                                                 isMulti
-                                                options={metadata.centres.map(c => ({ value: c.centreName, label: c.centreName }))}
+                                                options={filteredCentresForRegular.map(c => ({ value: c.centreName, label: c.centreName }))}
                                                 value={filters.centre.map(name => ({ value: name, label: name }))}
                                                 onChange={(selected) => setFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
                                                 styles={selectStyles}
@@ -3014,12 +3138,26 @@ const InstallmentPayment = () => {
                                             />
                                         </div>
 
+                                        {/* Zone Filter - Multi-select */}
+                                        <div>
+                                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Zone</label>
+                                            <Select
+                                                isMulti
+                                                options={(metadata.zones || []).map(z => ({ value: z._id, label: z.name }))}
+                                                value={(metadata.zones || []).filter(z => (filters.zone || []).includes(z._id)).map(z => ({ value: z._id, label: z.name }))}
+                                                onChange={(selected) => setFilters(prev => ({ ...prev, zone: selected ? selected.map(s => s.value) : [] }))}
+                                                styles={selectStyles}
+                                                placeholder="ALL ZONES"
+                                                isClearable
+                                            />
+                                        </div>
+
                                         {/* Centre Filter - Multi-select */}
                                         <div>
                                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
                                             <Select
                                                 isMulti
-                                                options={metadata.centres.map(c => ({ value: c.centreName, label: c.centreName }))}
+                                                options={filteredCentresForRegular.map(c => ({ value: c.centreName, label: c.centreName }))}
                                                 value={filters.centre.map(name => ({ value: name, label: name }))}
                                                 onChange={(selected) => setFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
                                                 styles={selectStyles}
@@ -3400,12 +3538,26 @@ const InstallmentPayment = () => {
                                     />
                                 </div>
 
+                                {/* Zone Filter - Multi-select */}
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Zone</label>
+                                    <Select
+                                        isMulti
+                                        options={(metadata.zones || []).map(z => ({ value: z._id, label: z.name }))}
+                                        value={(metadata.zones || []).filter(z => (filters.zone || []).includes(z._id)).map(z => ({ value: z._id, label: z.name }))}
+                                        onChange={(selected) => setFilters(prev => ({ ...prev, zone: selected ? selected.map(s => s.value) : [] }))}
+                                        styles={selectStyles}
+                                        placeholder="ALL ZONES"
+                                        isClearable
+                                    />
+                                </div>
+
                                 {/* Centre Filter - Multi-select */}
                                 <div>
                                     <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
                                     <Select
                                         isMulti
-                                        options={metadata.centres.map(c => ({ value: c.centreName, label: c.centreName }))}
+                                        options={filteredCentresForRegular.map(c => ({ value: c.centreName, label: c.centreName }))}
                                         value={filters.centre.map(name => ({ value: name, label: name }))}
                                         onChange={(selected) => setFilters(prev => ({ ...prev, centre: selected ? selected.map(s => s.value) : [] }))}
                                         styles={selectStyles}

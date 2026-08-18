@@ -551,7 +551,7 @@ const ManageBoardAdmission = () => {
                                         : "Click a month to update its subjects"}
                                 </p>
 
-                                <div className="space-y-3 mb-6">
+                                <div className="space-y-3 mb-6 max-h-[360px] overflow-y-auto custom-scrollbar pr-2">
                                     {masterSubjects.map((s) => (
                                         <div
                                             key={s.subjectId?._id}
