@@ -47,7 +47,7 @@ const studentServiceCallSchema = new mongoose.Schema({
     },
     servicePurpose: {
         type: String,
-        enum: ["EMI Purpose", "Cross Selling", "Any Other Dispute", "Attendance & Academic Issue", "General Service Calling", "Other"],
+        enum: ["EMI Purpose", "Cross Selling", "Carry Forward", "Any Other Dispute", "Attendance & Academic Issue", "General Service Calling", "Other"],
         required: true
     },
     status: {

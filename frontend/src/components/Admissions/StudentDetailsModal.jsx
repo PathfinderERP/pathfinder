@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaBook, FaMapMarkerAlt, FaEdit, FaUserGraduate, FaPhoneAlt, FaHistory, FaSync } from 'react-icons/fa';
+import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaBook, FaMapMarkerAlt, FaEdit, FaUserGraduate, FaPhoneAlt, FaHistory, FaSync, FaRoute } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import LeadJourneyModal from '../LeadManagement/LeadJourneyModal';
 
 const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) => {
+    const [showJourneyModal, setShowJourneyModal] = useState(false);
     const [isServiceCallOpen, setIsServiceCallOpen] = useState(false);
     const [serviceCallForm, setServiceCallForm] = useState({
         servicePurpose: 'EMI Purpose',
@@ -327,6 +329,12 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                 {/* Footer */}
                 <div className={`p-6 border-t flex justify-end gap-3 sticky bottom-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                     <button
+                        onClick={() => setShowJourneyModal(true)}
+                        className="px-6 py-3 bg-cyan-600 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] hover:bg-cyan-500 transition-all shadow-lg shadow-cyan-600/20 active:scale-95 flex items-center gap-2"
+                    >
+                        <FaRoute size={12} /> JOURNEY
+                    </button>
+                    <button
                         onClick={handleOpenServiceCallModal}
                         className="px-6 py-3 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 flex items-center gap-2"
                     >
@@ -420,6 +428,7 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                                     >
                                         <option value="EMI Purpose">EMI Purpose</option>
                                         <option value="Cross Selling">Cross Selling</option>
+                                        <option value="Carry Forward">Carry Forward</option>
                                         <option value="Any Other Dispute">Any Other Dispute</option>
                                         <option value="Attendance & Academic Issue">Attendance &amp; Academic Issue</option>
                                         <option value="General Service Calling">General Service Calling</option>
@@ -509,6 +518,15 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Journey Modal */}
+            {showJourneyModal && (
+                <LeadJourneyModal
+                    leadId={student?._id || student?.studentsDetails?.[0]?.mobileNum}
+                    onClose={() => setShowJourneyModal(false)}
+                    isDarkMode={isDarkMode}
+                />
             )}
 
             <style jsx>{`

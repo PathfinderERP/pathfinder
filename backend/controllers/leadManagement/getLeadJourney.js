@@ -4,6 +4,8 @@ import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import BoardCourseCounselling from "../../models/Admission/BoardCourseCounselling.js";
+import StudentServiceCall from "../../models/StudentServiceCall.js";
+import PNTSEStudent from "../../models/PNTSEStudent.js";
 import User from "../../models/User.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Boards from "../../models/Master_data/Boards.js";
@@ -14,12 +16,19 @@ import mongoose from "mongoose";
 export const getLeadJourney = async (req, res) => {
     try {
         const { id } = req.params;
+        if (!id) {
+            return res.status(400).json({ message: "Identifier is required" });
+        }
 
-        let query = {};
-        if (mongoose.Types.ObjectId.isValid(id)) {
-            query = { _id: id };
+        const isValidObjectId = mongoose.Types.ObjectId.isValid(id);
+        let phoneSearchList = [];
+
+        // 1. Try finding Lead first
+        let leadQuery = {};
+        if (isValidObjectId) {
+            leadQuery = { _id: id };
         } else {
-            query = {
+            leadQuery = {
                 $or: [
                     { phoneNumber: id },
                     { secondPhoneNumber: id }
@@ -27,7 +36,7 @@ export const getLeadJourney = async (req, res) => {
             };
         }
 
-        let lead = await LeadManagement.findOne(query)
+        let lead = await LeadManagement.findOne(leadQuery)
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
@@ -37,7 +46,7 @@ export const getLeadJourney = async (req, res) => {
             .lean();
 
         if (!lead) {
-            lead = await CampaignLead.findOne(query)
+            lead = await CampaignLead.findOne(leadQuery)
                 .populate('className', 'name')
                 .populate('centre', 'centreName')
                 .populate('course', 'courseName')
@@ -47,34 +56,152 @@ export const getLeadJourney = async (req, res) => {
                 .lean();
         }
 
-        if (!lead) {
-            return res.status(404).json({ message: "Lead not found" });
+        if (lead) {
+            if (lead.phoneNumber) phoneSearchList.push(lead.phoneNumber);
+            if (lead.secondPhoneNumber) phoneSearchList.push(lead.secondPhoneNumber);
+        } else if (!isValidObjectId) {
+            phoneSearchList.push(id);
+        }
+
+        // 2. Search for Student (either by ID, studentDetails mobile, or collected phones)
+        let student = null;
+        if (isValidObjectId) {
+            student = await Student.findById(id)
+                .populate('course', 'courseName')
+                .populate('department', 'departmentName')
+                .populate('batches', 'batchName')
+                .lean();
+        }
+
+        if (!student && phoneSearchList.length > 0) {
+            student = await Student.findOne({
+                $or: [
+                    { "studentsDetails.mobileNum": { $in: phoneSearchList } },
+                    { "studentsDetails.whatsappNumber": { $in: phoneSearchList } }
+                ]
+            })
+            .populate('course', 'courseName')
+            .populate('department', 'departmentName')
+            .populate('batches', 'batchName')
+            .lean();
+        }
+
+        // 3. Search for Admission directly if not found
+        let directAdmission = null;
+        if (!student && isValidObjectId) {
+            directAdmission = await Admission.findById(id).populate('course', 'courseName').populate('student').lean();
+            if (directAdmission?.student) {
+                student = typeof directAdmission.student === 'object' ? directAdmission.student : await Student.findById(directAdmission.student).populate('course', 'courseName').lean();
+            }
+        }
+
+        // 4. Search for BoardCourseAdmission directly if not found
+        let directBoardAdmission = null;
+        if (!student && isValidObjectId) {
+            directBoardAdmission = await BoardCourseAdmission.findById(id).populate('boardId', 'boardCourse').populate('studentId').lean();
+            if (directBoardAdmission?.studentId) {
+                student = typeof directBoardAdmission.studentId === 'object' ? directBoardAdmission.studentId : await Student.findById(directBoardAdmission.studentId).populate('course', 'courseName').lean();
+            }
+        }
+
+        // 5. Search for PNTSEStudent directly if not found
+        let pntseStudent = null;
+        if (isValidObjectId) {
+            pntseStudent = await PNTSEStudent.findById(id).populate('class', 'name').populate('centre', 'centreName').lean();
+        }
+
+        // Gather all mobile numbers associated with the student / pntse
+        if (student?.studentsDetails?.length > 0) {
+            student.studentsDetails.forEach(sd => {
+                if (sd.mobileNum && !phoneSearchList.includes(sd.mobileNum)) phoneSearchList.push(sd.mobileNum);
+                if (sd.whatsappNumber && !phoneSearchList.includes(sd.whatsappNumber)) phoneSearchList.push(sd.whatsappNumber);
+            });
+        }
+        if (pntseStudent?.mobile && !phoneSearchList.includes(pntseStudent.mobile)) {
+            phoneSearchList.push(pntseStudent.mobile);
+        }
+        if (pntseStudent?.secondaryMobile && !phoneSearchList.includes(pntseStudent.secondaryMobile)) {
+            phoneSearchList.push(pntseStudent.secondaryMobile);
+        }
+
+        // If lead was not found previously, try searching lead by collected phones
+        if (!lead && phoneSearchList.length > 0) {
+            lead = await LeadManagement.findOne({
+                $or: [
+                    { phoneNumber: { $in: phoneSearchList } },
+                    { secondPhoneNumber: { $in: phoneSearchList } }
+                ]
+            })
+            .populate('className', 'name')
+            .populate('centre', 'centreName')
+            .populate('course', 'courseName')
+            .populate('board', 'boardCourse')
+            .populate('campaign', 'adName')
+            .populate('createdBy', 'name email')
+            .lean();
+
+            if (!lead) {
+                lead = await CampaignLead.findOne({
+                    $or: [
+                        { phoneNumber: { $in: phoneSearchList } },
+                        { secondPhoneNumber: { $in: phoneSearchList } }
+                    ]
+                })
+                .populate('className', 'name')
+                .populate('centre', 'centreName')
+                .populate('course', 'courseName')
+                .populate('board', 'boardCourse')
+                .populate('campaign', 'adName')
+                .populate('createdBy', 'name email')
+                .lean();
+            }
+        }
+
+        // If PNTSE was not checked, search PNTSE by phone numbers
+        if (!pntseStudent && phoneSearchList.length > 0) {
+            pntseStudent = await PNTSEStudent.findOne({
+                $or: [
+                    { mobile: { $in: phoneSearchList } },
+                    { secondaryMobile: { $in: phoneSearchList } }
+                ]
+            }).populate('class', 'name').populate('centre', 'centreName').lean();
+        }
+
+        // If we still found no Lead, no Student, and no PNTSE record, return 404
+        if (!lead && !student && !pntseStudent && !directAdmission && !directBoardAdmission) {
+            return res.status(404).json({ message: "No journey record found for the provided identifier" });
         }
 
         const events = [];
 
-        // 1. Lead Creation / Upload Event
-        const isBulk = lead.source === 'Bulk Import' || /import|bulk|excel/i.test(lead.source || '');
-        events.push({
-            date: lead.createdAt,
-            type: 'CREATION',
-            label: isBulk ? 'Lead Uploaded from Excel' : 'Lead Added to System',
-            title: isBulk ? 'Excel Upload' : 'Manual Entry',
-            icon: 'plus',
-            details: {
-                createdBy: lead.createdBy?.name || 'System / Excel',
-                source: lead.source || 'Direct',
-                schoolName: lead.schoolName || 'N/A',
-                courseName: lead.course?.courseName || lead.courseText || 'N/A',
-                className: lead.className?.name || 'N/A',
-                boardName: lead.board?.boardCourse || 'N/A',
-                targetExam: lead.targetExam || 'N/A',
-                assignedTo: lead.leadResponsibility || 'Unassigned'
-            }
-        });
+        // ----------------------------------------------------
+        // 1. LEAD CREATION / UPLOAD EVENT
+        // ----------------------------------------------------
+        if (lead) {
+            const isBulk = lead.source === 'Bulk Import' || /import|bulk|excel/i.test(lead.source || '');
+            events.push({
+                date: lead.createdAt,
+                type: 'CREATION',
+                label: isBulk ? 'Lead Uploaded from Excel' : 'Lead Added to System',
+                title: isBulk ? 'Excel Upload' : 'Manual Entry',
+                icon: 'plus',
+                details: {
+                    createdBy: lead.createdBy?.name || 'System / Excel',
+                    source: lead.source || 'Direct',
+                    schoolName: lead.schoolName || 'N/A',
+                    courseName: lead.course?.courseName || lead.courseText || 'N/A',
+                    className: lead.className?.name || 'N/A',
+                    boardName: lead.board?.boardCourse || 'N/A',
+                    targetExam: lead.targetExam || 'N/A',
+                    assignedTo: lead.leadResponsibility || 'Unassigned'
+                }
+            });
+        }
 
-        // 2. Follow-up / Telecalling Events
-        if (Array.isArray(lead.followUps) && lead.followUps.length > 0) {
+        // ----------------------------------------------------
+        // 2. LEAD FOLLOW-UPS (TELECALLING)
+        // ----------------------------------------------------
+        if (lead && Array.isArray(lead.followUps) && lead.followUps.length > 0) {
             lead.followUps.forEach((followUp, idx) => {
                 events.push({
                     date: followUp.date,
@@ -94,50 +221,59 @@ export const getLeadJourney = async (req, res) => {
             });
         }
 
-        // 3. Search for Student and Counselling/Admission events
-        let student = null;
-        if (lead.phoneNumber) {
-            const phoneSearch = [lead.phoneNumber];
-            if (lead.secondPhoneNumber) {
-                phoneSearch.push(lead.secondPhoneNumber);
-            }
-            student = await Student.findOne({
-                "studentsDetails.mobileNum": { $in: phoneSearch }
-            }).populate('course', 'courseName').lean();
+        // ----------------------------------------------------
+        // 3. PNTSE REGISTRATION & EXAM EVENT
+        // ----------------------------------------------------
+        if (pntseStudent) {
+            events.push({
+                date: pntseStudent.createdAt,
+                type: 'PNTSE',
+                label: 'PNTSE Registration & Exam',
+                title: pntseStudent.examTag ? `Exam: ${pntseStudent.examTag}` : 'PNTSE Candidate',
+                icon: 'file-alt',
+                details: {
+                    rollNo: pntseStudent.rollNo || pntseStudent.registrationNo || 'N/A',
+                    className: pntseStudent.class?.name || 'N/A',
+                    centreName: pntseStudent.centre?.centreName || 'N/A',
+                    schoolName: pntseStudent.schoolName || pntseStudent.school || 'N/A',
+                    marks: pntseStudent.marks !== undefined ? pntseStudent.marks : 'N/A',
+                    percentage: pntseStudent.percentage ? `${pntseStudent.percentage}%` : 'N/A',
+                    scholarship: pntseStudent.scholarshipPercent ? `${pntseStudent.scholarshipPercent}% Scholarship` : (pntseStudent.isFree ? '100% Free / Waiver' : 'N/A'),
+                    paymentStatus: pntseStudent.paymentStatus || (pntseStudent.isFree ? 'FREE' : 'PAID')
+                }
+            });
         }
 
+        // ----------------------------------------------------
+        // 4. COUNSELLING EVENTS (NORMAL & BOARD COURSE)
+        // ----------------------------------------------------
         let hasCounselling = false;
-        let hasAdmission = false;
-
         const counsellingEvents = [];
-        const admissionEvents = [];
 
-        // 3a. Normal Counselling Event (derived from Student creation)
+        // 4a. Student Profile Creation / Counselling
         if (student) {
             hasCounselling = true;
             counsellingEvents.push({
                 date: student.createdAt,
                 type: 'COUNSELLING',
                 label: 'Normal Counselling Registered',
-                title: 'Student Profile Created',
+                title: student.course?.courseName ? `Counselled for ${student.course?.courseName}` : 'Student Profile Created',
                 icon: 'user-check',
                 details: {
-                    counselledBy: student.counselledBy || 'N/A',
+                    counselledBy: student.counselledBy || student.leadBy || 'N/A',
                     courseName: student.course?.courseName || 'N/A',
+                    programme: student.studentsDetails?.[0]?.programme || 'N/A',
+                    centre: student.studentsDetails?.[0]?.centre || 'N/A',
                     status: 'Registered',
                     remarks: 'Student profile created in the system.'
                 }
             });
         }
 
-        // 3b. Board Course Counselling Events
-        if (lead.phoneNumber) {
-            const phoneSearch = [lead.phoneNumber];
-            if (lead.secondPhoneNumber) {
-                phoneSearch.push(lead.secondPhoneNumber);
-            }
+        // 4b. Board Course Counselling Events
+        if (phoneSearchList.length > 0) {
             const boardCounsellings = await BoardCourseCounselling.find({
-                mobileNum: { $in: phoneSearch }
+                mobileNum: { $in: phoneSearchList }
             })
             .populate('boardId', 'boardCourse')
             .populate('counselledBy', 'name email')
@@ -165,8 +301,8 @@ export const getLeadJourney = async (req, res) => {
             }
         }
 
-        // If the lead was marked isCounseled but we didn't find any student/board counselling, add a fallback event
-        if (lead.isCounseled && counsellingEvents.length === 0) {
+        // 4c. Lead marked isCounseled fallback
+        if (lead?.isCounseled && counsellingEvents.length === 0) {
             hasCounselling = true;
             counsellingEvents.push({
                 date: lead.updatedAt,
@@ -182,10 +318,16 @@ export const getLeadJourney = async (req, res) => {
             });
         }
 
-        // Add counselling events to timeline
         events.push(...counsellingEvents);
 
-        // 4. Admission Events
+        // ----------------------------------------------------
+        // 5. ADMISSION EVENTS (NORMAL & BOARD COURSE)
+        // ----------------------------------------------------
+        let hasAdmission = false;
+        let admissionTypeDetected = 'Normal Admission';
+        const admissionEvents = [];
+        const admissionIds = [];
+
         if (student) {
             // Find normal admissions
             const normalAdmissions = await Admission.find({ student: student._id })
@@ -196,21 +338,38 @@ export const getLeadJourney = async (req, res) => {
             if (normalAdmissions.length > 0) {
                 hasAdmission = true;
                 normalAdmissions.forEach(adm => {
+                    admissionIds.push(adm._id);
+                    const isCarryForward = (adm.previousBalance && adm.previousBalance > 0) ||
+                                           /carry\s*forward/i.test(adm.remarks || '') ||
+                                           student.markedForCarryForward ||
+                                           (student.carryForwardBalance && student.carryForwardBalance > 0);
+                    const isPntse = pntseStudent !== null ||
+                                    /pntse/i.test(adm.remarks || '') ||
+                                    /pntse/i.test(adm.course?.courseName || '');
+
+                    let admissionOrigin = "Normal Admission";
+                    if (isCarryForward) admissionOrigin = "Carry Forward Admission";
+                    else if (isPntse) admissionOrigin = "PNTSE Admission";
+                    admissionTypeDetected = admissionOrigin;
+
                     admissionEvents.push({
                         date: adm.admissionDate || adm.createdAt,
                         type: 'ADMISSION',
-                        label: 'Normal Course Admission Confirmed',
+                        label: `Admission Confirmed (${admissionOrigin})`,
                         title: `Enrolled in ${adm.course?.courseName || 'Course'}`,
                         icon: 'award',
                         details: {
                             admissionNumber: adm.admissionNumber,
                             courseName: adm.course?.courseName || 'N/A',
+                            admissionOrigin,
                             centre: adm.centre,
                             admittedBy: adm.createdBy?.name || 'N/A',
                             session: adm.academicSession,
                             admissionStatus: adm.admissionStatus,
                             totalFees: adm.totalFees,
-                            downPayment: adm.downPayment
+                            downPayment: adm.downPayment,
+                            previousBalance: adm.previousBalance || 0,
+                            remarks: adm.remarks || ''
                         }
                     });
                 });
@@ -224,7 +383,9 @@ export const getLeadJourney = async (req, res) => {
 
             if (boardAdmissions.length > 0) {
                 hasAdmission = true;
+                if (admissionEvents.length === 0) admissionTypeDetected = "Board Course Admission";
                 boardAdmissions.forEach(badm => {
+                    admissionIds.push(badm._id);
                     admissionEvents.push({
                         date: badm.admissionDate || badm.createdAt,
                         type: 'ADMISSION',
@@ -234,66 +395,184 @@ export const getLeadJourney = async (req, res) => {
                         details: {
                             admissionNumber: badm.admissionNumber,
                             courseName: badm.boardCourseName || badm.boardId?.boardCourse || 'N/A',
+                            admissionOrigin: 'Board Course Admission',
                             centre: badm.centre,
                             admittedBy: badm.createdBy?.name || 'N/A',
                             session: badm.academicSession,
                             status: badm.status,
                             admissionFee: badm.admissionFee,
-                            totalDurationMonths: badm.totalDurationMonths
+                            totalDurationMonths: badm.totalDurationMonths,
+                            remarks: badm.remarks || ''
                         }
                     });
                 });
             }
+        } else if (directAdmission) {
+            hasAdmission = true;
+            admissionIds.push(directAdmission._id);
+            admissionEvents.push({
+                date: directAdmission.admissionDate || directAdmission.createdAt,
+                type: 'ADMISSION',
+                label: 'Admission Confirmed',
+                title: `Enrolled in ${directAdmission.course?.courseName || 'Course'}`,
+                icon: 'award',
+                details: {
+                    admissionNumber: directAdmission.admissionNumber,
+                    courseName: directAdmission.course?.courseName || 'N/A',
+                    admissionOrigin: 'Normal Admission',
+                    centre: directAdmission.centre,
+                    session: directAdmission.academicSession,
+                    admissionStatus: directAdmission.admissionStatus,
+                    totalFees: directAdmission.totalFees,
+                    downPayment: directAdmission.downPayment
+                }
+            });
+        } else if (directBoardAdmission) {
+            hasAdmission = true;
+            admissionIds.push(directBoardAdmission._id);
+            admissionEvents.push({
+                date: directBoardAdmission.admissionDate || directBoardAdmission.createdAt,
+                type: 'ADMISSION',
+                label: 'Board Course Admission Confirmed',
+                title: `Enrolled in Board Course - ${directBoardAdmission.boardCourseName || 'Course'}`,
+                icon: 'award',
+                details: {
+                    admissionNumber: directBoardAdmission.admissionNumber,
+                    courseName: directBoardAdmission.boardCourseName || 'N/A',
+                    admissionOrigin: 'Board Course Admission',
+                    centre: directBoardAdmission.centre,
+                    session: directBoardAdmission.academicSession,
+                    status: directBoardAdmission.status
+                }
+            });
         }
 
-        // Add admission events to timeline
         events.push(...admissionEvents);
+
+        // ----------------------------------------------------
+        // 6. CARRY FORWARD EVENT (IF APPLICABLE)
+        // ----------------------------------------------------
+        const hasCarryForwardBalance = student && (student.carryForwardBalance > 0 || student.markedForCarryForward);
+        if (hasCarryForwardBalance) {
+            events.push({
+                date: student.updatedAt || student.createdAt,
+                type: 'CARRY_FORWARD',
+                label: 'Carry Forward Balance Recorded',
+                title: `Carry Forward Balance: ₹${(student.carryForwardBalance || 0).toLocaleString()}`,
+                icon: 'sync-alt',
+                details: {
+                    balance: student.carryForwardBalance || 0,
+                    markedForCarryForward: student.markedForCarryForward ? 'Yes' : 'No',
+                    status: 'Active',
+                    remarks: 'Student record carries forward balance from previous courses/sessions.'
+                }
+            });
+        }
+
+        // ----------------------------------------------------
+        // 7. STUDENT SERVICE CALL EVENTS
+        // ----------------------------------------------------
+        const serviceCallQuery = [];
+        if (student?._id) {
+            serviceCallQuery.push({ student: student._id });
+        }
+        if (admissionIds.length > 0) {
+            serviceCallQuery.push({ admission: { $in: admissionIds } });
+        }
+        if (phoneSearchList.length > 0) {
+            serviceCallQuery.push({ studentPhone: { $in: phoneSearchList } });
+        }
+
+        let studentServiceCalls = [];
+        if (serviceCallQuery.length > 0) {
+            studentServiceCalls = await StudentServiceCall.find({ $or: serviceCallQuery })
+                .populate('user', 'name role')
+                .lean();
+
+            studentServiceCalls.forEach((sc, idx) => {
+                events.push({
+                    date: sc.createdAt || sc.callDate,
+                    type: 'SERVICE_CALL',
+                    label: `Service Call #${idx + 1} (${sc.servicePurpose})`,
+                    title: sc.servicePurpose,
+                    icon: 'headset',
+                    details: {
+                        servicePurpose: sc.servicePurpose,
+                        status: sc.status || 'Neutral',
+                        calledBy: sc.userName || sc.user?.name || 'Staff',
+                        userRole: sc.userRole || sc.user?.role || '',
+                        remarks: sc.remarks || 'No remarks',
+                        nextFollowUpDate: sc.nextFollowUpDate || '',
+                        centreName: sc.centreName || '',
+                        enrollmentNo: sc.enrollmentNo || '',
+                        studentPhone: sc.studentPhone || ''
+                    }
+                });
+            });
+        }
 
         // Sort all events chronologically (newest first for timeline)
         events.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-        // 5. Determine Last Status & Summary
-        let currentStage = 'TELECALLING';
+        // ----------------------------------------------------
+        // 8. DETERMINE SUMMARY & CURRENT STAGE
+        // ----------------------------------------------------
+        const totalTelecalling = lead?.followUps?.length || 0;
+        const totalServiceCalls = studentServiceCalls.length;
+        const totalCalls = totalTelecalling + totalServiceCalls;
+
+        let currentStage = 'NEW';
         let lastStatusText = '';
 
         if (hasAdmission) {
-            currentStage = 'ADMITTED';
-            lastStatusText = 'Lead has been admitted.';
+            currentStage = `ADMITTED (${admissionTypeDetected.toUpperCase()})`;
+            lastStatusText = `Student admitted via ${admissionTypeDetected}.`;
         } else if (hasCounselling) {
             currentStage = 'COUNSELLING';
-            lastStatusText = 'Lead has been counselled.';
+            lastStatusText = 'Student has been counselled.';
+        } else if (pntseStudent) {
+            currentStage = 'PNTSE CANDIDATE';
+            lastStatusText = `PNTSE Exam registered: ${pntseStudent.examTag || 'Standard'}.`;
+        } else if (totalCalls > 0) {
+            currentStage = 'CALLING';
+            const latestCall = events.find(e => e.type === 'SERVICE_CALL' || e.type === 'TELECALLING');
+            lastStatusText = latestCall ? `${latestCall.label}: ${latestCall.details?.remarks || latestCall.title}` : 'Call recorded.';
         } else {
-            // Find last telecalling event
-            const telecallingLogs = events.filter(e => e.type === 'TELECALLING');
-            if (telecallingLogs.length > 0) {
-                // Since sorted newest first, the first one is the latest
-                const latestCall = telecallingLogs[0];
-                lastStatusText = `Last Call: ${latestCall.title} - ${latestCall.details.remarks}`;
-            } else {
-                lastStatusText = 'No calls or counselling recorded yet.';
-            }
+            lastStatusText = 'No interactions recorded yet.';
         }
 
+        // Determine primary contact / student details for header
+        const primaryDetails = {
+            _id: student?._id || lead?._id || pntseStudent?._id || id,
+            name: student?.studentsDetails?.[0]?.studentName || lead?.name || pntseStudent?.name || 'Student',
+            phoneNumber: student?.studentsDetails?.[0]?.mobileNum || lead?.phoneNumber || pntseStudent?.mobile || (phoneSearchList[0] || 'N/A'),
+            secondPhoneNumber: student?.studentsDetails?.[0]?.whatsappNumber || lead?.secondPhoneNumber || pntseStudent?.secondaryMobile || '',
+            email: student?.studentsDetails?.[0]?.studentEmail || lead?.email || pntseStudent?.email || '',
+            schoolName: student?.studentsDetails?.[0]?.schoolName || lead?.schoolName || pntseStudent?.schoolName || '',
+            centreName: student?.studentsDetails?.[0]?.centre || lead?.centre?.centreName || pntseStudent?.centre?.centreName || '',
+            courseName: student?.course?.courseName || lead?.course?.courseName || lead?.courseText || '',
+            enrollmentNo: student?.uid || student?.studentsDetails?.[0]?.enrollmentNo || '',
+            leadType: lead?.leadType || '',
+            isPriority: lead?.isPriority || false,
+            assignedTo: lead?.leadResponsibility || student?.counselledBy || 'Staff',
+            source: lead?.source || (pntseStudent ? 'PNTSE' : 'ERP Direct')
+        };
+
         res.status(200).json({
-            message: "Lead journey fetched successfully",
-            lead: {
-                _id: lead._id,
-                name: lead.name,
-                phoneNumber: lead.phoneNumber,
-                secondPhoneNumber: lead.secondPhoneNumber,
-                email: lead.email,
-                schoolName: lead.schoolName,
-                leadType: lead.leadType,
-                isPriority: lead.isPriority,
-                assignedTo: lead.leadResponsibility,
-                source: lead.source
-            },
+            message: "Student journey fetched successfully",
+            lead: primaryDetails,
             summary: {
-                totalCalls: lead.followUps?.length || 0,
+                totalCalls,
+                telecallingCount: totalTelecalling,
+                serviceCallsCount: totalServiceCalls,
                 currentStage,
                 lastStatusText,
                 hasCounselling,
-                hasAdmission
+                hasAdmission,
+                admissionType: admissionTypeDetected,
+                hasCarryForward: Boolean(hasCarryForwardBalance),
+                carryForwardBalance: student?.carryForwardBalance || 0,
+                hasPNTSE: Boolean(pntseStudent)
             },
             timeline: events
         });

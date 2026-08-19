@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Select from "react-select";
-import { FaTimes, FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate, FaCheckCircle, FaPhoneAlt, FaHistory } from "react-icons/fa";
+import { FaTimes, FaFilter, FaPlus, FaSearch, FaDownload, FaEye, FaEdit, FaTrash, FaSync, FaSun, FaMoon, FaUserGraduate, FaCheckCircle, FaPhoneAlt, FaHistory, FaRoute } from "react-icons/fa";
 import { useTheme } from "../../context/ThemeContext";
 import { AreaChart, Area, XAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { Link, useNavigate, useSearchParams, useLocation } from "react-router-dom";
@@ -8,6 +8,7 @@ import { toast } from "react-toastify";
 import StudentDetailsModal from './StudentDetailsModal';
 import EditStudentModal from './EditStudentModal';
 import BulkUpdateBoardModal from './BulkUpdateBoardModal';
+import LeadJourneyModal from '../LeadManagement/LeadJourneyModal';
 import ExportButton from '../common/ExportButton';
 import MultiSelectFilter from '../common/MultiSelectFilter';
 import Pagination from '../common/Pagination';
@@ -244,7 +245,9 @@ const BoardAdmissionsContent = () => {
     const [mobileCheck, setMobileCheck] = useState({ checking: false, taken: false, name: "" });
     const [emailCheck, setEmailCheck] = useState({ checking: false, taken: false, name: "" });
 
-    // Service Calling States
+    // Service Calling & Journey States
+    const [showJourneyModal, setShowJourneyModal] = useState(false);
+    const [journeyStudentId, setJourneyStudentId] = useState(null);
     const [isServiceCallModalOpen, setIsServiceCallModalOpen] = useState(false);
     const [selectedStudentForCall, setSelectedStudentForCall] = useState(null);
     const [serviceCallForm, setServiceCallForm] = useState({
@@ -343,6 +346,15 @@ const BoardAdmissionsContent = () => {
             setIsSubmittingServiceCall(false);
         }
     };
+
+    const handleViewJourney = (item) => {
+        const studentObj = item?.studentId || item || {};
+        const sId = studentObj._id || item?._id;
+        const phone = studentObj.studentsDetails?.[0]?.mobileNum || item?.mobileNum || item?.phone;
+        setJourneyStudentId(sId || phone);
+        setShowJourneyModal(true);
+    };
+
     const [counsellingForm, setCounsellingForm] = useState({
         studentId: "",
         studentName: "",
@@ -2113,6 +2125,16 @@ const BoardAdmissionsContent = () => {
                                                                 >
                                                                     <FaPhoneAlt size={12} />
                                                                 </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleViewJourney(item);
+                                                                    }}
+                                                                    className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black border-cyan-500/20' : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-600 hover:text-white border-cyan-200 shadow-sm'}`}
+                                                                    title="View Student Journey"
+                                                                >
+                                                                    <FaRoute size={12} />
+                                                                </button>
                                                                 {canDeactivate && (
                                                                     <button
                                                                         onClick={(e) => { e.stopPropagation(); handleToggleStatus(item.studentId?._id, item.studentId?.status || 'Active'); }}
@@ -2749,6 +2771,7 @@ const BoardAdmissionsContent = () => {
                                     >
                                         <option value="EMI Purpose">EMI Purpose</option>
                                         <option value="Cross Selling">Cross Selling</option>
+                                        <option value="Carry Forward">Carry Forward</option>
                                         <option value="Any Other Dispute">Any Other Dispute</option>
                                         <option value="Attendance & Academic Issue">Attendance &amp; Academic Issue</option>
                                         <option value="General Service Calling">General Service Calling</option>
@@ -2841,6 +2864,18 @@ const BoardAdmissionsContent = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Journey Modal */}
+            {showJourneyModal && (
+                <LeadJourneyModal
+                    leadId={journeyStudentId}
+                    onClose={() => {
+                        setShowJourneyModal(false);
+                        setJourneyStudentId(null);
+                    }}
+                    isDarkMode={isDarkMode}
+                />
             )}
         </div>
     );

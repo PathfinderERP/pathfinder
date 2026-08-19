@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useTheme } from "../../context/ThemeContext";
-import { FaSearch, FaEye, FaEdit, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding, FaSun, FaMoon, FaPlus, FaCopy, FaTools, FaPen, FaSave, FaTrash, FaBoxOpen } from 'react-icons/fa';
+import { FaSearch, FaEye, FaEdit, FaDownload, FaFilter, FaUserGraduate, FaSync, FaTimes, FaBook, FaCalendar, FaMoneyBillWave, FaFileInvoice, FaCheckCircle, FaExclamationCircle, FaUser, FaPhoneAlt, FaEnvelope, FaMapMarkerAlt, FaSchool, FaHistory, FaUsers, FaIdCard, FaBirthdayCake, FaVenusMars, FaPassport, FaBuilding, FaSun, FaMoon, FaPlus, FaCopy, FaTools, FaPen, FaSave, FaTrash, FaBoxOpen, FaRoute } from 'react-icons/fa';
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer, ComposedChart, Area, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
@@ -8,6 +8,7 @@ import 'react-toastify/dist/ReactToastify.css';
 import AdmissionDetailsModal from './AdmissionDetailsModal';
 import EditEnrolledStudentModal from './EditEnrolledStudentModal';
 import BulkUpdateStudentModal from './BulkUpdateStudentModal';
+import LeadJourneyModal from '../LeadManagement/LeadJourneyModal';
 import ExportButton from '../common/ExportButton';
 import MultiSelectFilter from '../common/MultiSelectFilter';
 import Pagination from '../common/Pagination';
@@ -239,7 +240,9 @@ const EnrolledStudentsContent = () => {
     const [masterBoards, setMasterBoards] = useState([]);
     const [batches, setBatches] = useState([]);
 
-    // Service Calling States
+    // Service Calling & Journey States
+    const [showJourneyModal, setShowJourneyModal] = useState(false);
+    const [journeyStudentId, setJourneyStudentId] = useState(null);
     const [isServiceCallModalOpen, setIsServiceCallModalOpen] = useState(false);
     const [selectedStudentForCall, setSelectedStudentForCall] = useState(null);
     const [serviceCallForm, setServiceCallForm] = useState({
@@ -668,6 +671,14 @@ const EnrolledStudentsContent = () => {
         } finally {
             setIsSubmittingServiceCall(false);
         }
+    };
+
+    const handleViewJourney = (studentItem) => {
+        const studentObj = studentItem?.student || studentItem || {};
+        const sId = studentObj._id || studentItem?._id;
+        const phone = studentObj.studentsDetails?.[0]?.mobileNum || studentItem?.studentsDetails?.[0]?.mobileNum || studentItem?.latestAdmission?.mobileNum || studentItem?.studentPhone;
+        setJourneyStudentId(sId || phone);
+        setShowJourneyModal(true);
     };
 
     const handleSelectAll = (e) => {
@@ -2701,6 +2712,17 @@ const EnrolledStudentsContent = () => {
                                                             <FaPhoneAlt size={14} />
                                                         </button>
 
+                                                        <button
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleViewJourney(studentItem);
+                                                            }}
+                                                            className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black border border-cyan-500/20' : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-600 hover:text-white border border-cyan-200 shadow-sm'}`}
+                                                            title="View Student Journey"
+                                                        >
+                                                            <FaRoute size={14} />
+                                                        </button>
+
                                                         {canDeactivate && (
                                                             <button
                                                                 onClick={(e) => {
@@ -2859,6 +2881,12 @@ const EnrolledStudentsContent = () => {
                                     className={`flex items-center gap-2 px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-black border border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-200'}`}
                                 >
                                     <FaPhoneAlt size={12} /> Service Call
+                                </button>
+                                <button
+                                    onClick={() => handleViewJourney(selectedStudent)}
+                                    className={`flex items-center gap-2 px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black border border-cyan-500/20' : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-600 hover:text-white border border-cyan-200'}`}
+                                >
+                                    <FaRoute size={12} /> Journey
                                 </button>
                                 {canEdit && (
                                     <button
@@ -4232,6 +4260,7 @@ const EnrolledStudentsContent = () => {
                                     >
                                         <option value="EMI Purpose">EMI Purpose</option>
                                         <option value="Cross Selling">Cross Selling</option>
+                                        <option value="Carry Forward">Carry Forward</option>
                                         <option value="Any Other Dispute">Any Other Dispute</option>
                                         <option value="Attendance & Academic Issue">Attendance &amp; Academic Issue</option>
                                         <option value="General Service Calling">General Service Calling</option>
@@ -4337,6 +4366,18 @@ const EnrolledStudentsContent = () => {
                         </div>
                     </div>
                 </div>
+            )}
+
+            {/* Journey Modal */}
+            {showJourneyModal && (
+                <LeadJourneyModal
+                    leadId={journeyStudentId}
+                    onClose={() => {
+                        setShowJourneyModal(false);
+                        setJourneyStudentId(null);
+                    }}
+                    isDarkMode={isDarkMode}
+                />
             )}
         </div>
     );
