@@ -30,6 +30,8 @@ const AdmissionsContent = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [followUpStartDate, setFollowUpStartDate] = useState("");
+    const [followUpEndDate, setFollowUpEndDate] = useState("");
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
 
@@ -127,6 +129,8 @@ const AdmissionsContent = () => {
         setFilterDepartment([]);
         setStartDate("");
         setEndDate("");
+        setFollowUpStartDate("");
+        setFollowUpEndDate("");
         setLoading(true);
         fetchStudents();
         fetchDepartments();
@@ -141,7 +145,7 @@ const AdmissionsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment, startDate, endDate]);
+    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment, startDate, endDate, followUpStartDate, followUpEndDate]);
 
     // Extract unique values for filters based on visible students
     // First, filter students by allowed centres to ensure safety
@@ -211,7 +215,35 @@ const AdmissionsContent = () => {
             }
         }
 
-        return matchesSearch && matchesCentre && matchesBoard && matchesExamTag && matchesDepartment && matchesDate;
+        // Next Follow Up Date Filter
+        let matchesFollowUp = true;
+        if (followUpStartDate || followUpEndDate) {
+            const dates = [];
+            if (student.nextFollowUpDate) dates.push(student.nextFollowUpDate);
+            if (student.latestServiceCall?.nextFollowUpDate) dates.push(student.latestServiceCall.nextFollowUpDate);
+            (student.serviceCalls || []).forEach(sc => {
+                if (sc.nextFollowUpDate) dates.push(sc.nextFollowUpDate);
+            });
+
+            if (dates.length === 0) {
+                matchesFollowUp = false;
+            } else {
+                matchesFollowUp = dates.some(dStr => {
+                    if (!dStr) return false;
+                    const d = new Date(dStr);
+                    if (isNaN(d.getTime())) return false;
+                    if (followUpStartDate && d < new Date(followUpStartDate)) return false;
+                    if (followUpEndDate) {
+                        const end = new Date(followUpEndDate);
+                        end.setHours(23, 59, 59, 999);
+                        if (d > end) return false;
+                    }
+                    return true;
+                });
+            }
+        }
+
+        return matchesSearch && matchesCentre && matchesBoard && matchesExamTag && matchesDepartment && matchesDate && matchesFollowUp;
     });
 
     // Analysis for visible filtered students
@@ -725,6 +757,25 @@ const AdmissionsContent = () => {
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
+                            className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                        />
+                    </div>
+
+                    <div className={`flex border rounded-[4px] overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className={`px-4 py-3 border-r text-[10px] font-black uppercase tracking-widest flex items-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-amber-400' : 'bg-amber-50 border-gray-200 text-amber-700'}`}>
+                            Next Follow Up
+                        </div>
+                        <input
+                            type="date"
+                            value={followUpStartDate}
+                            onChange={(e) => setFollowUpStartDate(e.target.value)}
+                            className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                        />
+                        <div className={`px-2 py-3 flex items-center ${isDarkMode ? 'text-gray-700' : 'text-gray-300'}`}>-</div>
+                        <input
+                            type="date"
+                            value={followUpEndDate}
+                            onChange={(e) => setFollowUpEndDate(e.target.value)}
                             className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
                         />
                     </div>

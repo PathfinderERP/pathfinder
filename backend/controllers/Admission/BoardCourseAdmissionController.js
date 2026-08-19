@@ -528,6 +528,45 @@ export const getBoardAdmissions = async (req, res) => {
             console.error("Error fetching board counsellings in getBoardAdmissions:", counsErr);
         }
 
+        // Bulk find service calls
+        let serviceCallMap = {};
+        let allServiceCallsMap = {};
+        try {
+            const StudentServiceCall = (await import("../../models/StudentServiceCall.js")).default;
+            const admissionIds = admissions.map(a => a._id).filter(Boolean);
+            const serviceCalls = await StudentServiceCall.find({
+                $or: [
+                    { student: { $in: studentIds } },
+                    { admission: { $in: admissionIds } },
+                    { studentPhone: { $in: phoneNumbers } }
+                ]
+            }).populate('user', 'name role').sort({ createdAt: -1 }).lean();
+
+            serviceCalls.forEach(sc => {
+                const sId = sc.student?.toString();
+                const admId = sc.admission?.toString();
+                const phone = sc.studentPhone ? sc.studentPhone.toString().trim() : null;
+
+                if (admId) {
+                    if (!serviceCallMap[admId]) serviceCallMap[admId] = sc;
+                    if (!allServiceCallsMap[admId]) allServiceCallsMap[admId] = [];
+                    allServiceCallsMap[admId].push(sc);
+                }
+                if (sId) {
+                    if (!serviceCallMap[sId]) serviceCallMap[sId] = sc;
+                    if (!allServiceCallsMap[sId]) allServiceCallsMap[sId] = [];
+                    allServiceCallsMap[sId].push(sc);
+                }
+                if (phone) {
+                    if (!serviceCallMap[phone]) serviceCallMap[phone] = sc;
+                    if (!allServiceCallsMap[phone]) allServiceCallsMap[phone] = [];
+                    allServiceCallsMap[phone].push(sc);
+                }
+            });
+        } catch (scErr) {
+            console.error("Error fetching service calls in getBoardAdmissions:", scErr);
+        }
+
         // Standardize counselledBy & leadBy names lookup
         const mongoose = (await import("mongoose")).default;
         const userIds = [];
@@ -636,6 +675,24 @@ export const getBoardAdmissions = async (req, res) => {
 
             admissionObj.leadBy = leadBy;
             admissionObj.counselledByDetails = counselledByDetails;
+
+            const studentPhone = admissionObj.studentId?.studentsDetails?.[0]?.mobileNum ? admissionObj.studentId.studentsDetails[0].mobileNum.toString().trim() : null;
+            const latestServiceCall = (admissionObj._id && serviceCallMap[admissionObj._id.toString()]) ||
+                                      (admissionObj.studentId?._id && serviceCallMap[admissionObj.studentId._id.toString()]) ||
+                                      (studentPhone && serviceCallMap[studentPhone]) || null;
+            const allCalls = (admissionObj._id && allServiceCallsMap[admissionObj._id.toString()]) ||
+                             (admissionObj.studentId?._id && allServiceCallsMap[admissionObj.studentId._id.toString()]) ||
+                             (studentPhone && allServiceCallsMap[studentPhone]) || [];
+
+            admissionObj.latestServiceCall = latestServiceCall;
+            admissionObj.nextFollowUpDate = latestServiceCall?.nextFollowUpDate || null;
+            admissionObj.serviceCalls = allCalls;
+
+            if (admissionObj.studentId) {
+                admissionObj.studentId.latestServiceCall = latestServiceCall;
+                admissionObj.studentId.nextFollowUpDate = latestServiceCall?.nextFollowUpDate || null;
+                admissionObj.studentId.serviceCalls = allCalls;
+            }
 
             return admissionObj;
         }).filter(adm => {

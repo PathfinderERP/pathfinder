@@ -217,6 +217,8 @@ const BoardAdmissionsContent = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [followUpStartDate, setFollowUpStartDate] = useState("");
+    const [followUpEndDate, setFollowUpEndDate] = useState("");
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
 
@@ -332,9 +334,39 @@ const BoardAdmissionsContent = () => {
             });
 
             if (res.ok) {
+                const resData = await res.json().catch(() => ({}));
+                const newCall = resData.serviceCall || {
+                    ...payload,
+                    callDate: new Date(),
+                    userName: JSON.parse(localStorage.getItem("user") || "{}")?.name || "Staff"
+                };
                 toast.success("Service call logged & added to call reports!");
                 setIsServiceCallModalOpen(false);
                 setSelectedStudentForCall(null);
+
+                // Update local state immediately
+                setBoardAdmissions(prev => prev.map(ba => {
+                    const baId = ba._id?.toString();
+                    const targetAdmId = (admObj._id || "").toString();
+                    const sId = ba.studentId?._id?.toString();
+                    const targetSId = (studentObj._id || "").toString();
+
+                    if ((baId && baId === targetAdmId) || (sId && sId === targetSId)) {
+                        return {
+                            ...ba,
+                            latestServiceCall: newCall,
+                            nextFollowUpDate: newCall.nextFollowUpDate,
+                            serviceCalls: [newCall, ...(ba.serviceCalls || [])],
+                            studentId: ba.studentId ? {
+                                ...ba.studentId,
+                                latestServiceCall: newCall,
+                                nextFollowUpDate: newCall.nextFollowUpDate,
+                                serviceCalls: [newCall, ...(ba.studentId.serviceCalls || [])]
+                            } : ba.studentId
+                        };
+                    }
+                    return ba;
+                }));
             } else {
                 const errData = await res.json();
                 toast.error(errData.message || "Failed to log service call.");
@@ -752,9 +784,42 @@ const BoardAdmissionsContent = () => {
             const departmentName = admission.department?.departmentName || admission.studentId?.department?.departmentName || "";
             const matchesDepartment = filterDepartment.length === 0 || filterDepartment.includes(departmentName);
 
-            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesClass && matchesStartDate && matchesEndDate && matchesStatus && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy && matchesDepartment;
+            // Next Follow Up Date Filter
+            let matchesFollowUp = true;
+            if (followUpStartDate || followUpEndDate) {
+                const dates = [];
+                if (admission.nextFollowUpDate) dates.push(admission.nextFollowUpDate);
+                if (admission.latestServiceCall?.nextFollowUpDate) dates.push(admission.latestServiceCall.nextFollowUpDate);
+                if (admission.studentId?.nextFollowUpDate) dates.push(admission.studentId.nextFollowUpDate);
+                if (admission.studentId?.latestServiceCall?.nextFollowUpDate) dates.push(admission.studentId.latestServiceCall.nextFollowUpDate);
+                (admission.serviceCalls || []).forEach(sc => {
+                    if (sc.nextFollowUpDate) dates.push(sc.nextFollowUpDate);
+                });
+                (admission.studentId?.serviceCalls || []).forEach(sc => {
+                    if (sc.nextFollowUpDate) dates.push(sc.nextFollowUpDate);
+                });
+
+                if (dates.length === 0) {
+                    matchesFollowUp = false;
+                } else {
+                    matchesFollowUp = dates.some(dStr => {
+                        if (!dStr) return false;
+                        const d = new Date(dStr);
+                        if (isNaN(d.getTime())) return false;
+                        if (followUpStartDate && d < new Date(followUpStartDate)) return false;
+                        if (followUpEndDate) {
+                            const end = new Date(followUpEndDate);
+                            end.setHours(23, 59, 59, 999);
+                            if (d > end) return false;
+                        }
+                        return true;
+                    });
+                }
+            }
+
+            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesClass && matchesStartDate && matchesEndDate && matchesFollowUp && matchesStatus && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy && matchesDepartment;
         });
-    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, filterClass, startDate, endDate, activeTab, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterDepartment]);
+    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, filterClass, startDate, endDate, followUpStartDate, followUpEndDate, activeTab, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterDepartment]);
 
     const prepareReportExportData = () => {
         const headers = [
@@ -1765,25 +1830,52 @@ const BoardAdmissionsContent = () => {
                                 </>
                             )}
 
-                            <div className="flex items-center gap-2 ml-auto">
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
-                                        className={`pl-8 pr-2 py-2 rounded border text-[10px] font-bold outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
-                                    />
-                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-gray-500">From</span>
+                            <div className="flex flex-wrap items-center gap-2 ml-auto">
+                                {/* Period Filter */}
+                                <div className="flex items-center gap-1">
+                                    <div className="relative">
+                                        <input
+                                            type="date"
+                                            value={startDate}
+                                            onChange={(e) => setStartDate(e.target.value)}
+                                            className={`pl-8 pr-2 py-2 rounded border text-[10px] font-bold outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                        />
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-gray-500">From</span>
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="date"
+                                            value={endDate}
+                                            onChange={(e) => setEndDate(e.target.value)}
+                                            className={`pl-8 pr-2 py-2 rounded border text-[10px] font-bold outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                        />
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-gray-500">To</span>
+                                    </div>
                                 </div>
-                                <div className="relative">
-                                    <input
-                                        type="date"
-                                        value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
-                                        className={`pl-8 pr-2 py-2 rounded border text-[10px] font-bold outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
-                                    />
-                                    <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-gray-500">To</span>
+
+                                {/* Next Follow Up Filter */}
+                                <div className="flex items-center gap-1 border-l pl-2 border-gray-800/40">
+                                    <span className={`text-[8px] font-black uppercase tracking-wider ${isDarkMode ? 'text-amber-400' : 'text-amber-700'}`}>Follow-up:</span>
+                                    <div className="relative">
+                                        <input
+                                            type="date"
+                                            value={followUpStartDate}
+                                            onChange={(e) => setFollowUpStartDate(e.target.value)}
+                                            className={`pl-8 pr-2 py-2 rounded border text-[10px] font-bold outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                        />
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-amber-500">From</span>
+                                    </div>
+                                    <div className="relative">
+                                        <input
+                                            type="date"
+                                            value={followUpEndDate}
+                                            onChange={(e) => setFollowUpEndDate(e.target.value)}
+                                            className={`pl-8 pr-2 py-2 rounded border text-[10px] font-bold outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'}`}
+                                        />
+                                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-[8px] font-black uppercase text-amber-500">To</span>
+                                    </div>
                                 </div>
+
                                 <button
                                     onClick={() => {
                                         setSearchQuery("");
@@ -1797,6 +1889,8 @@ const BoardAdmissionsContent = () => {
                                         setFilterAdmissionBy([]);
                                         setStartDate("");
                                         setEndDate("");
+                                        setFollowUpStartDate("");
+                                        setFollowUpEndDate("");
                                     }}
                                     className={`p-2 rounded hover:bg-gray-800 text-gray-500 transition-colors`}
                                     title="Reset All Filters"
@@ -1973,7 +2067,16 @@ const BoardAdmissionsContent = () => {
                                                 )}
                                                 {activeTab === "Potential" && <td className="p-4"><span className="text-[11px] font-bold uppercase text-gray-400">{sessionExam.examTag || exam.examName || "N/A"}</span></td>}
                                                 <td className="p-4"><span className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{item.centre || details.centre || "N/A"}</span></td>
-                                                <td className="p-4"><span className={`text-[11px] font-black tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{item.mobileNum || details.mobileNum || "N/A"}</span></td>
+                                                <td className="p-4 whitespace-nowrap">
+                                                    <span className={`text-[11px] font-black tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{item.mobileNum || details.mobileNum || "N/A"}</span>
+                                                    {(item.nextFollowUpDate || item.latestServiceCall?.nextFollowUpDate || item.studentId?.nextFollowUpDate) && (
+                                                        <div className="mt-1">
+                                                            <span className={`px-2 py-0.5 rounded-[3px] text-[8px] font-black tracking-wider uppercase border inline-flex items-center gap-1 ${isDarkMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                                                Next: {item.nextFollowUpDate || item.latestServiceCall?.nextFollowUpDate || item.studentId?.nextFollowUpDate}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </td>
 
                                                 {activeTab === "Counselling" && (
                                                     <td className="p-4">

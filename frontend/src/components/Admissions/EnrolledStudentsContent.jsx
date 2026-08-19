@@ -224,6 +224,8 @@ const EnrolledStudentsContent = () => {
     const [filterBatch, setFilterBatch] = useState([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [followUpStartDate, setFollowUpStartDate] = useState("");
+    const [followUpEndDate, setFollowUpEndDate] = useState("");
 
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
@@ -497,6 +499,8 @@ const EnrolledStudentsContent = () => {
             item.admissions.sort((a, b) => new Date(b.admissionDate) - new Date(a.admissionDate));
             item.latestAdmission = item.admissions[0];
             item.totalCourses = item.admissions.length;
+            item.latestServiceCall = item.latestAdmission?.latestServiceCall || item.student?.latestServiceCall || null;
+            item.nextFollowUpDate = item.latestAdmission?.nextFollowUpDate || item.student?.nextFollowUpDate || null;
             return item;
         });
 
@@ -658,9 +662,35 @@ const EnrolledStudentsContent = () => {
             });
 
             if (res.ok) {
+                const resData = await res.json().catch(() => ({}));
+                const newCall = resData.serviceCall || {
+                    ...payload,
+                    callDate: new Date(),
+                    userName: JSON.parse(localStorage.getItem("user") || "{}")?.name || "Staff"
+                };
                 toast.success("Service call logged & added to call reports!");
                 setIsServiceCallModalOpen(false);
                 setSelectedStudentForCall(null);
+
+                // Update local state immediately
+                setStudents(prev => prev.map(s => {
+                    const sId = s.student?._id?.toString();
+                    const targetId = (studentObj._id || "").toString();
+                    if (sId && sId === targetId) {
+                        return {
+                            ...s,
+                            latestServiceCall: newCall,
+                            nextFollowUpDate: newCall.nextFollowUpDate,
+                            student: {
+                                ...s.student,
+                                latestServiceCall: newCall,
+                                nextFollowUpDate: newCall.nextFollowUpDate,
+                                serviceCalls: [newCall, ...(s.student?.serviceCalls || [])]
+                            }
+                        };
+                    }
+                    return s;
+                }));
             } else {
                 const errData = await res.json();
                 toast.error(errData.message || "Failed to log service call.");
@@ -1171,6 +1201,45 @@ const EnrolledStudentsContent = () => {
             });
         }
 
+        // Filter by Next Follow Up Date Range
+        if (followUpStartDate || followUpEndDate) {
+            result = result.filter(item => {
+                const datesToCheck = [];
+                if (item.nextFollowUpDate) datesToCheck.push(item.nextFollowUpDate);
+                if (item.latestServiceCall?.nextFollowUpDate) datesToCheck.push(item.latestServiceCall.nextFollowUpDate);
+                if (item.student?.nextFollowUpDate) datesToCheck.push(item.student.nextFollowUpDate);
+                if (item.student?.latestServiceCall?.nextFollowUpDate) datesToCheck.push(item.student.latestServiceCall.nextFollowUpDate);
+                (item.admissions || []).forEach(a => {
+                    if (a.nextFollowUpDate) datesToCheck.push(a.nextFollowUpDate);
+                    if (a.latestServiceCall?.nextFollowUpDate) datesToCheck.push(a.latestServiceCall.nextFollowUpDate);
+                    (a.serviceCalls || []).forEach(sc => {
+                        if (sc.nextFollowUpDate) datesToCheck.push(sc.nextFollowUpDate);
+                    });
+                });
+                (item.student?.serviceCalls || []).forEach(sc => {
+                    if (sc.nextFollowUpDate) datesToCheck.push(sc.nextFollowUpDate);
+                });
+
+                if (datesToCheck.length === 0) return false;
+
+                return datesToCheck.some(dStr => {
+                    if (!dStr) return false;
+                    const d = new Date(dStr);
+                    if (isNaN(d.getTime())) return false;
+                    if (followUpStartDate) {
+                        const start = new Date(followUpStartDate);
+                        if (d < start) return false;
+                    }
+                    if (followUpEndDate) {
+                        const end = new Date(followUpEndDate);
+                        end.setHours(23, 59, 59, 999);
+                        if (d > end) return false;
+                    }
+                    return true;
+                });
+            });
+        }
+
         // Filter by student status (viewMode)
         result = result.filter(item => {
             if (viewMode === 'Board') {
@@ -1182,7 +1251,7 @@ const EnrolledStudentsContent = () => {
         });
 
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, students, viewMode, allowedCentres, isSuperAdmin, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterBatch]);
+    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, followUpStartDate, followUpEndDate, students, viewMode, allowedCentres, isSuperAdmin, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterBatch]);
 
     const filteredAdmissions = filteredStudents.flatMap(s =>
         s.admissions.filter(a => {
@@ -1275,6 +1344,8 @@ const EnrolledStudentsContent = () => {
         setFilterBatch([]);
         setStartDate("");
         setEndDate("");
+        setFollowUpStartDate("");
+        setFollowUpEndDate("");
         setCurrentPage(1);
         setLoading(true);
         fetchAdmissions();
@@ -2346,6 +2417,7 @@ const EnrolledStudentsContent = () => {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-gray-800/20">
+                        {/* Admission Period Filter */}
                         <div className={`flex items-center rounded-[4px] border overflow-hidden ${isDarkMode ? 'border-gray-800 bg-[#131619]' : 'border-gray-200 bg-gray-50'}`}>
                             <div className={`px-4 py-2 border-r text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'border-gray-800 text-gray-500 bg-[#1a1f24]' : 'border-gray-200 text-gray-400 bg-gray-100'}`}>
                                 Period
@@ -2363,6 +2435,44 @@ const EnrolledStudentsContent = () => {
                                 onChange={(e) => setEndDate(e.target.value)}
                                 className={`px-4 py-2 text-[10px] font-bold uppercase focus:outline-none ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
                             />
+                            {(startDate || endDate) && (
+                                <button
+                                    onClick={() => { setStartDate(''); setEndDate(''); }}
+                                    className={`px-3 py-2 text-[10px] font-bold uppercase transition-all ${isDarkMode ? 'text-gray-400 hover:text-white bg-gray-800' : 'text-gray-500 hover:text-gray-900 bg-gray-200'}`}
+                                    title="Clear Admission Period Filter"
+                                >
+                                    <FaTimes size={10} />
+                                </button>
+                            )}
+                        </div>
+
+                        {/* Next Follow Up Date Range Filter */}
+                        <div className={`flex items-center rounded-[4px] border overflow-hidden ${isDarkMode ? 'border-gray-800 bg-[#131619]' : 'border-gray-200 bg-gray-50'}`}>
+                            <div className={`px-4 py-2 border-r text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${isDarkMode ? 'border-gray-800 text-amber-400 bg-[#1a1f24]' : 'border-gray-200 text-amber-700 bg-amber-50'}`}>
+                                Next Follow Up
+                            </div>
+                            <input
+                                type="date"
+                                value={followUpStartDate}
+                                onChange={(e) => setFollowUpStartDate(e.target.value)}
+                                className={`px-4 py-2 text-[10px] font-bold uppercase focus:outline-none ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                            />
+                            <div className="px-2 text-gray-500 font-bold">-</div>
+                            <input
+                                type="date"
+                                value={followUpEndDate}
+                                onChange={(e) => setFollowUpEndDate(e.target.value)}
+                                className={`px-4 py-2 text-[10px] font-bold uppercase focus:outline-none ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                            />
+                            {(followUpStartDate || followUpEndDate) && (
+                                <button
+                                    onClick={() => { setFollowUpStartDate(''); setFollowUpEndDate(''); }}
+                                    className={`px-3 py-2 text-[10px] font-bold uppercase transition-all ${isDarkMode ? 'text-gray-400 hover:text-white bg-gray-800' : 'text-gray-500 hover:text-gray-900 bg-gray-200'}`}
+                                    title="Clear Follow Up Date Filter"
+                                >
+                                    <FaTimes size={10} />
+                                </button>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -2586,7 +2696,18 @@ const EnrolledStudentsContent = () => {
                                                         </div>
                                                     </div>
                                                 </td>
-                                                <td className={`p-4 text-[11px] font-black tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{latestAdmission?.mobileNum || student.mobileNum || "N/A"}</td>
+                                                <td className="p-4 whitespace-nowrap">
+                                                    <div className={`text-[11px] font-black tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                        {latestAdmission?.mobileNum || student.mobileNum || "N/A"}
+                                                    </div>
+                                                    {(studentItem.nextFollowUpDate || latestAdmission?.nextFollowUpDate || studentItem.latestServiceCall?.nextFollowUpDate) && (
+                                                        <div className="mt-1">
+                                                            <span className={`px-2 py-0.5 rounded-[3px] text-[8px] font-black tracking-wider uppercase border inline-flex items-center gap-1 ${isDarkMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                                                Next: {studentItem.nextFollowUpDate || latestAdmission?.nextFollowUpDate || studentItem.latestServiceCall?.nextFollowUpDate}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </td>
                                                 <td className="p-4">
                                                     <div className={`font-black uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                         {resolveCourseName(latestAdmission)}
