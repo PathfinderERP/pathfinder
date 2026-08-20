@@ -2,8 +2,12 @@ import ExpenseCategory from "../../models/Master_data/ExpenseCategory.js";
 
 export const createExpenseCategory = async (req, res) => {
     try {
-        const { name, description } = req.body;
-        const category = new ExpenseCategory({ name, description });
+        const { name, description, status } = req.body;
+        const category = new ExpenseCategory({ 
+            name, 
+            description,
+            status: status || "Active"
+        });
         await category.save();
         res.status(201).json({ message: "Category created", data: category });
     } catch (err) {
@@ -13,7 +17,21 @@ export const createExpenseCategory = async (req, res) => {
 
 export const getExpenseCategories = async (req, res) => {
     try {
-        const categories = await ExpenseCategory.find().sort({ name: 1 });
+        const { status, search } = req.query;
+        const query = {};
+
+        if (status && status !== "All") {
+            query.status = status;
+        }
+
+        if (search) {
+            query.$or = [
+                { name: { $regex: search, $options: "i" } },
+                { description: { $regex: search, $options: "i" } }
+            ];
+        }
+
+        const categories = await ExpenseCategory.find(query).sort({ name: 1 });
         res.status(200).json(categories);
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });
@@ -23,8 +41,23 @@ export const getExpenseCategories = async (req, res) => {
 export const updateExpenseCategory = async (req, res) => {
     try {
         const { id } = req.params;
-        const { name, description } = req.body;
-        const category = await ExpenseCategory.findByIdAndUpdate(id, { name, description }, { new: true });
+        const { name, description, status } = req.body;
+        
+        const updateData = {};
+        if (name !== undefined) updateData.name = name;
+        if (description !== undefined) updateData.description = description;
+        if (status !== undefined) updateData.status = status;
+
+        const category = await ExpenseCategory.findByIdAndUpdate(
+            id, 
+            updateData, 
+            { new: true, runValidators: true }
+        );
+
+        if (!category) {
+            return res.status(404).json({ message: "Category not found" });
+        }
+
         res.status(200).json({ message: "Category updated", data: category });
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });

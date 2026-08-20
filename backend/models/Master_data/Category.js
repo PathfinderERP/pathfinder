@@ -8,6 +8,11 @@ const categorySchema = new mongoose.Schema(
         },
         description: {
             type: String,
+        },
+        status: {
+            type: String,
+            enum: ["Active", "Deactive", "Inactive"],
+            default: "Active"
         }
     }, { timestamps: true }
 );

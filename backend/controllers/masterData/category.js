@@ -3,7 +3,7 @@ import Category from "../../models/Master_data/Category.js";
 
 const createCategory = async (req,res) => {
     try {
-        const {name,description} = req.body;
+        const {name,description,status} = req.body;
 
         if(!name){
             return res.status(400).json({
@@ -14,7 +14,8 @@ const createCategory = async (req,res) => {
 
         const data = {
             name,
-            description
+            description,
+            status: status || "Active"
         };
         
         const category = await Category.create(data);
@@ -34,7 +35,12 @@ const createCategory = async (req,res) => {
 
 const getAllCategories = async (req,res) => {
     try {
-        const categories = await Category.find();
+        const { status } = req.query;
+        const query = {};
+        if (status && status !== "All") {
+            query.status = status;
+        }
+        const categories = await Category.find(query);
 
         if(categories.length === 0) {
             return res.status(404).json({
@@ -125,7 +131,8 @@ const updateCategory = async (req,res) => {
 
         const {
             name,
-            description
+            description,
+            status
         } = req.body;
 
         const exists = await Category.findById(id);
@@ -137,12 +144,14 @@ const updateCategory = async (req,res) => {
             });
         }
 
+        const updateData = {};
+        if (name !== undefined) updateData.name = name;
+        if (description !== undefined) updateData.description = description;
+        if (status !== undefined) updateData.status = status;
+
         const updateCategory = await Category.findByIdAndUpdate(
             id,
-            {
-                name,
-                description
-            },
+            updateData,
             {
                 new: true,
                 runValidators: true
@@ -175,7 +184,8 @@ const importCategories = async (req, res) => {
 
         const formattedCategories = categoriesData.map(cat => ({
             name: cat.name || cat['Category Name'],
-            description: cat.description || cat['Description'] || ''
+            description: cat.description || cat['Description'] || '',
+            status: cat.status || cat['Status'] || 'Active'
         })).filter(cat => cat.name);
 
         if (formattedCategories.length === 0) {

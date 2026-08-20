@@ -10,6 +10,11 @@ const expenseCategorySchema = new mongoose.Schema({
     description: {
         type: String,
         trim: true
+    },
+    status: {
+        type: String,
+        enum: ["Active", "Deactive", "Inactive"],
+        default: "Active"
     }
 }, { timestamps: true });
 
