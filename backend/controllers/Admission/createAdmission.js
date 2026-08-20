@@ -68,8 +68,8 @@ export const createAdmission = async (req, res) => {
 
 
         // Validate Type Specific Fields
-        if (admissionType === "NORMAL" && (!courseId || !examTagId || !departmentId)) {
-            return res.status(400).json({ message: "Course, Exam Tag, and Department are required for Normal Admission" });
+        if (admissionType === "NORMAL" && (!courseId || !examTagId || !departmentId || !boardId)) {
+            return res.status(400).json({ message: "Course, Board, Exam Tag, and Department are required for Normal Admission" });
         }
         if (admissionType === "BOARD" && (!boardId || !selectedSubjectIds || selectedSubjectIds.length === 0 || !billingMonth || !examTagId || !departmentId)) {
             return res.status(400).json({ message: "Board, Subjects, Billing Month, Exam Tag, and Department are required for Board Admission" });
@@ -379,6 +379,14 @@ export const createAdmission = async (req, res) => {
             studentUpdatePayload.batches = [batchId];
         } else if (Array.isArray(batches) && batches.length > 0) {
             studentUpdatePayload.batches = batches;
+        }
+
+        if (boardId) {
+            const boardDoc = await Board.findById(boardId);
+            if (boardDoc && student.studentsDetails && student.studentsDetails.length > 0) {
+                studentUpdatePayload["studentsDetails.0.board"] = boardDoc.boardCourse || boardDoc.boardName || "WBCHSE";
+                studentUpdatePayload.board = boardDoc._id;
+            }
         }
 
         if (programme && student.studentsDetails && student.studentsDetails.length > 0) {

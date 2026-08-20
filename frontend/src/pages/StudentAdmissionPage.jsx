@@ -54,6 +54,7 @@ const StudentAdmissionPage = () => {
         centre: "", // New field
         programme: "CRP",
         batchId: "",
+        boardId: "",
         academicSession: "",
         downPayment: 0,
         numberOfInstallments: 0,
@@ -229,6 +230,23 @@ const StudentAdmissionPage = () => {
                     if (bId) newData.batchId = bId;
                 }
 
+                // Autofill Board from student
+                if (!prev.boardId && boards.length > 0) {
+                    const studentBoard = student.studentsDetails?.[0]?.board || student.board;
+                    if (studentBoard) {
+                        const matchedBoard = boards.find(b =>
+                            b._id === studentBoard ||
+                            b.boardCourse?.trim().toLowerCase() === String(studentBoard).trim().toLowerCase() ||
+                            b.boardCourse?.trim().toLowerCase().includes(String(studentBoard).trim().toLowerCase())
+                        );
+                        if (matchedBoard) {
+                            newData.boardId = matchedBoard._id;
+                            setSelectedBoard(matchedBoard._id);
+                            setCFilters(prevF => ({ ...prevF, boardId: matchedBoard._id }));
+                        }
+                    }
+                }
+
                 // Autofill Session
                 if (!prev.academicSession && sessions.length > 0) {
                     const registeredSession = student.sessionExamCourse?.[0]?.session?.trim();
@@ -250,7 +268,7 @@ const StudentAdmissionPage = () => {
                 return newData;
             });
         }
-    }, [student, courses, classes, examTags, sessions]); // simplified dependnecies
+    }, [student, courses, classes, examTags, sessions, boards]); // simplified dependnecies
 
     const fetchData = async () => {
         setLoading(true);
@@ -271,19 +289,31 @@ const StudentAdmissionPage = () => {
                 fetch(`${apiUrl}/batch/list`, { headers })
             ]);
 
+            const boardsData = boardsRes.ok ? await boardsRes.json() : [];
+            if (boardsRes.ok) setBoards(boardsData);
+
             if (studentRes.ok) {
                 const sData = await studentRes.json();
                 setStudent(sData);
+                const initialBoard = (boardsData || []).find(b =>
+                    b._id === (sData.studentsDetails?.[0]?.board || sData.board) ||
+                    b.boardCourse?.trim().toLowerCase() === String(sData.studentsDetails?.[0]?.board || sData.board).trim().toLowerCase()
+                );
                 // Set initial centre
                 if (sData.studentsDetails?.[0]?.centre) {
                     setFormData(prev => ({
                         ...prev,
                         centre: sData.studentsDetails[0].centre,
                         programme: sData.studentsDetails[0].programme || prev.programme || "CRP",
-                        batchId: (sData.batches && sData.batches.length > 0) ? (sData.batches[0]?._id || sData.batches[0]) : prev.batchId
+                        batchId: (sData.batches && sData.batches.length > 0) ? (sData.batches[0]?._id || sData.batches[0]) : prev.batchId,
+                        boardId: initialBoard ? initialBoard._id : prev.boardId
                     }));
                     if (sData.studentsDetails[0].programme) {
                         setCFilters(prevF => ({ ...prevF, programme: sData.studentsDetails[0].programme }));
+                    }
+                    if (initialBoard) {
+                        setSelectedBoard(initialBoard._id);
+                        setCFilters(prevF => ({ ...prevF, boardId: initialBoard._id }));
                     }
                 }
             }
@@ -300,7 +330,6 @@ const StudentAdmissionPage = () => {
                 const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
                 setDepartments(visibleDepts);
             }
-            if (boardsRes.ok) setBoards(await boardsRes.json());
             if (subjectsRes.ok) await subjectsRes.json();
             if (accountsRes.ok) setMasterAccounts(await accountsRes.json());
             if (batchesRes && batchesRes.ok) {
@@ -611,6 +640,12 @@ const StudentAdmissionPage = () => {
             return;
         }
 
+        if (!formData.boardId && !selectedBoard) {
+            toast.error("Board selection is mandatory.");
+            setLoading(false);
+            return;
+        }
+
         if (!formData.paymentMethod) {
             toast.error("Please select a payment method.");
             setLoading(false);
@@ -821,6 +856,26 @@ const StudentAdmissionPage = () => {
                             </div>
 
                             <div>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Board *</label>
+                                <select
+                                    required
+                                    name="boardId"
+                                    value={formData.boardId || selectedBoard}
+                                    onChange={(e) => {
+                                        handleInputChange(e);
+                                        setSelectedBoard(e.target.value);
+                                        setCFilters(prev => ({ ...prev, boardId: e.target.value }));
+                                    }}
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                >
+                                    <option value="">Select Board</option>
+                                    {boards.map(b => (
+                                        <option key={b._id} value={b._id}>{b.boardCourse}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
                                 <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Programme *</label>
                                 <select
                                     required
@@ -985,21 +1040,6 @@ const StudentAdmissionPage = () => {
                             {/* Board Flow Specifics */}
                             {admissionType === "BOARD" && (
                                 <>
-                                    <div>
-                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Board *</label>
-                                        <select
-                                            value={selectedBoard}
-                                            onChange={(e) => setSelectedBoard(e.target.value)}
-                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                            required={admissionType === "BOARD"}
-                                        >
-                                            <option value="">Select Board / Course ...</option>
-                                            {boards.map(b => (
-                                                <option key={b._id} value={b._id}>{b.boardCourse}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-
                                     <div>
                                         <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Billing Month *</label>
                                         <input
