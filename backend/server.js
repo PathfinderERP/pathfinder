@@ -85,6 +85,7 @@ import teacherRoutineRoutes from "./routes/Academics/teacherRoutine.routes.js";
 import teacherBookingRoutes from "./routes/Academics/teacherBooking.routes.js";
 import categoryRoutes from "./routes/masterData/category.route.js";
 import pntseRoutes from "./routes/pntse/pntse.routes.js";
+import carryForwardRoutes from "./routes/carryForward.routes.js";
 
 
 import allocationRoutes from "./routes/Inventory/allocation.routes.js";
@@ -232,6 +233,7 @@ app.use("/api/payment/sms", razorpaySMSRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/category",categoryRoutes);
 app.use("/api/pntse", pntseRoutes);
+app.use("/api/carry-forward", carryForwardRoutes);
 app.use("/api/task-workflow", taskWorkflowRoutes);
 app.use("/api/school-for-task", schoolForTaskRoutes);
 app.use("/api/assigned-tasks", assignedTaskRoutes);

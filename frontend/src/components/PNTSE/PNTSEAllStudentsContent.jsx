@@ -35,7 +35,7 @@ const PNTSEAllStudentsContent = () => {
     const canImport = isSuperAdmin || hasPermission(user, 'pntse', 'allStudents', 'import');
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [filters, setFilters] = useState({ centre: '', class: '', status: '', session: '' });
+    const [filters, setFilters] = useState({ zone: '', centre: '', class: '', status: '', session: '' });
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
     
     // Bill Generation State
@@ -160,6 +160,7 @@ const PNTSEAllStudentsContent = () => {
 
     const [students, setStudents] = useState([]);
     const [dbCentres, setDbCentres] = useState([]);
+    const [dbZones, setDbZones] = useState([]);
     const [dbClasses, setDbClasses] = useState([]);
     const [dbBoards, setDbBoards] = useState([]);
     const [dbSessions, setDbSessions] = useState([]);
@@ -314,17 +315,28 @@ const PNTSEAllStudentsContent = () => {
     const getToken = () => localStorage.getItem("token");
     const getHeaders = () => ({ "Authorization": `Bearer ${getToken()}` });
 
+    // Helper to get Zone name for a centre
+    const getZoneName = (centreIdOrObj) => {
+        if (!centreIdOrObj) return '—';
+        const cId = (centreIdOrObj._id || centreIdOrObj).toString();
+        const matchedZone = dbZones.find(z =>
+            (z.centres || []).some(c => (c._id || c).toString() === cId)
+        );
+        return matchedZone ? matchedZone.name : '—';
+    };
+
     // Load master data
     useEffect(() => {
         const fetchMasterData = async () => {
             try {
                 const headers = getHeaders();
-                const [centresRes, classesRes, sessionsRes, examTagsRes, boardsRes] = await Promise.all([
+                const [centresRes, classesRes, sessionsRes, examTagsRes, boardsRes, zonesRes] = await Promise.all([
                     fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
-                    fetch(`${import.meta.env.VITE_API_URL}/board`, { headers })
+                    fetch(`${import.meta.env.VITE_API_URL}/board`, { headers }),
+                    fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
                 ]);
                 if (centresRes.ok) setDbCentres(await centresRes.json());
                 if (classesRes.ok) setDbClasses(await classesRes.json());
@@ -334,6 +346,10 @@ const PNTSEAllStudentsContent = () => {
                     setDbSessions(Array.isArray(data) ? data : (data.sessions || []));
                 }
                 if (examTagsRes.ok) setDbExamTags(await examTagsRes.json());
+                if (zonesRes.ok) {
+                    const zData = await zonesRes.json();
+                    setDbZones(Array.isArray(zData) ? zData : (zData.zones || zData.data || []));
+                }
             } catch (err) {
                 console.error("Failed to load master data", err);
             } finally {
@@ -350,6 +366,7 @@ const PNTSEAllStudentsContent = () => {
             try {
                 const params = new URLSearchParams();
                 if (searchQuery) params.append('search', searchQuery);
+                if (filters.zone) params.append('zone', filters.zone);
                 if (filters.centre) params.append('centre', filters.centre);
                 if (filters.class) params.append('class', filters.class);
                 if (filters.session) params.append('session', filters.session);
@@ -443,6 +460,7 @@ const PNTSEAllStudentsContent = () => {
                 "Board": student.board?.boardCourse || student.board?.boardName || student.board || '',
                 "Class": student.class?.name || student.class || '',
                 "Centre": student.centre?.centreName || student.centre?.enterCode || student.centre || '',
+                "Zone": getZoneName(student.centre),
                 "Course": student.course || '',
                 "Fee Status": isPaid ? 'PAID' : 'FREE',
                 "Bill No.": billNumber,
@@ -549,6 +567,7 @@ const PNTSEAllStudentsContent = () => {
         let bVal = b[sortConfig.key];
         if (sortConfig.key === 'class') { aVal = a.class?.name || ''; bVal = b.class?.name || ''; }
         if (sortConfig.key === 'centre') { aVal = a.centre?.centreName || ''; bVal = b.centre?.centreName || ''; }
+        if (sortConfig.key === 'zone') { aVal = getZoneName(a.centre) || ''; bVal = getZoneName(b.centre) || ''; }
         if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
@@ -696,9 +715,27 @@ const PNTSEAllStudentsContent = () => {
                             className="w-full pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all"
                         />
                     </div>
-                    <select value={filters.centre} onChange={e => setFilters(p => ({ ...p, centre: e.target.value }))} className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[140px]">
+                    <select
+                        value={filters.zone}
+                        onChange={e => setFilters(p => ({ ...p, zone: e.target.value, centre: '' }))}
+                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[140px]"
+                    >
+                        <option value="">All Zones</option>
+                        {dbZones.map(z => <option key={z._id} value={z._id}>{z.name}</option>)}
+                    </select>
+                    <select
+                        value={filters.centre}
+                        onChange={e => setFilters(p => ({ ...p, centre: e.target.value }))}
+                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[140px]"
+                    >
                         <option value="">All Centres</option>
-                        {dbCentres.map(c => <option key={c._id} value={c._id}>{c.centreName || c.enterCode}</option>)}
+                        {(filters.zone
+                            ? dbCentres.filter(c => {
+                                const zoneObj = dbZones.find(z => z._id === filters.zone);
+                                return (zoneObj?.centres || []).some(zc => (zc._id || zc).toString() === c._id.toString());
+                            })
+                            : dbCentres
+                        ).map(c => <option key={c._id} value={c._id}>{c.centreName || c.enterCode}</option>)}
                     </select>
                     <select value={filters.class} onChange={e => setFilters(p => ({ ...p, class: e.target.value }))} className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[130px]">
                         <option value="">All Classes</option>
@@ -747,7 +784,12 @@ const PNTSEAllStudentsContent = () => {
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Roll No.</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Class</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Board</th>
-                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Centre</th>
+                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cyan-400 transition-colors" onClick={() => handleSort('centre')}>
+                                    <div className="flex items-center gap-1.5">Centre <SortIcon field="centre" /></div>
+                                </th>
+                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cyan-400 transition-colors" onClick={() => handleSort('zone')}>
+                                    <div className="flex items-center gap-1.5">Zone <SortIcon field="zone" /></div>
+                                </th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Mobile</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Secondary Mobile</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Course</th>
@@ -760,7 +802,7 @@ const PNTSEAllStudentsContent = () => {
                         <tbody className="divide-y divide-gray-800/50">
                             {sortedStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={13} className="text-center py-16 text-gray-500">
+                                    <td colSpan={14} className="text-center py-16 text-gray-500">
                                         <FaGraduationCap className="text-4xl mx-auto mb-3 opacity-30" />
                                         <p>No students found</p>
                                     </td>
@@ -770,7 +812,7 @@ const PNTSEAllStudentsContent = () => {
                                     <td className="px-5 py-4 text-gray-400">{idx + 1}</td>
                                     <td className="px-5 py-4">
                                         <div className="flex items-center gap-3">
-                                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                                             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
                                                 {student.name?.charAt(0)}
                                             </div>
                                             <span className="font-medium text-gray-100">{student.name}</span>
@@ -780,6 +822,7 @@ const PNTSEAllStudentsContent = () => {
                                     <td className="px-5 py-4 text-gray-300">{student.class?.name || student.class}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.board?.boardCourse || student.board?.boardName || student.board || '—'}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.centre?.centreName || student.centre?.enterCode || student.centre}</td>
+                                    <td className="px-5 py-4 text-gray-300">{getZoneName(student.centre)}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.mobile}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.secondaryMobile || '—'}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.course}</td>
@@ -1130,6 +1173,10 @@ const PNTSEAllStudentsContent = () => {
                                         <p className="text-sm text-gray-200 mt-0.5">{viewStudent.centre?.centreName || viewStudent.centre?.enterCode || '—'}</p>
                                     </div>
                                     <div>
+                                        <p className="text-[10px] text-gray-400 uppercase font-semibold">Zone</p>
+                                        <p className="text-sm text-gray-200 mt-0.5">{getZoneName(viewStudent.centre)}</p>
+                                    </div>
+                                    <div>
                                         <p className="text-[10px] text-gray-400 uppercase font-semibold">Session</p>
                                         <p className="text-sm text-gray-200 mt-0.5">{viewStudent.session?.sessionName || viewStudent.session?.name || '—'}</p>
                                     </div>
@@ -1404,6 +1451,17 @@ const PNTSEAllStudentsContent = () => {
                                             {dbCentres.map(c => <option key={c._id} value={c._id}>{c.centreName || c.enterCode}</option>)}
                                         </select>
                                         {editErrors.centre && <p className="text-[10px] text-red-400">{editErrors.centre}</p>}
+                                    </div>
+                                    <div className="flex flex-col gap-1">
+                                        <label className="text-xs text-gray-400 font-semibold">Zone</label>
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            disabled
+                                            value={getZoneName(editForm.centre)}
+                                            placeholder="Auto-detected from Centre"
+                                            className="px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-400 cursor-not-allowed"
+                                        />
                                     </div>
                                     <div className="flex flex-col gap-1">
                                         <label className="text-xs text-gray-400 font-semibold">Session *</label>

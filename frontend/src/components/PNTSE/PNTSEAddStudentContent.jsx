@@ -66,11 +66,22 @@ const PNTSEAddStudentContent = () => {
     const [message, setMessage] = useState('');
 
     const [dbCentres, setDbCentres] = useState([]);
+    const [dbZones, setDbZones] = useState([]);
     const [dbClasses, setDbClasses] = useState([]);
     const [dbBoards, setDbBoards] = useState([]);
     const [dbSessions, setDbSessions] = useState([]);
     const [dbExamTags, setDbExamTags] = useState([]);
     const [loading, setLoading] = useState(true);
+
+    // Helper to get Zone name for a centre
+    const getZoneName = (centreIdOrObj) => {
+        if (!centreIdOrObj) return '—';
+        const cId = (centreIdOrObj._id || centreIdOrObj).toString();
+        const matchedZone = dbZones.find(z =>
+            (z.centres || []).some(c => (c._id || c).toString() === cId)
+        );
+        return matchedZone ? matchedZone.name : '—';
+    };
 
     // Bill modal state
     const [billData, setBillData] = useState(null);
@@ -98,12 +109,13 @@ const PNTSEAddStudentContent = () => {
             try {
                 const token = localStorage.getItem("token");
                 const headers = { "Authorization": `Bearer ${token}` };
-                const [centresRes, classesRes, sessionsRes, tagsRes, boardsRes] = await Promise.all([
+                const [centresRes, classesRes, sessionsRes, tagsRes, boardsRes, zonesRes] = await Promise.all([
                     fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
-                    fetch(`${import.meta.env.VITE_API_URL}/board`, { headers })
+                    fetch(`${import.meta.env.VITE_API_URL}/board`, { headers }),
+                    fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
                 ]);
                 if (centresRes.ok) setDbCentres(await centresRes.json());
                 if (classesRes.ok) setDbClasses(await classesRes.json());
@@ -113,6 +125,10 @@ const PNTSEAddStudentContent = () => {
                     setDbSessions(Array.isArray(d) ? d : (d.sessions || []));
                 }
                 if (tagsRes.ok) setDbExamTags(await tagsRes.json());
+                if (zonesRes.ok) {
+                    const zData = await zonesRes.json();
+                    setDbZones(Array.isArray(zData) ? zData : (zData.zones || zData.data || []));
+                }
             } catch (err) {
                 console.error("Failed to load master data", err);
             } finally {
@@ -564,6 +580,18 @@ const PNTSEAddStudentContent = () => {
                                         {dbCentres.map(c => <option key={c._id} value={c._id}>{c.centreName || c.enterCode}</option>)}
                                     </select>
                                     {errors.centre && <p className="text-xs text-red-400 mt-0.5">{errors.centre}</p>}
+                                </div>
+
+                                <div className="flex flex-col gap-1.5">
+                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Zone</label>
+                                    <input
+                                        type="text"
+                                        readOnly
+                                        disabled
+                                        value={getZoneName(form.centre)}
+                                        placeholder="Auto-detected from Centre"
+                                        className="px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm text-gray-400 cursor-not-allowed"
+                                    />
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">

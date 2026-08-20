@@ -1,6 +1,7 @@
 import PNTSEStudent from "../../models/PNTSEStudent.js";
 import Class from "../../models/Master_data/Class.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import Zone from "../../models/Zone.js";
 import Session from "../../models/Master_data/Session.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
 import Boards from "../../models/Master_data/Boards.js";
@@ -297,25 +298,44 @@ export const createPNTSEStudent = async (req, res) => {
 // Get all PNTSE Students with filtering and search
 export const getPNTSEStudents = async (req, res) => {
     try {
-        const { search, centre, class: classId, session, examTag, status } = req.query;
+        const { search, centre, class: classId, session, examTag, status, zone } = req.query;
 
         const query = {};
 
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
-
+        let assignedCentres = null;
         if (!isSuperAdmin) {
-            const assignedCentres = req.user.centres || [];
+            assignedCentres = (req.user.centres || []).map(c => c.toString());
+        }
+
+        if (zone) {
+            const zoneDoc = await Zone.findById(zone).select("centres").lean();
+            const zoneCentres = (zoneDoc?.centres || []).map(c => c.toString());
             if (centre) {
-                if (assignedCentres.map(c => c.toString()).includes(centre.toString())) {
-                    query.centre = centre;
+                if (zoneCentres.includes(centre.toString())) {
+                    if (assignedCentres) {
+                        query.centre = assignedCentres.includes(centre.toString()) ? centre : { $in: [] };
+                    } else {
+                        query.centre = centre;
+                    }
                 } else {
-                    query.centre = { $in: assignedCentres };
+                    query.centre = { $in: [] };
                 }
             } else {
-                query.centre = { $in: assignedCentres };
+                let targetCentres = zoneCentres;
+                if (assignedCentres) {
+                    targetCentres = targetCentres.filter(c => assignedCentres.includes(c));
+                }
+                query.centre = { $in: targetCentres };
             }
-        } else {
-            if (centre) query.centre = centre;
+        } else if (centre) {
+            if (assignedCentres) {
+                query.centre = assignedCentres.includes(centre.toString()) ? centre : { $in: assignedCentres };
+            } else {
+                query.centre = centre;
+            }
+        } else if (assignedCentres) {
+            query.centre = { $in: assignedCentres };
         }
 
         if (search) {
