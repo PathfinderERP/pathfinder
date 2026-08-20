@@ -68,8 +68,8 @@ export const createAdmission = async (req, res) => {
 
 
         // Validate Type Specific Fields
-        if (admissionType === "NORMAL" && (!courseId || !examTagId || !departmentId || !boardId)) {
-            return res.status(400).json({ message: "Course, Board, Exam Tag, and Department are required for Normal Admission" });
+        if (admissionType === "NORMAL" && (!courseId || !examTagId || !departmentId)) {
+            return res.status(400).json({ message: "Course, Exam Tag, and Department are required for Normal Admission" });
         }
         if (admissionType === "BOARD" && (!boardId || !selectedSubjectIds || selectedSubjectIds.length === 0 || !billingMonth || !examTagId || !departmentId)) {
             return res.status(400).json({ message: "Board, Subjects, Billing Month, Exam Tag, and Department are required for Board Admission" });

@@ -74,10 +74,11 @@ const admissionSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    // Board Admission Specifics
     board: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Boards",
-        required: true
+        required: function () { return this.admissionType === "BOARD"; }
     },
     selectedSubjects: [{
         subject: {
