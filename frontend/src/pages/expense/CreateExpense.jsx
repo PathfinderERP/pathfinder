@@ -51,19 +51,31 @@ const CreateExpense = () => {
     const fetchCategories = async () => {
         try {
             const token = localStorage.getItem("token");
-            const response = await axios.get(`${API_URL}/category`, {
+            const response = await axios.get(`${API_URL}/category?status=Active`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
+            let fetched = [];
             if (response.data?.categories) {
-                setCategories(response.data.categories);
+                fetched = response.data.categories;
             } else if (Array.isArray(response.data)) {
-                setCategories(response.data);
-            } else {
-                setCategories([]);
+                fetched = response.data;
             }
+            const activeOnly = fetched.filter((c) => (c.status || "Active") === "Active");
+            setCategories(activeOnly);
         } catch (error) {
             console.error("Fetch categories error:", error);
-            toast.error("Unable to load expense categories");
+            try {
+                const token = localStorage.getItem("token");
+                const fallbackRes = await axios.get(`${API_URL}/category`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                const fetched = fallbackRes.data?.categories || (Array.isArray(fallbackRes.data) ? fallbackRes.data : []);
+                const activeOnly = fetched.filter((c) => (c.status || "Active") === "Active");
+                setCategories(activeOnly);
+            } catch (fbErr) {
+                console.error("Fallback fetch categories error:", fbErr);
+                toast.error("Unable to load expense categories");
+            }
         }
     };
 

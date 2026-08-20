@@ -38,27 +38,31 @@ const getAllCategories = async (req,res) => {
         const { status } = req.query;
         const query = {};
         if (status && status !== "All") {
-            query.status = status;
+            if (status === "Active") {
+                query.$or = [
+                    { status: "Active" },
+                    { status: { $exists: false } },
+                    { status: null },
+                    { status: "" }
+                ];
+            } else if (status === "Deactive" || status === "Inactive") {
+                query.status = { $in: ["Deactive", "Inactive"] };
+            } else {
+                query.status = status;
+            }
         }
-        const categories = await Category.find(query);
+        const categories = await Category.find(query).sort({ name: 1 });
 
-        if(categories.length === 0) {
-            return res.status(404).json({
-                success:false,
-                message:"Categories not found",
-            });
-        }
-
-        res.status(201).json({
-            success:true,
-            message:`Found ${categories.length} categories`,
-            categories
+        res.status(200).json({
+            success: true,
+            message: `Found ${categories.length} categories`,
+            categories: categories || []
         });
 
     } catch (error) {
         res.status(500).json({
-            success:false,
-            message:"Error getting the categories"
+            success: false,
+            message: "Error getting the categories"
         });
     }
 }

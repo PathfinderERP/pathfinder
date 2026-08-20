@@ -508,9 +508,32 @@ const GetAllExpense = () => {
         return date.toLocaleDateString();
     };
 
+    const isCategoryDeactive = (expense) => {
+        if (!expense || expense.expenseType === "Salary") return false;
+        if (expense.category && typeof expense.category === "object" && expense.category.status) {
+            return expense.category.status === "Deactive" || expense.category.status === "Inactive";
+        }
+        const catId = expense.category?._id || expense.category;
+        if (catId) {
+            const matched = categories.find((c) => c._id?.toString() === catId.toString());
+            if (matched && (matched.status === "Deactive" || matched.status === "Inactive")) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const activeCategories = useMemo(() => {
+        return categories.filter((c) => (c.status || "Active") === "Active");
+    }, [categories]);
+
+    const activeExpenses = useMemo(() => {
+        return expenses.filter((e) => !isCategoryDeactive(e));
+    }, [expenses, categories]);
+
     const creatorOptions = useMemo(() => {
         const map = new Map();
-        expenses.forEach((e) => {
+        activeExpenses.forEach((e) => {
             if (e.createdBy) {
                 const id = typeof e.createdBy === "object" ? e.createdBy._id : e.createdBy;
                 const name = typeof e.createdBy === "object" ? e.createdBy.name || e.createdBy.email || "Unknown" : `User (${e.createdBy})`;
@@ -520,10 +543,10 @@ const GetAllExpense = () => {
             }
         });
         return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
-    }, [expenses]);
+    }, [activeExpenses]);
 
     const filteredExpenses = useMemo(() => {
-        return expenses.filter((expense) => {
+        return activeExpenses.filter((expense) => {
             if (!expenseMatchesSearch(expense, searchTerm)) return false;
             if (!expenseMatchesName(expense, nameFilter)) return false;
             if (!expenseMatchesDateRange(expense, fromDate, toDate)) return false;
@@ -543,7 +566,7 @@ const GetAllExpense = () => {
             }
             return true;
         });
-    }, [expenses, searchTerm, nameFilter, fromDate, toDate, typeFilter, statusFilter, modeOfPaymentFilter, createdByFilter]);
+    }, [activeExpenses, searchTerm, nameFilter, fromDate, toDate, typeFilter, statusFilter, modeOfPaymentFilter, createdByFilter]);
 
     const totalExpenditureAmount = useMemo(() => {
         return filteredExpenses.reduce((sum, expense) => {
@@ -557,7 +580,7 @@ const GetAllExpense = () => {
         const now = new Date();
         const currentYear = now.getFullYear();
         const currentMonth = now.getMonth();
-        return expenses.reduce((sum, expense) => {
+        return activeExpenses.reduce((sum, expense) => {
             const d = getExpenseFilterDate(expense);
             if (d && !Number.isNaN(d.getTime())) {
                 if (d.getFullYear() === currentYear && d.getMonth() === currentMonth) {
@@ -568,25 +591,25 @@ const GetAllExpense = () => {
             }
             return sum;
         }, 0);
-    }, [expenses]);
+    }, [activeExpenses]);
 
     const thisMonthRecordsCount = useMemo(() => {
         const now = new Date();
         const currentYear = now.getFullYear();
         const currentMonth = now.getMonth();
-        return expenses.filter((expense) => {
+        return activeExpenses.filter((expense) => {
             const d = getExpenseFilterDate(expense);
             return d && !Number.isNaN(d.getTime()) && d.getFullYear() === currentYear && d.getMonth() === currentMonth;
         }).length;
-    }, [expenses]);
+    }, [activeExpenses]);
 
     const allTimeExpenditure = useMemo(() => {
-        return expenses.reduce((sum, expense) => {
+        return activeExpenses.reduce((sum, expense) => {
             const isSalary = expense.expenseType === "Salary";
             const amt = parseFloat(isSalary ? (expense.originalAmount !== undefined ? expense.originalAmount : expense.amount) : expense.amount) || 0;
             return sum + amt;
         }, 0);
-    }, [expenses]);
+    }, [activeExpenses]);
 
     const isAllSelected = useMemo(() => {
         if (filteredExpenses.length === 0) return false;
@@ -1090,7 +1113,7 @@ const GetAllExpense = () => {
                                     <select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)} className={inputClass}>
                                         <option value="all">All types</option>
                                         <option value="Salary">Salary</option>
-                                        {categories.map((cat) => (
+                                        {activeCategories.map((cat) => (
                                             <option key={cat._id} value={cat._id}>
                                                 {cat.name}
                                             </option>
@@ -1698,7 +1721,7 @@ const GetAllExpense = () => {
                                                 required
                                             >
                                                 <option value="">— Select —</option>
-                                                {categories.map((c) => (
+                                                {activeCategories.map((c) => (
                                                     <option key={c._id} value={c._id}>
                                                         {c.name}
                                                     </option>
@@ -1914,7 +1937,7 @@ const GetAllExpense = () => {
                                             className={inputClass}
                                         >
                                             <option value="">-- Leave Unchanged --</option>
-                                            {categories.map((c) => (
+                                            {activeCategories.map((c) => (
                                                 <option key={c._id} value={c._id}>
                                                     {c.name}
                                                 </option>

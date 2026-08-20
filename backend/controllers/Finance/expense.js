@@ -27,6 +27,14 @@ const createExpense = async (req, res) => {
             });
         }
 
+        const categoryDoc = await Category.findById(category);
+        if (categoryDoc && (categoryDoc.status === "Deactive" || categoryDoc.status === "Inactive")) {
+            return res.status(400).json({
+                success: false,
+                message: "Selected category is deactivated. Please choose an active category.",
+            });
+        }
+
         const data = {
             name,
             category,
@@ -303,6 +311,10 @@ const bulkImportExpenses = async (req, res) => {
             let cat = categoriesList.find(c => c.name.toLowerCase() === categoryName.toLowerCase());
             if (!cat) {
                 errors.push(`Row ${i + 2}: Category "${categoryName}" does not match any existing expense category.`);
+                continue;
+            }
+            if (cat.status === "Deactive" || cat.status === "Inactive") {
+                errors.push(`Row ${i + 2}: Category "${categoryName}" is deactivated. Please choose an active category.`);
                 continue;
             }
 

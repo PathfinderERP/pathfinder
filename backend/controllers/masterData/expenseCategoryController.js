@@ -21,18 +21,38 @@ export const getExpenseCategories = async (req, res) => {
         const query = {};
 
         if (status && status !== "All") {
-            query.status = status;
+            if (status === "Active") {
+                query.$or = [
+                    { status: "Active" },
+                    { status: { $exists: false } },
+                    { status: null },
+                    { status: "" }
+                ];
+            } else if (status === "Deactive" || status === "Inactive") {
+                query.status = { $in: ["Deactive", "Inactive"] };
+            } else {
+                query.status = status;
+            }
         }
 
         if (search) {
-            query.$or = [
+            const searchCondition = [
                 { name: { $regex: search, $options: "i" } },
                 { description: { $regex: search, $options: "i" } }
             ];
+            if (query.$or) {
+                query.$and = [
+                    { $or: query.$or },
+                    { $or: searchCondition }
+                ];
+                delete query.$or;
+            } else {
+                query.$or = searchCondition;
+            }
         }
 
         const categories = await ExpenseCategory.find(query).sort({ name: 1 });
-        res.status(200).json(categories);
+        res.status(200).json(categories || []);
     } catch (err) {
         res.status(500).json({ message: "Server error", error: err.message });
     }
