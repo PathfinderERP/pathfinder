@@ -21,6 +21,7 @@ const StudentAdmissionPage = () => {
     const [sessions, setSessions] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [boards, setBoards] = useState([]);
+    const [batches, setBatches] = useState([]);
     const [admissionType, setAdmissionType] = useState("NORMAL"); // "NORMAL" | "BOARD"
     const [isBoardLocked, setIsBoardLocked] = useState(false);
     const [admittedByOptions, setAdmittedByOptions] = useState([]);
@@ -51,6 +52,8 @@ const StudentAdmissionPage = () => {
         examTagId: "",
         departmentId: "", // Optional, can be set from course
         centre: "", // New field
+        programme: "CRP",
+        batchId: "",
         academicSession: "",
         downPayment: 0,
         numberOfInstallments: 0,
@@ -215,6 +218,17 @@ const StudentAdmissionPage = () => {
                     }
                 }
 
+                // Autofill Programme from student
+                const studentProg = student.studentsDetails?.[0]?.programme || "CRP";
+                newData.programme = studentProg;
+                setCFilters(prevF => ({ ...prevF, programme: studentProg }));
+
+                // Autofill Batch from student
+                if (student.batches && student.batches.length > 0) {
+                    const bId = typeof student.batches[0] === 'object' ? student.batches[0]._id : student.batches[0];
+                    if (bId) newData.batchId = bId;
+                }
+
                 // Autofill Session
                 if (!prev.academicSession && sessions.length > 0) {
                     const registeredSession = student.sessionExamCourse?.[0]?.session?.trim();
@@ -244,7 +258,7 @@ const StudentAdmissionPage = () => {
             const token = localStorage.getItem("token");
             const headers = { "Authorization": `Bearer ${token}` };
 
-            const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes, deptsRes, boardsRes, subjectsRes, accountsRes] = await Promise.all([
+            const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes, deptsRes, boardsRes, subjectsRes, accountsRes, batchesRes] = await Promise.all([
                 fetch(`${apiUrl}/normalAdmin/getStudent/${studentId}`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
@@ -253,7 +267,8 @@ const StudentAdmissionPage = () => {
                 fetch(`${apiUrl}/department`, { headers }),
                 fetch(`${apiUrl}/board`, { headers }),
                 fetch(`${apiUrl}/subject`, { headers }),
-                fetch(`${apiUrl}/master-data/account`, { headers })
+                fetch(`${apiUrl}/master-data/account`, { headers }),
+                fetch(`${apiUrl}/batch/list`, { headers })
             ]);
 
             if (studentRes.ok) {
@@ -261,7 +276,15 @@ const StudentAdmissionPage = () => {
                 setStudent(sData);
                 // Set initial centre
                 if (sData.studentsDetails?.[0]?.centre) {
-                    setFormData(prev => ({ ...prev, centre: sData.studentsDetails[0].centre }));
+                    setFormData(prev => ({
+                        ...prev,
+                        centre: sData.studentsDetails[0].centre,
+                        programme: sData.studentsDetails[0].programme || prev.programme || "CRP",
+                        batchId: (sData.batches && sData.batches.length > 0) ? (sData.batches[0]?._id || sData.batches[0]) : prev.batchId
+                    }));
+                    if (sData.studentsDetails[0].programme) {
+                        setCFilters(prevF => ({ ...prevF, programme: sData.studentsDetails[0].programme }));
+                    }
                 }
             }
             if (coursesRes.ok) setCourses(await coursesRes.json());
@@ -280,6 +303,10 @@ const StudentAdmissionPage = () => {
             if (boardsRes.ok) setBoards(await boardsRes.json());
             if (subjectsRes.ok) await subjectsRes.json();
             if (accountsRes.ok) setMasterAccounts(await accountsRes.json());
+            if (batchesRes && batchesRes.ok) {
+                const bData = await batchesRes.json();
+                setBatches(Array.isArray(bData) ? bData : []);
+            }
 
         } catch (error) {
             console.error(error);
@@ -590,6 +617,12 @@ const StudentAdmissionPage = () => {
             return;
         }
 
+        if (formData.programme === "CRP" && !formData.batchId) {
+            toast.error("Batch selection is mandatory for CRP programme.");
+            setLoading(false);
+            return;
+        }
+
         if (!formData.admittedBy) {
             toast.error("Please select an admitting officer.");
             setLoading(false);
@@ -716,18 +749,22 @@ const StudentAdmissionPage = () => {
             {student && (
                 <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                     <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Student Information</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Name</label>
                             <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.studentName}</p>
                         </div>
                         <div>
                             <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Email</label>
-                            <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.studentEmail}</p>
+                            <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.studentEmail || 'N/A'}</p>
                         </div>
                         <div>
                             <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Mobile</label>
                             <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.mobileNum}</p>
+                        </div>
+                        <div>
+                            <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Programme</label>
+                            <p className={`font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{student.studentsDetails?.[0]?.programme || formData.programme || 'CRP'}</p>
                         </div>
                     </div>
                 </div>
@@ -779,6 +816,41 @@ const StudentAdmissionPage = () => {
                                     <option value="">Select Department</option>
                                     {departments.map(dept => (
                                         <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Programme *</label>
+                                <select
+                                    required
+                                    name="programme"
+                                    value={formData.programme}
+                                    onChange={(e) => {
+                                        handleInputChange(e);
+                                        setCFilters(prev => ({ ...prev, programme: e.target.value }));
+                                    }}
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                >
+                                    <option value="CRP">CRP</option>
+                                    <option value="NCRP">NCRP</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    Batch {formData.programme === "CRP" ? "*" : ""}
+                                </label>
+                                <select
+                                    name="batchId"
+                                    value={formData.batchId}
+                                    onChange={handleInputChange}
+                                    required={formData.programme === "CRP"}
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                >
+                                    <option value="">{formData.programme === "CRP" ? "Select Batch *" : "Select Batch (Optional)"}</option>
+                                    {batches.map(batch => (
+                                        <option key={batch._id} value={batch._id}>{batch.batchName}</option>
                                     ))}
                                 </select>
                             </div>

@@ -40,7 +40,10 @@ export const createAdmission = async (req, res) => {
             billingMonth = "", // For Board Admissions
             customBoardDuration = "", // New: Custom duration override
             bankAccount = null,
-            admittedBy
+            admittedBy,
+            programme,
+            batchId,
+            batches
         } = req.body;
 
         if (!admittedBy) {
@@ -76,6 +79,11 @@ export const createAdmission = async (req, res) => {
         const student = await Student.findById(studentId).populate('batches');
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
+        }
+
+        const finalProg = programme || student.studentsDetails?.[0]?.programme || "CRP";
+        if (finalProg === "CRP" && !batchId && (!batches || batches.length === 0) && (!student.batches || student.batches.length === 0)) {
+            return res.status(400).json({ message: "Batch selection is mandatory for CRP programme." });
         }
 
         const previousBalance = student.carryForwardBalance || 0;
@@ -319,6 +327,7 @@ export const createAdmission = async (req, res) => {
             class: classId || null,
             examTag: examTagId || undefined,
             department: departmentId || null, // Optional
+            programme: programme || student.studentsDetails?.[0]?.programme || "CRP",
             centre,
             academicSession,
             baseFees,
@@ -357,7 +366,7 @@ export const createAdmission = async (req, res) => {
             if (tagDoc) examTagName = tagDoc.name;
         }
 
-        // Update student enrollment status and reset carryForwardBalance
+        // Update student enrollment status, batches, programme, and reset carryForwardBalance
         const studentUpdatePayload = {
             isEnrolled: true,
             carryForwardBalance: 0,
@@ -365,6 +374,16 @@ export const createAdmission = async (req, res) => {
             updatedByUserId: req.user?._id,
             department: departmentId
         };
+
+        if (batchId) {
+            studentUpdatePayload.batches = [batchId];
+        } else if (Array.isArray(batches) && batches.length > 0) {
+            studentUpdatePayload.batches = batches;
+        }
+
+        if (programme && student.studentsDetails && student.studentsDetails.length > 0) {
+            studentUpdatePayload["studentsDetails.0.programme"] = programme;
+        }
 
         if (examTagName) {
             studentUpdatePayload.sessionExamCourse = [{

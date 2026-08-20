@@ -43,6 +43,13 @@ const admissionSchema = new mongoose.Schema({
         default: "NORMAL"
     },
 
+    // Programme (CRP / NCRP)
+    programme: {
+        type: String,
+        enum: ["CRP", "NCRP"],
+        default: "CRP"
+    },
+
     // Course Details
     course: {
         type: mongoose.Schema.Types.ObjectId,
