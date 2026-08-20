@@ -5,6 +5,7 @@ import Payment from "../../models/Payment/Payment.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
+import { isGstExempt } from "../../utils/gstHelper.js";
 
 // Global rebalance logic for Board admissions
 export const rebalanceBoardHistory = async (admissionId) => {
@@ -136,7 +137,9 @@ export const generateMonthlyBill = async (req, res) => {
         }
 
         // Fetch the admission
-        const admission = await Admission.findById(admissionId).populate('board');
+        const admission = await Admission.findById(admissionId)
+            .populate('board')
+            .populate({ path: 'student', populate: { path: 'batches' } });
         if (!admission) {
             return res.status(404).json({ message: "Admission not found" });
         }
@@ -210,10 +213,14 @@ export const generateMonthlyBill = async (req, res) => {
         console.log("Base fees calculated:", baseFees);
 
         // Calculate taxes
-        const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
+        const exempt = isGstExempt({
+            centreName: admission.centre,
+            admission,
+            student: admission.student
+        });
         const taxableAmount = baseFees;
-        const cgstAmount = isPHSPS ? 0 : Math.round(taxableAmount * 0.09);
-        const sgstAmount = isPHSPS ? 0 : Math.round(taxableAmount * 0.09);
+        const cgstAmount = exempt ? 0 : Math.round(taxableAmount * 0.09);
+        const sgstAmount = exempt ? 0 : Math.round(taxableAmount * 0.09);
         const totalAmount = taxableAmount + cgstAmount + sgstAmount;
         console.log("Total amount with taxes:", totalAmount);
 
@@ -520,7 +527,9 @@ export const updateBoardSubjects = async (req, res) => {
             return res.status(400).json({ message: "Subjects and billing month are required" });
         }
 
-        const admission = await Admission.findById(admissionId).populate('board');
+        const admission = await Admission.findById(admissionId)
+            .populate('board')
+            .populate({ path: 'student', populate: { path: 'batches' } });
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
         // Fetch Board with populated subjects
@@ -544,11 +553,15 @@ export const updateBoardSubjects = async (req, res) => {
             return res.status(400).json({ message: "One or more subjects not configured for this board" });
         }
 
-        const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
+        const exempt = isGstExempt({
+            centreName: admission.centre,
+            admission,
+            student: admission.student
+        });
         const baseFees = validSelectedSubjects.reduce((sum, sub) => sum + sub.price, 0);
         const taxableAmount = baseFees;
-        const cgstAmount = isPHSPS ? 0 : Math.round(taxableAmount * 0.09);
-        const sgstAmount = isPHSPS ? 0 : Math.round(taxableAmount * 0.09);
+        const cgstAmount = exempt ? 0 : Math.round(taxableAmount * 0.09);
+        const sgstAmount = exempt ? 0 : Math.round(taxableAmount * 0.09);
         const totalAmount = taxableAmount + cgstAmount + sgstAmount;
 
         // Propagation Logic for updateBoardSubjects: Update this month and ALL future UNPAID months

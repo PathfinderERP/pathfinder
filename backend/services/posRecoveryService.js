@@ -18,6 +18,7 @@ import Payment from "../models/Payment/Payment.js";
 import CentreSchema from "../models/Master_data/Centre.js";
 import { generateBillId } from "../utils/billIdGenerator.js";
 import { updateCentreTargetAchieved } from "./centreTargetService.js";
+import { isGstExempt } from "../utils/gstHelper.js";
 
 const getBaseUrl = () => {
     return process.env.EZETAP_MODE === 'production'
@@ -110,9 +111,12 @@ export const recoverPendingPosPayments = async () => {
                 }
 
                 // Check if already processed in admission record anyway (double safety)
-                let admission = await Admission.findById(tx.admissionId);
+                let admission = await Admission.findById(tx.admissionId)
+                    .populate({ path: 'student', populate: { path: 'batches' } })
+                    .populate('board');
                 if (!admission && tx.admissionType === "BOARD") {
-                    admission = await BoardCourseAdmission.findById(tx.admissionId);
+                    admission = await BoardCourseAdmission.findById(tx.admissionId)
+                        .populate({ path: 'studentId', populate: { path: 'batches' } });
                 }
 
                 if (!admission) {
@@ -182,9 +186,13 @@ export const recoverPendingPosPayments = async () => {
                 }
 
                 const billId = await generateBillId(centreCode);
-                const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
-                const taxableAmount = isPHSPS ? amount : amount / 1.18;
-                const cgst = isPHSPS ? 0 : (amount - taxableAmount) / 2;
+                const exempt = isGstExempt({
+                    centreName: admission.centre,
+                    admission,
+                    student: admission.student || admission.studentId
+                });
+                const taxableAmount = exempt ? amount : amount / 1.18;
+                const cgst = exempt ? 0 : (amount - taxableAmount) / 2;
                 const sgst = cgst;
 
                 const paymentDoc = {

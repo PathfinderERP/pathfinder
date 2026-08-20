@@ -11,6 +11,7 @@ import BoardCourseSubject from "../../models/Master_data/BoardCourseSubject.js";
 import Class from "../../models/Master_data/Class.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
 import { deleteCache } from "../../utils/redisCache.js";
+import { isGstExempt } from "../../utils/gstHelper.js";
 
 // Helper to calculate next months due date
 const getNextMonthDate = (startDate, monthsToAdd) => {
@@ -104,7 +105,7 @@ export const createBoardAdmission = async (req, res) => {
             return res.status(400).json({ message: "A valid Student ID is required for admission" });
         }
 
-        const student = await Students.findById(studentId);
+        const student = await Students.findById(studentId).populate('batches');
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
         }
@@ -347,9 +348,9 @@ export const createBoardAdmission = async (req, res) => {
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
             const billId = await generateBillId(centreCode, receivedDate || new Date());
 
-            const isPHSPS = centre && /phsps/i.test(centre);
-            const taxableAmount = isPHSPS ? totalPaidToday : totalPaidToday / 1.18;
-            const cgst = isPHSPS ? 0 : (totalPaidToday - taxableAmount) / 2;
+            const exempt = isGstExempt({ centreName: centre, boardName: boardCourseName, student });
+            const taxableAmount = exempt ? totalPaidToday : totalPaidToday / 1.18;
+            const cgst = exempt ? 0 : (totalPaidToday - taxableAmount) / 2;
             const sgst = cgst;
 
             // Adjust Course Name for bill: Append "+ Examination" only if exam fee was paid
@@ -887,7 +888,7 @@ export const collectBoardExamFee = async (req, res) => {
         const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
 
-        const admission = await BoardCourseAdmission.findById(id).populate('studentId');
+        const admission = await BoardCourseAdmission.findById(id).populate({ path: 'studentId', populate: { path: 'batches' } });
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
         if (admission.studentId && admission.studentId.status === 'Deactivated') {
@@ -931,9 +932,9 @@ export const collectBoardExamFee = async (req, res) => {
 
             const billId = await generateBillId(centreCode, receivedDate || new Date());
 
-            const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
-            const taxableAmount = isPHSPS ? paidAmount : paidAmount / 1.18;
-            const cgst = isPHSPS ? 0 : (paidAmount - taxableAmount) / 2;
+            const exempt = isGstExempt({ centreName: admission.centre, boardName: admission.boardCourseName, student: admission.studentId });
+            const taxableAmount = exempt ? paidAmount : paidAmount / 1.18;
+            const cgst = exempt ? 0 : (paidAmount - taxableAmount) / 2;
             const sgst = cgst;
 
             const paymentRecord = new Payment({
@@ -998,7 +999,7 @@ export const collectBoardInstallment = async (req, res) => {
         const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
 
-        const admission = await BoardCourseAdmission.findById(id).populate('studentId');
+        const admission = await BoardCourseAdmission.findById(id).populate({ path: 'studentId', populate: { path: 'batches' } });
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
         if (admission.studentId && admission.studentId.status === 'Deactivated') {
@@ -1147,9 +1148,9 @@ export const collectBoardInstallment = async (req, res) => {
 
             const billId = await generateBillId(centreCode, receivedDate || new Date());
 
-            const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
-            const taxableAmount = isPHSPS ? totalPaidToday : totalPaidToday / 1.18;
-            const cgst = isPHSPS ? 0 : (totalPaidToday - taxableAmount) / 2;
+            const exempt = isGstExempt({ centreName: admission.centre, boardName: admission.boardCourseName, student: admission.studentId });
+            const taxableAmount = exempt ? totalPaidToday : totalPaidToday / 1.18;
+            const cgst = exempt ? 0 : (totalPaidToday - taxableAmount) / 2;
             const sgst = cgst;
 
             let billCourseName = admission.boardCourseName || '';
@@ -1208,7 +1209,7 @@ export const collectBoardAdditionalFee = async (req, res) => {
         const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
 
-        const admission = await BoardCourseAdmission.findById(id).populate('studentId');
+        const admission = await BoardCourseAdmission.findById(id).populate({ path: 'studentId', populate: { path: 'batches' } });
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
         if (admission.studentId && admission.studentId.status === 'Deactivated') {
@@ -1252,9 +1253,9 @@ export const collectBoardAdditionalFee = async (req, res) => {
 
             const billId = await generateBillId(centreCode, new Date());
 
-            const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
-            const taxableAmount = isPHSPS ? paidAmount : paidAmount / 1.18;
-            const cgst = isPHSPS ? 0 : (paidAmount - taxableAmount) / 2;
+            const exempt = isGstExempt({ centreName: admission.centre, boardName: admission.boardCourseName, student: admission.studentId });
+            const taxableAmount = exempt ? paidAmount : paidAmount / 1.18;
+            const cgst = exempt ? 0 : (paidAmount - taxableAmount) / 2;
             const sgst = cgst;
 
             const paymentRecord = new Payment({
@@ -1317,7 +1318,7 @@ export const collectNcrpFees = async (req, res) => {
         const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
 
-        const admission = await BoardCourseAdmission.findById(id).populate('studentId');
+        const admission = await BoardCourseAdmission.findById(id).populate({ path: 'studentId', populate: { path: 'batches' } });
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
         if (admission.studentId && admission.studentId.status === 'Deactivated') {
@@ -1369,9 +1370,9 @@ export const collectNcrpFees = async (req, res) => {
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
             const billId = await generateBillId(centreCode, new Date());
 
-            const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
-            const taxableAmount = isPHSPS ? totalPaidToday : totalPaidToday / 1.18;
-            const cgst = isPHSPS ? 0 : (totalPaidToday - taxableAmount) / 2;
+            const exempt = isGstExempt({ centreName: admission.centre, boardName: admission.boardCourseName, student: admission.studentId });
+            const taxableAmount = exempt ? totalPaidToday : totalPaidToday / 1.18;
+            const cgst = exempt ? 0 : (totalPaidToday - taxableAmount) / 2;
             const sgst = cgst;
 
             let billCourseName = admission.boardCourseName || '';

@@ -8,6 +8,7 @@ import { generateBillId } from "../../utils/billIdGenerator.js";
 import Board from "../../models/Master_data/Boards.js"; // Corrected filename
 import Subject from "../../models/Master_data/Subject.js"; // Import Subject model
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
+import { isGstExempt } from "../../utils/gstHelper.js";
 import { rebalanceBoardHistory } from "./generateMonthlyBill.js";
 import { clearCachePattern } from "../../utils/redisCache.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
@@ -72,7 +73,7 @@ export const createAdmission = async (req, res) => {
         }
 
         // Fetch student details for carry forward balance
-        const student = await Student.findById(studentId);
+        const student = await Student.findById(studentId).populate('batches');
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
         }
@@ -88,44 +89,30 @@ export const createAdmission = async (req, res) => {
 
             if (daysDeactivated > 0) {
                 // Shift Normal Admissions
-                const admissions = await Admission.find({ student: studentId });
-                for (const admission of admissions) {
-                    admission.paymentBreakdown.forEach(inst => {
-                        if (inst.status === 'PENDING' || inst.status === 'OVERDUE') {
-                            const oldDueDate = new Date(inst.dueDate);
-                            oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
-                            inst.dueDate = oldDueDate;
-                            if (inst.status === 'OVERDUE' && oldDueDate > now) {
-                                inst.status = 'PENDING';
-                            }
+                const normalAdmissions = await Admission.find({ student: studentId });
+                for (const adm of normalAdmissions) {
+                    adm.paymentBreakdown.forEach(p => {
+                        if (p.status === 'PENDING' || p.status === 'OVERDUE') {
+                            const currentDue = new Date(p.dueDate);
+                            currentDue.setDate(currentDue.getDate() + daysDeactivated);
+                            p.dueDate = currentDue;
                         }
                     });
-                    admission.admissionStatus = 'ACTIVE';
-                    await admission.save();
+                    await adm.save();
                 }
 
                 // Shift Board Admissions
                 const boardAdmissions = await BoardCourseAdmission.find({ studentId: studentId });
-                for (const bAdmission of boardAdmissions) {
-                    let changed = false;
-                    bAdmission.installments.forEach(inst => {
-                        if (inst.status === 'PENDING' || inst.status === 'PARTIAL' || inst.status === 'PARTIALLY_PAID') {
-                            const oldDueDate = new Date(inst.dueDate);
-                            oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
-                            inst.dueDate = oldDueDate;
-                            changed = true;
+                for (const bAdm of boardAdmissions) {
+                    bAdm.installments.forEach(inst => {
+                        if (inst.status === 'PENDING' || inst.status === 'OVERDUE') {
+                            const currentDue = new Date(inst.dueDate);
+                            currentDue.setDate(currentDue.getDate() + daysDeactivated);
+                            inst.dueDate = currentDue;
                         }
                     });
-                    if (changed) {
-                        await bAdmission.save();
-                    }
+                    await bAdm.save();
                 }
-            } else {
-                // Even if 0 days, ensure admissions are set to ACTIVE
-                await Admission.updateMany(
-                    { student: studentId },
-                    { admissionStatus: 'ACTIVE' }
-                );
             }
 
             student.status = 'Active';
@@ -137,27 +124,38 @@ export const createAdmission = async (req, res) => {
 
         let baseFees = 0;
         let feeSnapshot = [];
-        let boardCourseNameString = "";
-        let selectedSubjectsData = [];
+        let durationMonths = 0;
+        let board = null;
         let course = null;
-        let durationMonths = 0; // Initialize durationMonths
+        let selectedSubjectsData = [];
+        let boardCourseNameString = "";
 
         if (admissionType === "NORMAL") {
-            // Fetch course details
             course = await Course.findById(courseId);
             if (!course) {
                 return res.status(404).json({ message: "Course not found" });
             }
-            baseFees = course.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
-            feeSnapshot = course.feesStructure;
-            durationMonths = course.courseDurationMonths || 0; // Set duration for normal course
-        } else if (admissionType === "BOARD") {
-            // Fetch Board with populated subjects
-            const board = await Board.findById(boardId).populate("subjects.subjectId");
-            if (!board) return res.status(404).json({ message: "Board not found" });
 
-            // Validate and calculate fees based on Board's configuration
+            // Normal Course Duration & Fees
+            durationMonths = course.courseDurationMonths || 12;
+            baseFees = course.courseFee;
+            feeSnapshot = course.feeStructure;
+        } else if (admissionType === "BOARD") {
+            board = await Board.findById(boardId).populate("subjects.subjectId");
+            if (!board) {
+                return res.status(404).json({ message: "Board not found" });
+            }
+
+            // Parse Duration String (e.g., "1 Year", "6 Months", "12")
+            durationMonths = parseInt(board.duration) || 12;
+            if (board.duration && board.duration.toLowerCase().includes("year")) {
+                durationMonths = (parseInt(board.duration) || 1) * 12;
+            }
+
+            // Validate and fetch price for each selected subject
             const validSelectedSubjects = [];
+            let monthlyFees = 0;
+
             for (const subjectId of selectedSubjectIds) {
                 const boardSubject = board.subjects.find(s => {
                     const sId = s.subjectId?._id || s.subjectId;
@@ -169,6 +167,7 @@ export const createAdmission = async (req, res) => {
                         subName: boardSubject.subjectId.subName || "Unknown Subject",
                         price: boardSubject.price || 0
                     });
+                    monthlyFees += boardSubject.price || 0;
                 }
             }
 
@@ -182,7 +181,7 @@ export const createAdmission = async (req, res) => {
             }
 
             // Monthly fees calculated (sum of subject prices)
-            const monthlyFees = validSelectedSubjects.reduce((sum, sub) => sum + sub.price, 0);
+            monthlyFees = validSelectedSubjects.reduce((sum, sub) => sum + sub.price, 0);
 
             // Calculate course duration in months from board.duration
             durationMonths = 12; // Default to 12 months
@@ -216,17 +215,21 @@ export const createAdmission = async (req, res) => {
             course = { courseDurationMonths: durationMonths, monthlyFees: monthlyFees };
         }
 
-        const isPHSPS = centre && /phsps/i.test(centre);
+        const exempt = isGstExempt({
+            centreName: centre,
+            boardName: board?.boardCourse,
+            student: student
+        });
 
         // Calculate Fees (Inclusive Deduction)
-        const totalInclusiveBeforeWaiver = isPHSPS ? baseFees : baseFees * 1.18;
+        const totalInclusiveBeforeWaiver = exempt ? baseFees : baseFees * 1.18;
         const totalFees = parseFloat(Math.max(0, (totalInclusiveBeforeWaiver - Number(feeWaiver) + previousBalance)).toFixed(3));
 
         // Back-calculate taxable and GST (excluding previous balance)
         const totalForGst = Math.max(0, totalFees - previousBalance);
-        const taxableAmount = isPHSPS ? totalForGst : parseFloat((totalForGst / 1.18).toFixed(3));
-        const cgstAmount = isPHSPS ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
-        const sgstAmount = isPHSPS ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
+        const taxableAmount = exempt ? totalForGst : parseFloat((totalForGst / 1.18).toFixed(3));
+        const cgstAmount = exempt ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
+        const sgstAmount = exempt ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
 
         const remainingAmount = totalFees - downPayment;
 
@@ -240,8 +243,8 @@ export const createAdmission = async (req, res) => {
         let monthlyPaymentAmount = 0;
         if (admissionType === "BOARD" && durationMonths > 0) {
             const monthlyTaxable = baseFees / durationMonths;
-            const monthlyCgst = isPHSPS ? 0 : Math.round(monthlyTaxable * 0.09);
-            const monthlySgst = isPHSPS ? 0 : Math.round(monthlyTaxable * 0.09);
+            const monthlyCgst = exempt ? 0 : Math.round(monthlyTaxable * 0.09);
+            const monthlySgst = exempt ? 0 : Math.round(monthlyTaxable * 0.09);
             monthlyPaymentAmount = monthlyTaxable + monthlyCgst + monthlySgst;
         }
 
@@ -410,10 +413,10 @@ export const createAdmission = async (req, res) => {
         if (downPayment > 0) {
             // Calculate tax breakdown for down payment (pro-rated)
             // For down payment, we treat it as a payment that includes taxes
-            // Base amount = Down Payment / 1.18
-            const dpBaseAmount = isPHSPS ? downPayment : downPayment / 1.18;
-            const dpCgst = isPHSPS ? 0 : dpBaseAmount * 0.09;
-            const dpSgst = isPHSPS ? 0 : dpBaseAmount * 0.09;
+            // Base amount = Down Payment / 1.18 (or Down Payment if exempt)
+            const dpBaseAmount = exempt ? downPayment : downPayment / 1.18;
+            const dpCgst = exempt ? 0 : dpBaseAmount * 0.09;
+            const dpSgst = exempt ? 0 : dpBaseAmount * 0.09;
             const dpCourseFee = downPayment - dpCgst - dpSgst;
 
             // Fetch Centre Info for Bill ID

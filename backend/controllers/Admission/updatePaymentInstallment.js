@@ -10,6 +10,7 @@ import Account from "../../models/Master_data/Account.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
 import { clearCachePattern } from "../../utils/redisCache.js";
+import { isGstExempt } from "../../utils/gstHelper.js";
 
 // Helper to calculate next months due date
 const getNextMonthDate = (startDate, monthsToAdd) => {
@@ -52,7 +53,9 @@ export const updatePaymentInstallment = async (req, res) => {
 
         console.log(`✅ [Payment Update] Resolved final ID: ${finalTransactionId}`);
 
-        const admission = await Admission.findById(admissionId).populate('student');
+        const admission = await Admission.findById(admissionId)
+            .populate({ path: 'student', populate: { path: 'batches' } })
+            .populate('board');
         if (!admission) {
             return res.status(404).json({ message: "Admission not found" });
         }
@@ -271,10 +274,14 @@ export const updatePaymentInstallment = async (req, res) => {
         // We log the payment for the amount that WAS paid.
         if (installment.paidAmount > 0) {
             // Calculate tax amounts
-            const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
-            const baseAmount = isPHSPS ? paidAmountFloat : paidAmountFloat / 1.18;
-            const cgst = isPHSPS ? 0 : baseAmount * 0.09;
-            const sgst = isPHSPS ? 0 : baseAmount * 0.09;
+            const exempt = isGstExempt({
+                centreName: admission.centre,
+                admission,
+                student: admission.student
+            });
+            const baseAmount = exempt ? paidAmountFloat : paidAmountFloat / 1.18;
+            const cgst = exempt ? 0 : baseAmount * 0.09;
+            const sgst = exempt ? 0 : baseAmount * 0.09;
             const courseFee = baseAmount;
             const totalAmount = paidAmountFloat;
 

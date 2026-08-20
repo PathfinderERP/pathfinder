@@ -3,6 +3,7 @@ import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js
 import Payment from "../../models/Payment/Payment.js";
 import Centre from "../../models/Master_data/Centre.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
+import { isGstExempt } from "../../utils/gstHelper.js";
 import crypto from "crypto";
 import mongoose from "mongoose";
 
@@ -162,7 +163,9 @@ export const razorpayWebhookHandler = async (req, res) => {
         try {
             if (admissionType === "NORMAL") {
                 // --- NORMAL ADMISSION LOGIC ---
-                const admission = await Admission.findById(admissionId);
+                const admission = await Admission.findById(admissionId)
+                    .populate({ path: 'student', populate: { path: 'batches' } })
+                    .populate('board');
                 if (!admission) return res.status(200).json({ status: 'ok' });
 
                 const existingPayment = await Payment.findOne({ transactionId: paymentLink.id });
@@ -183,8 +186,13 @@ export const razorpayWebhookHandler = async (req, res) => {
 
                     await admission.save();
 
+                    const exempt = isGstExempt({ centreName: admission.centre, admission, student: admission.student });
+                    const taxableAmount = exempt ? amountPaid : amountPaid / 1.18;
+                    const cgst = exempt ? 0 : (amountPaid - taxableAmount) / 2;
+                    const sgst = cgst;
+
                     const newPayment = new Payment({
-                        studentId: admission.studentId,
+                        studentId: admission.student?._id || admission.studentId,
                         admission: admissionId,
                         installmentNumber: installmentNumber,
                         amount: amountPaid,
@@ -193,13 +201,19 @@ export const razorpayWebhookHandler = async (req, res) => {
                         status: "PAID",
                         transactionId: paymentLink.id,
                         remarks: `Razorpay SMS Pay: ${paymentLink.id}`,
-                        dueDate: admission.paymentBreakdown[instIndex].dueDate
+                        dueDate: admission.paymentBreakdown[instIndex].dueDate,
+                        courseFee: taxableAmount,
+                        cgst: cgst,
+                        sgst: sgst,
+                        totalAmount: amountPaid,
+                        centre: admission.centre
                     });
                     await newPayment.save();
                 }
             } else if (admissionType === "BOARD") {
                 // --- BOARD ADMISSION LOGIC ---
-                const admission = await BoardCourseAdmission.findById(admissionId);
+                const admission = await BoardCourseAdmission.findById(admissionId)
+                    .populate({ path: 'studentId', populate: { path: 'batches' } });
                 if (!admission) return res.status(200).json({ status: 'ok' });
 
                 const existingPayment = await Payment.findOne({ transactionId: paymentLink.id });
@@ -248,9 +262,9 @@ export const razorpayWebhookHandler = async (req, res) => {
                     billId = await generateBillId(centreCode);
                 } catch (e) { console.error("Bill ID Gen error:", e); }
 
-                const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
-                const taxableAmount = isPHSPS ? amountPaid : amountPaid / 1.18;
-                const cgst = isPHSPS ? 0 : (amountPaid - taxableAmount) / 2;
+                const exempt = isGstExempt({ centreName: admission.centre, boardName: admission.boardCourseName, student: admission.studentId });
+                const taxableAmount = exempt ? amountPaid : amountPaid / 1.18;
+                const cgst = exempt ? 0 : (amountPaid - taxableAmount) / 2;
                 const sgst = cgst;
 
                 let billCourseName = admission.boardCourseName || '';

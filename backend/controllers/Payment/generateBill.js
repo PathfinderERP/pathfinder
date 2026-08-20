@@ -8,6 +8,7 @@ import ExamTag from "../../models/Master_data/ExamTag.js";
 import Department from "../../models/Master_data/Department.js";
 import Boards from "../../models/Master_data/Boards.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
+import { isGstExempt } from "../../utils/gstHelper.js";
 
 
 // Generate a random GST-like number
@@ -49,7 +50,8 @@ export const generateBill = async (req, res) => {
                 .populate({
                     path: 'student',
                     populate: [
-                        { path: 'department' }
+                        { path: 'department' },
+                        { path: 'batches', select: 'batchName' }
                     ]
                 })
                 .populate('course')
@@ -65,7 +67,8 @@ export const generateBill = async (req, res) => {
                     .populate({
                         path: 'studentId',
                         populate: [
-                            { path: 'department' }
+                            { path: 'department' },
+                            { path: 'batches', select: 'batchName' }
                         ]
                     })
                     .populate('boardId')
@@ -247,11 +250,15 @@ export const generateBill = async (req, res) => {
                 console.warn(`⚠️ Payment record missing for PAID installment. Creating one now...`);
 
                 // Calculate tax amounts
-                const isPHSPS = centre.centreName && /phsps/i.test(centre.centreName);
+                const exempt = isGstExempt({
+                    centreName: centre.centreName,
+                    admission,
+                    student: admission.student || admission.studentId
+                });
                 const totalAmount = parseFloat(Number(actualPaidTotal).toFixed(2));
-                const baseAmount = isPHSPS ? totalAmount : totalAmount / 1.18;
+                const baseAmount = exempt ? totalAmount : totalAmount / 1.18;
                 const courseFee = parseFloat(baseAmount.toFixed(2));
-                const remainingForGst = totalAmount - courseFee;
+                const remainingForGst = exempt ? 0 : totalAmount - courseFee;
                 const cgst = parseFloat((remainingForGst / 2).toFixed(2));
                 const sgst = parseFloat((remainingForGst - cgst).toFixed(2));
 
@@ -300,11 +307,15 @@ export const generateBill = async (req, res) => {
 
             // RE-CALCULATE amounts for the bill response to match UI source of truth
             // This fixes legacy/corrupted records where totalAmount was set to baseAmount
-            const isPHSPS = centre.centreName && /phsps/i.test(centre.centreName);
+            const exempt = isGstExempt({
+                centreName: centre.centreName,
+                admission,
+                student: admission.student || admission.studentId
+            });
             const billTotal = Math.max(actualPaidTotal, payment.totalAmount || 0);
-            const billBase = isPHSPS ? billTotal : billTotal / 1.18;
+            const billBase = exempt ? billTotal : billTotal / 1.18;
             const finalCourseFee = parseFloat(billBase.toFixed(2));
-            const finalGstPool = billTotal - finalCourseFee;
+            const finalGstPool = exempt ? 0 : billTotal - finalCourseFee;
             const finalCgst = parseFloat((finalGstPool / 2).toFixed(2));
             const finalSgst = parseFloat((finalGstPool - finalCgst).toFixed(2));
 
@@ -391,8 +402,9 @@ export const getBillById = async (req, res) => {
             .populate({
                 path: 'admission',
                 populate: [
-                    { path: 'student' },
+                    { path: 'student', populate: { path: 'batches' } },
                     { path: 'course' },
+                    { path: 'board' },
                     { path: 'department' },
                     { path: 'examTag' },
                     { path: 'class' }
@@ -406,10 +418,21 @@ export const getBillById = async (req, res) => {
         const admission = payment.admission;
 
         // Fetch centre information
-        const centre = await CentreSchema.findOne({ centreName: admission.centre });
+        const centre = await CentreSchema.findOne({ centreName: admission?.centre || payment.centre });
         if (!centre) {
             return res.status(404).json({ message: "Centre information not found" });
         }
+
+        const exempt = isGstExempt({
+            centreName: centre.centreName,
+            admission,
+            student: admission?.student
+        });
+        const billTotal = payment.totalAmount || payment.paidAmount || 0;
+        const finalCourseFee = exempt ? billTotal : (payment.courseFee || parseFloat((billTotal / 1.18).toFixed(2)));
+        const finalGstPool = exempt ? 0 : (billTotal - finalCourseFee);
+        const finalCgst = exempt ? 0 : (payment.cgst || parseFloat((finalGstPool / 2).toFixed(2)));
+        const finalSgst = exempt ? 0 : (payment.sgst || parseFloat((finalGstPool - finalCgst).toFixed(2)));
 
         const billData = {
             billId: payment.billId,
@@ -423,18 +446,18 @@ export const getBillById = async (req, res) => {
                 corporatePhone: centre.enterCorporateOfficePhoneNumber || '033 2455-1840 / 2454-4817 / 4668'
             },
             student: {
-                id: admission.student._id,
-                name: admission.student.studentsDetails?.[0]?.studentName || 'N/A',
-                admissionNumber: admission.admissionNumber,
-                phoneNumber: admission.student.studentsDetails?.[0]?.mobileNum || 'N/A',
-                email: admission.student.studentsDetails?.[0]?.studentEmail || 'N/A'
+                id: admission?.student?._id || payment.studentId,
+                name: admission?.student?.studentsDetails?.[0]?.studentName || 'N/A',
+                admissionNumber: admission?.admissionNumber || 'N/A',
+                phoneNumber: admission?.student?.studentsDetails?.[0]?.mobileNum || 'N/A',
+                email: admission?.student?.studentsDetails?.[0]?.studentEmail || 'N/A'
             },
             course: {
-                name: payment.boardCourseName || (admission.boardCourseName || (admission.course?.courseName || 'N/A')),
-                department: admission.department?.departmentName || 'N/A',
-                examTag: admission.examTag?.name || 'N/A',
-                class: admission.class?.name || 'N/A',
-                session: admission.academicSession || 'N/A'
+                name: payment.boardCourseName || (admission?.boardCourseName || (admission?.course?.courseName || 'N/A')),
+                department: admission?.department?.departmentName || 'N/A',
+                examTag: admission?.examTag?.name || 'N/A',
+                class: admission?.class?.name || 'N/A',
+                session: admission?.academicSession || 'N/A'
             },
             payment: {
                 installmentNumber: payment.installmentNumber,
@@ -447,10 +470,10 @@ export const getBillById = async (req, res) => {
                 status: payment.status
             },
             amounts: {
-                courseFee: payment.courseFee,
-                cgst: payment.cgst,
-                sgst: payment.sgst,
-                totalAmount: payment.totalAmount
+                courseFee: finalCourseFee,
+                cgst: finalCgst,
+                sgst: finalSgst,
+                totalAmount: billTotal
             }
         };
 

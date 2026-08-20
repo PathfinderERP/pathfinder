@@ -4,6 +4,7 @@ import Payment from "../../models/Payment/Payment.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import { updateCentreTargetAchieved } from "../../services/centreTargetService.js";
+import { isGstExempt } from "../../utils/gstHelper.js";
 
 export const updateBoardSubjects = async (req, res) => {
     try {
@@ -25,7 +26,9 @@ export const updateBoardSubjects = async (req, res) => {
         }
 
         // Fetch the admission
-        const admission = await Admission.findById(admissionId).populate('board');
+        const admission = await Admission.findById(admissionId)
+            .populate('board')
+            .populate({ path: 'student', populate: { path: 'batches' } });
         if (!admission) {
             return res.status(404).json({ message: "Admission not found" });
         }
@@ -84,10 +87,16 @@ export const updateBoardSubjects = async (req, res) => {
             }
         }
 
+        const exempt = isGstExempt({
+            centreName: admission.centre,
+            admission,
+            student: admission.student
+        });
+
         // Propagate updates to future unpaid months
         if (admission.monthlySubjectHistory && admission.monthlySubjectHistory.length > 0) {
             // Re-calculate tax-inclusive total for history records
-            const taxFactor = 0.18;
+            const taxFactor = exempt ? 0 : 0.18;
             const histologicalTotal = baseFees + Math.round(baseFees * taxFactor);
 
             admission.monthlySubjectHistory.forEach(h => {
@@ -111,10 +120,9 @@ export const updateBoardSubjects = async (req, res) => {
         // Create Payment record for this month
         if (paymentAmount > 0) {
             // Calculate tax breakdown
-            const isPHSPS = admission.centre && /phsps/i.test(admission.centre);
-            const dpBaseAmount = isPHSPS ? paymentAmount : paymentAmount / 1.18;
-            const dpCgst = isPHSPS ? 0 : dpBaseAmount * 0.09;
-            const dpSgst = isPHSPS ? 0 : dpBaseAmount * 0.09;
+            const dpBaseAmount = exempt ? paymentAmount : paymentAmount / 1.18;
+            const dpCgst = exempt ? 0 : dpBaseAmount * 0.09;
+            const dpSgst = exempt ? 0 : dpBaseAmount * 0.09;
             const dpCourseFee = paymentAmount - dpCgst - dpSgst;
 
             // Fetch Centre Info for Bill ID
