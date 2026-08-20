@@ -1,5 +1,6 @@
 import Employee from "../../models/HR/Employee.js";
 import Centre from "../../models/Master_data/Centre.js";
+import Zone from "../../models/Zone.js";
 import Department from "../../models/Master_data/Department.js";
 import Designation from "../../models/Master_data/Designation.js";
 import User from "../../models/User.js";
@@ -210,6 +211,7 @@ export const getEmployees = async (req, res) => {
             department,
             designation,
             centre,
+            zone,
             status,
             role,
             typeOfEmployment,
@@ -240,9 +242,39 @@ export const getEmployees = async (req, res) => {
             const desigIds = designation.split(',').filter(Boolean);
             query.designation = { $in: desigIds };
         }
-        if (centre) {
+        if (zone) {
+            const zoneIds = zone.split(',').filter(Boolean);
+            const zonesList = await Zone.find({ _id: { $in: zoneIds } }).select('centres').lean();
+            const zoneCentreIds = zonesList.flatMap(z => (z.centres || []).map(c => c.toString()));
+
+            if (centre) {
+                const requestedCentres = centre.split(',').filter(Boolean);
+                const intersectingCentres = requestedCentres.filter(c => zoneCentreIds.includes(c));
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { primaryCentre: { $in: intersectingCentres } },
+                        { centres: { $in: intersectingCentres } }
+                    ]
+                });
+            } else {
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { primaryCentre: { $in: zoneCentreIds } },
+                        { centres: { $in: zoneCentreIds } }
+                    ]
+                });
+            }
+        } else if (centre) {
             const centreIds = centre.split(',').filter(Boolean);
-            query.primaryCentre = { $in: centreIds };
+            query.$and = query.$and || [];
+            query.$and.push({
+                $or: [
+                    { primaryCentre: { $in: centreIds } },
+                    { centres: { $in: centreIds } }
+                ]
+            });
         }
         if (status) {
             const statusValues = status.split(',').filter(Boolean);

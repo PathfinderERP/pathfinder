@@ -2,6 +2,7 @@ import Employee from "../../models/HR/Employee.js";
 import Department from "../../models/Master_data/Department.js";
 import Designation from "../../models/Master_data/Designation.js";
 import Centre from "../../models/Master_data/Centre.js";
+import Zone from "../../models/Zone.js";
 import User from "../../models/User.js";
 
 // Get employee analytics for dashboard
@@ -10,8 +11,25 @@ export const getEmployeeAnalytics = async (req, res) => {
         const userRole = (req.user.role || "").toLowerCase();
         const isFullAccess = ['superadmin', 'super admin', 'admin', 'hr'].includes(userRole);
         const userCentres = req.user.centres || [];
-        const { tab, department, designation, centre, status, role, search, typeOfEmployment } = req.query;
+        const { tab, department, designation, centre, zone, status, role, search, typeOfEmployment } = req.query;
         const mongoose = (await import('mongoose')).default;
+
+        // Resolve Zone Centre IDs if zone is provided
+        let targetCentreIds = null;
+        if (zone) {
+            const zoneIds = zone.split(',').filter(Boolean);
+            const zonesList = await Zone.find({ _id: { $in: zoneIds } }).select('centres').lean();
+            const zoneCentreIds = zonesList.flatMap(z => (z.centres || []).map(c => c.toString()));
+
+            if (centre) {
+                const requestedCentres = centre.split(',').filter(Boolean);
+                targetCentreIds = requestedCentres.filter(c => zoneCentreIds.includes(c));
+            } else {
+                targetCentreIds = zoneCentreIds;
+            }
+        } else if (centre) {
+            targetCentreIds = centre.split(',').filter(Boolean);
+        }
 
         // Data Isolation Match Stage
         let matchStageMatch = {
@@ -19,7 +37,12 @@ export const getEmployeeAnalytics = async (req, res) => {
             ...(typeOfEmployment && { typeOfEmployment: { $in: typeOfEmployment.split(",") } }),
             ...(department && { department: { $in: department.split(",").map(id => new mongoose.Types.ObjectId(id)) } }),
             ...(designation && { designation: { $in: designation.split(",").map(id => new mongoose.Types.ObjectId(id)) } }),
-            ...(centre && { primaryCentre: { $in: centre.split(",").map(id => new mongoose.Types.ObjectId(id)) } }),
+            ...(targetCentreIds && {
+                $or: [
+                    { primaryCentre: { $in: targetCentreIds.map(id => new mongoose.Types.ObjectId(id)) } },
+                    { centres: { $in: targetCentreIds.map(id => new mongoose.Types.ObjectId(id)) } }
+                ]
+            }),
             ...(!isFullAccess ? {
                 $and: [
                     {

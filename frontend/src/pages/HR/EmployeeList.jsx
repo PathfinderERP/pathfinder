@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { FaPlus, FaEdit, FaEye, FaSearch, FaFileExcel, FaFilePdf, FaTrash, FaChevronLeft, FaChevronRight, FaFileUpload, FaFilter, FaFileAlt, FaIdCard, FaBuilding, FaMapMarkerAlt, FaEnvelope, FaUsers, FaChartPie, FaSun, FaMoon, FaLayerGroup } from "react-icons/fa";
@@ -43,6 +43,7 @@ const EmployeeList = () => {
     const [filters, setFilters] = useState({
         department: [],
         designation: [],
+        zone: [],
         centre: [],
         status: [{ value: "Active", label: "ACTIVE" }],
         role: [],
@@ -87,7 +88,7 @@ const EmployeeList = () => {
         if (tab !== activeTab) {
             setActiveTab(tab);
         }
-    }, [location.search, activeTab]); // Added activeTab to dependency array
+    }, [location.search, activeTab]);
 
     const handleTabChange = (tab) => {
         setActiveTab(tab);
@@ -103,6 +104,7 @@ const EmployeeList = () => {
     // Master data for filters
     const [departments, setDepartments] = useState([]);
     const [designations, setDesignations] = useState([]);
+    const [zones, setZones] = useState([]);
     const [centres, setCentres] = useState([]);
     const [allEmployeesDropdown, setAllEmployeesDropdown] = useState([]);
 
@@ -112,6 +114,26 @@ const EmployeeList = () => {
         return found ? found.name : val;
     };
 
+    // Filter available centres based on selected zones
+    const availableCentres = useMemo(() => {
+        if (!filters.zone || filters.zone.length === 0) {
+            return centres;
+        }
+        const selectedZoneIds = new Set(filters.zone.map(z => String(z.value || z._id || z)));
+        const selectedZoneNames = new Set(filters.zone.map(z => String(z.label || z.name || z).toLowerCase().trim()));
+        const allowedCentreIds = new Set();
+
+        zones.forEach(zone => {
+            if (selectedZoneIds.has(String(zone._id)) || selectedZoneNames.has(String(zone.name).toLowerCase().trim())) {
+                (zone.centres || []).forEach(c => {
+                    const cId = String(c._id || c);
+                    allowedCentreIds.add(cId);
+                });
+            }
+        });
+
+        return centres.filter(c => allowedCentreIds.has(String(c._id)));
+    }, [filters.zone, centres, zones]);
 
     const fetchAnalytics = useCallback(async () => {
         setAnalyticsLoading(true);
@@ -122,6 +144,7 @@ const EmployeeList = () => {
                 ...(search && { search }),
                 ...(filters.department?.length > 0 && { department: filters.department.map(d => d.value).join(",") }),
                 ...(filters.designation?.length > 0 && { designation: filters.designation.map(d => d.value).join(",") }),
+                ...(filters.zone?.length > 0 && { zone: filters.zone.map(z => z.value).join(",") }),
                 ...(filters.centre?.length > 0 && { centre: filters.centre.map(c => c.value).join(",") }),
                 ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") }),
                 ...(filters.role?.length > 0 && { role: filters.role.map(r => r.value).join(",") }),
@@ -144,19 +167,25 @@ const EmployeeList = () => {
     const fetchMasterData = useCallback(async () => {
         try {
             const token = localStorage.getItem("token");
-            const headers = { Authorization: `Bearer ${token} ` };
+            const headers = { Authorization: `Bearer ${token}` };
 
-            const [deptRes, desigRes, centreRes, empRes] = await Promise.all([
+            const [deptRes, desigRes, centreRes, empRes, zoneRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/department`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/designation`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/hr/employee/dropdown`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/hr/employee/dropdown`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
             ]);
 
             if (deptRes.ok) setDepartments(await deptRes.json());
             if (desigRes.ok) setDesignations(await desigRes.json());
             if (centreRes.ok) setCentres(await centreRes.json());
             if (empRes.ok) setAllEmployeesDropdown(await empRes.json());
+            if (zoneRes.ok) {
+                const zData = await zoneRes.json();
+                const zList = Array.isArray(zData) ? zData : (zData.data || zData.zones || []);
+                setZones(zList.filter(z => z.isActive !== false));
+            }
         } catch (error) {
             console.error("Error fetching master data:", error);
         }
@@ -172,6 +201,7 @@ const EmployeeList = () => {
                 ...(search && { search }),
                 ...(filters.department?.length > 0 && { department: filters.department.map(d => d.value).join(",") }),
                 ...(filters.designation?.length > 0 && { designation: filters.designation.map(d => d.value).join(",") }),
+                ...(filters.zone?.length > 0 && { zone: filters.zone.map(z => z.value).join(",") }),
                 ...(filters.centre?.length > 0 && { centre: filters.centre.map(c => c.value).join(",") }),
                 ...(filters.status?.length > 0 && { status: filters.status.map(s => s.value).join(",") }),
                 ...(filters.role?.length > 0 && { role: filters.role.map(r => r.value).join(",") }),
@@ -218,7 +248,13 @@ const EmployeeList = () => {
     }, [fetchEmployees]);
 
     const handleFilterChange = (key, value) => {
-        setFilters(prev => ({ ...prev, [key]: value || [] }));
+        setFilters(prev => {
+            const updated = { ...prev, [key]: value || [] };
+            if (key === 'zone') {
+                updated.centre = [];
+            }
+            return updated;
+        });
         setPagination(prev => ({ ...prev, currentPage: 1 }));
     };
 
@@ -227,6 +263,7 @@ const EmployeeList = () => {
         setFilters({
             department: [],
             designation: [],
+            zone: [],
             centre: [],
             status: [{ value: "Active", label: "ACTIVE" }],
             role: [],
@@ -1008,21 +1045,45 @@ const EmployeeList = () => {
                                 </div>
                             </div>
 
-                            {[
-                                { label: "Department", value: filters.department, key: "department", options: departments.map(d => ({ value: d._id, label: d.departmentName?.toUpperCase() || "" })) },
-                                { label: "Designation", value: filters.designation, key: "designation", options: designations.map(d => ({ value: d._id, label: d.name?.toUpperCase() || "" })) },
-                                { label: "Centre", value: filters.centre, key: "centre", options: centres.map(c => ({ value: c._id, label: c.centreName?.toUpperCase() || "" })) }
-                            ].map((filter, idx) => (
-                                <div key={idx} className="space-y-2">
-                                    <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{filter.label}</label>
-                                    <CustomMultiSelect
-                                        placeholder={`ALL ${filter.label.toUpperCase()}S`}
-                                        options={filter.options}
-                                        value={filter.value}
-                                        onChange={(val) => handleFilterChange(filter.key, val)}
-                                    />
-                                </div>
-                            ))}
+                            <div className="space-y-2">
+                                <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Department</label>
+                                <CustomMultiSelect
+                                    placeholder="ALL DEPARTMENTS"
+                                    options={departments.map(d => ({ value: d._id, label: d.departmentName?.toUpperCase() || "" }))}
+                                    value={filters.department}
+                                    onChange={(val) => handleFilterChange("department", val)}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Designation</label>
+                                <CustomMultiSelect
+                                    placeholder="ALL DESIGNATIONS"
+                                    options={designations.map(d => ({ value: d._id, label: d.name?.toUpperCase() || "" }))}
+                                    value={filters.designation}
+                                    onChange={(val) => handleFilterChange("designation", val)}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Zone</label>
+                                <CustomMultiSelect
+                                    placeholder="ALL ZONES"
+                                    options={zones.filter(z => z.isActive !== false).map(z => ({ value: z._id, label: z.name?.toUpperCase() || "" }))}
+                                    value={filters.zone}
+                                    onChange={(val) => handleFilterChange("zone", val)}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Centre</label>
+                                <CustomMultiSelect
+                                    placeholder="ALL CENTRES"
+                                    options={availableCentres.map(c => ({ value: c._id, label: c.centreName?.toUpperCase() || "" }))}
+                                    value={filters.centre}
+                                    onChange={(val) => handleFilterChange("centre", val)}
+                                />
+                            </div>
 
                             <div className="space-y-2">
                                 <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Status</label>
@@ -1232,14 +1293,14 @@ const EmployeeList = () => {
                                                 <td className="px-6 py-4">
                                                     <div className="flex items-center gap-3">
                                                         <button
-                                                            onClick={() => navigate(`/hr/employee/letters/${employee._id}`)}
+                                                            onClick={() => navigate(`/hr/employee/letters/${employee._id}?tab=${activeTab}`)}
                                                             className={`p-2 rounded-[2px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white hover:bg-cyan-500/20' : 'bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-cyan-100'}`}
                                                             title="Letters"
                                                         >
                                                             <FaFileAlt size={12} />
                                                         </button>
                                                         <button
-                                                            onClick={() => navigate(`/hr/employee/view/${employee._id}`)}
+                                                            onClick={() => navigate(`/hr/employee/view/${employee._id}?tab=${activeTab}`)}
                                                             className={`p-2 rounded-[2px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white hover:bg-blue-500/20' : 'bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-blue-100'}`}
                                                             title="View"
                                                         >
@@ -1247,7 +1308,7 @@ const EmployeeList = () => {
                                                         </button>
                                                         {canEdit && (
                                                             <button
-                                                                onClick={() => navigate(`/hr/employee/edit/${employee._id}`)}
+                                                                onClick={() => navigate(`/hr/employee/edit/${employee._id}?tab=${activeTab}`)}
                                                                 className={`p-2 rounded-[2px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white hover:bg-emerald-500/20' : 'bg-gray-100 text-gray-500 hover:text-gray-900 hover:bg-emerald-100'}`}
                                                                 title="Edit"
                                                             >
@@ -1328,15 +1389,15 @@ const EmployeeList = () => {
                                     </div>
 
                                     <div className="flex items-center justify-between gap-3 pt-4 border-t border-gray-800">
-                                        <button onClick={() => navigate(`/hr/employee/view/${employee._id}`)} className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-[2px] text-xs font-bold transition-all">
+                                        <button onClick={() => navigate(`/hr/employee/view/${employee._id}?tab=${activeTab}`)} className="flex-1 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-[2px] text-xs font-bold transition-all">
                                             View
                                         </button>
                                         {canEdit && (
-                                            <button onClick={() => navigate(`/hr/employee/edit/${employee._id}`)} className="flex-1 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-500 rounded-[2px] text-xs font-bold transition-all border border-cyan-500/20">
+                                            <button onClick={() => navigate(`/hr/employee/edit/${employee._id}?tab=${activeTab}`)} className="flex-1 py-2 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-500 rounded-[2px] text-xs font-bold transition-all border border-cyan-500/20">
                                                 Edit
                                             </button>
                                         )}
-                                        <button onClick={() => navigate(`/hr/employee/letters/${employee._id}`)} className="w-10 h-10 flex items-center justify-center bg-gray-800 rounded-[2px] text-gray-400 hover:text-white">
+                                        <button onClick={() => navigate(`/hr/employee/letters/${employee._id}?tab=${activeTab}`)} className="w-10 h-10 flex items-center justify-center bg-gray-800 rounded-[2px] text-gray-400 hover:text-white">
                                             <FaFileAlt />
                                         </button>
                                     </div>

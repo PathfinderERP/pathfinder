@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import Layout from "../../components/Layout";
 import { toast } from "react-toastify";
 import {
@@ -11,6 +11,10 @@ import {
 const ViewEmployee = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
+    const queryParams = new URLSearchParams(location.search);
+    const activeTab = queryParams.get("tab") || "staff";
+
     const [employee, setEmployee] = useState(null);
     const [loading, setLoading] = useState(true);
 
@@ -31,12 +35,12 @@ const ViewEmployee = () => {
                 setEmployee(data);
             } else {
                 toast.error("Failed to fetch employee details");
-                navigate("/hr/employee/list");
+                navigate(`/hr/employee/list?tab=${activeTab}`);
             }
         } catch (error) {
             console.error("Error fetching employee:", error);
             toast.error("Error fetching employee details");
-            navigate("/hr/employee/list");
+            navigate(`/hr/employee/list?tab=${activeTab}`);
         } finally {
             setLoading(false);
         }
@@ -172,13 +176,13 @@ const ViewEmployee = () => {
 
                             <div className="flex gap-4">
                                 <button
-                                    onClick={() => navigate("/hr/employee/list")}
+                                    onClick={() => navigate(`/hr/employee/list?tab=${activeTab}`)}
                                     className="px-5 py-2.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl font-semibold transition-all border border-gray-700 flex items-center gap-2"
                                 >
                                     <FaArrowLeft /> Back
                                 </button>
                                 <button
-                                    onClick={() => navigate(`/hr/employee/edit/${id}`)}
+                                    onClick={() => navigate(`/hr/employee/edit/${id}?tab=${activeTab}`)}
                                     className="px-5 py-2.5 bg-cyan-500 hover:bg-cyan-400 text-black rounded-xl font-bold transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
                                 >
                                     <FaEdit /> Edit Profile

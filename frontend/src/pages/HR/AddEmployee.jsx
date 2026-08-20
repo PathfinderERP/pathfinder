@@ -86,6 +86,15 @@ const AddEmployee = () => {
     const location = useLocation();
     const [centreSearchQuery, setCentreSearchQuery] = useState("");
 
+    const getTargetTab = () => {
+        const queryParams = new URLSearchParams(location.search);
+        const tabParam = queryParams.get("tab");
+        if (tabParam) return tabParam;
+        if (formData.role === 'teacher') return 'teacher';
+        if (formData.role === 'HOD' || formData.isDeptHod || formData.isBoardHod || formData.isSubjectHod) return 'hod';
+        return 'staff';
+    };
+
     useEffect(() => {
         fetchMasterData();
         if (id) {
@@ -609,7 +618,7 @@ const AddEmployee = () => {
 
             if (response.ok) {
                 toast.success(isEditMode ? "Employee updated successfully" : "Employee created successfully");
-                navigate("/hr/employee/list");
+                navigate(`/hr/employee/list?tab=${getTargetTab()}`);
             } else {
                 const error = await response.json();
                 toast.error(error.message || `Failed to ${isEditMode ? "update" : "create"} employee`);
@@ -1613,7 +1622,7 @@ const AddEmployee = () => {
                     <div className="flex justify-end gap-4">
                         <button
                             type="button"
-                            onClick={() => navigate("/hr/employee/list")}
+                            onClick={() => navigate(`/hr/employee/list?tab=${getTargetTab()}`)}
                             className="px-6 py-3 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-lg font-medium hover:bg-gray-300 dark:hover:bg-gray-600"
                         >
                             Cancel
