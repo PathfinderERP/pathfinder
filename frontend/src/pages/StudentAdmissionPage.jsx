@@ -242,7 +242,6 @@ const StudentAdmissionPage = () => {
                         if (matchedBoard) {
                             newData.boardId = matchedBoard._id;
                             setSelectedBoard(matchedBoard._id);
-                            setCFilters(prevF => ({ ...prevF, boardId: matchedBoard._id }));
                         }
                     }
                 }
@@ -313,7 +312,6 @@ const StudentAdmissionPage = () => {
                     }
                     if (initialBoard) {
                         setSelectedBoard(initialBoard._id);
-                        setCFilters(prevF => ({ ...prevF, boardId: initialBoard._id }));
                     }
                 }
             }
@@ -864,7 +862,6 @@ const StudentAdmissionPage = () => {
                                     onChange={(e) => {
                                         handleInputChange(e);
                                         setSelectedBoard(e.target.value);
-                                        setCFilters(prev => ({ ...prev, boardId: e.target.value }));
                                     }}
                                     className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
                                 >
