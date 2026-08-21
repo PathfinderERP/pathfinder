@@ -461,7 +461,7 @@ export const getAllTelecallerAnalytics = async (req, res) => {
             const effectiveHot = isMarketing ? mktPerf.hot : (followUpHot + admissions);
 
             const isCounsellor = u.role?.toLowerCase() === 'counsellor';
-            const callTarget = isCounsellor ? 30 : 50;
+            const callTarget = isCounsellor ? 40 : 50;
             let totalPoints = 0;
 
             const history5Days = last5DaysList.map(dateStr => {

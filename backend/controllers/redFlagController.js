@@ -302,7 +302,7 @@ export const getRedFlags = async (req, res) => {
 
             if (hasCalls) {
                 const callMetricValue = callMap.get(user.name) || 0;
-                const callTargetValue = (userRole === 'counsellor' ? 30 : 50) * daysDiff;
+                const callTargetValue = (userRole === 'counsellor' ? 40 : 50) * daysDiff;
 
                 evaluateAndPush(
                     'calls',
@@ -310,7 +310,7 @@ export const getRedFlags = async (req, res) => {
                     callMetricValue,
                     (m) => {
                         if (userRole === 'counsellor') {
-                            if (m < 30 * daysDiff) return "Critical";
+                            if (m < 40 * daysDiff) return "Critical";
                             return "Low";
                         }
                         if (m < 30 * daysDiff) return "Critical";

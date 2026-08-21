@@ -130,13 +130,13 @@ export const createAdmission = async (req, res) => {
             await student.save();
         }
 
-        // let baseFees = 0;
-        // let feeSnapshot = [];
-        // let durationMonths = 0;
-        // let board = null;
-        // let course = null;
-        // let selectedSubjectsData = [];
-        // let boardCourseNameString = "";
+        let baseFees = 0;
+        let feeSnapshot = [];
+        let durationMonths = 0;
+        let board = null;
+        let course = null;
+        let selectedSubjectsData = [];
+        let boardCourseNameString = "";
 
         if (admissionType === "NORMAL") {
             course = await Course.findById(courseId);

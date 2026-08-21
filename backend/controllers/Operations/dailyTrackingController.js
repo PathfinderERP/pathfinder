@@ -1292,7 +1292,7 @@ export const getDailyCenterDetails = async (req, res) => {
                 let targetCalls = 50;
                 if (user.role) {
                     const role = (user.role || '').toLowerCase();
-                    if (role === 'counsellor') targetCalls = 30;
+                    if (role === 'counsellor') targetCalls = 40;
                     else if (role === 'marketing') targetCalls = 40;
                     else if (['areamanager', 'zonalmanager', 'centerincharge', 'centreincharge', 'assistantcenterincharge', 'assistantcentreincharge', 'assistantzonalmanager'].includes(role)) targetCalls = 30;
                 }
