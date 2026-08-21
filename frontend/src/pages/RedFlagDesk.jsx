@@ -92,13 +92,19 @@ const RedFlagDesk = () => {
 
     const roles = ['Telecaller', 'Counsellor', 'Marketing', 'Center Incharge', 'Zonal Manager', 'Coordinator', 'Teacher', 'Support Staff'];
 
+    const isCenterActive = (c) => {
+        if (!c) return false;
+        const status = (c.status || '').toLowerCase();
+        return status === 'active' || (!c.status && c.status !== 'deactive' && c.status !== 'inactive' && c.status !== 'deactivated');
+    };
+
     const getModalFlags = (category) => {
         let filtered = flags;
         
-        // Filter flags to only include those belonging to active centers (status !== 'deactive')
+        // Filter flags to only include those belonging to active centers
         const activeCenterIds = new Set(
             centers
-                .filter(c => c.status !== 'deactive')
+                .filter(isCenterActive)
                 .map(c => (c._id || c).toString())
         );
         
@@ -339,7 +345,7 @@ const RedFlagDesk = () => {
 
     // OVERVIEW VIEW: Filter Centers (Active centers only)
     const filteredCenters = centers.filter(c => 
-        c.status !== 'deactive' &&
+        isCenterActive(c) &&
         c.centreName && c.centreName.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -352,10 +358,10 @@ const RedFlagDesk = () => {
     const getDisplayStats = () => {
         let filtered = flags;
         
-        // Filter flags to only include those belonging to active centers (status !== 'deactive')
+        // Filter flags to only include those belonging to active centers
         const activeCenterIds = new Set(
             centers
-                .filter(c => c.status !== 'deactive')
+                .filter(isCenterActive)
                 .map(c => (c._id || c).toString())
         );
         

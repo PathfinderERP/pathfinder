@@ -130,7 +130,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "trackingFlagging",
             subItems: [
                 { name: "Daily Center Tracking", path: "/daily-center-tracking", permissionSection: "dailyCenterTracking" },
-                //{ name: "Red Flag Desk", path: "/red-flag-desk", permissionSection: "redFlagDesk" }
+                { name: "Red Flag Desk", path: "/red-flag-desk", permissionSection: "redFlagDesk" }
             ]
         },
         {

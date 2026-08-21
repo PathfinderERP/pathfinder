@@ -91,7 +91,7 @@ export const createAdmission = async (req, res) => {
         if (student.status === 'Deactivated') {
             const deactivationDate = student.deactivationDate;
             const now = new Date();
-            const daysDeactivated = deactivationDate 
+            const daysDeactivated = deactivationDate
                 ? Math.floor((now - new Date(deactivationDate)) / (1000 * 60 * 60 * 24))
                 : 0;
 
@@ -130,13 +130,13 @@ export const createAdmission = async (req, res) => {
             await student.save();
         }
 
-        let baseFees = 0;
-        let feeSnapshot = [];
-        let durationMonths = 0;
-        let board = null;
-        let course = null;
-        let selectedSubjectsData = [];
-        let boardCourseNameString = "";
+        // let baseFees = 0;
+        // let feeSnapshot = [];
+        // let durationMonths = 0;
+        // let board = null;
+        // let course = null;
+        // let selectedSubjectsData = [];
+        // let boardCourseNameString = "";
 
         if (admissionType === "NORMAL") {
             course = await Course.findById(courseId);
@@ -145,9 +145,39 @@ export const createAdmission = async (req, res) => {
             }
 
             // Normal Course Duration & Fees
-            durationMonths = course.courseDurationMonths || 12;
-            baseFees = course.courseFee;
-            feeSnapshot = course.feeStructure;
+            durationMonths = 12;
+            if (course.courseDuration) {
+                const durStr = course.courseDuration.toLowerCase();
+                if (durStr.includes('year')) {
+                    const match = durStr.match(/\d+/);
+                    durationMonths = (match ? parseInt(match[0]) : 1) * 12;
+                } else if (durStr.includes('month')) {
+                    const match = durStr.match(/\d+/);
+                    durationMonths = match ? parseInt(match[0]) : 12;
+                } else {
+                    durationMonths = parseInt(durStr) || 12;
+                }
+            } else if (course.courseDurationMonths) {
+                durationMonths = Number(course.courseDurationMonths) || 12;
+            }
+
+            if (Array.isArray(course.feesStructure) && course.feesStructure.length > 0) {
+                baseFees = course.feesStructure.reduce((sum, fee) => sum + (Number(fee.value) || 0), 0);
+            } else if (course.courseFee !== undefined && course.courseFee !== null) {
+                baseFees = Number(course.courseFee) || 0;
+            } else if (req.body.baseFees !== undefined && req.body.baseFees !== null) {
+                baseFees = Number(req.body.baseFees) || 0;
+            } else {
+                baseFees = 0;
+            }
+
+            feeSnapshot = (course.feesStructure && course.feesStructure.length > 0)
+                ? course.feesStructure.map(f => ({
+                    feesType: f.feesType,
+                    value: Number(f.value) || 0,
+                    discount: f.discount || "0"
+                }))
+                : (course.feeStructure || []);
         } else if (admissionType === "BOARD") {
             board = await Board.findById(boardId).populate("subjects.subjectId");
             if (!board) {
@@ -217,7 +247,7 @@ export const createAdmission = async (req, res) => {
 
             // Construct Name: "BoardName Session Subject1+Subject2..."
             const subNames = validSelectedSubjects.map(s => s.subName).join(' + ');
-            boardCourseNameString = `${board.boardCourse} ${academicSession} : ${subNames}`; 
+            boardCourseNameString = `${board.boardCourse} ${academicSession} : ${subNames}`;
 
             // Store duration and course info helper
             course = { courseDurationMonths: durationMonths, monthlyFees: monthlyFees };
@@ -229,9 +259,15 @@ export const createAdmission = async (req, res) => {
             student: student
         });
 
+        // Coerce inputs to numbers safely
+        baseFees = Number(baseFees) || 0;
+        const parsedFeeWaiver = Number(feeWaiver) || 0;
+        const parsedDownPayment = Number(downPayment) || 0;
+        const parsedNumberOfInstallments = Number(numberOfInstallments) || 0;
+
         // Calculate Fees (Inclusive Deduction)
         const totalInclusiveBeforeWaiver = exempt ? baseFees : baseFees * 1.18;
-        const totalFees = parseFloat(Math.max(0, (totalInclusiveBeforeWaiver - Number(feeWaiver) + previousBalance)).toFixed(3));
+        const totalFees = parseFloat(Math.max(0, (totalInclusiveBeforeWaiver - parsedFeeWaiver + previousBalance)).toFixed(3));
 
         // Back-calculate taxable and GST (excluding previous balance)
         const totalForGst = Math.max(0, totalFees - previousBalance);
@@ -239,11 +275,11 @@ export const createAdmission = async (req, res) => {
         const cgstAmount = exempt ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
         const sgstAmount = exempt ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
 
-        const remainingAmount = totalFees - downPayment;
+        const remainingAmount = parseFloat(Math.max(0, totalFees - parsedDownPayment).toFixed(3));
 
         // Use Math.ceil tolerance: allow down payment up to the ceiling of totalFees
         // to prevent false rejection when user pays exactly what the frontend showed.
-        if (downPayment > Math.ceil(totalFees)) {
+        if (parsedDownPayment > Math.ceil(totalFees)) {
             return res.status(400).json({ message: "Down payment cannot exceed total fees" });
         }
 
@@ -253,19 +289,19 @@ export const createAdmission = async (req, res) => {
             const monthlyTaxable = baseFees / durationMonths;
             const monthlyCgst = exempt ? 0 : Math.round(monthlyTaxable * 0.09);
             const monthlySgst = exempt ? 0 : Math.round(monthlyTaxable * 0.09);
-            monthlyPaymentAmount = monthlyTaxable + monthlyCgst + monthlySgst;
+            monthlyPaymentAmount = Math.round(monthlyTaxable + monthlyCgst + monthlySgst);
         }
 
-        const installmentAmount = admissionType === "BOARD" 
-            ? monthlyPaymentAmount 
-            : (numberOfInstallments > 0 ? Math.ceil(remainingAmount / numberOfInstallments) : 0);
+        const installmentAmount = admissionType === "BOARD"
+            ? monthlyPaymentAmount
+            : (parsedNumberOfInstallments > 0 ? Math.ceil(remainingAmount / parsedNumberOfInstallments) : 0);
 
         // Generate payment breakdown
         const paymentBreakdown = [];
         const currentDate = new Date();
         let remainingToDistribute = Math.max(0, remainingAmount);
 
-        for (let i = 0; i < numberOfInstallments; i++) {
+        for (let i = 0; i < parsedNumberOfInstallments; i++) {
             const dueDate = new Date(currentDate);
             dueDate.setMonth(dueDate.getMonth() + i + 1);
 
@@ -273,13 +309,14 @@ export const createAdmission = async (req, res) => {
             if (admissionType === "BOARD") {
                 amount = Math.max(0, Math.min(monthlyPaymentAmount, remainingToDistribute));
             } else {
-                if (i === numberOfInstallments - 1) {
+                if (i === parsedNumberOfInstallments - 1) {
                     amount = Math.max(0, remainingToDistribute);
                 } else {
                     amount = Math.max(0, Math.min(installmentAmount, remainingToDistribute));
                 }
             }
-            remainingToDistribute = parseFloat((remainingToDistribute - amount).toFixed(3));
+            amount = Number(amount) || 0;
+            remainingToDistribute = parseFloat(Math.max(0, (remainingToDistribute - amount)).toFixed(3));
 
             paymentBreakdown.push({
                 installmentNumber: i + 1,
@@ -298,7 +335,7 @@ export const createAdmission = async (req, res) => {
         if (admissionType === "BOARD" && durationMonths > 0) {
             const startMonthStr = billingMonth; // e.g. "2026-01"
             const [startYear, startMonth] = startMonthStr.split('-').map(Number);
-            
+
             for (let i = 0; i < durationMonths; i++) {
                 const mDate = new Date(startYear, startMonth - 1 + i, 1);
                 const mKey = `${mDate.getFullYear()}-${String(mDate.getMonth() + 1).padStart(2, '0')}`;
