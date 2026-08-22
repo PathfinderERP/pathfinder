@@ -93,3 +93,29 @@ export const deleteExpenseCategory = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+export const bulkUpdateExpenseCategoryStatus = async (req, res) => {
+    try {
+        const { ids, status } = req.body;
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({ message: "Please provide category IDs to update" });
+        }
+        if (!['Active', 'Deactive', 'Inactive'].includes(status)) {
+            return res.status(400).json({ message: "Invalid status value" });
+        }
+
+        const normalizedStatus = status === 'Inactive' ? 'Deactive' : status;
+
+        const result = await ExpenseCategory.updateMany(
+            { _id: { $in: ids } },
+            { $set: { status: normalizedStatus } }
+        );
+
+        res.status(200).json({
+            message: `${result.modifiedCount} categories updated to ${normalizedStatus}`,
+            modifiedCount: result.modifiedCount
+        });
+    } catch (err) {
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};

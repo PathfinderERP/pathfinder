@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FaEdit, FaTrash, FaPlus, FaTimes, FaSearch } from 'react-icons/fa';
+import { FaEdit, FaTrash, FaPlus, FaTimes, FaSearch, FaCheckCircle, FaBan } from 'react-icons/fa';
 import '../components/MasterData/MasterDataWave.css';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -15,6 +15,8 @@ const FinanceExpenseCategoryContent = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('All');
     const [updatingStatusId, setUpdatingStatusId] = useState(null);
+    const [selectedIds, setSelectedIds] = useState([]);
+    const [bulkLoading, setBulkLoading] = useState(false);
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const canCreate = hasPermission(user, 'financeFees', 'financeExpenseCategory', 'create');
@@ -150,6 +152,7 @@ const FinanceExpenseCategoryContent = () => {
             });
             if (response.ok) {
                 toast.success('Finance category deleted successfully');
+                setSelectedIds(prev => prev.filter(item => item !== id));
                 fetchCategories();
             } else {
                 const data = await response.json();
@@ -206,6 +209,66 @@ const FinanceExpenseCategoryContent = () => {
     const activeCount = categories.filter(c => (c.status || 'Active') === 'Active').length;
     const deactiveCount = categories.filter(c => c.status === 'Deactive' || c.status === 'Inactive').length;
 
+    const isAllSelected = filteredCategories.length > 0 && filteredCategories.every(cat => selectedIds.includes(cat._id));
+    const isIndeterminate = filteredCategories.some(cat => selectedIds.includes(cat._id)) && !isAllSelected;
+
+    const handleSelectAll = () => {
+        if (isAllSelected) {
+            const filteredIds = new Set(filteredCategories.map(cat => cat._id));
+            setSelectedIds(prev => prev.filter(id => !filteredIds.has(id)));
+        } else {
+            const newSelected = new Set([...selectedIds, ...filteredCategories.map(cat => cat._id)]);
+            setSelectedIds(Array.from(newSelected));
+        }
+    };
+
+    const handleSelectRow = (id) => {
+        setSelectedIds(prev =>
+            prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]
+        );
+    };
+
+    const handleBulkStatusUpdate = async (newStatus) => {
+        if (!canEdit) {
+            toast.error("You don't have permission to update status");
+            return;
+        }
+
+        if (selectedIds.length === 0) {
+            toast.warning("Please select at least one category");
+            return;
+        }
+
+        setBulkLoading(true);
+        const token = localStorage.getItem('token');
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/category/bulk-status`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    Authorization: `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    ids: selectedIds,
+                    status: newStatus
+                }),
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                setCategories(prev => prev.map(c => selectedIds.includes(c._id) ? { ...c, status: newStatus } : c));
+                toast.success(`Successfully marked ${selectedIds.length} categories as ${newStatus}`);
+                setSelectedIds([]);
+            } else {
+                toast.error(data.message || 'Failed to update categories status');
+            }
+        } catch (err) {
+            toast.error('Server error updating categories status');
+        } finally {
+            setBulkLoading(false);
+        }
+    };
+
     return (
         <div className="flex-1 bg-[#131619] p-6 overflow-y-auto text-white">
             <ToastContainer position="top-right" theme="dark" />
@@ -237,7 +300,7 @@ const FinanceExpenseCategoryContent = () => {
             </div>
 
             {/* Filter & Search Bar */}
-            <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 mb-6 flex flex-wrap items-center justify-between gap-4">
+            <div className="bg-[#1a1f24] p-4 rounded-xl border border-gray-800 mb-4 flex flex-wrap items-center justify-between gap-4">
                 <div className="relative flex-1 min-w-[240px] max-w-md">
                     <FaSearch className="absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-500 text-sm" />
                     <input
@@ -293,11 +356,60 @@ const FinanceExpenseCategoryContent = () => {
                 </div>
             </div>
 
+            {/* Bulk Action Toolbar */}
+            {selectedIds.length > 0 && (
+                <div className="bg-gradient-to-r from-[#1e293b] to-[#0f172a] border border-cyan-500/30 p-3.5 rounded-xl mb-4 flex flex-wrap items-center justify-between gap-3 shadow-lg shadow-cyan-950/20 animate-fadeIn">
+                    <div className="flex items-center gap-3">
+                        <span className="bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 px-3 py-1 rounded-lg text-xs font-bold tracking-wide">
+                            {selectedIds.length} Category{selectedIds.length !== 1 ? 'ies' : 'y'} Selected
+                        </span>
+                        <button
+                            onClick={() => setSelectedIds([])}
+                            className="text-xs text-gray-400 hover:text-gray-200 underline transition-colors"
+                        >
+                            Deselect All
+                        </button>
+                    </div>
+
+                    <div className="flex items-center gap-2.5">
+                        <button
+                            onClick={() => handleBulkStatusUpdate('Active')}
+                            disabled={bulkLoading || !canEdit}
+                            className="flex items-center gap-2 px-3.5 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-emerald-950/30 transition-all hover:scale-102 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Mark all selected categories as Active"
+                        >
+                            <FaCheckCircle className="text-xs" />
+                            {bulkLoading ? 'Updating...' : `Set Active (${selectedIds.length})`}
+                        </button>
+                        <button
+                            onClick={() => handleBulkStatusUpdate('Deactive')}
+                            disabled={bulkLoading || !canEdit}
+                            className="flex items-center gap-2 px-3.5 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-semibold shadow-md shadow-rose-950/30 transition-all hover:scale-102 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Mark all selected categories as Deactive"
+                        >
+                            <FaBan className="text-xs" />
+                            {bulkLoading ? 'Updating...' : `Set Deactive (${selectedIds.length})`}
+                        </button>
+                    </div>
+                </div>
+            )}
+
             <div className="bg-[#1a1f24] rounded-lg border border-gray-800 overflow-hidden shadow-xl">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
                         <thead>
                             <tr className="bg-gray-800/80 text-gray-300 text-sm font-semibold">
+                                <th className="p-4 border-b border-gray-700 w-12 text-center">
+                                    <input
+                                        type="checkbox"
+                                        checked={isAllSelected}
+                                        ref={el => el && (el.indeterminate = isIndeterminate)}
+                                        onChange={handleSelectAll}
+                                        disabled={filteredCategories.length === 0}
+                                        className="w-4 h-4 rounded text-cyan-600 bg-gray-900 border-gray-600 focus:ring-cyan-500 cursor-pointer accent-cyan-500"
+                                        title="Select / Deselect all visible"
+                                    />
+                                </th>
                                 <th className="p-4 border-b border-gray-700 w-16">#</th>
                                 <th className="p-4 border-b border-gray-700">Category Name</th>
                                 <th className="p-4 border-b border-gray-700">Description</th>
@@ -308,7 +420,7 @@ const FinanceExpenseCategoryContent = () => {
                         <tbody>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="5" className="p-8 text-center text-gray-400">
+                                    <td colSpan="6" className="p-8 text-center text-gray-400">
                                         <div className="inline-flex items-center gap-2">
                                             <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
                                             Loading categories...
@@ -317,7 +429,7 @@ const FinanceExpenseCategoryContent = () => {
                                 </tr>
                             ) : filteredCategories.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="p-8 text-center text-gray-500">
+                                    <td colSpan="6" className="p-8 text-center text-gray-500">
                                         {searchQuery || statusFilter !== "All"
                                             ? "No categories match the applied filters"
                                             : "No finance categories found"}
@@ -326,8 +438,22 @@ const FinanceExpenseCategoryContent = () => {
                             ) : (
                                 filteredCategories.map((cat, index) => {
                                     const isDeactive = cat.status === "Deactive" || cat.status === "Inactive";
+                                    const isSelected = selectedIds.includes(cat._id);
                                     return (
-                                        <tr key={cat._id} className="master-data-row-wave border-b border-gray-800/80 transition-colors hover:bg-white/5">
+                                        <tr 
+                                            key={cat._id} 
+                                            className={`master-data-row-wave border-b border-gray-800/80 transition-colors ${
+                                                isSelected ? 'bg-cyan-950/20' : 'hover:bg-white/5'
+                                            }`}
+                                        >
+                                            <td className="p-4 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => handleSelectRow(cat._id)}
+                                                    className="w-4 h-4 rounded text-cyan-600 bg-gray-900 border-gray-600 focus:ring-cyan-500 cursor-pointer accent-cyan-500"
+                                                />
+                                            </td>
                                             <td className="p-4 text-gray-400 text-sm">{index + 1}</td>
                                             <td className="p-4 font-medium text-gray-100">{cat.name}</td>
                                             <td className="p-4 text-gray-400 text-sm">{cat.description || '-'}</td>

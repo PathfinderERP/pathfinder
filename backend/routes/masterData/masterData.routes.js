@@ -1,6 +1,6 @@
 import express from "express";
 import {
-    createExpenseCategory, getExpenseCategories, updateExpenseCategory, deleteExpenseCategory
+    createExpenseCategory, getExpenseCategories, updateExpenseCategory, deleteExpenseCategory, bulkUpdateExpenseCategoryStatus
 } from "../../controllers/masterData/expenseCategoryController.js";
 import {
     createExpenseSubCategory, getExpenseSubCategories, updateExpenseSubCategory, deleteExpenseSubCategory
@@ -43,6 +43,8 @@ router.delete("/activity-purpose/:id", requireGranularPermission("masterData", "
 router.get("/category", requireAuth, getExpenseCategories);
 router.post("/category", requireGranularPermission("masterData", "category", "create"), createExpenseCategory);
 router.post("/category/import", requireGranularPermission("masterData", "category", "create"), bulkImport(ExpenseCategory));
+router.put("/category/bulk-status", requireGranularPermission("masterData", "category", "edit"), bulkUpdateExpenseCategoryStatus);
+router.patch("/category/bulk-status", requireGranularPermission("masterData", "category", "edit"), bulkUpdateExpenseCategoryStatus);
 router.put("/category/:id", requireGranularPermission("masterData", "category", "edit"), updateExpenseCategory);
 router.delete("/category/:id", requireGranularPermission("masterData", "category", "delete"), deleteExpenseCategory);
 

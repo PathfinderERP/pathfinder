@@ -5,7 +5,8 @@ import {
     getSingleCategoryById,
     deleteCategory,
     updateCategory,
-    importCategories
+    importCategories,
+    bulkUpdateCategoryStatus
 } from "../../controllers/masterData/category.js";
 
 const router = express.Router();
@@ -15,6 +16,9 @@ router.post("/",createCategory);
 router.get("/",getAllCategories);
 
 router.post("/import", importCategories);
+
+router.put("/bulk-status", bulkUpdateCategoryStatus);
+router.patch("/bulk-status", bulkUpdateCategoryStatus);
 
 router.get("/:id",getSingleCategoryById);
 

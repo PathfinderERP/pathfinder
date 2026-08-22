@@ -215,11 +215,51 @@ const importCategories = async (req, res) => {
     }
 }
 
+const bulkUpdateCategoryStatus = async (req, res) => {
+    try {
+        const { ids, status } = req.body;
+
+        if (!Array.isArray(ids) || ids.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: "Please provide category IDs to update"
+            });
+        }
+
+        if (!['Active', 'Deactive', 'Inactive'].includes(status)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid status value. Must be 'Active' or 'Deactive'"
+            });
+        }
+
+        const normalizedStatus = status === 'Inactive' ? 'Deactive' : status;
+
+        const result = await Category.updateMany(
+            { _id: { $in: ids } },
+            { $set: { status: normalizedStatus } }
+        );
+
+        res.status(200).json({
+            success: true,
+            message: `${result.modifiedCount} categories updated to ${normalizedStatus}`,
+            modifiedCount: result.modifiedCount
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: "Internal server error updating categories status",
+            error: error.message
+        });
+    }
+};
+
 export {
     createCategory,
     getAllCategories,
     getSingleCategoryById,
     deleteCategory,
     updateCategory,
-    importCategories
+    importCategories,
+    bulkUpdateCategoryStatus
 } ;
