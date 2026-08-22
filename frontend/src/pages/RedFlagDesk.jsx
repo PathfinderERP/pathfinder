@@ -1106,7 +1106,9 @@ const RedFlagDesk = () => {
                                                         {selectedFlag.issuesList.map((issue, idx) => (
                                                             <div key={idx} className="flex flex-col gap-2">
                                                                 <div className="flex justify-between items-end">
-                                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">{issue.type}</span>
+                                                                    <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
+                                                                        {issue.type === 'manual_lead' ? 'Manual Add Leads' : (issue.type || '').replace(/_/g, ' ')}
+                                                                    </span>
                                                                     <span className="text-[10px] font-bold text-gray-900 dark:text-white">
                                                                         {Math.round((issue.metricValue/(issue.targetValue || 1)) * 100 || 0)}%
                                                                     </span>

@@ -102,6 +102,22 @@ export const getRedFlags = async (req, res) => {
         ]);
         const walkInMap = new Map(walkInStats.map(item => [item._id.toString(), item.count]));
 
+        // D2. Manual Add Leads (Created via + Add Lead button)
+        const manualLeadStats = await LeadManagement.aggregate([
+            {
+                $match: {
+                    createdBy: { $in: userIds },
+                    createdAt: { $gte: start, $lte: end },
+                    $or: [
+                        { isBulkUpload: false },
+                        { isBulkUpload: { $exists: false } }
+                    ]
+                }
+            },
+            { $group: { _id: "$createdBy", count: { $sum: 1 } } }
+        ]);
+        const manualLeadMap = new Map(manualLeadStats.map(item => [item._id.toString(), item.count]));
+
         // E. Teacher Attendance
         const teacherStats = await ClassSchedule.aggregate([
             {
@@ -375,6 +391,23 @@ export const getRedFlags = async (req, res) => {
                     (m, t) => `${t - m} walk-ins short for this period. Total: ${m}/${t}`
                 );
             }
+
+            // Manual Add Leads evaluation (for every user)
+            const manualLeadCount = manualLeadMap.get(user._id.toString()) || 0;
+            const manualLeadTarget = 5 * daysDiff;
+
+            evaluateAndPush(
+                'manual_lead',
+                manualLeadTarget,
+                manualLeadCount,
+                (m) => {
+                    if (m < 1 * daysDiff) return "Critical";
+                    if (m < 3 * daysDiff) return "High";
+                    if (m < 5 * daysDiff) return "Medium";
+                    return "Low";
+                },
+                (m, t) => `${t - m} manual leads short for this period. Total: ${m}/${t}`
+            );
 
             if (userRole === 'teacher') {
                 const tData = teacherMap.get(user._id.toString()) || { total: 0, saved: 0 };

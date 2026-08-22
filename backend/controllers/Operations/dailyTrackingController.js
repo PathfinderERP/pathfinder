@@ -1169,8 +1169,10 @@ export const getDailyCenterDetails = async (req, res) => {
             const historyEnd = new Date(endDate);
             historyEnd.setHours(23, 59, 59, 999);
 
+            const userRegex = new RegExp(`^${(user.name || '').trim()}$`, "i");
+
             const allLeadsHistory = await LeadManagement.find({
-                followUps: { $elemMatch: { updatedBy: user.name, date: { $gte: historyStart, $lte: historyEnd } } }
+                followUps: { $elemMatch: { updatedBy: userRegex, date: { $gte: historyStart, $lte: historyEnd } } }
             }).select('name phoneNumber createdAt followUps').lean();
 
             const allNormalAdmissionsHistory = await Admission.find({
@@ -1197,7 +1199,7 @@ export const getDailyCenterDetails = async (req, res) => {
                 allLeadsHistory.forEach(lead => {
                     const todayFollowUps = (lead.followUps || []).filter(fu => {
                         const fuDate = new Date(fu.date);
-                        return fuDate >= dStart && fuDate <= dEnd && fu.updatedBy === user.name;
+                        return fuDate >= dStart && fuDate <= dEnd && userRegex.test((fu.updatedBy || '').trim());
                     });
 
                     todayFollowUps.forEach(fu => {
@@ -1405,8 +1407,9 @@ export const getDailyUserActivity = async (req, res) => {
         const freshLeadsCount = await LeadManagement.countDocuments(freshQuery);
 
         // Fetch all leads followed up by the user today (old and new)
+        const userRegex = new RegExp(`^${(user.name || '').trim()}$`, "i");
         const followUpLeadsQuery = {
-            followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
+            followUps: { $elemMatch: { updatedBy: userRegex, date: dateFilter } }
         };
         if (centerId) {
             followUpLeadsQuery.centre = centerId;
@@ -1419,7 +1422,7 @@ export const getDailyUserActivity = async (req, res) => {
             updatedAt: dateFilter,
             $or: [
                 { createdBy: userId },
-                { followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } } }
+                { followUps: { $elemMatch: { updatedBy: userRegex, date: dateFilter } } }
             ]
         };
         if (centerId) {
@@ -1525,48 +1528,15 @@ export const getDailyUserActivity = async (req, res) => {
             };
         }).filter(Boolean);
 
-        // 6. HOT / WARM / COLD Lead Breakdown + Detailed Call List
-        // Fresh = created today with NO followUps (pure fresh section uploads, no feedback/remarks)
-        const freshLeadsDetailed = await LeadManagement.find(freshQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText className board schoolName source').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
-
+        // 6. HOT / WARM / COLD Lead Breakdown + Detailed Call List (Actual calls only)
         let hotCount = 0, warmCount = 0, coldCount = 0, neutralCount = 0, invalidCount = 0;
         const callDetails = [];
 
-        // Process fresh leads (no followUps)
-        freshLeadsDetailed.forEach(lead => {
-            const type = (lead.leadType || '').toUpperCase();
-            if (type.includes('HOT')) hotCount++;
-            else if (type.includes('WARM')) warmCount++;
-            else if (type.includes('COLD')) coldCount++;
-            else if (type.includes('NEUTRAL')) neutralCount++;
-            else if (type.includes('INVALID')) invalidCount++;
-
-            callDetails.push({
-                leadId: lead._id,
-                studentName: lead.name,
-                phoneNumber: lead.phoneNumber || '-',
-                callType: 'FRESH',
-                leadType: lead.leadType || 'UNTAGGED',
-                isCounseled: lead.isCounseled,
-                feedback: '-',
-                remarks: '',
-                nextFollowUpDate: null,
-                date: lead.createdAt,
-                updatedAt: lead.updatedAt,
-                courseName: lead.course?.courseName || lead.courseText || '-',
-                className: lead.className?.name || '-',
-                boardName: lead.board?.boardName || '-',
-                schoolName: lead.schoolName || '-',
-                followUpCount: lead.followUps?.length || 0,
-                source: lead.source || '-'
-            });
-        });
-
-        // Process all follow-up calls today
+        // Process all actual calls (follow-ups) today
         allFollowUpLeads.forEach(lead => {
             const todayFollowUps = (lead.followUps || []).filter(fu => {
                 const fuDate = new Date(fu.date);
-                return fuDate >= startDate && fuDate <= endDate && fu.updatedBy === user.name;
+                return fuDate >= startDate && fuDate <= endDate && userRegex.test((fu.updatedBy || '').trim());
             });
 
             todayFollowUps.forEach(fu => {
@@ -1579,7 +1549,7 @@ export const getDailyUserActivity = async (req, res) => {
 
                 const fuIndex = (lead.followUps || []).findIndex(f => 
                     (f._id && fu._id && f._id.toString() === fu._id.toString()) ||
-                    (new Date(f.date).getTime() === new Date(fu.date).getTime() && f.updatedBy === fu.updatedBy)
+                    (new Date(f.date).getTime() === new Date(fu.date).getTime() && userRegex.test((f.updatedBy || '').trim()))
                 );
                 const isFresh = fuIndex === 0;
 
@@ -1605,13 +1575,8 @@ export const getDailyUserActivity = async (req, res) => {
             });
         });
 
-        const contactedLeadsCount = new Set(
-            callDetails.filter(c => c.callType === 'FOLLOW-UP' || c.callType === 'FRESH').map(c => c.leadId?.toString()).filter(Boolean)
-        ).size;
-
-        const freshContactedCount = new Set(
-            callDetails.filter(c => c.callType === 'FRESH').map(c => c.leadId?.toString()).filter(Boolean)
-        ).size;
+        const contactedLeadsCount = callDetails.length;
+        const freshContactedCount = callDetails.filter(c => c.callType === 'FRESH').length;
 
         // Fetch all direct admissions and counselling today to populate them if they are not in lead list
         const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
@@ -2117,23 +2082,10 @@ export const exportUserCallingReportExcel = async (req, res) => {
             center = await CentreSchema.findById(centerId).lean();
         }
 
-        // 1. Fresh Leads Detailed (created by user today with no followUps)
-        const freshQuery = {
-            createdBy: userId,
-            createdAt: dateFilter,
-            $or: [
-                { followUps: { $exists: false } },
-                { followUps: { $size: 0 } }
-            ]
-        };
-        if (centerId) {
-            freshQuery.centre = centerId;
-        }
-        const freshLeadsDetailed = await LeadManagement.find(freshQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
-
         // Fetch all leads followed up by the user today (old and new)
+        const userRegex = new RegExp(`^${(user.name || '').trim()}$`, "i");
         const followUpLeadsQuery = {
-            followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } }
+            followUps: { $elemMatch: { updatedBy: userRegex, date: dateFilter } }
         };
         if (centerId) {
             followUpLeadsQuery.centre = centerId;
@@ -2142,36 +2094,16 @@ export const exportUserCallingReportExcel = async (req, res) => {
 
         const callDetails = [];
 
-        freshLeadsDetailed.forEach(lead => {
-            callDetails.push({
-                centreName: lead.centre?.centreName || '-',
-                studentName: lead.name,
-                phoneNumber: lead.phoneNumber || '-',
-                callType: 'FRESH',
-                leadType: lead.leadType || 'UNTAGGED',
-                feedback: '-',
-                remarks: lead.remarks || '',
-                nextFollowUpDate: null,
-                date: lead.createdAt,
-                courseName: lead.course?.courseName || lead.courseText || '-',
-                className: lead.className?.name || '-',
-                boardName: lead.board?.boardName || '-',
-                schoolName: lead.schoolName || '-',
-                followUpCount: lead.followUps?.length || 0,
-                source: lead.source || '-'
-            });
-        });
-
         allFollowUpLeads.forEach(lead => {
             const todayFollowUps = (lead.followUps || []).filter(fu => {
                 const fuDate = new Date(fu.date);
-                return fuDate >= startDate && fuDate <= endDate && fu.updatedBy === user.name;
+                return fuDate >= startDate && fuDate <= endDate && userRegex.test((fu.updatedBy || '').trim());
             });
 
             todayFollowUps.forEach(fu => {
                 const fuIndex = (lead.followUps || []).findIndex(f => 
                     (f._id && fu._id && f._id.toString() === fu._id.toString()) ||
-                    (new Date(f.date).getTime() === new Date(fu.date).getTime() && f.updatedBy === fu.updatedBy)
+                    (new Date(f.date).getTime() === new Date(fu.date).getTime() && userRegex.test((f.updatedBy || '').trim()))
                 );
                 const isFresh = fuIndex === 0;
                 callDetails.push({
