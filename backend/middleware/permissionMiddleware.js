@@ -179,13 +179,16 @@ export const requireGranularPermission = (module, section, action) => {
                 return res.status(403).json({ message: "Account is deactivated. Please contact administrator." });
             }
 
-            // SuperAdmin has access to everything
-            if (user.role?.toLowerCase() === "superadmin" || user.role?.toLowerCase() === "super admin") {
-                req.user = user;
-                return next();
-            }
-
+            const isSuperAdmin = user.role?.toLowerCase() === "superadmin" || user.role?.toLowerCase() === "super admin";
             const hasCustomPerms = user.granularPermissions && typeof user.granularPermissions === 'object' && Object.keys(user.granularPermissions).length > 0;
+
+            // SuperAdmin has access to everything by default UNLESS custom permissions are configured
+            if (isSuperAdmin) {
+                if (!hasCustomPerms) {
+                    req.user = user;
+                    return next();
+                }
+            }
 
             // Digital role has superadmin-like access by default unless specific permissions are set in user.granularPermissions
             if (user.role?.toLowerCase() === "digital") {

@@ -34,7 +34,7 @@ const PermissionsDetailModal = ({ user, onClose }) => {
 
                 {/* Content - Scrollable */}
                 <div className="p-6 overflow-y-auto custom-scrollbar flex-1 space-y-6">
-                    {isSuperAdmin ? (
+                    {(isSuperAdmin && !hasPermissions) ? (
                         <div className="text-center py-8">
                             <div className={`w-20 h-20 rounded-full mx-auto flex items-center justify-center mb-6 ${isDarkMode ? 'bg-cyan-500/20 shadow-[0_0_20px_rgba(6,182,212,0.2)]' : 'bg-cyan-50 shadow-inner'}`}>
                                 <FaShieldAlt size={40} className="text-cyan-500" />

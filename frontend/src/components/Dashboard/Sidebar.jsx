@@ -70,8 +70,10 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         ? user.role.some(r => typeof r === "string" && (r.toLowerCase() === "digital"))
         : typeof user.role === "string" && (user.role.toLowerCase() === "digital");
 
-    const hasDigitalDefaultAccess = isDigital && (!granularPermissions || Object.keys(granularPermissions).length === 0);
-    const hasFullAccess = isSuperAdmin || hasDigitalDefaultAccess;
+    const hasCustomGranularPerms = granularPermissions && Object.keys(granularPermissions).length > 0;
+    const hasSuperAdminDefaultAccess = isSuperAdmin && !hasCustomGranularPerms;
+    const hasDigitalDefaultAccess = isDigital && !hasCustomGranularPerms;
+    const hasFullAccess = hasSuperAdminDefaultAccess || hasDigitalDefaultAccess;
 
     useEffect(() => {
         const fetchUnviewedCount = async () => {
@@ -182,7 +184,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Command Centre", path: "/marketing-crm", permissionModule: "marketingCRM", permissionSection: "commandCentre" },
                 { name: "School Journey", path: "/marketing-crm/school-journey", permissionModule: "marketingCRM", permissionSection: "schoolJourney" },
                 { name: "Team Performance", path: "/marketing-crm/team-performance", permissionModule: "marketingCRM", permissionSection: "teamPerformance" },
-                { name: "Centre Performance", path: "/marketing-crm/centre-performance", permissionModule: "marketingCRM", permissionSection: "centrePerformance" }
+                { name: "Centre Performance", path: "/marketing-crm/centre-performance", permissionModule: "marketingCRM", permissionSection: "centrePerformance" },
+                { name: "B2B Comparison", path: "/marketing-crm/b2b-comparison", permissionModule: "marketingCRM", permissionSection: "b2bComparison" }
             ]
         },
         //{ name: "CEO Control Tower", icon: <FaChartBar />, path: "/ceo-control-tower", permissionModule: "ceoControlTower" },
@@ -482,7 +485,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
 
     // Filter menu items based on permissions
     const filteredMenuItems = menuItems.filter(item => {
-        if (item.name === "Dashboard" || item.name === "Community" || item.name === "Employee Center" || item.name === "PNTSE") return true;
+        if (item.name === "Dashboard" || item.name === "Community") return true;
         if (item.restrictedToSuperAdmin && !isSuperAdmin) return false;
         if (hasFullAccess) return true;
 

@@ -25,12 +25,14 @@ const ProtectedRoute = ({ children, allowedRoles, requiredPermissionModule, requ
         const user = JSON.parse(userString);
         const userRoles = Array.isArray(user.role) ? user.role : [user.role || ''];
 
-        // SuperAdmin always has full access
+        // SuperAdmin with no custom granular permissions has full access
         const isSuperAdmin = userRoles.some(r =>
             typeof r === 'string' && r.toLowerCase().replace(/\s+/g, '') === 'superadmin'
         );
 
-        if (isSuperAdmin) {
+        const hasCustomGranularPerms = user.granularPermissions && typeof user.granularPermissions === 'object' && Object.keys(user.granularPermissions).length > 0;
+
+        if (isSuperAdmin && !hasCustomGranularPerms) {
             return children;
         }
 

@@ -21,6 +21,8 @@ const DailyCenterTracking = () => {
     const [selectedCenters, setSelectedCenters] = useState([]);
     const [zones, setZones] = useState([]);
     const [selectedZones, setSelectedZones] = useState([]);
+    const [roles, setRoles] = useState([]);
+    const [selectedRoles, setSelectedRoles] = useState([]);
     const [agents, setAgents] = useState([]);
     const [selectedAgents, setSelectedAgents] = useState([]);
     const [dateRange, setDateRange] = useState("Today");
@@ -128,6 +130,10 @@ const DailyCenterTracking = () => {
                 params.append("leadType", leadTypeFilter);
             }
 
+            if (selectedRoles && selectedRoles.length > 0) {
+                params.append("roles", selectedRoles.map(sr => sr.value).join(","));
+            }
+
             if (selectedAgents && selectedAgents.length > 0) {
                 params.append("agentIds", selectedAgents.map(sa => sa.value).join(","));
             }
@@ -184,6 +190,44 @@ const DailyCenterTracking = () => {
                 });
                 filteredAgents.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
                 setAgents(filteredAgents);
+
+                const roleFormatMap = {
+                    'telecaller': 'Telecaller',
+                    'centralizedtelecaller': 'Centralized Telecaller',
+                    'counsellor': 'Counsellor',
+                    'marketing': 'Marketing',
+                    'centerincharge': 'Center Incharge',
+                    'centreincharge': 'Center Incharge',
+                    'assistantcenterincharge': 'Assistant Center Incharge',
+                    'zonalmanager': 'Zonal Manager',
+                    'assistantzonalmanager': 'Assistant Zonal Manager',
+                    'areamanager': 'Area Manager',
+                    'coordinator': 'Coordinator',
+                    'teacher': 'Teacher',
+                    'hod': 'HOD',
+                    'admin': 'Admin',
+                    'hr': 'HR',
+                    'accounts': 'Accounts',
+                    'digital': 'Digital',
+                    'supportstaff': 'Support Staff'
+                };
+
+                const uniqueRolesMap = new Map();
+                allUsers.forEach(u => {
+                    if (u.role && u.isActive !== false) {
+                        const clean = u.role.toLowerCase().replace(/\s+/g, '');
+                        if (operationalRoles.includes(clean) || ['coordinator', 'teacher', 'admin'].includes(clean)) {
+                            if (!uniqueRolesMap.has(clean)) {
+                                uniqueRolesMap.set(clean, {
+                                    value: u.role,
+                                    label: roleFormatMap[clean] || u.role
+                                });
+                            }
+                        }
+                    }
+                });
+                const dynamicRoles = Array.from(uniqueRolesMap.values()).sort((a, b) => a.label.localeCompare(b.label));
+                setRoles(dynamicRoles);
             }
         } catch (error) {
             console.error("Error fetching agents:", error);
@@ -241,6 +285,10 @@ const DailyCenterTracking = () => {
                 params.append("leadType", leadTypeFilter);
             }
 
+            if (selectedRoles && selectedRoles.length > 0) {
+                params.append("roles", selectedRoles.map(sr => sr.value).join(","));
+            }
+
             if (selectedAgents && selectedAgents.length > 0) {
                 params.append("agentIds", selectedAgents.map(sa => sa.value).join(","));
             }
@@ -276,7 +324,7 @@ const DailyCenterTracking = () => {
         if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') return;
         if (dateRange === "Custom Range" && (!customStartDate || !customEndDate)) return;
         fetchCenters();
-    }, [dateRange, customStartDate, customEndDate, canView, leadTypeFilter, selectedAgents, selectedZones]);
+    }, [dateRange, customStartDate, customEndDate, canView, leadTypeFilter, selectedRoles, selectedAgents, selectedZones]);
 
     const allowedCenterNamesInSelectedZones = new Set();
     const allowedCenterIdsInSelectedZones = new Set();
@@ -303,10 +351,11 @@ const DailyCenterTracking = () => {
             allowedCenterIdsInSelectedZones.has((center.id || "").toString())
         );
 
+        const isRoleFiltered = selectedRoles && selectedRoles.length > 0;
         const isAgentFiltered = selectedAgents && selectedAgents.length > 0;
         const isLeadTypeFiltered = leadTypeFilter !== "";
         
-        if (isAgentFiltered || isLeadTypeFiltered) {
+        if (isRoleFiltered || isAgentFiltered || isLeadTypeFiltered) {
             const hasActivity = (
                 (center.dailyCalls || 0) > 0 ||
                 (center.walkIns || 0) > 0 ||
@@ -369,6 +418,10 @@ const DailyCenterTracking = () => {
 
             if (leadTypeFilter) {
                 params.append("leadType", leadTypeFilter);
+            }
+
+            if (selectedRoles && selectedRoles.length > 0) {
+                params.append("roles", selectedRoles.map(sr => sr.value).join(","));
             }
 
             if (selectedAgents && selectedAgents.length > 0) {
@@ -575,10 +628,38 @@ const DailyCenterTracking = () => {
                             <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-white text-gray-400'}`}>Centre</span>
                         </div>
 
+                        {/* Role Filter (Multi Select) */}
+                        <div className="relative min-w-[180px] z-20">
+                            <CustomMultiSelect
+                                options={roles}
+                                value={selectedRoles}
+                                onChange={(val) => {
+                                    setSelectedRoles(val);
+                                    if (val.length > 0) {
+                                        const allowedRoles = new Set(val.map(r => (r.value || '').toLowerCase().replace(/\s+/g, '')));
+                                        setSelectedAgents(prev => prev.filter(sa => {
+                                            const agentObj = agents.find(a => a._id === sa.value);
+                                            return agentObj && allowedRoles.has((agentObj.role || '').toLowerCase().replace(/\s+/g, ''));
+                                        }));
+                                    }
+                                }}
+                                placeholder="All Roles"
+                                isDarkMode={isDarkMode}
+                            />
+                            <span className={`absolute left-3 -top-2 text-[8px] font-black uppercase tracking-widest px-1 z-30 ${isDarkMode ? 'bg-[#1a1f24] text-gray-500' : 'bg-white text-gray-400'}`}>Role</span>
+                        </div>
+
                         {/* Agent Filter (Multi Select) */}
                         <div className="relative min-w-[200px] z-20">
                             <CustomMultiSelect
-                                options={agents.map(a => ({ value: a._id, label: a.displayName || a.name }))}
+                                options={agents
+                                    .filter(a => {
+                                        if (selectedRoles.length === 0) return true;
+                                        const aRoleClean = (a.role || '').toLowerCase().replace(/\s+/g, '');
+                                        return selectedRoles.some(sr => (sr.value || '').toLowerCase().replace(/\s+/g, '') === aRoleClean);
+                                    })
+                                    .map(a => ({ value: a._id, label: a.displayName || a.name }))
+                                }
                                 value={selectedAgents}
                                 onChange={setSelectedAgents}
                                 placeholder="All Agents"

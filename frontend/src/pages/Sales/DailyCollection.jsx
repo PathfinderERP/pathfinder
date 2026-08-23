@@ -410,13 +410,7 @@ const DailyCollection = () => {
 
                 const headers = [
                     "Centre Name",
-                    (() => {
-                        const d = new Date(date);
-                        const day = d.getDay();
-                        if (day === 6) return "Daily Target (Sat Target - Excl. GST)";
-                        if (day === 0) return "Daily Target (Sun Target - Excl. GST)";
-                        return "Daily Target (Weekday Target - Excl. GST)";
-                    })(),
+                    "Daily Target (Dynamic Adjusted - Excl. GST)",
                     ...paymentMethodsList,
                     "Total (With GST)",
                     "Total (Without GST)"
@@ -752,10 +746,10 @@ const DailyCollection = () => {
                             <div className={`${secondaryTextClass} font-semibold mb-2`}>Total Collected</div>
                             <div className="flex flex-col gap-1.5 mt-1">
                                 {(() => {
-                                    const totalWithGst = activeDetails.reduce((sum, d) => sum + (d.paidAmount || 0), 0);
-                                    const totalWithoutGst = activeDetails.reduce((sum, d) => {
-                                        const isPhsps = d.centre && /phsps/i.test(d.centre);
-                                        const withoutGst = isPhsps ? (d.paidAmount || 0) : ((d.paidAmount || 0) / 1.18);
+                                    const nonPhspsDetails = activeDetails.filter(d => !d.centre || !/phsps/i.test(d.centre));
+                                    const totalWithGst = nonPhspsDetails.reduce((sum, d) => sum + (d.paidAmount || 0), 0);
+                                    const totalWithoutGst = nonPhspsDetails.reduce((sum, d) => {
+                                        const withoutGst = (d.paidAmount || 0) / 1.18;
                                         return sum + withoutGst;
                                     }, 0);
                                     return (
@@ -775,7 +769,7 @@ const DailyCollection = () => {
                         </div>
                         <div className={`${secondaryTextClass} text-xs mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center`}>
                             <span>Transactions Count</span>
-                            <span className="font-bold text-gray-700 dark:text-gray-300">{activeDetails.length}</span>
+                            <span className="font-bold text-gray-700 dark:text-gray-300">{activeDetails.filter(d => !d.centre || !/phsps/i.test(d.centre)).length}</span>
                         </div>
                     </div>
                     <div className={`${cardBgClass} p-4 rounded-[4px] ${cardBorderClass} shadow-sm flex flex-col justify-between`}>
@@ -783,12 +777,11 @@ const DailyCollection = () => {
                             <div className={`${secondaryTextClass} font-semibold mb-2`}>Daily Total Target</div>
                             <div className="flex flex-col gap-1.5 mt-1">
                                 {(() => {
-                                    const computedTargetWithoutGst = activeCentres.reduce((sum, c) => sum + (centreTargets[c.centreName] || 0), 0);
-                                    const computedTargetWithGst = activeCentres.reduce((sum, c) => {
+                                    const nonPhspsCentres = activeCentres.filter(c => !c.centreName || !/phsps/i.test(c.centreName));
+                                    const computedTargetWithoutGst = nonPhspsCentres.reduce((sum, c) => sum + (centreTargets[c.centreName] || 0), 0);
+                                    const computedTargetWithGst = nonPhspsCentres.reduce((sum, c) => {
                                         const target = centreTargets[c.centreName] || 0;
-                                        const isPhsps = c.centreName && /phsps/i.test(c.centreName);
-                                        const withGst = isPhsps ? target : (target * 1.18);
-                                        return sum + withGst;
+                                        return sum + (target * 1.18);
                                     }, 0);
 
                                     return (
@@ -1246,14 +1239,7 @@ const DailyCollection = () => {
                                     <tr>
                                         <th className="px-4 py-3">Centre Name</th>
                                         <th className="px-4 py-3 text-right font-bold text-amber-500">
-                                            Daily Target
-                                            {(() => {
-                                                const d = new Date(date);
-                                                const day = d.getDay();
-                                                if (day === 6) return " (Sat Target - Excl. GST)";
-                                                if (day === 0) return " (Sun Target - Excl. GST)";
-                                                return " (Weekday Target - Excl. GST)";
-                                            })()}
+                                            Daily Target (Adjusted - Excl. GST)
                                         </th>
                                         {paymentMethodsList.map(method => (
                                             <th key={method} className="px-4 py-3 text-right">{method}</th>
@@ -1282,16 +1268,16 @@ const DailyCollection = () => {
                                         return initialAcc;
                                     })()); const sortedData = Object.entries(aggregatedData).sort((a, b) => a[0].localeCompare(b[0]));
 
-                                    // Column Totals
-                                    const totalTarget = sortedData.reduce((sum, [centre]) => sum + (centreTargets[centre] || 0), 0);
+                                    // Column Totals (excluding PHSPS)
+                                    const nonPhspsSortedData = sortedData.filter(([centre]) => !/phsps/i.test(centre));
+                                    const totalTarget = nonPhspsSortedData.reduce((sum, [centre]) => sum + (centreTargets[centre] || 0), 0);
                                     const totalPaymentMethods = paymentMethodsList.reduce((acc, method) => {
-                                        acc[method] = sortedData.reduce((sum, [_, data]) => sum + (data[method] || 0), 0);
+                                        acc[method] = nonPhspsSortedData.reduce((sum, [_, data]) => sum + (data[method] || 0), 0);
                                         return acc;
                                     }, {});
-                                    const totalWithGst = sortedData.reduce((sum, [_, data]) => sum + (data.total || 0), 0);
-                                    const totalWithoutGst = sortedData.reduce((sum, [centre, data]) => {
-                                        const isPhsps = /phsps/i.test(centre);
-                                        const withoutGst = isPhsps ? data.total : (data.total / 1.18);
+                                    const totalWithGst = nonPhspsSortedData.reduce((sum, [_, data]) => sum + (data.total || 0), 0);
+                                    const totalWithoutGst = nonPhspsSortedData.reduce((sum, [_, data]) => {
+                                        const withoutGst = data.total / 1.18;
                                         return sum + (withoutGst || 0);
                                     }, 0);
 

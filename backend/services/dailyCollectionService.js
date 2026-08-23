@@ -693,15 +693,19 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     cumulativeAchievement += phaseAchieved;
 
                     if (isDayInWeek) {
-                        const dayIndex = selectedDate.getDay(); // 0=Sun, 1=Mon, ..., 6=Sat
-                        const isSunday = dayIndex === 0;
-                        const isMonthEnd = selectedDayNum === daysInMonth;
+                        const weekDaysCount = week.actualDays || week.days.length || 7;
+                        const baseDailyTarget = weekDaysCount > 0 ? (phaseTarget / weekDaysCount) : 0;
+                        const dayIndexInWeek = week.days.findIndex(d => d.day === selectedDayNum);
 
-                        if (isSunday || isMonthEnd) {
-                            finalDailyTarget = Math.max(0, cumulativeTarget - cumulativeAchievement);
+                        if (dayIndexInWeek <= 0) {
+                            finalDailyTarget = baseDailyTarget;
                         } else {
-                            // Monday to Saturday (divided by 6)
-                            finalDailyTarget = phaseTarget / 6;
+                            let weekPriorAchieved = 0;
+                            for (let i = 0; i < dayIndexInWeek; i++) {
+                                const dNum = week.days[i].day;
+                                weekPriorAchieved += dayMap[dNum] || 0;
+                            }
+                            finalDailyTarget = Math.max(0, ((dayIndexInWeek + 1) * baseDailyTarget) - weekPriorAchieved);
                         }
                         break;
                     }

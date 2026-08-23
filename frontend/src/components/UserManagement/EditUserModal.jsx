@@ -105,20 +105,23 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                 }
             }
 
-            // If user is superAdmin, force all permissions to true if config is loaded
+            // If user is superAdmin and has no custom permissions configured yet, default to all permissions
             if (user.role === "superAdmin" && permissionsConfig) {
-                const allPerms = {};
-                Object.entries(permissionsConfig).forEach(([modKey, modData]) => {
-                    allPerms[modKey] = {};
-                    Object.keys(modData.sections).forEach(secKey => {
-                        allPerms[modKey][secKey] = {
-                            create: true,
-                            edit: true,
-                            delete: true
-                        };
+                const hasCustom = user.granularPermissions && typeof user.granularPermissions === 'object' && Object.keys(user.granularPermissions).length > 0;
+                if (!hasCustom) {
+                    const allPerms = {};
+                    Object.entries(permissionsConfig).forEach(([modKey, modData]) => {
+                        allPerms[modKey] = {};
+                        Object.keys(modData.sections).forEach(secKey => {
+                            allPerms[modKey][secKey] = {
+                                create: true,
+                                edit: true,
+                                delete: true
+                            };
+                        });
                     });
-                });
-                granularPermissions = allPerms;
+                    granularPermissions = allPerms;
+                }
             }
 
             setFormData({
@@ -323,6 +326,17 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
 
             if (response.ok) {
                 toast.success("User updated successfully");
+                // If the updated user is the currently logged-in user, refresh localStorage and trigger update
+                const currentStoredUser = JSON.parse(localStorage.getItem("user") || "{}");
+                if (currentStoredUser._id === user._id || currentStoredUser.email === user.email) {
+                    const updatedLocalUser = {
+                        ...currentStoredUser,
+                        ...updateData,
+                        _id: user._id
+                    };
+                    localStorage.setItem("user", JSON.stringify(updatedLocalUser));
+                    window.dispatchEvent(new Event("storage"));
+                }
                 onSuccess();
             } else {
                 toast.error(data.message || "Failed to update user");
@@ -427,7 +441,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                             </div>
                         )}
                         <div className="md:col-span-2">
-                            <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Assigned Centres {formData.role !== "superAdmin" && "*"}</label>
+                            <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest mb-1`}>Assigned Centres</label>
 
                             <div className="flex gap-2 mb-2">
                                 <input
@@ -440,7 +454,7 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                                 <button
                                     type="button"
                                     onClick={handleSelectAll}
-                                    disabled={filteredCentres.length === 0 || formData.role === "superAdmin"}
+                                    disabled={filteredCentres.length === 0}
                                     className={`text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${isDarkMode
                                         ? 'bg-[#131619] border-gray-700 text-cyan-400 hover:bg-gray-800'
                                         : 'bg-white border-gray-200 text-cyan-600 hover:bg-gray-50'}`}
@@ -457,10 +471,9 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                                                 type="checkbox"
                                                 checked={formData.centres.includes(centre._id)}
                                                 onChange={() => handleCentreChange(centre._id)}
-                                                disabled={formData.role === "superAdmin"}
                                                 className="w-4 h-4 rounded border-gray-400 bg-transparent text-cyan-500 focus:ring-cyan-500"
                                             />
-                                            <span className={`text-[11px] font-bold uppercase tracking-tight ${formData.role === "superAdmin" ? "text-gray-600 opacity-50" : isDarkMode ? "text-gray-400 group-hover:text-cyan-400" : "text-gray-600 group-hover:text-cyan-600"} transition-colors`}>
+                                            <span className={`text-[11px] font-bold uppercase tracking-tight ${isDarkMode ? "text-gray-400 group-hover:text-cyan-400" : "text-gray-600 group-hover:text-cyan-600"} transition-colors`}>
                                                 {centre.centreName}
                                             </span>
                                         </label>
@@ -471,9 +484,6 @@ const EditUserModal = ({ user, onClose, onSuccess }) => {
                                     </div>
                                 )}
                             </div>
-                            {formData.role === "superAdmin" && (
-                                <p className="text-xs text-gray-500 mt-1">SuperAdmin is not assigned to any centre</p>
-                            )}
                         </div>
                     </div>
 

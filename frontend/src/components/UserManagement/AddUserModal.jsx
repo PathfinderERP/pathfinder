@@ -322,8 +322,8 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                         )}
                         <div className="md:col-span-2">
                             <div className="flex justify-between items-center mb-1">
-                                <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest`}>Assigned Centres {formData.role !== "superAdmin" && "*"}</label>
-                                {formData.role !== "superAdmin" && centres.length > 0 && (
+                                <label className={`block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} text-xs font-black uppercase tracking-widest`}>Assigned Centres</label>
+                                {centres.length > 0 && (
                                     <button
                                         type="button"
                                         onClick={() => {
@@ -346,10 +346,9 @@ const AddUserModal = ({ onClose, onSuccess }) => {
                                             type="checkbox"
                                             checked={formData.centres.includes(centre._id)}
                                             onChange={() => handleCentreChange(centre._id)}
-                                            disabled={formData.role === "superAdmin"}
                                             className="w-4 h-4 rounded border-gray-400 bg-transparent text-cyan-500 focus:ring-cyan-500"
                                         />
-                                        <span className={`text-[11px] font-bold uppercase tracking-tight ${formData.role === "superAdmin" ? "text-gray-600 opacity-50" : isDarkMode ? "text-gray-400 group-hover:text-cyan-400" : "text-gray-600 group-hover:text-cyan-600"} transition-colors`}>
+                                        <span className={`text-[11px] font-bold uppercase tracking-tight ${isDarkMode ? "text-gray-400 group-hover:text-cyan-400" : "text-gray-600 group-hover:text-cyan-600"} transition-colors`}>
                                             {centre.centreName}
                                         </span>
                                     </label>

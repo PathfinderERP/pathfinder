@@ -363,6 +363,10 @@ export const PERMISSION_MODULES = {
             centrePerformance: {
                 label: "Centre Performance",
                 operations: ["create", "edit", "delete"]
+            },
+            b2bComparison: {
+                label: "B2B Comparison",
+                operations: ["create", "edit", "delete"]
             }
         }
     },
@@ -636,14 +640,37 @@ const cleanRole = (r) => (r || "").toLowerCase().replace(/[\s\-_]+/g, '');
 export const hasPermission = (granularPermissionsOrUser, module, section, operation) => {
     const role = getUserRole(granularPermissionsOrUser);
     const cleanRoleStr = cleanRole(role);
-    if (role && (cleanRoleStr === 'superadmin')) {
-        return true; // SuperAdmin has all permissions
-    }
 
     const granularPermissions = granularPermissionsOrUser?.granularPermissions ||
         (typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
 
     const hasGranularObject = granularPermissions && typeof granularPermissions === 'object' && Object.keys(granularPermissions).length > 0;
+
+    // SuperAdmin role: default full access; if custom granularPermissions are configured, enforce them strictly
+    if (role && cleanRoleStr === 'superadmin') {
+        if (!hasGranularObject) {
+            return true; // Default to full access like SuperAdmin
+        }
+        // If granularPermissions explicitly defines this module/section, check it
+        if (granularPermissions[module]?.[section]) {
+            if (granularPermissions[module][section][operation] === true) {
+                return true;
+            }
+            if (operation === 'view') {
+                if (granularPermissions[module][section]['view'] !== undefined) {
+                    return granularPermissions[module][section]['view'] === true;
+                }
+                return true;
+            }
+            return false;
+        }
+        // If module exists in granularPermissions but section doesn't, no access to that section
+        if (granularPermissions[module] && !granularPermissions[module][section]) {
+            return false;
+        }
+        // If module is not in granularPermissions at all, no access
+        return false;
+    }
 
     if (module === 'leadManagement' && section === 'allFollowups') {
         const hasDirectPermission = granularPermissions?.[module]?.[section];
@@ -788,15 +815,29 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
 export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     const role = getUserRole(granularPermissionsOrUser);
     const cleanRoleStr = cleanRole(role);
-    if (role && (cleanRoleStr === 'superadmin')) {
-        return true; // SuperAdmin has access to all modules
-    }
     const normalizedRole = cleanRoleStr;
 
     const granularPermissions = granularPermissionsOrUser?.granularPermissions ||
         (typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
 
     const hasGranularObject = granularPermissions && typeof granularPermissions === 'object' && Object.keys(granularPermissions).length > 0;
+
+    // SuperAdmin role: default full access; if custom granularPermissions exist in User Management, enforce strictly
+    if (role && cleanRoleStr === 'superadmin') {
+        if (hasGranularObject) {
+            const sections = granularPermissions[module];
+            if (!sections) return false;
+            const keys = Object.keys(sections);
+            if (keys.length === 0) return false;
+            return keys.some(secKey => {
+                const sec = sections[secKey];
+                if (!sec || typeof sec !== 'object') return false;
+                if (sec.view !== undefined) return sec.view === true;
+                return Object.values(sec).some(v => v === true);
+            });
+        }
+        return true; // Default to full module access
+    }
 
     // Digital role: default superadmin-like module access; if custom permissions exist in User Management, enforce them strictly
     if (normalizedRole === 'digital') {
@@ -889,15 +930,18 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
 // Helper function to get all accessible modules
 export const getAccessibleModules = (granularPermissionsOrUser) => {
     const role = getUserRole(granularPermissionsOrUser);
-    if (role && (role.toLowerCase() === 'superadmin' || role.toLowerCase() === 'super admin')) {
-        return Object.keys(PERMISSION_MODULES); // SuperAdmin has access to all modules
-    }
-
     const granularPermissions = granularPermissionsOrUser?.granularPermissions ||
         (typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
+    const hasGranularObject = granularPermissions && typeof granularPermissions === 'object' && Object.keys(granularPermissions).length > 0;
+
+    if (role && (role.toLowerCase() === 'superadmin' || role.toLowerCase() === 'super admin')) {
+        if (!hasGranularObject) {
+            return Object.keys(PERMISSION_MODULES); // SuperAdmin has access to all modules
+        }
+    }
 
     if (role && role.toLowerCase() === 'digital') {
-        if (!granularPermissions || (typeof granularPermissions === 'object' && Object.keys(granularPermissions).length === 0)) {
+        if (!hasGranularObject) {
             return Object.keys(PERMISSION_MODULES); // Full access like SuperAdmin
         }
     }

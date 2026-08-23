@@ -108,6 +108,7 @@ import assignedTaskRoutes from "./routes/assignedTask.routes.js";
 import mediaProxyRoutes from "./routes/mediaProxy.routes.js";
 import teamPerformanceRoutes from "./routes/Marketing/teamPerformance.routes.js";
 import centrePerformanceRoutes from "./routes/Marketing/centrePerformance.routes.js";
+import b2bComparisonRoutes from "./routes/marketingCRM/b2bComparison.routes.js";
 import { startPaymentReminderCron } from "./services/cronService.js";
 
 
@@ -228,6 +229,7 @@ app.use("/api/tomorrow-planner", tomorrowPlannerRoutes);
 app.use("/api/log-calendar", logCalendarRoutes);
 app.use("/api/marketing/team-performance", teamPerformanceRoutes);
 app.use("/api/marketing/centre-performance", centrePerformanceRoutes);
+app.use("/api/marketing/b2b-comparison", b2bComparisonRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/payment/sms", razorpaySMSRoutes);
 app.use("/api/notifications", notificationRoutes);

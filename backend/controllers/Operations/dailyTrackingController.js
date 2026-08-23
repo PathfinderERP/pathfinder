@@ -522,7 +522,7 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
 
 export const getDailyTracking = async (req, res) => {
     try {
-        const { date, startDate, endDate, leadType, agentIds } = req.query;
+        const { date, startDate, endDate, leadType, agentIds, roles } = req.query;
         let start, end;
         if (startDate && endDate) {
             const parsed = parseDateRangeIST(startDate, endDate);
@@ -542,15 +542,39 @@ export const getDailyTracking = async (req, res) => {
 
         let agentObjectIdList = [];
         let agentNames = [];
+
+        let roleUserObjectIds = [];
+        let roleUserNames = [];
+        if (roles) {
+            const roleList = roles.split(',').map(r => r.trim()).filter(Boolean);
+            const roleRegexes = roleList.map(r => new RegExp(`^${r.replace(/\s+/g, '')}$`, 'i'));
+            const roleUsers = await User.find({ role: { $in: roleRegexes } }).select('_id name').lean();
+            roleUserObjectIds = roleUsers.map(u => u._id);
+            roleUserNames = roleUsers.map(u => u.name).filter(Boolean);
+        }
+
         if (agentIds) {
             const idList = agentIds.split(',').filter(Boolean);
-            agentObjectIdList = idList.map(id => {
+            const rawAgentObjectIdList = idList.map(id => {
                 try { return new mongoose.Types.ObjectId(id); } catch (e) { return null; }
             }).filter(Boolean);
 
-            const users = await User.find({ _id: { $in: agentObjectIdList } }).select('name').lean();
-            agentNames = users.map(u => u.name).filter(Boolean);
+            const users = await User.find({ _id: { $in: rawAgentObjectIdList } }).select('_id name').lean();
+            if (roles) {
+                const roleIdSet = new Set(roleUserObjectIds.map(id => id.toString()));
+                const filteredUsers = users.filter(u => roleIdSet.has(u._id.toString()));
+                agentObjectIdList = filteredUsers.map(u => u._id);
+                agentNames = filteredUsers.map(u => u.name).filter(Boolean);
+            } else {
+                agentObjectIdList = users.map(u => u._id);
+                agentNames = users.map(u => u.name).filter(Boolean);
+            }
+        } else if (roles) {
+            agentObjectIdList = roleUserObjectIds;
+            agentNames = roleUserNames;
         }
+
+        const hasUserFilter = Boolean(agentIds || roles);
 
         const isRestricted = checkRestricted(req.user?.role);
 
@@ -585,7 +609,7 @@ export const getDailyTracking = async (req, res) => {
                 { $lte: ["$$fu.date", end] }
             ];
 
-            if (agentIds) {
+            if (hasUserFilter) {
                 leadMatch["followUps.updatedBy"] = { $in: agentNames };
                 filterCond.push({ $in: ["$$fu.updatedBy", agentNames] });
             } else if (isRestricted) {
@@ -624,7 +648,7 @@ export const getDailyTracking = async (req, res) => {
                 centre: centerId,
                 createdAt: dateFilter
             };
-            if (agentIds) {
+            if (hasUserFilter) {
                 serviceCallMatch.userName = { $in: agentNames };
             } else if (isRestricted) {
                 serviceCallMatch.userName = req.user.name;
@@ -656,7 +680,7 @@ export const getDailyTracking = async (req, res) => {
                     { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter }
                 ]
             };
-            if (agentIds) {
+            if (hasUserFilter) {
                 walkInsQuery.$or = [
                     { isWalkIn: true, walkInDate: dateFilter, walkInBy: { $in: agentObjectIdList } },
                     { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter, createdBy: { $in: agentObjectIdList } }
@@ -686,7 +710,7 @@ export const getDailyTracking = async (req, res) => {
                 createdAt: dateFilter
             };
 
-            if (agentIds) {
+            if (hasUserFilter) {
                 counsellingNormalQuery.$or = [
                     { createdBy: { $in: agentObjectIdList } },
                     { followUps: { $elemMatch: { updatedBy: { $in: agentNames }, date: dateFilter } } }
@@ -829,7 +853,7 @@ export const getDailyTracking = async (req, res) => {
                 createdAt: dateFilter
             };
 
-            if (agentIds) {
+            if (hasUserFilter) {
                 admissionNormalQuery.createdBy = { $in: agentObjectIdList };
                 admissionBoardQuery.createdBy = { $in: agentObjectIdList };
             } else if (isRestricted) {
@@ -975,7 +999,7 @@ export const getDailyTracking = async (req, res) => {
                 }
             };
 
-            if (agentIds) {
+            if (hasUserFilter) {
                 paymentMatch.recordedBy = { $in: agentObjectIdList };
             } else if (isRestricted) {
                 paymentMatch.recordedBy = req.user._id;
@@ -2260,7 +2284,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
 
 export const getDailyTrackingDetails = async (req, res) => {
     try {
-        const { date, category, startDate, endDate, centerIds, zoneIds, leadType, agentIds } = req.query;
+        const { date, category, startDate, endDate, centerIds, zoneIds, leadType, agentIds, roles } = req.query;
         if (!category) {
             return res.status(400).json({ message: "Category parameter is required" });
         }
@@ -2287,15 +2311,39 @@ export const getDailyTrackingDetails = async (req, res) => {
 
         let agentObjectIdList = [];
         let agentNames = [];
+
+        let roleUserObjectIds = [];
+        let roleUserNames = [];
+        if (roles) {
+            const roleList = roles.split(',').map(r => r.trim()).filter(Boolean);
+            const roleRegexes = roleList.map(r => new RegExp(`^${r.replace(/\s+/g, '')}$`, 'i'));
+            const roleUsers = await User.find({ role: { $in: roleRegexes } }).select('_id name').lean();
+            roleUserObjectIds = roleUsers.map(u => u._id);
+            roleUserNames = roleUsers.map(u => u.name).filter(Boolean);
+        }
+
         if (agentIds) {
             const idList = agentIds.split(',').filter(Boolean);
-            agentObjectIdList = idList.map(id => {
+            const rawAgentObjectIdList = idList.map(id => {
                 try { return new mongoose.Types.ObjectId(id); } catch (e) { return null; }
             }).filter(Boolean);
 
-            const users = await User.find({ _id: { $in: agentObjectIdList } }).select('name').lean();
-            agentNames = users.map(u => u.name).filter(Boolean);
+            const users = await User.find({ _id: { $in: rawAgentObjectIdList } }).select('_id name').lean();
+            if (roles) {
+                const roleIdSet = new Set(roleUserObjectIds.map(id => id.toString()));
+                const filteredUsers = users.filter(u => roleIdSet.has(u._id.toString()));
+                agentObjectIdList = filteredUsers.map(u => u._id);
+                agentNames = filteredUsers.map(u => u.name).filter(Boolean);
+            } else {
+                agentObjectIdList = users.map(u => u._id);
+                agentNames = users.map(u => u.name).filter(Boolean);
+            }
+        } else if (roles) {
+            agentObjectIdList = roleUserObjectIds;
+            agentNames = roleUserNames;
         }
+
+        const hasUserFilter = Boolean(agentIds || roles);
 
         const isRestrictCentres = checkRestrictCentres(req.user?.role);
         const isRestrictIndividual = checkRestrictIndividual(req.user?.role);
@@ -2340,7 +2388,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                     ]
                 };
                 if (centerObjectIdList.length > 0) walkinsQuery.centre = { $in: centerObjectIdList };
-                if (agentIds) {
+                if (hasUserFilter) {
                     walkinsQuery.$or = [
                         { isWalkIn: true, walkInDate: dateFilter, walkInBy: { $in: agentObjectIdList } },
                         { source: { $regex: /^walk[- ]?in$/i }, createdAt: dateFilter, createdBy: { $in: agentObjectIdList } }
@@ -2385,7 +2433,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                     andConditions.push({ $or: centerOrs });
                 }
 
-                if (agentIds) {
+                if (hasUserFilter) {
                     andConditions.push({
                         $or: [
                             { createdBy: { $in: agentObjectIdList } },
@@ -2424,7 +2472,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                 if (centerNamesList.length > 0) {
                     admittedNormalQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
                 }
-                if (agentIds) admittedNormalQuery.createdBy = { $in: agentObjectIdList };
+                if (hasUserFilter) admittedNormalQuery.createdBy = { $in: agentObjectIdList };
                 else if (isRestrictIndividual) admittedNormalQuery.createdBy = req.user._id;
 
                 let normalAdmissions = await Admission.find(admittedNormalQuery).populate('student').populate('createdBy').lean();
@@ -2466,12 +2514,20 @@ export const getDailyTrackingDetails = async (req, res) => {
                 admittedNormalDetails.forEach(d => { uniqueNormalMap[d.id] = d; });
                 const finalNormalDetails = Object.values(uniqueNormalMap);
 
-                const boardQuery = { counselledDate: dateFilter };
-                if (centerNamesList.length > 0) boardQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
-                if (agentIds) boardQuery.counselledBy = { $in: agentObjectIdList };
-                else if (isRestrictIndividual) boardQuery.counselledBy = req.user._id;
+                // Board Course Counselling
+                const counsellingBoardQuery = {
+                    $or: [
+                        { counselledDate: dateFilter },
+                        { createdAt: dateFilter }
+                    ]
+                };
+                if (centerNamesList.length > 0) {
+                    counsellingBoardQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
+                }
+                if (hasUserFilter) counsellingBoardQuery.counselledBy = { $in: agentObjectIdList };
+                else if (isRestrictIndividual) counsellingBoardQuery.counselledBy = req.user._id;
 
-                let boardCounsellings = await BoardCourseCounselling.find(boardQuery).populate('studentId').populate('counselledBy').lean();
+                let boardCounsellings = await BoardCourseCounselling.find(counsellingBoardQuery).populate('studentId').populate('counselledBy').lean();
                 if (leadType) {
                     const phones = boardCounsellings.map(bc => bc.studentId?.studentsDetails?.[0]?.mobileNum).filter(Boolean);
                     const matchingLeads = phones.length > 0 ? await LeadManagement.find({
@@ -2505,7 +2561,7 @@ export const getDailyTrackingDetails = async (req, res) => {
 
                 const admittedBoardQuery = { createdAt: dateFilter };
                 if (centerNamesList.length > 0) admittedBoardQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
-                if (agentIds) admittedBoardQuery.createdBy = { $in: agentObjectIdList };
+                if (hasUserFilter) admittedBoardQuery.createdBy = { $in: agentObjectIdList };
                 else if (isRestrictIndividual) admittedBoardQuery.createdBy = req.user._id;
 
                 let boardAdmissions = await BoardCourseAdmission.find(admittedBoardQuery).populate('studentId').populate('createdBy').lean();
@@ -2552,7 +2608,7 @@ export const getDailyTrackingDetails = async (req, res) => {
             } else if (catName === "admission") {
                 const normalQuery = { createdAt: dateFilter };
                 if (centerNamesList.length > 0) normalQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
-                if (agentIds) normalQuery.createdBy = { $in: agentObjectIdList };
+                if (hasUserFilter) normalQuery.createdBy = { $in: agentObjectIdList };
                 else if (isRestrictIndividual) normalQuery.createdBy = req.user._id;
 
                 let normalAdmissions = await Admission.find(normalQuery).populate('student').populate('course', 'courseName').populate('createdBy').lean();
@@ -2573,7 +2629,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                 }
                 const boardQuery = { createdAt: dateFilter };
                 if (centerNamesList.length > 0) boardQuery.centre = { $in: centerNamesList.map(n => new RegExp(`^${n}$`, 'i')) };
-                if (agentIds) boardQuery.createdBy = { $in: agentObjectIdList };
+                if (hasUserFilter) boardQuery.createdBy = { $in: agentObjectIdList };
                 else if (isRestrictIndividual) boardQuery.createdBy = req.user._id;
 
                 let boardAdmissions = await BoardCourseAdmission.find(boardQuery).populate('studentId').populate('createdBy').lean();
@@ -2674,7 +2730,7 @@ export const getDailyTrackingDetails = async (req, res) => {
             } else if (catName === "calls") {
                 const callsQuery = { "followUps.date": dateFilter };
                 if (centerObjectIdList.length > 0) callsQuery.centre = { $in: centerObjectIdList };
-                if (agentIds) callsQuery["followUps.updatedBy"] = { $in: agentNames };
+                if (hasUserFilter) callsQuery["followUps.updatedBy"] = { $in: agentNames };
                 else if (isRestrictIndividual) callsQuery["followUps.updatedBy"] = req.user.name;
                 if (leadType) callsQuery.leadType = leadType;
 
@@ -2684,7 +2740,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                         const fuDate = new Date(fu.date);
                         return fuDate >= start && fuDate <= end && 
                             (!isRestrictIndividual || fu.updatedBy === req.user.name) &&
-                            (!agentIds || agentNames.includes(fu.updatedBy));
+                            (!hasUserFilter || agentNames.includes(fu.updatedBy));
                     });
 
                     matchingFollowups.forEach(fu => {
@@ -2720,7 +2776,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                         ]
                     }
                 };
-                if (agentIds) {
+                if (hasUserFilter) {
                     queryPaymentsMatch.recordedBy = { $in: agentObjectIdList };
                 } else if (isRestrictIndividual) {
                     queryPaymentsMatch.recordedBy = req.user._id;

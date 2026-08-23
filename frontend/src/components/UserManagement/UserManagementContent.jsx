@@ -879,7 +879,7 @@ const UserManagementContent = () => {
                                     className={`flex flex-wrap gap-1 cursor-pointer p-1 rounded transition-all -ml-1 border border-transparent ${isDarkMode ? 'hover:bg-gray-800/50 hover:border-gray-700' : 'hover:bg-gray-50 hover:border-gray-200'}`}
                                     onClick={() => { setSelectedPermUser(user); setShowPermModal(true); }}
                                 >
-                                    {user.role === 'superAdmin' ? (
+                                    {user.role === 'superAdmin' && (!user.granularPermissions || Object.keys(user.granularPermissions).length === 0) ? (
                                         <span className="text-[9px] font-black uppercase tracking-widest bg-red-500/10 text-red-500 border border-red-500/20 px-2 py-1 rounded-[2px]">
                                             Full System Access
                                         </span>
