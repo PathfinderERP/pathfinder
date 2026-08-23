@@ -576,6 +576,20 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                             installmentNumber: 1,
                             status: 1,
                             paidAmount: 1,
+                            courseFee: 1,
+                            revenueWithoutGst: {
+                                $cond: {
+                                    if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", "$centre", ""] }, regex: "phsps", options: "i" } },
+                                    then: "$paidAmount",
+                                    else: {
+                                        $cond: {
+                                            if: { $and: [{ $ne: ["$courseFee", null] }, { $gt: ["$courseFee", 0] }] },
+                                            then: "$courseFee",
+                                            else: { $divide: ["$paidAmount", 1.18] }
+                                        }
+                                    }
+                                }
+                            },
                             remarks: 1,
                             recordedByName: "$recordedByName",
                             studentEmail: 1,

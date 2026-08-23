@@ -746,10 +746,16 @@ const DailyCollection = () => {
                             <div className={`${secondaryTextClass} font-semibold mb-2`}>Total Collected</div>
                             <div className="flex flex-col gap-1.5 mt-1">
                                 {(() => {
-                                    const nonPhspsDetails = activeDetails.filter(d => !d.centre || !/phsps/i.test(d.centre));
-                                    const totalWithGst = nonPhspsDetails.reduce((sum, d) => sum + (d.paidAmount || 0), 0);
-                                    const totalWithoutGst = nonPhspsDetails.reduce((sum, d) => {
-                                        const withoutGst = (d.paidAmount || 0) / 1.18;
+                                    const totalWithGst = activeDetails.reduce((sum, d) => sum + (d.paidAmount || 0), 0);
+                                    const totalWithoutGst = activeDetails.reduce((sum, d) => {
+                                        if (d.revenueWithoutGst !== undefined && d.revenueWithoutGst !== null) {
+                                            return sum + Number(d.revenueWithoutGst);
+                                        }
+                                        if (d.courseFee && Number(d.courseFee) > 0 && (!d.centre || !/phsps/i.test(d.centre))) {
+                                            return sum + Number(d.courseFee);
+                                        }
+                                        const isPhsps = d.centre && /phsps/i.test(d.centre);
+                                        const withoutGst = isPhsps ? (d.paidAmount || 0) : ((d.paidAmount || 0) / 1.18);
                                         return sum + withoutGst;
                                     }, 0);
                                     return (
@@ -759,7 +765,7 @@ const DailyCollection = () => {
                                                 <span className="text-[9px] font-bold text-green-500 bg-green-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">With GST</span>
                                             </div>
                                             <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-800 pt-1.5">
-                                                <span className={`text-lg font-semibold ${secondaryTextClass}`}>{formatAmount(totalWithoutGst)}</span>
+                                                <span className={`text-lg font-semibold ${secondaryTextClass}`}>{formatAmount(Math.round(totalWithoutGst))}</span>
                                                 <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Without GST</span>
                                             </div>
                                         </>
@@ -769,7 +775,7 @@ const DailyCollection = () => {
                         </div>
                         <div className={`${secondaryTextClass} text-xs mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center`}>
                             <span>Transactions Count</span>
-                            <span className="font-bold text-gray-700 dark:text-gray-300">{activeDetails.filter(d => !d.centre || !/phsps/i.test(d.centre)).length}</span>
+                            <span className="font-bold text-gray-700 dark:text-gray-300">{activeDetails.length}</span>
                         </div>
                     </div>
                     <div className={`${cardBgClass} p-4 rounded-[4px] ${cardBorderClass} shadow-sm flex flex-col justify-between`}>
@@ -777,11 +783,11 @@ const DailyCollection = () => {
                             <div className={`${secondaryTextClass} font-semibold mb-2`}>Daily Total Target</div>
                             <div className="flex flex-col gap-1.5 mt-1">
                                 {(() => {
-                                    const nonPhspsCentres = activeCentres.filter(c => !c.centreName || !/phsps/i.test(c.centreName));
-                                    const computedTargetWithoutGst = nonPhspsCentres.reduce((sum, c) => sum + (centreTargets[c.centreName] || 0), 0);
-                                    const computedTargetWithGst = nonPhspsCentres.reduce((sum, c) => {
+                                    const computedTargetWithoutGst = activeCentres.reduce((sum, c) => sum + (centreTargets[c.centreName] || 0), 0);
+                                    const computedTargetWithGst = activeCentres.reduce((sum, c) => {
                                         const target = centreTargets[c.centreName] || 0;
-                                        return sum + (target * 1.18);
+                                        const isPhsps = c.centreName && /phsps/i.test(c.centreName);
+                                        return sum + (isPhsps ? target : target * 1.18);
                                     }, 0);
 
                                     return (
@@ -1268,16 +1274,16 @@ const DailyCollection = () => {
                                         return initialAcc;
                                     })()); const sortedData = Object.entries(aggregatedData).sort((a, b) => a[0].localeCompare(b[0]));
 
-                                    // Column Totals (excluding PHSPS)
-                                    const nonPhspsSortedData = sortedData.filter(([centre]) => !/phsps/i.test(centre));
-                                    const totalTarget = nonPhspsSortedData.reduce((sum, [centre]) => sum + (centreTargets[centre] || 0), 0);
+                                    // Column Totals (including PHSPS)
+                                    const totalTarget = sortedData.reduce((sum, [centre]) => sum + (centreTargets[centre] || 0), 0);
                                     const totalPaymentMethods = paymentMethodsList.reduce((acc, method) => {
-                                        acc[method] = nonPhspsSortedData.reduce((sum, [_, data]) => sum + (data[method] || 0), 0);
+                                        acc[method] = sortedData.reduce((sum, [_, data]) => sum + (data[method] || 0), 0);
                                         return acc;
                                     }, {});
-                                    const totalWithGst = nonPhspsSortedData.reduce((sum, [_, data]) => sum + (data.total || 0), 0);
-                                    const totalWithoutGst = nonPhspsSortedData.reduce((sum, [_, data]) => {
-                                        const withoutGst = data.total / 1.18;
+                                    const totalWithGst = sortedData.reduce((sum, [_, data]) => sum + (data.total || 0), 0);
+                                    const totalWithoutGst = sortedData.reduce((sum, [centre, data]) => {
+                                        const isPhsps = /phsps/i.test(centre);
+                                        const withoutGst = isPhsps ? data.total : (data.total / 1.18);
                                         return sum + (withoutGst || 0);
                                     }, 0);
 
