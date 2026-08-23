@@ -345,7 +345,10 @@ const PNTSEAllStudentsContent = () => {
                     const data = await sessionsRes.json();
                     setDbSessions(Array.isArray(data) ? data : (data.sessions || []));
                 }
-                if (examTagsRes.ok) setDbExamTags(await examTagsRes.json());
+                if (examTagsRes.ok) {
+                    const allTags = await examTagsRes.json();
+                    setDbExamTags(Array.isArray(allTags) ? allTags.filter(t => t.name && /pntse/i.test(t.name)) : []);
+                }
                 if (zonesRes.ok) {
                     const zData = await zonesRes.json();
                     setDbZones(Array.isArray(zData) ? zData : (zData.zones || zData.data || []));
