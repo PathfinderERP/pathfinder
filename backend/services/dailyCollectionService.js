@@ -333,12 +333,21 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             }
         },
         {
+            $lookup: {
+                from: "pmostudents",
+                localField: "admission",
+                foreignField: "_id",
+                as: "admissionInfoPmo"
+            }
+        },
+        {
             $addFields: {
                 admissionInfo: {
                     $ifNull: [
                         { $arrayElemAt: ["$admissionInfoNormal", 0] },
                         { $arrayElemAt: ["$admissionInfoBoard", 0] },
-                        { $arrayElemAt: ["$admissionInfoPntse", 0] }
+                        { $arrayElemAt: ["$admissionInfoPntse", 0] },
+                        { $arrayElemAt: ["$admissionInfoPmo", 0] }
                     ]
                 }
             }

@@ -211,6 +211,15 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         { name: "Add Student", path: "/pntse/add-student", permissionSection: "addStudent" },
                     ]
                 },
+                {
+                    name: "PMO",
+                    icon: <FaGraduationCap />,
+                    permissionModule: "pmo",
+                    subItems: [
+                        { name: "All Students", path: "/pmo/all-students", permissionSection: "allStudents" },
+                        { name: "Add Student", path: "/pmo/add-student", permissionSection: "addStudent" },
+                    ]
+                },
             ]
         },
         {

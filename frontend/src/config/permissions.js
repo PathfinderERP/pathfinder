@@ -620,6 +620,19 @@ export const PERMISSION_MODULES = {
                 operations: ["view", "create", "edit", "delete"]
             }
         }
+    },
+    pmo: {
+        label: "PMO",
+        sections: {
+            allStudents: {
+                label: "All Students",
+                operations: ["view", "create", "edit", "delete", "import", "export"]
+            },
+            addStudent: {
+                label: "Add Student",
+                operations: ["view", "create", "edit", "delete"]
+            }
+        }
     }
 };
 
@@ -670,6 +683,21 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         }
         // If module is not in granularPermissions at all, no access
         return false;
+    }
+
+    if (module === 'pmo') {
+        const hasDirectPmo = granularPermissions?.[module]?.[section];
+        if (!hasDirectPmo) {
+            if (granularPermissions?.pntse) {
+                return hasPermission(granularPermissionsOrUser, 'pntse', section, operation);
+            }
+            if (granularPermissions?.admissions) {
+                return true;
+            }
+            if (['superadmin', 'admin', 'digital', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'counsellor'].includes(cleanRoleStr)) {
+                return true;
+            }
+        }
     }
 
     if (module === 'leadManagement' && section === 'allFollowups') {
@@ -849,7 +877,25 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
         return true; // Default to full module access like SuperAdmin
     }
 
-    // Course Management module access resolution
+    // PMO module access resolution
+    if (module === 'pmo') {
+        if (hasGranularObject) {
+            const sections = granularPermissions?.pmo;
+            if (sections && Object.keys(sections).length > 0) {
+                return Object.keys(sections).some(secKey => {
+                    const sec = sections[secKey];
+                    return sec && (sec.view !== false || Object.values(sec).some(v => v === true));
+                });
+            }
+            if (granularPermissions?.pntse || granularPermissions?.admissions) return true;
+            if (['superadmin', 'admin', 'digital', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'counsellor'].includes(cleanRoleStr)) {
+                return true;
+            }
+        }
+        if (['superadmin', 'admin', 'digital', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'counsellor'].includes(cleanRoleStr)) {
+            return true;
+        }
+    }
     if (module === 'courseManagement') {
         const isCourseTargetRole = [
             'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead',

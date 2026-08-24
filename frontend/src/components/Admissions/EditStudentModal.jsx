@@ -343,8 +343,6 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                 course: formData.course || null,
                 batches: (formData.batches || []).filter(Boolean),
                 department: formData.department || null,
-                leadBy: formData.leadBy || null,
-                counselledBy: formData.counselledBy || null,
                 section: student.section || [],
             };
 

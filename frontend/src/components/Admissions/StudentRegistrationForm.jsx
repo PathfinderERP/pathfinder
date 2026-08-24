@@ -88,8 +88,7 @@ const StudentRegistrationForm = () => {
         // New Fields
         course: "",
         batches: [],
-        department: "",
-        counselledBy: ""
+        department: ""
     });
 
     useEffect(() => {

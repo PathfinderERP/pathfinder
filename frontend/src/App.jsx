@@ -201,6 +201,8 @@ import RedFlagDesk from "./pages/RedFlagDesk";
 import DailyTrackingLog from "./pages/DailyTrackingLog";
 import PNTSEAllStudents from "./pages/PNTSE/PNTSEAllStudents";
 import PNTSEAddStudent from "./pages/PNTSE/PNTSEAddStudent";
+import PMOAllStudents from "./pages/PMO/PMOAllStudents";
+import PMOAddStudent from "./pages/PMO/PMOAddStudent";
 
 function App() {
   return (
@@ -400,6 +402,10 @@ function App() {
         {/* PNTSE Routes */}
         <Route path="/pntse/all-students" element={<ProtectedRoute><PNTSEAllStudents /></ProtectedRoute>} />
         <Route path="/pntse/add-student" element={<ProtectedRoute><PNTSEAddStudent /></ProtectedRoute>} />
+
+        {/* PMO Routes */}
+        <Route path="/pmo/all-students" element={<ProtectedRoute><PMOAllStudents /></ProtectedRoute>} />
+        <Route path="/pmo/add-student" element={<ProtectedRoute><PMOAddStudent /></ProtectedRoute>} />
 
         <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
         {/* <Route path="/system-logs" element={<ProtectedRoute><SystemLogs /></ProtectedRoute>} /> */}
