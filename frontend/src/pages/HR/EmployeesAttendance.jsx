@@ -896,7 +896,7 @@ const EmployeesAttendance = () => {
                 const target = record.employeeId?.workingHours || 9;
 
                 if (activeCaution === 'Overtime') {
-                    matchesCaution = s === "Overtime" || (hours > target + 0.05);
+                    matchesCaution = s === "Overtime" || (hours > target + (5 / 60));
                 } else if (activeCaution === 'Early Leave') {
                     matchesCaution = s === "Early Leave" || (hours > 4 && hours < target - 0.5);
                 } else if (activeCaution === 'Half Day') {
@@ -1667,7 +1667,7 @@ const EmployeesAttendance = () => {
                                                             badgeCls = 'bg-pink-500/10 text-pink-400'; label = 'Early Leave';
                                                         } else if (hours < target && r.checkOut) {
                                                             badgeCls = 'bg-lime-500/10 text-lime-400'; label = 'Short';
-                                                        } else if (s === 'Overtime' || hours >= (target + 1.0)) {
+                                                        } else if (s === 'Overtime' || ((hours > target + (5 / 60)) && r.checkOut)) {
                                                             badgeCls = 'bg-indigo-500/10 text-indigo-400'; label = 'Overtime ★';
                                                         } else if (s === 'Week Off') {
                                                             badgeCls = 'bg-gray-500/10 text-gray-500'; label = 'Day Off';
@@ -1740,7 +1740,7 @@ const EmployeesAttendance = () => {
                                                             } else if (hours < 9 && record.checkOut) {
                                                                 badgeClass = "bg-lime-500/10 text-lime-400 border border-lime-500/20";
                                                                 label = "Short Leave";
-                                                            } else if (s === "Overtime" || (hours > 9.05 && record.checkOut)) {
+                                                            } else if (s === "Overtime" || ((hours > 9 + (5 / 60)) && record.checkOut)) {
                                                                 badgeClass = "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20";
                                                                 label = "Overtime ★";
                                                             }

@@ -209,6 +209,11 @@ export const addTask = async (req, res) => {
             return res.status(400).json({ message: "Both Activity Type and Activity Purpose are mandatory." });
         }
 
+        const isSchoolVisit = activityType.trim().toLowerCase() === "school visit" || activityPurpose.trim().toLowerCase() === "school visit";
+        if (isSchoolVisit && (!place || !place.trim())) {
+            return res.status(400).json({ message: "Place/Institution selection is mandatory when School Visit is selected." });
+        }
+
         // planDate can be explicitly passed (e.g. admin adding for a future date).
         // Default = tomorrow
         const targetDate = planDate ? getMidnightUTC(planDate) : getTomorrowMidnightUTC();
@@ -745,6 +750,10 @@ export const savePlan = async (req, res) => {
             const aPurpose = (t.activityPurpose || "").trim();
             if (!aType || !aPurpose) {
                 return res.status(400).json({ message: "Both Activity Type and Activity Purpose are mandatory for all planned tasks." });
+            }
+            const isSchoolVisit = aType.toLowerCase() === "school visit" || aPurpose.toLowerCase() === "school visit";
+            if (isSchoolVisit && (!t.place || !t.place.trim())) {
+                return res.status(400).json({ message: "Place/Institution selection is mandatory for all tasks with School Visit." });
             }
         }
 

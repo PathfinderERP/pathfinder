@@ -121,6 +121,11 @@ export const createPlanner = async (req, res) => {
             if (!actType || !actPurpose) {
                 return res.status(400).json({ error: "Both Activity Type and Activity Purpose are mandatory for all activities." });
             }
+            const isSchoolVisit = actType.toLowerCase() === "school visit" || actPurpose.toLowerCase() === "school visit";
+            const placeVal = (act.place || act.institution || "").trim();
+            if (isSchoolVisit && (!placeVal || placeVal === "—")) {
+                return res.status(400).json({ error: "Place/Institution selection is mandatory when School Visit is selected." });
+            }
         }
 
         const createdRecords = [];

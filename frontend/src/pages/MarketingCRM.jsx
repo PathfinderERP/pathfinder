@@ -1016,6 +1016,14 @@ const MarketingCRM = ({ initialTab }) => {
             toast.error("Both Activity Type and Activity Purpose are mandatory for all tasks.");
             return false;
         }
+        const hasMissingSchool = tasksToSave.some(t => {
+            const isSchoolVisit = (t.activityPurpose?.trim()?.toLowerCase() === "school visit") || (t.activityType?.trim()?.toLowerCase() === "school visit");
+            return isSchoolVisit && (!t.place || !t.place.trim());
+        });
+        if (hasMissingSchool) {
+            toast.error("Place/Institution selection is mandatory for all tasks with School Visit.");
+            return false;
+        }
         setSavingTomorrowPlan(true);
         try {
             const token = localStorage.getItem("token");
@@ -1060,6 +1068,11 @@ const MarketingCRM = ({ initialTab }) => {
         }
         if (!newTaskForm.activityType || !newTaskForm.activityType.trim()) {
             toast.error("Activity Type is mandatory. Please select Activity Type.");
+            return;
+        }
+        const isSchoolVisit = (newTaskForm.activityPurpose?.trim()?.toLowerCase() === "school visit") || (newTaskForm.activityType?.trim()?.toLowerCase() === "school visit");
+        if (isSchoolVisit && (!newTaskForm.place || !newTaskForm.place.trim())) {
+            toast.error("Place/Institution selection is mandatory when School Visit is selected.");
             return;
         }
         if (!newTaskForm.time) {
@@ -1133,6 +1146,11 @@ const MarketingCRM = ({ initialTab }) => {
             toast.error("Activity Type is mandatory. Please select Activity Type.");
             return;
         }
+        const isSchoolVisitEdit = (editTaskForm.activityPurpose?.trim()?.toLowerCase() === "school visit") || (editTaskForm.activityType?.trim()?.toLowerCase() === "school visit");
+        if (isSchoolVisitEdit && (!editTaskForm.place || !editTaskForm.place.trim())) {
+            toast.error("Place/Institution selection is mandatory when School Visit is selected.");
+            return;
+        }
         if (!editTaskForm.time) { toast.error("Time is required."); return; }
         if (!editTaskForm.estimatedDuration) { toast.error("Duration is required."); return; }
         setTomorrowTasks(prev => prev.map(t =>
@@ -1156,6 +1174,14 @@ const MarketingCRM = ({ initialTab }) => {
         const hasMissingFields = tomorrowTasks.some(t => !t.activityType?.trim() || !t.activityPurpose?.trim());
         if (hasMissingFields) {
             toast.error("Both Activity Type and Activity Purpose are mandatory for all planned tasks.");
+            return;
+        }
+        const hasMissingSchoolPlan = tomorrowTasks.some(t => {
+            const isSchoolVisit = (t.activityPurpose?.trim()?.toLowerCase() === "school visit") || (t.activityType?.trim()?.toLowerCase() === "school visit");
+            return isSchoolVisit && (!t.place || !t.place.trim());
+        });
+        if (hasMissingSchoolPlan) {
+            toast.error("Place/Institution selection is mandatory for all tasks with School Visit.");
             return;
         }
         setSavingTomorrowPlan(true);
@@ -1595,6 +1621,15 @@ const MarketingCRM = ({ initialTab }) => {
             return;
         }
 
+        const hasMissingSchoolVisit = todayActivities.some(act => {
+            const isSchoolVisit = (act.activityPurpose?.trim()?.toLowerCase() === "school visit") || (act.type?.trim()?.toLowerCase() === "school visit");
+            return isSchoolVisit && (!act.place || !act.place.trim());
+        });
+        if (hasMissingSchoolVisit) {
+            toast.error("Place/Institution selection is mandatory for all School Visit activities before saving or submitting.");
+            return;
+        }
+
         const hasUnverified = todayActivities.some(act => !act.geoTagged);
         if (hasUnverified) {
             toast.error("All activity blocks must be Geo-Tagged and verified before submission.");
@@ -2018,6 +2053,11 @@ const MarketingCRM = ({ initialTab }) => {
             }
             if (!targetAct.type || !targetAct.type.trim()) {
                 toast.error(`Activity Type is mandatory. Please select Activity Type for Row ${idx + 1}.`);
+                return;
+            }
+            const isSchoolVisit = (targetAct.activityPurpose?.trim()?.toLowerCase() === "school visit") || (targetAct.type?.trim()?.toLowerCase() === "school visit");
+            if (isSchoolVisit && (!targetAct.place || !targetAct.place.trim())) {
+                toast.error(`Place/Institution selection is mandatory for School Visit (Row ${idx + 1}).`);
                 return;
             }
         }
@@ -2982,7 +3022,14 @@ const MarketingCRM = ({ initialTab }) => {
 
                                                             {/* Place / Institution — searchable school dropdown from master data for School Visit, or input text field for others */}
                                                             <div className="col-span-1 md:col-span-2">
-                                                                <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">Place / Institution Name</label>
+                                                                {(() => {
+                                                                    const isSV = (activity.activityPurpose?.trim()?.toLowerCase() === "school visit") || (activity.type?.trim()?.toLowerCase() === "school visit");
+                                                                    return (
+                                                                        <label className="block md:hidden text-[9px] font-bold text-gray-400 mb-1 uppercase tracking-wider">
+                                                                            Place / Institution Name {isSV ? <span className="text-red-500 font-bold">*</span> : "(Optional)"}
+                                                                        </label>
+                                                                    );
+                                                                })()}
                                                                 {activity.isSaved ? (
                                                                     <div className={`w-full px-3 py-3 rounded-xl border text-[11px] font-bold bg-gray-100/50 dark:bg-[#1a1f24]/30 border-transparent text-gray-400 cursor-not-allowed`}>
                                                                         <div>{activity.place || '—'}</div>
@@ -3518,9 +3565,14 @@ const MarketingCRM = ({ initialTab }) => {
                                         </div>
 
                                         <div className="col-span-1 md:col-span-3 z-10 flex flex-col gap-1.5 relative">
-                                            <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">
-                                                Place / Institution (Optional)
-                                            </label>
+                                            {(() => {
+                                                const isSV = (newTaskForm.activityPurpose?.trim()?.toLowerCase() === "school visit") || (newTaskForm.activityType?.trim()?.toLowerCase() === "school visit");
+                                                return (
+                                                    <label className="text-[9px] font-bold uppercase tracking-widest text-gray-400">
+                                                        Place / Institution {isSV ? <span className="text-red-500 font-black">* (Mandatory)</span> : "(Optional)"}
+                                                    </label>
+                                                );
+                                            })()}
                                             <CustomSearchSelect
                                                 options={(() => {
                                                     const base = (plannerSchools || []).map(s => ({ value: s._id, label: `${s.schoolName}${s.centerName?.centreName ? ` (${s.centerName.centreName})` : ''}` }));
@@ -3693,9 +3745,14 @@ const MarketingCRM = ({ initialTab }) => {
                                                             </div>
                                                             {/* Place / School */}
                                                             <div className="col-span-1 md:col-span-2 flex flex-col gap-1">
-                                                                <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">
-                                                                    Place / Institution (Optional)
-                                                                </label>
+                                                                {(() => {
+                                                                    const isSV = (editTaskForm.activityPurpose?.trim()?.toLowerCase() === "school visit") || (editTaskForm.activityType?.trim()?.toLowerCase() === "school visit");
+                                                                    return (
+                                                                        <label className="text-[9px] font-bold uppercase tracking-widest text-blue-400">
+                                                                            Place / Institution {isSV ? <span className="text-red-500 font-black">* (Mandatory)</span> : "(Optional)"}
+                                                                        </label>
+                                                                    );
+                                                                })()}
                                                                 <CustomSearchSelect
                                                                     options={(() => {
                                                                         const base = (plannerSchools || []).map(s => ({ value: s._id, label: `${s.schoolName}${s.centerName?.centreName ? ` (${s.centerName.centreName})` : ''}` }));

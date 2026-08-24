@@ -133,6 +133,29 @@ const formatWorkingHours = (hoursDecimal) => {
     return `${h}h ${m}m`;
 };
 
+const parseTargetHours = (wh) => {
+    if (Array.isArray(wh) && wh.length > 0) {
+        const valid = wh.map(Number).filter(n => !isNaN(n) && n > 0);
+        return valid.length > 0 ? Math.min(...valid) : 9;
+    }
+    const n = Number(wh);
+    return (!isNaN(n) && n > 0) ? n : 9;
+};
+
+const computeStatusFromHours = (status, hours, target = 9) => {
+    if (status === "Week Off" || status === "Leave" || status === "Holiday") return status;
+    const targetNum = parseTargetHours(target);
+    if (hours > 0) {
+        if (hours < 4) return "Absent";
+        if (hours < (targetNum / 2)) return "Half Day";
+        if (hours < (targetNum - 0.5)) return "Early Leave";
+        if (hours < targetNum) return "Short Leave";
+        if (hours > (targetNum + (5 / 60))) return "Overtime";
+        return "Present";
+    }
+    return status || "Present";
+};
+
 const EmployeeAttendance = () => {
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
@@ -177,7 +200,7 @@ const EmployeeAttendance = () => {
                 setRegularizations(data.regularizations || []);
                 setHolidays(data.holidays || []);
                 setWorkingDays(data.workingDays || {});
-                setWorkingHours(data.workingHours || 0);
+                setWorkingHours(parseTargetHours(data.workingHours));
                 setAssignedCentres(data.assignedCentres);
                 setDateOfJoining(data.dateOfJoining);
                 setEmployeeDetails(data.employeeDetails);
@@ -355,17 +378,67 @@ const EmployeeAttendance = () => {
         }
 
         if (record) {
+            let calculatedWh = record.workingHours || 0;
+            let checkInTime = record.checkIn?.time ? format(new Date(record.checkIn.time), "HH:mm") : null;
+            let checkOutTime = record.checkOut?.time ? format(new Date(record.checkOut.time), "HH:mm") : null;
+
+            if (record.checkIn?.time && record.checkOut?.time && (!calculatedWh || calculatedWh === 0)) {
+                const dur = (new Date(record.checkOut.time) - new Date(record.checkIn.time)) / (1000 * 60 * 60);
+                if (!isNaN(dur) && dur > 0) calculatedWh = parseFloat(dur.toFixed(2));
+            }
+
+            if (regularization && regularization.status === "Approved") {
+                if (regularization.fromTime) checkInTime = regularization.fromTime;
+                if (regularization.toTime) checkOutTime = regularization.toTime;
+                if (regularization.fromTime && regularization.toTime) {
+                    const [fH, fM] = regularization.fromTime.split(':').map(Number);
+                    const [tH, tM] = regularization.toTime.split(':').map(Number);
+                    const diff = (tH * 60 + tM) - (fH * 60 + fM);
+                    if (diff > 0) calculatedWh = parseFloat((diff / 60).toFixed(2));
+                }
+            }
+
+            const calculatedStatus = computeStatusFromHours(record.status, calculatedWh, workingHours || 9);
             return {
                 type: record.status === "Week Off" ? "Off" : "Present",
                 name: record.status === "Week Off" ? "Week Off" : undefined,
-                checkIn: record.checkIn?.time ? format(new Date(record.checkIn.time), "HH:mm") : null,
-                checkOut: record.checkOut?.time ? format(new Date(record.checkOut.time), "HH:mm") : null,
-                status: record.status || "Present",
-                workingHours: record.workingHours || 0,
-                checkInCentre: record.checkIn?.centreId?.centreName || record.centreId?.centreName || "Office",
-                checkInLabel: record.checkIn?.address || "",
-                checkOutCentre: record.checkOut?.centreId?.centreName || "",
-                checkOutLabel: record.checkOut?.address || "",
+                checkIn: checkInTime,
+                checkOut: checkOutTime,
+                status: calculatedStatus,
+                workingHours: calculatedWh,
+                checkInCentre: record.checkIn?.centreId?.centreName || record.centreId?.centreName || (regularization?.type || "Office"),
+                checkInLabel: record.checkIn?.address || regularization?.locationAddress || "",
+                checkOutCentre: record.checkOut?.centreId?.centreName || (regularization?.type || ""),
+                checkOutLabel: record.checkOut?.address || regularization?.locationAddress || "",
+                regularization
+            };
+        }
+
+        if (regularization && regularization.status === "Approved") {
+            let regHours = workingHours || 9;
+            let checkInStr = regularization.fromTime || null;
+            let checkOutStr = regularization.toTime || null;
+
+            if (regularization.fromTime && regularization.toTime) {
+                const [fH, fM] = regularization.fromTime.split(':').map(Number);
+                const [tH, tM] = regularization.toTime.split(':').map(Number);
+                const diff = (tH * 60 + tM) - (fH * 60 + fM);
+                if (diff > 0) regHours = parseFloat((diff / 60).toFixed(2));
+            }
+
+            const regStatus = computeStatusFromHours(null, regHours, workingHours || 9);
+
+            return {
+                type: "Present",
+                name: "Regularized",
+                checkIn: checkInStr,
+                checkOut: checkOutStr,
+                status: regStatus,
+                workingHours: regHours,
+                checkInCentre: regularization.type || "Office",
+                checkInLabel: regularization.locationAddress || "Regularized",
+                checkOutCentre: regularization.type || "Office",
+                checkOutLabel: regularization.locationAddress || "Regularized",
                 regularization
             };
         }
@@ -437,7 +510,7 @@ const EmployeeAttendance = () => {
                 }
             }
 
-            if (status.type === 'Present') {
+            if (status.type === 'Present' && status.status !== 'Absent') {
                 presents++;
                 monthsData[mIndex].present++;
                 if (dayHours > 0) {
@@ -453,7 +526,7 @@ const EmployeeAttendance = () => {
             } else if (status.type === 'Leave') {
                 leaves++;
                 monthsData[mIndex].leave++;
-            } else if (status.type === 'Absent') {
+            } else if (status.type === 'Absent' || status.status === 'Absent') {
                 absents++;
                 monthsData[mIndex].absent++;
                 if (isCurrMonth) {
@@ -539,10 +612,18 @@ const EmployeeAttendance = () => {
                                         </div>
                                         <div className="text-right">
                                             <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Status</p>
-                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${status.status === 'Present' ? 'bg-emerald-500/20 text-emerald-400' :
-                                                status.status === 'Absent' ? 'bg-red-500/20 text-red-400' :
-                                                    'bg-indigo-500/20 text-indigo-400'
-                                                }`}>
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                                                status.status === 'Present' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                                status.status === 'Overtime' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
+                                                status.status === 'Short Leave' ? 'bg-lime-500/20 text-lime-400 border border-lime-500/30' :
+                                                status.status === 'Early Leave' ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' :
+                                                status.status === 'Half Day' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                                                status.status === 'Absent' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                                status.status === 'Forgot to Checkout' ? 'bg-orange-900/40 text-orange-400 border border-orange-500/30' :
+                                                status.status === 'Week Off' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' :
+                                                status.status === 'Leave' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                                                'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                                            }`}>
                                                 {status.status}
                                             </span>
                                         </div>
@@ -951,21 +1032,21 @@ const EmployeeAttendance = () => {
                                             if (status.type === "Present") {
                                                 const hours = status.workingHours || 0;
                                                 const s = status.status;
-                                                const target = workingHours || 9;
+                                                const target = parseTargetHours(workingHours);
 
-                                                if (s === "Absent" || hours < 4) {
+                                                if (s === "Absent" || (hours > 0 && hours < 4)) {
                                                     colorClass = "bg-red-500/20 text-red-500 border border-red-500/30";
                                                     dotColor = "bg-red-500";
-                                                } else if (s === "Half Day" || (hours < (target / 2))) {
+                                                } else if (s === "Half Day" || (hours >= 4 && hours < (target / 2))) {
                                                     colorClass = "bg-orange-500/20 text-orange-400 border border-orange-500/30";
                                                     dotColor = "bg-orange-500";
-                                                } else if (s === "Early Leave" || (hours < (target - 0.5))) {
+                                                } else if (s === "Early Leave" || (hours >= (target / 2) && hours < (target - 0.5))) {
                                                     colorClass = "bg-pink-500/20 text-pink-400 border border-pink-500/30";
                                                     dotColor = "bg-pink-500";
-                                                } else if (hours < target) {
+                                                } else if (s === "Short Leave" || (hours >= (target - 0.5) && hours < target)) {
                                                     colorClass = "bg-lime-500/20 text-lime-400 border border-lime-500/30";
                                                     dotColor = "bg-lime-500";
-                                                } else if (s === "Overtime" || hours >= (target + 1.0)) {
+                                                } else if (s === "Overtime" || hours > (target + (5 / 60))) {
                                                     colorClass = "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30";
                                                     dotColor = "bg-indigo-500";
                                                     isOvertime = true;
