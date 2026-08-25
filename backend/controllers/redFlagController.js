@@ -5,6 +5,8 @@ import Admission from "../models/Admission/Admission.js";
 import BoardCourseAdmission from "../models/Admission/BoardCourseAdmission.js";
 import ClassSchedule from "../models/Academics/ClassSchedule.js";
 import EmployeeAttendance from "../models/Attendance/EmployeeAttendance.js";
+import MarketingPlanner from "../models/MarketingPlanner.js";
+import TomorrowPlanner from "../models/TomorrowPlanner.js";
 
 const getRange = (startDate, endDate) => {
     const start = startDate ? new Date(startDate) : new Date();
@@ -118,6 +120,79 @@ export const getRedFlags = async (req, res) => {
         ]);
         const manualLeadMap = new Map(manualLeadStats.map(item => [item._id.toString(), item.count]));
 
+        // D3. Marketing Command Centre Lead Uploads
+        const marketingLeadStats = await LeadManagement.aggregate([
+            {
+                $match: {
+                    $or: [
+                        { createdBy: { $in: userIds } },
+                        { marketingBy: { $in: userNames } }
+                    ],
+                    createdAt: { $gte: start, $lte: end }
+                }
+            },
+            {
+                $facet: {
+                    byId: [
+                        { $match: { createdBy: { $in: userIds } } },
+                        { $group: { _id: "$createdBy", count: { $sum: 1 } } }
+                    ],
+                    byName: [
+                        { $match: { marketingBy: { $in: userNames } } },
+                        { $group: { _id: "$marketingBy", count: { $sum: 1 } } }
+                    ]
+                }
+            }
+        ]);
+
+        const marketingLeadByIdMap = new Map();
+        const marketingLeadByNameMap = new Map();
+        if (marketingLeadStats[0]) {
+            (marketingLeadStats[0].byId || []).forEach(item => {
+                if (item._id) marketingLeadByIdMap.set(item._id.toString(), item.count);
+            });
+            (marketingLeadStats[0].byName || []).forEach(item => {
+                if (item._id) marketingLeadByNameMap.set(item._id, item.count);
+            });
+        }
+
+        // D4. Marketing Activities from MarketingPlanner & TomorrowPlanner
+        const [mpStats, tpStats] = await Promise.all([
+            MarketingPlanner.aggregate([
+                {
+                    $match: {
+                        user: { $in: userIds },
+                        createdAt: { $gte: start, $lte: end }
+                    }
+                },
+                { $group: { _id: "$user", count: { $sum: 1 } } }
+            ]),
+            TomorrowPlanner.aggregate([
+                {
+                    $match: {
+                        user: { $in: userIds },
+                        planDate: { $gte: start, $lte: end }
+                    }
+                },
+                { $unwind: "$tasks" },
+                { $group: { _id: "$user", count: { $sum: 1 } } }
+            ])
+        ]);
+
+        const marketingActivityMap = new Map();
+        (mpStats || []).forEach(item => {
+            if (item._id) {
+                const id = item._id.toString();
+                marketingActivityMap.set(id, (marketingActivityMap.get(id) || 0) + item.count);
+            }
+        });
+        (tpStats || []).forEach(item => {
+            if (item._id) {
+                const id = item._id.toString();
+                marketingActivityMap.set(id, (marketingActivityMap.get(id) || 0) + item.count);
+            }
+        });
+
         // E. Teacher Attendance
         const teacherStats = await ClassSchedule.aggregate([
             {
@@ -177,7 +252,7 @@ export const getRedFlags = async (req, res) => {
         ]);
         const coordinatorMap = new Map(coordinatorStats.map(item => [item._id.toString(), item.count]));
 
-        // G. Class Commencement Stats (For Marketing, Center Incharge, Coordinator)
+        // G. Class Commencement Stats (For Center Incharge, Coordinator)
         const periodClasses = await ClassSchedule.find({
             date: { $gte: start, $lte: end }
         }).select('_id date startTime status centreIds centreId coordinatorId coordinatorIds').lean();
@@ -311,24 +386,179 @@ export const getRedFlags = async (req, res) => {
                 });
             };
 
-            const hasCalls = ['telecaller', 'counsellor', 'centerIncharge', 'zonalManager', 'marketing', 'assistantCenterIncharge', 'assistantZonalManager'].includes(userRole);
-            const hasCounsellings = ['counsellor', 'centerIncharge', 'zonalManager', 'assistantCenterIncharge', 'assistantZonalManager'].includes(userRole);
-            const hasAdmissions = ['counsellor', 'centerIncharge', 'zonalManager', 'assistantCenterIncharge', 'assistantZonalManager'].includes(userRole);
-            const hasWalkIns = ['telecaller', 'counsellor'].includes(userRole);
-
-            if (hasCalls) {
+            // 1. TELECALLER ROLE
+            if (userRole === 'telecaller') {
+                // Minimum 40 calls
                 const callMetricValue = callMap.get(user.name) || 0;
-                const callTargetValue = (userRole === 'counsellor' ? 40 : 50) * daysDiff;
-
+                const callTargetValue = 40 * daysDiff;
                 evaluateAndPush(
                     'calls',
                     callTargetValue,
                     callMetricValue,
                     (m) => {
-                        if (userRole === 'counsellor') {
-                            if (m < 40 * daysDiff) return "Critical";
-                            return "Low";
-                        }
+                        if (m < 20 * daysDiff) return "Critical";
+                        if (m < 30 * daysDiff) return "High";
+                        if (m < 40 * daysDiff) return "Medium";
+                        return "Low";
+                    },
+                    (m, t) => `${t - m} calls short for this period. Total: ${m}/${t}`
+                );
+
+                // Minimum 10 walk-ins
+                const walkInCount = walkInMap.get(user._id.toString()) || 0;
+                const walkInTargetValue = 10 * daysDiff;
+                evaluateAndPush(
+                    'walkin',
+                    walkInTargetValue,
+                    walkInCount,
+                    (m) => {
+                        if (m < 3 * daysDiff) return "Critical";
+                        if (m < 6 * daysDiff) return "High";
+                        if (m < 10 * daysDiff) return "Medium";
+                        return "Low";
+                    },
+                    (m, t) => `${t - m} walk-ins short for this period. Total: ${m}/${t}`
+                );
+
+                // Manual Leads (5/day)
+                const manualLeadCount = manualLeadMap.get(user._id.toString()) || 0;
+                const manualLeadTarget = 5 * daysDiff;
+                evaluateAndPush(
+                    'manual_lead',
+                    manualLeadTarget,
+                    manualLeadCount,
+                    (m) => {
+                        if (m < 1 * daysDiff) return "Critical";
+                        if (m < 3 * daysDiff) return "High";
+                        if (m < 5 * daysDiff) return "Medium";
+                        return "Low";
+                    },
+                    (m, t) => `${t - m} manual leads short for this period. Total: ${m}/${t}`
+                );
+            }
+
+            // 2. COUNSELLOR ROLE
+            else if (userRole === 'counsellor') {
+                // Minimum 25 calls
+                const callMetricValue = callMap.get(user.name) || 0;
+                const callTargetValue = 25 * daysDiff;
+                evaluateAndPush(
+                    'calls',
+                    callTargetValue,
+                    callMetricValue,
+                    (m) => {
+                        if (m < 10 * daysDiff) return "Critical";
+                        if (m < 18 * daysDiff) return "High";
+                        if (m < 25 * daysDiff) return "Medium";
+                        return "Low";
+                    },
+                    (m, t) => `${t - m} calls short for this period. Total: ${m}/${t}`
+                );
+
+                // Minimum 10 walk-ins
+                const walkInCount = walkInMap.get(user._id.toString()) || 0;
+                const walkInTargetValue = 10 * daysDiff;
+                evaluateAndPush(
+                    'walkin',
+                    walkInTargetValue,
+                    walkInCount,
+                    (m) => {
+                        if (m < 3 * daysDiff) return "Critical";
+                        if (m < 6 * daysDiff) return "High";
+                        if (m < 10 * daysDiff) return "Medium";
+                        return "Low";
+                    },
+                    (m, t) => `${t - m} walk-ins short for this period. Total: ${m}/${t}`
+                );
+
+                // Minimum 10 counsellings (same as walk-in minimum)
+                const counselMetricValue = counselMap.get(user.name) || 0;
+                const counselTargetValue = 10 * daysDiff;
+                evaluateAndPush(
+                    'counselling',
+                    counselTargetValue,
+                    counselMetricValue,
+                    (m) => {
+                        if (m < 3 * daysDiff) return "Critical";
+                        if (m < 6 * daysDiff) return "High";
+                        if (m < 10 * daysDiff) return "Medium";
+                        return "Low";
+                    },
+                    (m, t) => `${t - m} counsellings short for this period. Total: ${m}/${t}`
+                );
+
+                // Minimum 10 admissions (same as walk-in minimum)
+                const admissionMetric = (admNormalMap.get(user._id.toString()) || 0) + (admBoardMap.get(user._id.toString()) || 0);
+                const admissionTarget = 10 * daysDiff;
+                evaluateAndPush(
+                    'admission',
+                    admissionTarget,
+                    admissionMetric,
+                    (m) => {
+                        if (m < 3 * daysDiff) return "Critical";
+                        if (m < 6 * daysDiff) return "High";
+                        if (m < 10 * daysDiff) return "Medium";
+                        return "Low";
+                    },
+                    (m, t) => `${t - m} admissions short for this period. Total: ${m}/${t}`
+                );
+
+                // Manual Leads (5/day)
+                const manualLeadCount = manualLeadMap.get(user._id.toString()) || 0;
+                const manualLeadTarget = 5 * daysDiff;
+                evaluateAndPush(
+                    'manual_lead',
+                    manualLeadTarget,
+                    manualLeadCount,
+                    (m) => {
+                        if (m < 1 * daysDiff) return "Critical";
+                        if (m < 3 * daysDiff) return "High";
+                        if (m < 5 * daysDiff) return "Medium";
+                        return "Low";
+                    },
+                    (m, t) => `${t - m} manual leads short for this period. Total: ${m}/${t}`
+                );
+            }
+
+            // 3. MARKETING ROLE
+            else if (userRole === 'marketing') {
+                // Command Centre Lead Uploads
+                const uploadCount = Math.max(
+                    marketingLeadByIdMap.get(user._id.toString()) || 0,
+                    marketingLeadByNameMap.get(user.name) || 0
+                );
+                evaluateAndPush(
+                    'command_centre_leads',
+                    1,
+                    uploadCount,
+                    (m) => m > 0 ? "Low" : "Critical",
+                    (m) => m > 0 
+                        ? `Leads Uploaded: Yes (${m} ${m === 1 ? 'lead' : 'leads'} uploaded into Marketing CRM)`
+                        : `Lead Not Uploaded into Marketing CRM`
+                );
+
+                // Marketing Activity
+                const activityCount = marketingActivityMap.get(user._id.toString()) || 0;
+                evaluateAndPush(
+                    'marketing_activity',
+                    1,
+                    activityCount,
+                    (m) => m > 0 ? "Low" : "Critical",
+                    (m) => m > 0 
+                        ? `Marketing Activity Done: Yes (${m} ${m === 1 ? 'activity' : 'activities'} done)`
+                        : `Marketing Activity Not Done`
+                );
+            }
+
+            // 4. MANAGEMENT ROLES (Center Incharge, Zonal Manager, Assistants)
+            else if (['centerIncharge', 'zonalManager', 'assistantCenterIncharge', 'assistantZonalManager'].includes(userRole)) {
+                const callMetricValue = callMap.get(user.name) || 0;
+                const callTargetValue = 50 * daysDiff;
+                evaluateAndPush(
+                    'calls',
+                    callTargetValue,
+                    callMetricValue,
+                    (m) => {
                         if (m < 30 * daysDiff) return "Critical";
                         if (m < 35 * daysDiff) return "High";
                         if (m < 45 * daysDiff) return "Medium";
@@ -336,12 +566,9 @@ export const getRedFlags = async (req, res) => {
                     },
                     (m, t) => `${t - m} calls short for this period. Total: ${m}/${t}`
                 );
-            }
 
-            if (hasCounsellings) {
                 const counselMetricValue = counselMap.get(user.name) || 0;
                 const counselTargetValue = 5 * daysDiff;
-
                 evaluateAndPush(
                     'counselling',
                     counselTargetValue,
@@ -354,12 +581,9 @@ export const getRedFlags = async (req, res) => {
                     },
                     (m, t) => `${t - m} counsellings short for this period. Total: ${m}/${t}`
                 );
-            }
 
-            if (hasAdmissions) {
                 const admissionMetric = (admNormalMap.get(user._id.toString()) || 0) + (admBoardMap.get(user._id.toString()) || 0);
                 const admissionTarget = 10 * daysDiff;
-
                 evaluateAndPush(
                     'admission',
                     admissionTarget,
@@ -372,44 +596,67 @@ export const getRedFlags = async (req, res) => {
                     },
                     (m, t) => `${t - m} admissions short for this period. Total: ${m}/${t}`
                 );
-            }
 
-            if (hasWalkIns) {
-                const walkInCount = walkInMap.get(user._id.toString()) || 0;
-                const walkInTargetValue = 5 * daysDiff;
-
+                const manualLeadCount = manualLeadMap.get(user._id.toString()) || 0;
+                const manualLeadTarget = 5 * daysDiff;
                 evaluateAndPush(
-                    'walkin',
-                    walkInTargetValue,
-                    walkInCount,
+                    'manual_lead',
+                    manualLeadTarget,
+                    manualLeadCount,
                     (m) => {
                         if (m < 1 * daysDiff) return "Critical";
                         if (m < 3 * daysDiff) return "High";
                         if (m < 5 * daysDiff) return "Medium";
                         return "Low";
                     },
-                    (m, t) => `${t - m} walk-ins short for this period. Total: ${m}/${t}`
+                    (m, t) => `${t - m} manual leads short for this period. Total: ${m}/${t}`
                 );
+
+                if (['centerIncharge', 'assistantCenterIncharge'].includes(userRole)) {
+                    const userCentreIds = (user.centres || []).map(c => (c._id || c).toString());
+                    let totalClasses = 0;
+                    let completedClasses = 0;
+                    const classBreakdown = {};
+
+                    userCentreIds.forEach(cId => {
+                        const stats = centerClassStats.get(cId) || { total: 0, completed: 0 };
+                        totalClasses += stats.total;
+                        completedClasses += stats.completed;
+
+                        const dateMap = centerDateStats.get(cId);
+                        if (dateMap) {
+                            for (const [dateStr, stats] of dateMap.entries()) {
+                                if (!classBreakdown[dateStr]) {
+                                    classBreakdown[dateStr] = { total: 0, started: 0, ended: 0, ongoing: 0 };
+                                }
+                                classBreakdown[dateStr].total += stats.total;
+                                classBreakdown[dateStr].started += stats.started;
+                                classBreakdown[dateStr].ended += stats.ended;
+                                classBreakdown[dateStr].ongoing += stats.ongoing;
+                            }
+                        }
+                    });
+
+                    if (totalClasses > 0) {
+                        evaluateAndPush(
+                            'class_commencement',
+                            totalClasses,
+                            completedClasses,
+                            (m, t) => {
+                                const diff = t - m;
+                                if (diff >= 3) return "Critical";
+                                if (diff >= 2) return "High";
+                                return "Medium";
+                            },
+                            (m, t) => `Failed to start/end ${t - m} scheduled classes timely. Total: ${m}/${t}`,
+                            { classBreakdown }
+                        );
+                    }
+                }
             }
 
-            // Manual Add Leads evaluation (for every user)
-            const manualLeadCount = manualLeadMap.get(user._id.toString()) || 0;
-            const manualLeadTarget = 5 * daysDiff;
-
-            evaluateAndPush(
-                'manual_lead',
-                manualLeadTarget,
-                manualLeadCount,
-                (m) => {
-                    if (m < 1 * daysDiff) return "Critical";
-                    if (m < 3 * daysDiff) return "High";
-                    if (m < 5 * daysDiff) return "Medium";
-                    return "Low";
-                },
-                (m, t) => `${t - m} manual leads short for this period. Total: ${m}/${t}`
-            );
-
-            if (userRole === 'teacher') {
+            // 5. TEACHER ROLE
+            else if (userRole === 'teacher') {
                 const tData = teacherMap.get(user._id.toString()) || { total: 0, saved: 0 };
                 const teacherTarget = tData.total;
                 const teacherMetric = tData.saved;
@@ -423,10 +670,10 @@ export const getRedFlags = async (req, res) => {
                 );
             }
 
-            if (userRole === 'Class_Coordinator' || userRole === 'coordinator') {
+            // 6. COORDINATOR ROLE
+            else if (userRole === 'Class_Coordinator' || userRole === 'coordinator') {
                 const ongoing = coordinatorMap.get(user._id.toString()) || 0;
                 
-                // Get date-wise stats for this coordinator
                 const classBreakdown = {};
                 const dateMap = coordinatorDateStats.get(user._id.toString());
                 if (dateMap) {
@@ -443,43 +690,14 @@ export const getRedFlags = async (req, res) => {
                     (m, t) => `${ongoing} classes pending closure in ERP.`,
                     { classBreakdown }
                 );
-            }
 
-            if (['marketing', 'centerIncharge', 'assistantCenterIncharge', 'Class_Coordinator', 'coordinator'].includes(userRole)) {
-                const userCentreIds = (user.centres || []).map(c => (c._id || c).toString());
                 let totalClasses = 0;
                 let completedClasses = 0;
-                const classBreakdown = {};
-
-                if (userRole === 'Class_Coordinator' || userRole === 'coordinator') {
-                    const dateMap = coordinatorDateStats.get(user._id.toString());
-                    if (dateMap) {
-                        for (const [dateStr, stats] of dateMap.entries()) {
-                            classBreakdown[dateStr] = { ...stats };
-                            totalClasses += stats.total;
-                            completedClasses += stats.ended;
-                        }
-                    }
-                } else {
-                    userCentreIds.forEach(cId => {
-                        const stats = centerClassStats.get(cId) || { total: 0, completed: 0 };
+                if (dateMap) {
+                    for (const [dateStr, stats] of dateMap.entries()) {
                         totalClasses += stats.total;
-                        completedClasses += stats.completed;
-
-                        // Compute date-wise stats
-                        const dateMap = centerDateStats.get(cId);
-                        if (dateMap) {
-                            for (const [dateStr, stats] of dateMap.entries()) {
-                                if (!classBreakdown[dateStr]) {
-                                    classBreakdown[dateStr] = { total: 0, started: 0, ended: 0, ongoing: 0 };
-                                }
-                                classBreakdown[dateStr].total += stats.total;
-                                classBreakdown[dateStr].started += stats.started;
-                                classBreakdown[dateStr].ended += stats.ended;
-                                classBreakdown[dateStr].ongoing += stats.ongoing;
-                            }
-                        }
-                    });
+                        completedClasses += stats.ended;
+                    }
                 }
 
                 if (totalClasses > 0) {

@@ -126,9 +126,11 @@ const RedFlagDetailsModal = ({ isOpen, onClose, title, data, isDarkMode, onResol
                                         <div className="mt-5 space-y-4">
                                             {group.issuesList.map((item, idx) => {
                                                 const isVirtual = item.isVirtual || item._id?.startsWith('virtual_') || false;
-                                                const percent = item.targetValue > 0 
-                                                    ? Math.min(100, Math.max(0, (item.metricValue / item.targetValue) * 100))
-                                                    : 0;
+                                                const percent = item.role === 'marketing'
+                                                    ? (item.metricValue > 0 ? 100 : 0)
+                                                    : item.targetValue > 0 
+                                                        ? Math.min(100, Math.max(0, (item.metricValue / item.targetValue) * 100))
+                                                        : 0;
                                                 return (
                                                     <div key={idx} className={`p-4 rounded-xl border ${isDarkMode ? 'bg-[#0e1113] border-gray-800/60' : 'bg-gray-50 border-gray-100'}`}>
                                                         <div className="flex justify-between items-start gap-4 flex-wrap">
@@ -163,6 +165,14 @@ const RedFlagDetailsModal = ({ isOpen, onClose, title, data, isDarkMode, onResol
                                                                     <p className={`text-[11px] font-black uppercase ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                                                         {item.role === 'teacher' ? (
                                                                             `${item.metricValue} Correct`
+                                                                        ) : item.role === 'marketing' ? (
+                                                                            item.type === 'command_centre_leads' ? (
+                                                                                item.metricValue > 0 ? `${item.metricValue} Leads Uploaded` : 'Not Uploaded'
+                                                                            ) : item.type === 'marketing_activity' ? (
+                                                                                item.metricValue > 0 ? `${item.metricValue} Activities Done` : 'Not Done'
+                                                                            ) : (
+                                                                                item.metricValue > 0 ? `${item.metricValue} Done` : 'Not Done'
+                                                                            )
                                                                         ) : (
                                                                             `${item.metricValue} / ${item.targetValue}`
                                                                         )}

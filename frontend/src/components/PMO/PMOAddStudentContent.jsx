@@ -81,7 +81,7 @@ const PMOAddStudentContent = () => {
     const [cfStudentDetails, setCfStudentDetails] = useState(null);
 
     const courses = [
-        'PMO-5', 'PMO-6', 'PMO-7', 'PMO-8', 'PMO-9', 'PMO-10'
+        'PMO 5', 'PMO 6', 'PMO 7', 'PMO 8', 'PMO 9', 'PMO 10'
     ];
     const genders = ['Male', 'Female', 'Other'];
 
@@ -159,7 +159,7 @@ const PMOAddStudentContent = () => {
         let matchedCourse = "";
         const studentClassDigit = studentClassStr.replace(/\D/g, "");
         if (studentClassDigit) {
-            matchedCourse = `PMO-${studentClassDigit}`;
+            matchedCourse = `PMO ${studentClassDigit}`;
         }
 
         setForm(prev => ({
@@ -228,7 +228,7 @@ const PMOAddStudentContent = () => {
                 if (selectedClassObj) {
                     const digit = selectedClassObj.name?.replace(/\D/g, "");
                     if (digit) {
-                        updated.course = `PMO-${digit}`;
+                        updated.course = `PMO ${digit}`;
                     }
                 }
             }

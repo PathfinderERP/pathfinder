@@ -29,7 +29,7 @@ export const processDailyPenalty = async (req, res) => {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        const targetUsers = await User.find({ role: { $in: ['telecaller', 'marketing'] } });
+        const targetUsers = await User.find({ role: { $in: ['telecaller'] } });
 
         for (const tc of targetUsers) {
             // Skip if already penalized today
@@ -41,7 +41,7 @@ export const processDailyPenalty = async (req, res) => {
                 "followUps.date": { $gte: today }
             });
 
-            if (completedToday < 50) {
+            if (completedToday < 40) {
                 await User.findByIdAndUpdate(tc._id, {
                     $inc: { redFlags: 1 },
                     $set: { lastPenaltyDate: new Date() }

@@ -220,7 +220,7 @@ const PMOAllStudentsContent = () => {
     });
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
 
-    const courses = ['PMO-5', 'PMO-6', 'PMO-7', 'PMO-8', 'PMO-9', 'PMO-10'];
+    const courses = ['PMO 5', 'PMO 6', 'PMO 7', 'PMO 8', 'PMO 9', 'PMO 10'];
     
     // Bill Generation State
     const [selectedStudentForBill, setSelectedStudentForBill] = useState(null);

@@ -94,6 +94,8 @@ const RedFlagDesk = () => {
 
     const isCenterActive = (c) => {
         if (!c) return false;
+        const name = (c.centreName || '').trim();
+        if (/phsps/i.test(name) || /franchise/i.test(name)) return false;
         const status = (c.status || '').toLowerCase();
         return status === 'active' || (!c.status && c.status !== 'deactive' && c.status !== 'inactive' && c.status !== 'deactivated');
     };
@@ -1023,7 +1025,7 @@ const RedFlagDesk = () => {
                                                     </div>
                                                 </div>
                                                 
-                                                <div className="mb-6 space-y-4">
+                                                 <div className="mb-6 space-y-4">
                                                     {flagGroup.issuesList.map((issue, idx) => (
                                                         <div key={idx}>
                                                             <div className="flex justify-between items-end mb-2">
@@ -1031,6 +1033,14 @@ const RedFlagDesk = () => {
                                                                 <p className="text-xs font-bold text-gray-500">
                                                                     {issue.role === 'teacher' ? (
                                                                         `${issue.metricValue} Correct`
+                                                                    ) : issue.role === 'marketing' ? (
+                                                                        issue.type === 'command_centre_leads' ? (
+                                                                            issue.metricValue > 0 ? `${issue.metricValue} Leads Uploaded` : 'Not Uploaded'
+                                                                        ) : issue.type === 'marketing_activity' ? (
+                                                                            issue.metricValue > 0 ? `${issue.metricValue} Activities Done` : 'Not Done'
+                                                                        ) : (
+                                                                            issue.metricValue > 0 ? `${issue.metricValue} Done` : 'Not Done'
+                                                                        )
                                                                     ) : (
                                                                         `${issue.metricValue}/${issue.targetValue}`
                                                                     )}
@@ -1043,7 +1053,13 @@ const RedFlagDesk = () => {
                                                                         issue.severity === 'Critical' ? 'bg-gradient-to-r from-red-600 to-red-400' : 
                                                                         'bg-gradient-to-r from-orange-600 to-orange-400'
                                                                     }`}
-                                                                    style={{ width: `${Math.min((issue.metricValue/(issue.targetValue || 1)) * 100 || 0, 100)}%` }}
+                                                                    style={{ 
+                                                                        width: `${
+                                                                            issue.role === 'marketing'
+                                                                                ? (issue.metricValue > 0 ? 100 : 0)
+                                                                                : Math.min((issue.metricValue/(issue.targetValue || 1)) * 100 || 0, 100)
+                                                                        }%` 
+                                                                    }}
                                                                 ></div>
                                                             </div>
                                                         </div>
@@ -1107,16 +1123,30 @@ const RedFlagDesk = () => {
                                                             <div key={idx} className="flex flex-col gap-2">
                                                                 <div className="flex justify-between items-end">
                                                                     <span className="text-[10px] font-bold text-gray-500 uppercase tracking-wider">
-                                                                        {issue.type === 'manual_lead' ? 'Manual Add Leads' : (issue.type || '').replace(/_/g, ' ')}
+                                                                        {issue.type === 'command_centre_leads' ? 'Command Centre Leads' :
+                                                                         issue.type === 'marketing_activity' ? 'Marketing Activity' :
+                                                                         issue.type === 'manual_lead' ? 'Manual Add Leads' : (issue.type || '').replace(/_/g, ' ')}
                                                                     </span>
                                                                     <span className="text-[10px] font-bold text-gray-900 dark:text-white">
-                                                                        {Math.round((issue.metricValue/(issue.targetValue || 1)) * 100 || 0)}%
+                                                                        {selectedFlag.role === 'marketing' ? (
+                                                                            issue.type === 'command_centre_leads' ? (issue.metricValue > 0 ? `${issue.metricValue} Uploaded` : 'Not Uploaded') :
+                                                                            issue.type === 'marketing_activity' ? (issue.metricValue > 0 ? `${issue.metricValue} Done` : 'Not Done') :
+                                                                            (issue.metricValue > 0 ? `${issue.metricValue} Done` : 'Not Done')
+                                                                        ) : (
+                                                                            `${Math.round((issue.metricValue/(issue.targetValue || 1)) * 100 || 0)}%`
+                                                                        )}
                                                                     </span>
                                                                 </div>
                                                                 <div className="flex-1 h-2.5 bg-gray-200 dark:bg-gray-800 rounded-full overflow-hidden">
                                                                     <div 
                                                                         className={`h-full rounded-full ${issue.severity === 'Low' || issue.isResolved ? 'bg-green-500' : 'bg-red-500'}`}
-                                                                        style={{ width: `${Math.min((issue.metricValue/(issue.targetValue || 1)) * 100 || 0, 100)}%` }}
+                                                                        style={{ 
+                                                                            width: `${
+                                                                                selectedFlag.role === 'marketing'
+                                                                                    ? (issue.metricValue > 0 ? 100 : 0)
+                                                                                    : Math.min((issue.metricValue/(issue.targetValue || 1)) * 100 || 0, 100)
+                                                                            }%` 
+                                                                        }}
                                                                     ></div>
                                                                 </div>
                                                             </div>
