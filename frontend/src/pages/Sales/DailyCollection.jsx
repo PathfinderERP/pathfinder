@@ -746,8 +746,17 @@ const DailyCollection = () => {
                             <div className={`${secondaryTextClass} font-semibold mb-2`}>Total Collected</div>
                             <div className="flex flex-col gap-1.5 mt-1">
                                 {(() => {
-                                    const totalWithGst = activeDetails.reduce((sum, d) => sum + (d.paidAmount || 0), 0);
+                                    const isPhspsMidnapore = (centre) => {
+                                        if (!centre) return false;
+                                        const str = centre.toLowerCase();
+                                        return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
+                                    };
+                                    const totalWithGst = activeDetails.reduce((sum, d) => {
+                                        if (isPhspsMidnapore(d.centre)) return sum;
+                                        return sum + (d.paidAmount || 0);
+                                    }, 0);
                                     const totalWithoutGst = activeDetails.reduce((sum, d) => {
+                                        if (isPhspsMidnapore(d.centre)) return sum;
                                         if (d.revenueWithoutGst !== undefined && d.revenueWithoutGst !== null) {
                                             return sum + Number(d.revenueWithoutGst);
                                         }
@@ -783,8 +792,17 @@ const DailyCollection = () => {
                             <div className={`${secondaryTextClass} font-semibold mb-2`}>Daily Total Target</div>
                             <div className="flex flex-col gap-1.5 mt-1">
                                 {(() => {
-                                    const computedTargetWithoutGst = activeCentres.reduce((sum, c) => sum + (centreTargets[c.centreName] || 0), 0);
+                                    const isPhspsMidnapore = (centre) => {
+                                        if (!centre) return false;
+                                        const str = centre.toLowerCase();
+                                        return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
+                                    };
+                                    const computedTargetWithoutGst = activeCentres.reduce((sum, c) => {
+                                        if (isPhspsMidnapore(c.centreName)) return sum;
+                                        return sum + (centreTargets[c.centreName] || 0);
+                                    }, 0);
                                     const computedTargetWithGst = activeCentres.reduce((sum, c) => {
+                                        if (isPhspsMidnapore(c.centreName)) return sum;
                                         const target = centreTargets[c.centreName] || 0;
                                         const isPhsps = c.centreName && /phsps/i.test(c.centreName);
                                         return sum + (isPhsps ? target : target * 1.18);
@@ -829,11 +847,18 @@ const DailyCollection = () => {
                         <div className={`${secondaryTextClass} font-semibold mb-3`}>Payment Methods</div>
                         <div className="space-y-2">
                             {(() => {
+                                const isPhspsMidnapore = (centre) => {
+                                    if (!centre) return false;
+                                    const str = centre.toLowerCase();
+                                    return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
+                                };
                                 const dynamicPaymentMethods = Object.entries(
                                     activeDetails.reduce((acc, curr) => {
                                         const pm = curr.paymentMethod || "Unknown";
                                         if (!acc[pm]) acc[pm] = { totalAmount: 0, count: 0 };
-                                        acc[pm].totalAmount += (curr.paidAmount || 0);
+                                        if (!isPhspsMidnapore(curr.centre)) {
+                                            acc[pm].totalAmount += (curr.paidAmount || 0);
+                                        }
                                         acc[pm].count += 1;
                                         return acc;
                                     }, {})
@@ -1274,14 +1299,21 @@ const DailyCollection = () => {
                                         return initialAcc;
                                     })()); const sortedData = Object.entries(aggregatedData).sort((a, b) => a[0].localeCompare(b[0]));
 
-                                    // Column Totals (including PHSPS)
-                                    const totalTarget = sortedData.reduce((sum, [centre]) => sum + (centreTargets[centre] || 0), 0);
+                                    const isPhspsMidnapore = (centre) => {
+                                        if (!centre) return false;
+                                        const str = centre.toLowerCase();
+                                        return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
+                                    };
+
+                                    // Column Totals (excluding PHSPS Midnapore from total sums)
+                                    const totalTarget = sortedData.reduce((sum, [centre]) => isPhspsMidnapore(centre) ? sum : sum + (centreTargets[centre] || 0), 0);
                                     const totalPaymentMethods = paymentMethodsList.reduce((acc, method) => {
-                                        acc[method] = sortedData.reduce((sum, [_, data]) => sum + (data[method] || 0), 0);
+                                        acc[method] = sortedData.reduce((sum, [centre, data]) => isPhspsMidnapore(centre) ? sum : sum + (data[method] || 0), 0);
                                         return acc;
                                     }, {});
-                                    const totalWithGst = sortedData.reduce((sum, [_, data]) => sum + (data.total || 0), 0);
+                                    const totalWithGst = sortedData.reduce((sum, [centre, data]) => isPhspsMidnapore(centre) ? sum : sum + (data.total || 0), 0);
                                     const totalWithoutGst = sortedData.reduce((sum, [centre, data]) => {
+                                        if (isPhspsMidnapore(centre)) return sum;
                                         const isPhsps = /phsps/i.test(centre);
                                         const withoutGst = isPhsps ? data.total : (data.total / 1.18);
                                         return sum + (withoutGst || 0);

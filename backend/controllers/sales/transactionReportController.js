@@ -649,19 +649,28 @@ export const getTransactionReport = async (req, res) => {
             }
         }
 
+        const isNotPhspsMidnaporeCond = {
+            $not: {
+                $and: [
+                    { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                    { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "midnapore|midnapur|medinipur", options: "i" } }
+                ]
+            }
+        };
+
         statsPipeline.push({
             $group: {
                 _id: null,
-                currentYearWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }] }, "$paidAmount", 0] } },
-                currentYearWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }] }, amountWithoutGstExpr, 0] } },
-                previousYearWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }] }, "$paidAmount", 0] } },
-                previousYearWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }] }, amountWithoutGstExpr, 0] } },
-                currentMonthWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, "$paidAmount", 0] } },
-                currentMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }] }, amountWithoutGstExpr, 0] } },
-                previousMonthWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, "$paidAmount", 0] } },
-                previousMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }] }, amountWithoutGstExpr, 0] } },
-                todayWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", todayStart] }, { $lte: ["$effectiveDate", todayEnd] }] }, "$paidAmount", 0] } },
-                todayWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", todayStart] }, { $lte: ["$effectiveDate", todayEnd] }] }, amountWithoutGstExpr, 0] } }
+                currentYearWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }, isNotPhspsMidnaporeCond] }, "$paidAmount", 0] } },
+                currentYearWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startCFY] }, { $lte: ["$effectiveDate", endCFY] }, isNotPhspsMidnaporeCond] }, amountWithoutGstExpr, 0] } },
+                previousYearWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }, isNotPhspsMidnaporeCond] }, "$paidAmount", 0] } },
+                previousYearWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", startPFY] }, { $lte: ["$effectiveDate", endPFY] }, isNotPhspsMidnaporeCond] }, amountWithoutGstExpr, 0] } },
+                currentMonthWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }, isNotPhspsMidnaporeCond] }, "$paidAmount", 0] } },
+                currentMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", currentMonthEnd] }, isNotPhspsMidnaporeCond] }, amountWithoutGstExpr, 0] } },
+                previousMonthWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }, isNotPhspsMidnaporeCond] }, "$paidAmount", 0] } },
+                previousMonthWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", prevMonthStart] }, { $lte: ["$effectiveDate", prevMonthEnd] }, isNotPhspsMidnaporeCond] }, amountWithoutGstExpr, 0] } },
+                todayWithGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", todayStart] }, { $lte: ["$effectiveDate", todayEnd] }, isNotPhspsMidnaporeCond] }, "$paidAmount", 0] } },
+                todayWithoutGst: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", todayStart] }, { $lte: ["$effectiveDate", todayEnd] }, isNotPhspsMidnaporeCond] }, amountWithoutGstExpr, 0] } }
             }
         });
 

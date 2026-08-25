@@ -551,7 +551,20 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     {
                         $group: {
                             _id: null,
-                            totalCollection: { $sum: "$paidAmount" },
+                            totalCollection: {
+                                $sum: {
+                                    $cond: [
+                                        {
+                                            $and: [
+                                                { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", ""] }, regex: "phsps", options: "i" } },
+                                                { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", ""] }, regex: "midnapore|midnapur|medinipur", options: "i" } }
+                                            ]
+                                        },
+                                        0,
+                                        "$paidAmount"
+                                    ]
+                                }
+                            },
                             transactionCount: { $sum: 1 }
                         }
                     }
@@ -560,7 +573,20 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     {
                         $group: {
                             _id: "$paymentMethod",
-                            totalAmount: { $sum: "$paidAmount" },
+                            totalAmount: {
+                                $sum: {
+                                    $cond: [
+                                        {
+                                            $and: [
+                                                { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", ""] }, regex: "phsps", options: "i" } },
+                                                { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", ""] }, regex: "midnapore|midnapur|medinipur", options: "i" } }
+                                            ]
+                                        },
+                                        0,
+                                        "$paidAmount"
+                                    ]
+                                }
+                            },
                             count: { $sum: 1 }
                         }
                     },

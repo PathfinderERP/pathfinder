@@ -367,8 +367,18 @@ const TransactionList = () => {
         (timePeriod !== "Custom" && timePeriod !== "Custom Range" && timePeriod !== "") ||
         ((timePeriod === "Custom" || timePeriod === "Custom Range") && startDate !== "" && endDate !== "");
 
-    const dynamicSelectionTotalWithGst = hasActiveFilters ? filteredReport.reduce((sum, item) => sum + (item.amount || 0), 0) : 0;
-    const dynamicSelectionTotalBase = hasActiveFilters ? filteredReport.reduce((sum, item) => sum + (item.revenueWithoutGst || 0), 0) : 0;
+    const isPhspsMidnapore = (centre) => {
+        if (!centre) return false;
+        const str = centre.toLowerCase();
+        return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
+    };
+
+    const dynamicSelectionTotalWithGst = hasActiveFilters
+        ? filteredReport.reduce((sum, item) => isPhspsMidnapore(item.centre) ? sum : sum + (item.amount || 0), 0)
+        : 0;
+    const dynamicSelectionTotalBase = hasActiveFilters
+        ? filteredReport.reduce((sum, item) => isPhspsMidnapore(item.centre) ? sum : sum + (item.revenueWithoutGst || 0), 0)
+        : 0;
 
     // Hold selection totals while a background fetch is running to prevent intermediate flickering
     useEffect(() => {
