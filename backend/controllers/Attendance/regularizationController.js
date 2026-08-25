@@ -128,109 +128,131 @@ export const updateRegularizationStatus = async (req, res) => {
 
         if (!regularization) return res.status(404).json({ message: 'Regularization not found' });
 
-        // If Approved, update the actual Attendance Record
-        if (status === 'Approved') {
-            const regDate = new Date(regularization.date);
-            const startOfRegDay = new Date(regDate);
-            startOfRegDay.setHours(0, 0, 0, 0);
+            // If Approved, update the actual Attendance Record
+            if (status === 'Approved') {
+                const regDate = new Date(regularization.date);
+                const startOfRegDay = new Date(regDate);
+                startOfRegDay.setHours(0, 0, 0, 0);
 
-            const endOfRegDay = new Date(regDate);
-            endOfRegDay.setHours(23, 59, 59, 999);
+                const endOfRegDay = new Date(regDate);
+                endOfRegDay.setHours(23, 59, 59, 999);
 
-            let attendance = await EmployeeAttendance.findOne({
-                employeeId: regularization.employeeId,
-                date: {
-                    $gte: startOfRegDay,
-                    $lte: endOfRegDay
-                }
-            });
+                let attendance = await EmployeeAttendance.findOne({
+                    employeeId: regularization.employeeId,
+                    date: {
+                        $gte: startOfRegDay,
+                        $lte: endOfRegDay
+                    }
+                });
 
-            const employee = await Employee.findById(regularization.employeeId);
-            const targetHours = getTargetWorkingHours(employee?.workingHours);
+                const employee = await Employee.findById(regularization.employeeId);
+                const targetHours = getTargetWorkingHours(employee?.workingHours);
 
-            // Logic to calculate working hours if times are present
-            let calculatedWorkingHours = targetHours; // Default target shift
-            let checkInDate = null;
-            let checkOutDate = null;
+                // 1. Calculate regularized hours from fromTime & toTime
+                let regHours = targetHours;
+                let checkInDate = null;
+                let checkOutDate = null;
 
-            if (regularization.fromTime && regularization.toTime) {
-                const dateOnlyStr = format(new Date(regularization.date), "yyyy-MM-dd");
-                checkInDate = new Date(`${dateOnlyStr}T${regularization.fromTime}:00+05:30`);
-                checkOutDate = new Date(`${dateOnlyStr}T${regularization.toTime}:00+05:30`);
+                if (regularization.fromTime && regularization.toTime) {
+                    const dateOnlyStr = format(new Date(regularization.date), "yyyy-MM-dd");
+                    checkInDate = new Date(`${dateOnlyStr}T${regularization.fromTime}:00+05:30`);
+                    checkOutDate = new Date(`${dateOnlyStr}T${regularization.toTime}:00+05:30`);
 
-                if (isNaN(checkInDate.getTime())) {
-                    const [fromHours, fromMinutes] = regularization.fromTime.split(':').map(Number);
-                    checkInDate = new Date(regDate);
-                    checkInDate.setHours(fromHours, fromMinutes, 0, 0);
-                }
-                if (isNaN(checkOutDate.getTime())) {
-                    const [toHours, toMinutes] = regularization.toTime.split(':').map(Number);
-                    checkOutDate = new Date(regDate);
-                    checkOutDate.setHours(toHours, toMinutes, 0, 0);
-                }
+                    if (isNaN(checkInDate.getTime())) {
+                        const [fromHours, fromMinutes] = regularization.fromTime.split(':').map(Number);
+                        checkInDate = new Date(regDate);
+                        checkInDate.setHours(fromHours, fromMinutes, 0, 0);
+                    }
+                    if (isNaN(checkOutDate.getTime())) {
+                        const [toHours, toMinutes] = regularization.toTime.split(':').map(Number);
+                        checkOutDate = new Date(regDate);
+                        checkOutDate.setHours(toHours, toMinutes, 0, 0);
+                    }
 
-                // Calculate difference in hours
-                const diffMs = checkOutDate - checkInDate;
-                if (diffMs > 0) {
-                    calculatedWorkingHours = Number((diffMs / (1000 * 60 * 60)).toFixed(2));
-                }
-            }
-
-            const finalStatus = determineAttendanceStatus(calculatedWorkingHours, targetHours);
-
-            if (attendance) {
-                attendance.status = finalStatus;
-                attendance.workingHours = calculatedWorkingHours;
-
-                // Preserve or set check-in/check-out
-                if (checkInDate) {
-                    attendance.checkIn = { 
-                        time: checkInDate, 
-                        address: regularization.locationAddress || 'Regularized',
-                        latitude: regularization.latitude,
-                        longitude: regularization.longitude
-                    };
-                }
-                if (checkOutDate) {
-                    attendance.checkOut = { 
-                        time: checkOutDate, 
-                        address: regularization.locationAddress || 'Regularized'
-                    };
+                    const diffMs = checkOutDate - checkInDate;
+                    if (diffMs > 0) {
+                        regHours = Number((diffMs / (1000 * 60 * 60)).toFixed(2));
+                    }
                 }
 
-                // Append remark
-                const newRemark = `Regularized ${calculatedWorkingHours}h (${regularization.type}): ${regularization.reason}`;
-                attendance.remarks = attendance.remarks
-                    ? `${attendance.remarks} | ${newRemark}`
-                    : newRemark;
+                // 2. Calculate physical checkin-checkout hours if existing and NOT identical to regularization times
+                let existingWh = 0;
+                if (attendance) {
+                    const isSameCheckIn = checkInDate && attendance.checkIn?.time && Math.abs(new Date(attendance.checkIn.time).getTime() - checkInDate.getTime()) < 60000;
+                    const isSameCheckOut = checkOutDate && attendance.checkOut?.time && Math.abs(new Date(attendance.checkOut.time).getTime() - checkOutDate.getTime()) < 60000;
 
-                await attendance.save();
-            } else {
-                // Find employee to get User and Primary Centre
-                if (employee) {
-                    const newAttendance = new EmployeeAttendance({
-                        user: employee.user,
-                        employeeId: regularization.employeeId,
-                        centreId: employee.primaryCentre,
-                        date: startOfRegDay,
-                        status: finalStatus,
-                        workingHours: calculatedWorkingHours,
-                        remarks: `Regularization (${regularization.type}): ${regularization.reason}`,
-                        checkIn: { 
+                    if (!isSameCheckIn && !isSameCheckOut) {
+                        if (attendance.checkIn?.time && attendance.checkOut?.time) {
+                            const dur = (new Date(attendance.checkOut.time) - new Date(attendance.checkIn.time)) / (1000 * 60 * 60);
+                            if (!isNaN(dur) && dur > 0) existingWh = Number(dur.toFixed(2));
+                        }
+                        if (existingWh === 0 && typeof attendance.workingHours === 'number' && attendance.workingHours > 0) {
+                            existingWh = attendance.workingHours;
+                        }
+                    }
+                }
+
+                // 3. Combined hours: Add regularized duration to existing separate logged attendance hours
+                let calculatedWorkingHours = regHours;
+                if (existingWh > 0) {
+                    calculatedWorkingHours = Number((existingWh + regHours).toFixed(2));
+                }
+
+                const finalStatus = determineAttendanceStatus(calculatedWorkingHours, targetHours);
+
+                if (attendance) {
+                    attendance.status = finalStatus;
+                    attendance.workingHours = calculatedWorkingHours;
+
+                    // Preserve or set check-in/check-out
+                    if (checkInDate && !attendance.checkIn?.time) {
+                        attendance.checkIn = { 
                             time: checkInDate, 
                             address: regularization.locationAddress || 'Regularized',
                             latitude: regularization.latitude,
                             longitude: regularization.longitude
-                        },
-                        checkOut: { 
+                        };
+                    }
+                    if (checkOutDate && !attendance.checkOut?.time) {
+                        attendance.checkOut = { 
                             time: checkOutDate, 
                             address: regularization.locationAddress || 'Regularized'
-                        }
-                    });
-                    await newAttendance.save();
+                        };
+                    }
+
+                    // Append remark
+                    const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
+                    attendance.remarks = attendance.remarks
+                        ? `${attendance.remarks} | ${newRemark}`
+                        : newRemark;
+
+                    await attendance.save();
+                } else {
+                    // Find employee to get User and Primary Centre
+                    if (employee) {
+                        const newAttendance = new EmployeeAttendance({
+                            user: employee.user,
+                            employeeId: regularization.employeeId,
+                            centreId: employee.primaryCentre,
+                            date: startOfRegDay,
+                            status: finalStatus,
+                            workingHours: calculatedWorkingHours,
+                            remarks: `Regularization (${regularization.type}): ${regularization.reason}`,
+                            checkIn: { 
+                                time: checkInDate, 
+                                address: regularization.locationAddress || 'Regularized',
+                                latitude: regularization.latitude,
+                                longitude: regularization.longitude
+                            },
+                            checkOut: { 
+                                time: checkOutDate, 
+                                address: regularization.locationAddress || 'Regularized'
+                            }
+                        });
+                        await newAttendance.save();
+                    }
                 }
             }
-        }
 
         res.status(200).json(regularization);
     } catch (error) {
@@ -330,7 +352,8 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
                 const employee = await Employee.findById(regularization.employeeId);
                 const targetHours = getTargetWorkingHours(employee?.workingHours);
 
-                let calculatedWorkingHours = targetHours;
+                // 1. Calculate regularized hours from fromTime & toTime
+                let regHours = targetHours;
                 let checkInDate = null;
                 let checkOutDate = null;
 
@@ -352,8 +375,31 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
 
                     const diffMs = checkOutDate - checkInDate;
                     if (diffMs > 0) {
-                        calculatedWorkingHours = Number((diffMs / (1000 * 60 * 60)).toFixed(2));
+                        regHours = Number((diffMs / (1000 * 60 * 60)).toFixed(2));
                     }
+                }
+
+                // 2. Calculate physical checkin-checkout hours if existing and NOT identical to regularization times
+                let existingWh = 0;
+                if (attendance) {
+                    const isSameCheckIn = checkInDate && attendance.checkIn?.time && Math.abs(new Date(attendance.checkIn.time).getTime() - checkInDate.getTime()) < 60000;
+                    const isSameCheckOut = checkOutDate && attendance.checkOut?.time && Math.abs(new Date(attendance.checkOut.time).getTime() - checkOutDate.getTime()) < 60000;
+
+                    if (!isSameCheckIn && !isSameCheckOut) {
+                        if (attendance.checkIn?.time && attendance.checkOut?.time) {
+                            const dur = (new Date(attendance.checkOut.time) - new Date(attendance.checkIn.time)) / (1000 * 60 * 60);
+                            if (!isNaN(dur) && dur > 0) existingWh = Number(dur.toFixed(2));
+                        }
+                        if (existingWh === 0 && typeof attendance.workingHours === 'number' && attendance.workingHours > 0) {
+                            existingWh = attendance.workingHours;
+                        }
+                    }
+                }
+
+                // 3. Combined hours: Add regularized duration to existing separate logged attendance hours
+                let calculatedWorkingHours = regHours;
+                if (existingWh > 0) {
+                    calculatedWorkingHours = Number((existingWh + regHours).toFixed(2));
                 }
 
                 const finalStatus = determineAttendanceStatus(calculatedWorkingHours, targetHours);
@@ -362,7 +408,8 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
                     attendance.status = finalStatus;
                     attendance.workingHours = calculatedWorkingHours;
 
-                    if (checkInDate) {
+                    // Preserve or set check-in/check-out
+                    if (checkInDate && !attendance.checkIn?.time) {
                         attendance.checkIn = { 
                             time: checkInDate, 
                             address: regularization.locationAddress || 'Regularized',
@@ -370,14 +417,14 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
                             longitude: regularization.longitude
                         };
                     }
-                    if (checkOutDate) {
+                    if (checkOutDate && !attendance.checkOut?.time) {
                         attendance.checkOut = { 
                             time: checkOutDate, 
                             address: regularization.locationAddress || 'Regularized'
                         };
                     }
 
-                    const newRemark = `Regularized ${calculatedWorkingHours}h (${regularization.type}): ${regularization.reason}`;
+                    const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
                     attendance.remarks = attendance.remarks
                         ? `${attendance.remarks} | ${newRemark}`
                         : newRemark;

@@ -387,21 +387,44 @@ const EmployeeAttendance = () => {
                 if (!isNaN(dur) && dur > 0) calculatedWh = parseFloat(dur.toFixed(2));
             }
 
+            // If regularization is approved:
             if (regularization && regularization.status === "Approved") {
-                if (regularization.fromTime) checkInTime = regularization.fromTime;
-                if (regularization.toTime) checkOutTime = regularization.toTime;
-                if (regularization.fromTime && regularization.toTime) {
-                    const [fH, fM] = regularization.fromTime.split(':').map(Number);
-                    const [tH, tM] = regularization.toTime.split(':').map(Number);
-                    const diff = (tH * 60 + tM) - (fH * 60 + fM);
-                    if (diff > 0) calculatedWh = parseFloat((diff / 60).toFixed(2));
+                const isRegCheckIn = record.checkIn?.address === 'Regularized' || !record.checkIn?.time || (record.remarks && record.remarks.includes('Regulariz'));
+                const isRegCheckOut = record.checkOut?.address === 'Regularized' || !record.checkOut?.time || (record.remarks && record.remarks.includes('Regulariz'));
+
+                if (regularization.fromTime && (isRegCheckIn || !checkInTime)) {
+                    checkInTime = regularization.fromTime;
+                }
+                if (regularization.toTime && (isRegCheckOut || !checkOutTime)) {
+                    checkOutTime = regularization.toTime;
+                }
+
+                // If both physical and regularization exist with distinct valid times, show earliest in and latest out
+                if (record.checkIn?.time && regularization.fromTime && record.checkIn.address !== 'Regularized') {
+                    const physIn = format(new Date(record.checkIn.time), "HH:mm");
+                    checkInTime = physIn < regularization.fromTime ? physIn : regularization.fromTime;
+                }
+                if (record.checkOut?.time && regularization.toTime && record.checkOut.address !== 'Regularized') {
+                    const physOut = format(new Date(record.checkOut.time), "HH:mm");
+                    checkOutTime = physOut > regularization.toTime ? physOut : regularization.toTime;
+                }
+
+                if (calculatedWh === 0) {
+                    if (regularization.fromTime && regularization.toTime) {
+                        const [fH, fM] = regularization.fromTime.split(':').map(Number);
+                        const [tH, tM] = regularization.toTime.split(':').map(Number);
+                        const diff = (tH * 60 + tM) - (fH * 60 + fM);
+                        if (diff > 0) calculatedWh = parseFloat((diff / 60).toFixed(2));
+                    } else {
+                        calculatedWh = workingHours || 9;
+                    }
                 }
             }
 
             const calculatedStatus = computeStatusFromHours(record.status, calculatedWh, workingHours || 9);
             return {
                 type: record.status === "Week Off" ? "Off" : "Present",
-                name: record.status === "Week Off" ? "Week Off" : undefined,
+                name: record.status === "Week Off" ? "Week Off" : (regularization?.status === "Approved" ? "Present (Regularized)" : undefined),
                 checkIn: checkInTime,
                 checkOut: checkOutTime,
                 status: calculatedStatus,
@@ -497,18 +520,7 @@ const EmployeeAttendance = () => {
             const mIndex = getMonth(day);
             const isCurrMonth = (mIndex === currentMonthIdx && year === currentYearNum);
 
-            const dateStrKey = format(day, "yyyy-MM-dd");
-            const record = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === dateStrKey);
-
-            let dayHours = 0;
-            if (record) {
-                if (typeof record.workingHours === 'number' && record.workingHours > 0) {
-                    dayHours = record.workingHours;
-                } else if (record.checkIn?.time && record.checkOut?.time) {
-                    const dur = (new Date(record.checkOut.time) - new Date(record.checkIn.time)) / (1000 * 60 * 60);
-                    if (!isNaN(dur) && dur > 0) dayHours = dur;
-                }
-            }
+            let dayHours = status.workingHours || 0;
 
             if (status.type === 'Present' && status.status !== 'Absent') {
                 presents++;
