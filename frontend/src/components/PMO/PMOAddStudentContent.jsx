@@ -51,7 +51,6 @@ const PAYMENT_METHODS = [
     { value: 'UPI', label: 'UPI', icon: '📱' },
     { value: 'CARD', label: 'Card', icon: '💳' },
     { value: 'BANK_TRANSFER', label: 'Bank Transfer', icon: '🏦' },
-    { value: 'CHEQUE', label: 'Cheque', icon: '📝' },
 ];
 
 const GROSS_FEE = 100;
@@ -82,8 +81,7 @@ const PMOAddStudentContent = () => {
     const [cfStudentDetails, setCfStudentDetails] = useState(null);
 
     const courses = [
-        'PMO 3', 'PMO 4', 'PMO 5', 'PMO 6', 'PMO 7', 'PMO 8',
-        'PMO 9', 'PMO 10', 'PMO 11', 'PMO 12'
+        'PMO-5', 'PMO-6', 'PMO-7', 'PMO-8', 'PMO-9', 'PMO-10'
     ];
     const genders = ['Male', 'Female', 'Other'];
 
@@ -161,7 +159,7 @@ const PMOAddStudentContent = () => {
         let matchedCourse = "";
         const studentClassDigit = studentClassStr.replace(/\D/g, "");
         if (studentClassDigit) {
-            matchedCourse = `PMO ${studentClassDigit}`;
+            matchedCourse = `PMO-${studentClassDigit}`;
         }
 
         setForm(prev => ({
@@ -230,7 +228,7 @@ const PMOAddStudentContent = () => {
                 if (selectedClassObj) {
                     const digit = selectedClassObj.name?.replace(/\D/g, "");
                     if (digit) {
-                        updated.course = `PMO ${digit}`;
+                        updated.course = `PMO-${digit}`;
                     }
                 }
             }
@@ -263,11 +261,8 @@ const PMOAddStudentContent = () => {
 
         if (netPayable > 0) {
             if (!paymentForm.receivedDate) errs.receivedDate = 'Received date is required';
-            if (['UPI', 'CARD', 'BANK_TRANSFER', 'CHEQUE'].includes(paymentForm.paymentMethod) && !paymentForm.transactionId.trim()) {
+            if (['UPI', 'CARD', 'BANK_TRANSFER'].includes(paymentForm.paymentMethod) && !paymentForm.transactionId.trim()) {
                 errs.transactionId = 'Transaction ID is required for non-cash payment';
-            }
-            if (paymentForm.paymentMethod === 'CHEQUE' && !paymentForm.chequeDate) {
-                errs.chequeDate = 'Cheque date is required';
             }
         }
         return errs;
@@ -672,14 +667,15 @@ const PMOAddStudentContent = () => {
 
                         <div>
                             <label className="block text-gray-400 mb-1.5 font-medium">Course <span className="text-rose-500">*</span></label>
-                            <input
-                                type="text"
+                            <select
                                 name="course"
                                 value={form.course}
                                 onChange={handleChange}
-                                placeholder="e.g. PMO 6"
-                                className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-2.5 text-purple-300 font-bold placeholder-gray-600 focus:outline-none focus:border-purple-500 transition"
-                            />
+                                className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-2.5 text-purple-300 font-bold focus:outline-none focus:border-purple-500 transition"
+                            >
+                                <option value="">Select Course</option>
+                                {courses.map(c => <option key={c} value={c}>{c}</option>)}
+                            </select>
                             {errors.course && <p className="text-rose-400 text-[11px] mt-1">{errors.course}</p>}
                         </div>
 
@@ -878,21 +874,6 @@ const PMOAddStudentContent = () => {
                                     placeholder="Payer Name"
                                     className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-2.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-purple-500 transition"
                                 />
-                            </div>
-                        )}
-
-                        {/* Cheque Date if Cheque */}
-                        {paymentForm.paymentMethod === 'CHEQUE' && (
-                            <div>
-                                <label className="block text-gray-400 mb-1.5 font-medium">Cheque Date <span className="text-rose-500">*</span></label>
-                                <input
-                                    type="date"
-                                    name="chequeDate"
-                                    value={paymentForm.chequeDate}
-                                    onChange={handlePaymentChange}
-                                    className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-2.5 text-gray-200 focus:outline-none focus:border-purple-500 transition"
-                                />
-                                {errors.chequeDate && <p className="text-rose-400 text-[11px] mt-1">{errors.chequeDate}</p>}
                             </div>
                         )}
                     </div>

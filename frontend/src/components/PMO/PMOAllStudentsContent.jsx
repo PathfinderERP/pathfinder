@@ -4,13 +4,187 @@ import {
     FaSearch, FaDownload, FaFileImport, FaFileExcel,
     FaGraduationCap, FaUsers, FaTrophy, FaChartLine, FaSortUp, FaSortDown,
     FaSpinner, FaTimes, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaFileInvoice,
-    FaEdit, FaTrash, FaEye, FaPlus, FaMoneyBillWave, FaTag
+    FaEdit, FaTrash, FaEye, FaPlus, FaMoneyBillWave, FaTag, FaChevronDown, FaCheck
 } from 'react-icons/fa';
 import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
 import PMOAdmitCard from './PMOAdmitCard';
 import PMOBulkImportModal from './PMOBulkImportModal';
 import * as XLSX from 'xlsx';
+
+// Custom Anchored MultiSelect Dropdown for PMO
+const PMOMultiSelect = ({ label, placeholder, options = [], selectedValues = [], onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setIsOpen(false);
+                setSearch('');
+            }
+        };
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setIsOpen(false);
+                setSearch('');
+            }
+        };
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener('keydown', handleKeyDown);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isOpen]);
+
+    const filteredOptions = options.filter(opt => {
+        const labelStr = (opt.label || '').toLowerCase();
+        return labelStr.includes(search.toLowerCase());
+    });
+
+    const toggleOption = (val) => {
+        if (selectedValues.includes(val)) {
+            onChange(selectedValues.filter(v => v !== val));
+        } else {
+            onChange([...selectedValues, val]);
+        }
+    };
+
+    const handleSelectAll = (e) => {
+        e.stopPropagation();
+        const visibleVals = filteredOptions.map(o => o.value);
+        onChange(Array.from(new Set([...selectedValues, ...visibleVals])));
+    };
+
+    const handleClear = (e) => {
+        e.stopPropagation();
+        if (search) {
+            const visibleVals = filteredOptions.map(o => o.value);
+            onChange(selectedValues.filter(v => !visibleVals.includes(v)));
+        } else {
+            onChange([]);
+        }
+    };
+
+    const selectedLabels = selectedValues
+        .map(v => options.find(o => String(o.value) === String(v))?.label || v);
+
+    return (
+        <div className="relative inline-block" ref={containerRef}>
+            {/* Trigger Button */}
+            <button
+                type="button"
+                onClick={() => setIsOpen(prev => !prev)}
+                className={`h-9 px-3 py-1.5 rounded-xl border text-xs flex items-center justify-between gap-2 transition-all cursor-pointer select-none ${
+                    selectedValues.length > 0
+                        ? 'bg-purple-950/30 border-purple-500/50 text-purple-200 shadow-sm shadow-purple-900/20'
+                        : 'bg-gray-950/80 border-gray-800 hover:border-gray-700 text-gray-300'
+                }`}
+            >
+                <div className="flex items-center gap-1.5 truncate max-w-[140px]">
+                    {selectedValues.length === 0 ? (
+                        <span className="text-gray-400 font-medium">{placeholder || label}</span>
+                    ) : selectedValues.length === 1 ? (
+                        <span className="text-purple-300 font-semibold truncate">{selectedLabels[0]}</span>
+                    ) : (
+                        <>
+                            <span className="text-purple-300 font-semibold truncate">{label}:</span>
+                            <span className="px-1.5 py-0.2 text-[10px] font-bold bg-purple-500/20 text-purple-300 rounded-md border border-purple-500/30">
+                                {selectedValues.length}
+                            </span>
+                        </>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-1 ml-auto text-gray-500">
+                    {selectedValues.length > 0 && (
+                        <span
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange([]);
+                            }}
+                            className="hover:text-rose-400 p-0.5 rounded transition"
+                            title="Clear"
+                        >
+                            <FaTimes size={10} />
+                        </span>
+                    )}
+                    <FaChevronDown size={9} className={`transition-transform duration-200 ${isOpen ? 'rotate-180 text-purple-400' : 'text-gray-500'}`} />
+                </div>
+            </button>
+
+            {/* Dropdown Menu - Anchored Absolutely directly below trigger */}
+            {isOpen && (
+                <div className="absolute top-full left-0 mt-1.5 w-56 max-h-72 bg-gray-900 backdrop-blur-md border border-gray-700/80 rounded-xl shadow-2xl z-[9999] overflow-hidden flex flex-col animate-fade-in" style={{ zIndex: 9999 }}>
+                    {/* Search & Actions Header */}
+                    {options.length > 4 && (
+                        <div className="p-2 border-b border-gray-800 bg-gray-950/80 space-y-1.5">
+                            <input
+                                type="text"
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder={`Search ${label}...`}
+                                className="w-full bg-gray-900 border border-gray-700/70 rounded-lg px-2.5 py-1 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                                autoFocus
+                            />
+                            <div className="flex items-center justify-between px-0.5 text-[10px]">
+                                <button
+                                    type="button"
+                                    onClick={handleSelectAll}
+                                    className="font-bold text-purple-400 hover:text-purple-300 uppercase tracking-wider cursor-pointer"
+                                >
+                                    Select All
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleClear}
+                                    className="font-bold text-rose-400 hover:text-rose-300 uppercase tracking-wider cursor-pointer"
+                                >
+                                    {search ? 'Clear Search' : 'Clear All'}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Options List */}
+                    <div className="overflow-y-auto max-h-48 p-1.5 space-y-0.5 text-xs">
+                        {filteredOptions.length > 0 ? (
+                            filteredOptions.map((opt) => {
+                                const isSelected = selectedValues.includes(opt.value);
+                                return (
+                                    <div
+                                        key={opt.value}
+                                        onClick={() => toggleOption(opt.value)}
+                                        className={`px-2.5 py-1.5 rounded-lg flex items-center gap-2 cursor-pointer transition-colors ${
+                                            isSelected
+                                                ? 'bg-purple-600/20 text-purple-200 font-medium'
+                                                : 'text-gray-300 hover:bg-gray-800 hover:text-white'
+                                        }`}
+                                    >
+                                        <div className={`w-3.5 h-3.5 rounded border flex items-center justify-center transition-colors shrink-0 ${
+                                            isSelected
+                                                ? 'bg-purple-600 border-purple-500 text-white'
+                                                : 'border-gray-600 bg-gray-950/60'
+                                        }`}>
+                                            {isSelected && <FaCheck size={8} />}
+                                        </div>
+                                        <span className="truncate flex-1">{opt.label}</span>
+                                    </div>
+                                );
+                            })
+                        ) : (
+                            <div className="py-3 text-center text-gray-500 text-xs">No options found</div>
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
 
 const formatReportingTime = (timeStr) => {
     if (!timeStr) return '—';
@@ -36,8 +210,17 @@ const PMOAllStudentsContent = () => {
     const canImport = isSuperAdmin || hasPermission(user, 'pmo', 'allStudents', 'import');
 
     const [searchQuery, setSearchQuery] = useState('');
-    const [filters, setFilters] = useState({ zone: '', centre: '', class: '', status: '', session: '' });
+    const [filters, setFilters] = useState({
+        zone: [],
+        centre: [],
+        class: [],
+        status: [],
+        session: [],
+        course: [],
+    });
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+
+    const courses = ['PMO-5', 'PMO-6', 'PMO-7', 'PMO-8', 'PMO-9', 'PMO-10'];
     
     // Bill Generation State
     const [selectedStudentForBill, setSelectedStudentForBill] = useState(null);
@@ -92,9 +275,6 @@ const PMOAllStudentsContent = () => {
         const errs = {};
         if (checkoutForm.paymentMethod !== 'CASH' && !checkoutForm.transactionId.trim()) {
             errs.transactionId = 'Transaction ID is required';
-        }
-        if (checkoutForm.paymentMethod === 'CHEQUE' && !checkoutForm.chequeDate) {
-            errs.chequeDate = 'Cheque date is required';
         }
         if (!checkoutForm.receivedDate) {
             errs.receivedDate = 'Received date is required';
@@ -249,11 +429,12 @@ const PMOAllStudentsContent = () => {
         try {
             const params = new URLSearchParams();
             if (searchQuery) params.append('search', searchQuery);
-            if (filters.zone) params.append('zone', filters.zone);
-            if (filters.centre) params.append('centre', filters.centre);
-            if (filters.class) params.append('class', filters.class);
-            if (filters.status) params.append('status', filters.status);
-            if (filters.session) params.append('session', filters.session);
+            if (filters.zone?.length > 0) params.append('zone', filters.zone.join(','));
+            if (filters.centre?.length > 0) params.append('centre', filters.centre.join(','));
+            if (filters.class?.length > 0) params.append('class', filters.class.join(','));
+            if (filters.status?.length > 0) params.append('status', filters.status.join(','));
+            if (filters.session?.length > 0) params.append('session', filters.session.join(','));
+            if (filters.course?.length > 0) params.append('course', filters.course.join(','));
 
             const res = await fetch(`${import.meta.env.VITE_API_URL}/pmo/list?${params.toString()}`, {
                 headers: getHeaders()
@@ -281,13 +462,35 @@ const PMOAllStudentsContent = () => {
         fetchStudents();
     };
 
-    // Filter available centres based on selected zone
-    const availableCentres = filters.zone
+    // Filter available centres based on selected zones
+    const availableCentres = filters.zone && filters.zone.length > 0
         ? dbCentres.filter(c => {
-            const z = dbZones.find(zone => zone._id === filters.zone);
-            return (z?.centres || []).some(zC => (zC._id || zC).toString() === c._id.toString());
+            const matchedZones = dbZones.filter(z => filters.zone.includes(z._id));
+            return matchedZones.some(z => (z.centres || []).some(zC => (zC._id || zC).toString() === c._id.toString()));
         })
         : dbCentres;
+
+    const hasActiveFilters = Boolean(
+        searchQuery.trim() ||
+        filters.zone?.length > 0 ||
+        filters.centre?.length > 0 ||
+        filters.class?.length > 0 ||
+        filters.status?.length > 0 ||
+        filters.session?.length > 0 ||
+        filters.course?.length > 0
+    );
+
+    const handleResetFilters = () => {
+        setSearchQuery('');
+        setFilters({
+            zone: [],
+            centre: [],
+            class: [],
+            status: [],
+            session: [],
+            course: [],
+        });
+    };
 
     // Sorting
     const handleSort = (key) => {
@@ -575,61 +778,111 @@ const PMOAllStudentsContent = () => {
             </div>
 
             {/* Filter & Search Bar */}
-            <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 backdrop-blur-sm space-y-3">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-3 text-xs">
+            <div className="bg-gray-900/60 border border-gray-800 rounded-2xl p-4 backdrop-blur-sm shadow-lg relative z-10" style={{ overflow: 'visible' }}>
+                <div className="flex flex-wrap items-center gap-2.5 text-xs" style={{ overflow: 'visible' }}>
                     {/* Search */}
-                    <form onSubmit={handleSearch} className="md:col-span-2 relative">
+                    <form onSubmit={handleSearch} className="relative min-w-[200px] flex-1 max-w-xs">
                         <input
                             type="text"
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             placeholder="Search Name, Mobile, Roll No..."
-                            className="w-full bg-gray-950 border border-gray-800 rounded-xl pl-9 pr-4 py-2 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-purple-500 transition"
+                            className="w-full h-9 bg-gray-950/80 border border-gray-800 rounded-xl pl-9 pr-7 text-xs text-gray-200 placeholder-gray-500 focus:outline-none focus:border-purple-500 transition"
                         />
-                        <FaSearch className="absolute left-3 top-2.5 text-gray-600 text-xs" />
+                        <FaSearch className="absolute left-3 top-2.5 text-gray-500 text-xs" />
+                        {searchQuery && (
+                            <button
+                                type="button"
+                                onClick={() => setSearchQuery('')}
+                                className="absolute right-2.5 top-2.5 text-gray-500 hover:text-gray-300 text-xs cursor-pointer"
+                            >
+                                <FaTimes />
+                            </button>
+                        )}
                     </form>
 
-                    {/* Zone Filter */}
-                    <select
-                        value={filters.zone}
-                        onChange={(e) => setFilters(prev => ({ ...prev, zone: e.target.value, centre: '' }))}
-                        className="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-300 focus:outline-none focus:border-purple-500 transition"
-                    >
-                        <option value="">All Zones</option>
-                        {dbZones.map(z => <option key={z._id} value={z._id}>{z.name}</option>)}
-                    </select>
+                    {/* Zone MultiSelect */}
+                    <PMOMultiSelect
+                        label="Zone"
+                        placeholder="All Zones"
+                        options={dbZones.map(z => ({ value: z._id, label: z.name }))}
+                        selectedValues={filters.zone}
+                        onChange={(vals) => setFilters(prev => ({
+                            ...prev,
+                            zone: vals,
+                            centre: vals.length > 0
+                                ? prev.centre.filter(cId => {
+                                    const matchingCentres = dbCentres.filter(c => {
+                                        const matchingZones = dbZones.filter(z => vals.includes(z._id));
+                                        return matchingZones.some(z => (z.centres || []).some(zC => (zC._id || zC).toString() === c._id.toString()));
+                                    });
+                                    return matchingCentres.some(c => c._id.toString() === cId.toString());
+                                })
+                                : prev.centre
+                        }))}
+                    />
 
-                    {/* Centre Filter */}
-                    <select
-                        value={filters.centre}
-                        onChange={(e) => setFilters(prev => ({ ...prev, centre: e.target.value }))}
-                        className="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-300 focus:outline-none focus:border-purple-500 transition"
-                    >
-                        <option value="">All Centres</option>
-                        {availableCentres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
-                    </select>
+                    {/* Centre MultiSelect */}
+                    <PMOMultiSelect
+                        label="Centre"
+                        placeholder="All Centres"
+                        options={availableCentres.map(c => ({ value: c._id, label: `${c.centreName} (${c.enterCode || c.centreCode || ''})` }))}
+                        selectedValues={filters.centre}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, centre: vals }))}
+                    />
 
-                    {/* Class Filter */}
-                    <select
-                        value={filters.class}
-                        onChange={(e) => setFilters(prev => ({ ...prev, class: e.target.value }))}
-                        className="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-300 focus:outline-none focus:border-purple-500 transition"
-                    >
-                        <option value="">All Classes</option>
-                        {dbClasses.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                    </select>
+                    {/* Class MultiSelect */}
+                    <PMOMultiSelect
+                        label="Class"
+                        placeholder="All Classes"
+                        options={dbClasses.map(c => ({ value: c._id, label: c.name }))}
+                        selectedValues={filters.class}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, class: vals }))}
+                    />
 
-                    {/* Status Filter */}
-                    <select
-                        value={filters.status}
-                        onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-                        className="bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-300 focus:outline-none focus:border-purple-500 transition"
-                    >
-                        <option value="">All Statuses</option>
-                        <option value="Appeared">Appeared</option>
-                        <option value="Qualified">Qualified</option>
-                        <option value="Not Qualified">Not Qualified</option>
-                    </select>
+                    {/* Course MultiSelect */}
+                    <PMOMultiSelect
+                        label="Course"
+                        placeholder="All Courses"
+                        options={courses.map(c => ({ value: c, label: c }))}
+                        selectedValues={filters.course}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, course: vals }))}
+                    />
+
+                    {/* Status MultiSelect */}
+                    <PMOMultiSelect
+                        label="Status"
+                        placeholder="All Statuses"
+                        options={[
+                            { value: 'Appeared', label: 'Appeared' },
+                            { value: 'Qualified', label: 'Qualified' },
+                            { value: 'Not Qualified', label: 'Not Qualified' }
+                        ]}
+                        selectedValues={filters.status}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, status: vals }))}
+                    />
+
+                    {/* Session MultiSelect */}
+                    {dbSessions.length > 0 && (
+                        <PMOMultiSelect
+                            label="Session"
+                            placeholder="All Sessions"
+                            options={dbSessions.map(s => ({ value: s._id, label: s.sessionName || s.name }))}
+                            selectedValues={filters.session}
+                            onChange={(vals) => setFilters(prev => ({ ...prev, session: vals }))}
+                        />
+                    )}
+
+                    {/* Clear Filters Button */}
+                    {hasActiveFilters && (
+                        <button
+                            type="button"
+                            onClick={handleResetFilters}
+                            className="h-9 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 text-xs font-semibold rounded-xl transition flex items-center gap-1.5 cursor-pointer ml-auto"
+                        >
+                            <FaTimes size={11} /> Clear All
+                        </button>
+                    )}
                 </div>
             </div>
 
@@ -994,7 +1247,6 @@ const PMOAllStudentsContent = () => {
                                         <option value="UPI">📱 UPI</option>
                                         <option value="CARD">💳 Card</option>
                                         <option value="BANK_TRANSFER">🏦 Bank Transfer</option>
-                                        <option value="CHEQUE">📝 Cheque</option>
                                     </select>
                                 </div>
 
@@ -1151,13 +1403,15 @@ const PMOAllStudentsContent = () => {
 
                                 <div>
                                     <label className="block text-gray-400 mb-1 font-medium">Course</label>
-                                    <input
-                                        type="text"
+                                    <select
                                         name="course"
                                         value={editForm.course}
                                         onChange={handleEditChange}
                                         className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-purple-300 font-bold focus:outline-none focus:border-purple-500"
-                                    />
+                                    >
+                                        <option value="">Select Course</option>
+                                        {courses.map(c => <option key={c} value={c}>{c}</option>)}
+                                    </select>
                                 </div>
 
                                 <div>

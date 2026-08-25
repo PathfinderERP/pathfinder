@@ -330,28 +330,40 @@ export const createPMOStudent = async (req, res) => {
 // Get all PMO Students with filtering and search
 export const getPMOStudents = async (req, res) => {
     try {
-        const { search, centre, class: classId, session, examTag, status, zone } = req.query;
+        const { search, centre, class: classId, session, examTag, status, zone, course, board } = req.query;
         const query = {};
+
+        const parseList = (val) => {
+            if (!val) return [];
+            if (Array.isArray(val)) return val.map(v => String(v).trim()).filter(Boolean);
+            return String(val).split(',').map(v => v.trim()).filter(Boolean);
+        };
 
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
         let assignedCentres = null;
         if (!isSuperAdmin) {
-            assignedCentres = (req.user.centres || []).map(c => c.toString());
+            assignedCentres = (req.user.centres || []).map(c => (c._id || c).toString());
         }
 
-        if (zone) {
-            const zoneDoc = await Zone.findById(zone).select("centres").lean();
-            const zoneCentres = (zoneDoc?.centres || []).map(c => c.toString());
-            if (centre) {
-                if (zoneCentres.includes(centre.toString())) {
-                    if (assignedCentres) {
-                        query.centre = assignedCentres.includes(centre.toString()) ? centre : { $in: [] };
-                    } else {
-                        query.centre = centre;
-                    }
-                } else {
-                    query.centre = { $in: [] };
+        const zoneIds = parseList(zone);
+        const centreIds = parseList(centre);
+
+        if (zoneIds.length > 0) {
+            const zones = await Zone.find({ _id: { $in: zoneIds } }).select("centres").lean();
+            let zoneCentres = [];
+            zones.forEach(z => {
+                (z.centres || []).forEach(c => {
+                    const cStr = (c._id || c).toString();
+                    if (!zoneCentres.includes(cStr)) zoneCentres.push(cStr);
+                });
+            });
+
+            if (centreIds.length > 0) {
+                let validCentres = centreIds.filter(c => zoneCentres.includes(c));
+                if (assignedCentres) {
+                    validCentres = validCentres.filter(c => assignedCentres.includes(c));
                 }
+                query.centre = { $in: validCentres };
             } else {
                 let targetCentres = zoneCentres;
                 if (assignedCentres) {
@@ -359,12 +371,12 @@ export const getPMOStudents = async (req, res) => {
                 }
                 query.centre = { $in: targetCentres };
             }
-        } else if (centre) {
+        } else if (centreIds.length > 0) {
+            let validCentres = centreIds;
             if (assignedCentres) {
-                query.centre = assignedCentres.includes(centre.toString()) ? centre : { $in: assignedCentres };
-            } else {
-                query.centre = centre;
+                validCentres = validCentres.filter(c => assignedCentres.includes(c));
             }
+            query.centre = { $in: validCentres };
         } else if (assignedCentres) {
             query.centre = { $in: assignedCentres };
         }
@@ -379,11 +391,30 @@ export const getPMOStudents = async (req, res) => {
             ];
         }
 
-        if (classId) query.class = classId;
-        if (session) query.session = session;
-        if (examTag) query.examTag = examTag;
-        if (req.query.board) query.board = req.query.board;
-        if (status) query.status = status;
+        const classIds = parseList(classId);
+        if (classIds.length > 0) query.class = { $in: classIds };
+
+        const sessionIds = parseList(session);
+        if (sessionIds.length > 0) query.session = { $in: sessionIds };
+
+        const examTagIds = parseList(examTag);
+        if (examTagIds.length > 0) query.examTag = { $in: examTagIds };
+
+        const boardIds = parseList(board);
+        if (boardIds.length > 0) query.board = { $in: boardIds };
+
+        const statusList = parseList(status);
+        if (statusList.length > 0) query.status = { $in: statusList };
+
+        const courseList = parseList(course);
+        if (courseList.length > 0) {
+            const courseRegexes = courseList.map(c => {
+                const clean = c.replace(/[^a-zA-Z0-9]/g, '');
+                return new RegExp(clean.replace('PMO', 'PMO[-\\s]*'), 'i');
+            });
+            query.$and = query.$and || [];
+            query.$and.push({ $or: courseRegexes.map(rx => ({ course: { $regex: rx } })) });
+        }
 
         const students = await PMOStudent.find(query)
             .populate('class')
