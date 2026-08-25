@@ -78,34 +78,76 @@ const BoardCourseAdmissionPage = () => {
 
     useEffect(() => {
         const fetchAdmittedByOptions = async () => {
-            const centreName = student?.studentsDetails?.[0]?.centre || counselData?.centre;
-            if (!centreName) return;
+            const rawCentre = student?.studentsDetails?.[0]?.centre || counselData?.centre || student?.centre || student?.examSchema?.[0]?.centre;
+            let targetCentreName = "";
+            let targetCentreId = "";
+
+            if (typeof rawCentre === 'object' && rawCentre !== null) {
+                targetCentreName = rawCentre.centreName || rawCentre.name || "";
+                targetCentreId = rawCentre._id ? String(rawCentre._id) : "";
+            } else if (typeof rawCentre === 'string') {
+                targetCentreName = rawCentre.trim();
+                if (targetCentreName.match(/^[0-9a-fA-F]{24}$/)) {
+                    targetCentreId = targetCentreName;
+                }
+            }
+
+            if (!targetCentreName && !targetCentreId) return;
+
             try {
                 const token = localStorage.getItem("token");
-                const res = await fetch(`${apiUrl}/superAdmin/getAllUsers`, {
-                    headers: { "Authorization": `Bearer ${token}` }
-                });
-                if (res.ok) {
-                    const data = await res.json();
+                const [usersRes, centresRes] = await Promise.all([
+                    fetch(`${apiUrl}/superAdmin/getAllUsers`, {
+                        headers: { "Authorization": `Bearer ${token}` }
+                    }),
+                    fetch(`${apiUrl}/centre`, {
+                        headers: { "Authorization": `Bearer ${token}` }
+                    })
+                ]);
+
+                if (usersRes.ok) {
+                    const data = await usersRes.json();
+                    const centresData = centresRes.ok ? await centresRes.json() : [];
+                    const allCentres = Array.isArray(centresData) ? centresData : (centresData.centres || []);
+
+                    // Resolve centre ID and name against master centres
+                    if (targetCentreId && (!targetCentreName || targetCentreName === targetCentreId)) {
+                        const matchedC = allCentres.find(c => String(c._id) === String(targetCentreId));
+                        if (matchedC) targetCentreName = matchedC.centreName || matchedC.enterCode || "";
+                    } else if (targetCentreName && !targetCentreId) {
+                        const matchedC = allCentres.find(c => (c.centreName || "").trim().toLowerCase() === targetCentreName.toLowerCase());
+                        if (matchedC) targetCentreId = String(matchedC._id);
+                    }
+
                     if (data.users) {
                         const userList = Array.isArray(data.users) ? data.users : [];
-                        const loggedUser = JSON.parse(localStorage.getItem("user") || "{}");
-                        const isAreaManager = (loggedUser.role || "").toLowerCase().replace(/[\s\-_]+/g, "") === "areamanager";
-                        const areaManagerAllowedRoles = [
-                            "counsellor", "telecaller", "centralizedtelecaller", "zonalmanager", "zonalhead",
-                            "assistantzonalmanager", "centerincharge", "centreincharge", "assistantcenterincharge",
-                            "areamanager", "marketing"
+                        const allowedRoles = [
+                            "zonalmanager", "zonalhead", "areamanager", "assistantzonalmanager",
+                            "centerincharge", "centreincharge", "assistantcenterincharge", "assistantcentreincharge",
+                            "telecaller", "centralizedtelecaller", "counsellor", "marketing"
                         ];
+
+                        const cleanTargetName = targetCentreName.toLowerCase().trim();
+
                         const filtered = userList.filter(u => {
                             if (u.isActive === false) return false;
-                            const matchesCentre = (u.centres || []).some(c => c && c.centreName && c.centreName.toLowerCase() === centreName.toLowerCase());
-                            if (!matchesCentre) return false;
+
                             const uRoleClean = (u.role || "").toLowerCase().replace(/[\s\-_]+/g, "");
-                            if (isAreaManager) {
-                                return areaManagerAllowedRoles.includes(uRoleClean);
-                            }
-                            return !["teacher", "accounts", "hr", "coordinator", "class_coordinator", "hod"].includes((u.role || "").toLowerCase());
+                            if (!allowedRoles.includes(uRoleClean)) return false;
+
+                            const matchesCentre = (u.centres || []).some(c => {
+                                if (!c) return false;
+                                const cId = (typeof c === 'object' ? (c._id || '') : String(c)).toString();
+                                const cName = (typeof c === 'object' ? (c.centreName || c.name || '') : String(c)).trim().toLowerCase();
+
+                                if (targetCentreId && cId === targetCentreId) return true;
+                                if (cleanTargetName && cName && (cName === cleanTargetName || cName.includes(cleanTargetName) || cleanTargetName.includes(cName))) return true;
+                                return false;
+                            });
+
+                            return matchesCentre;
                         });
+
                         setAdmittedByOptions(filtered);
                     }
                 }
@@ -492,7 +534,8 @@ const BoardCourseAdmissionPage = () => {
                     examTag: selectedExamTag,
                     centre: counselData?.centre || student?.studentsDetails?.[0]?.centre,
                     department: selectedDepartment,
-                    admittedBy: selectedAdmittedBy || undefined
+                    admittedBy: selectedAdmittedBy || undefined,
+                    admissionNumber: student?.admissionNumber || student?.studentsDetails?.[0]?.rollNo || student?.studentsDetails?.[0]?.admissionNumber || location?.state?.rollNo || undefined
                 })
             });
 

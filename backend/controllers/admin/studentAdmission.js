@@ -10,7 +10,42 @@ export const getStudentById = async (req, res) => {
       return res.status(400).json({ message: "Invalid student ID format" });
     }
 
-    const student = await Student.findById(studentId).lean();
+    let student = await Student.findById(studentId).lean();
+
+    if (!student) {
+      const [PNTSEStudent, PMOStudent] = await Promise.all([
+        import("../../models/PNTSEStudent.js").then(m => m.default),
+        import("../../models/PMOStudent.js").then(m => m.default)
+      ]);
+      const [pntse, pmo] = await Promise.all([
+        PNTSEStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean(),
+        PMOStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean()
+      ]);
+      const doc = pntse || pmo;
+      if (doc) {
+        student = {
+          _id: doc._id,
+          studentsDetails: [{
+            studentName: doc.name,
+            mobileNum: doc.mobile,
+            whatsappNumber: doc.secondaryMobile || doc.mobile,
+            studentEmail: doc.email || "",
+            centre: doc.centre?.centreName || (typeof doc.centre === 'string' ? doc.centre : ""),
+            class: doc.class?.name || (typeof doc.class === 'string' ? doc.class : ""),
+            gender: doc.gender || "",
+            dob: doc.dob || "",
+            address: doc.address || "",
+            state: doc.state || "",
+            city: doc.city || "",
+            pincode: doc.pincode || ""
+          }],
+          examSchema: [{
+            class: doc.class?.name || ""
+          }],
+          carryForwardBalance: 0
+        };
+      }
+    }
 
     if (!student) {
       return res.status(404).json({ message: "Student not found" });

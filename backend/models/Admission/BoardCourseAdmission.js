@@ -204,14 +204,23 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
 boardCourseAdmissionSchema.pre('save', async function () {
     if (!this.admissionNumber) {
         try {
-            // Check if this student ALREADY has an admission number in ANY admission record (Normal or Board)
+            // Check if this student ALREADY has an admission number in ANY admission record (Normal, Board, PNTSE, PMO, or Student profile)
             const Admission = mongoose.model("Admission");
-            const [existingNormal, existingBoard] = await Promise.all([
-                Admission.findOne({ student: this.studentId, admissionNumber: { $exists: true, $ne: null } }).lean(),
-                this.constructor.findOne({ studentId: this.studentId, admissionNumber: { $exists: true, $ne: null } }).lean()
+            const targetId = this.studentId;
+
+            const [existingNormal, existingBoard, existingPntse, existingPmo, studentDoc] = await Promise.all([
+                Admission.findOne({ student: targetId, admissionNumber: { $exists: true, $ne: null, $ne: "" } }).lean(),
+                this.constructor.findOne({ studentId: targetId, admissionNumber: { $exists: true, $ne: null, $ne: "" } }).lean(),
+                mongoose.model("PNTSEStudent").findOne({ $or: [{ studentId: targetId }, { _id: targetId }], rollNo: { $exists: true, $ne: null, $ne: "" } }).lean().catch(() => null),
+                mongoose.model("PMOStudent").findOne({ $or: [{ studentId: targetId }, { _id: targetId }], rollNo: { $exists: true, $ne: null, $ne: "" } }).lean().catch(() => null),
+                mongoose.model("Student").findById(targetId).lean().catch(() => null)
             ]);
 
-            const sharedId = (existingNormal && existingNormal.admissionNumber) || (existingBoard && existingBoard.admissionNumber);
+            const sharedId = (existingNormal && existingNormal.admissionNumber) ||
+                             (existingBoard && existingBoard.admissionNumber) ||
+                             (existingPntse && existingPntse.rollNo) ||
+                             (existingPmo && existingPmo.rollNo) ||
+                             (studentDoc && (studentDoc.admissionNumber || studentDoc.studentsDetails?.[0]?.rollNo || studentDoc.studentsDetails?.[0]?.admissionNumber));
 
             if (sharedId) {
                 this.admissionNumber = sharedId;

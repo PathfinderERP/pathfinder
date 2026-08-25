@@ -691,6 +691,7 @@ const StudentAdmissionPage = () => {
                     selectedSubjectIds,
                     billingMonth,
                     ...currentFormData,
+                    admissionNumber: student?.admissionNumber || student?.studentsDetails?.[0]?.rollNo || student?.studentsDetails?.[0]?.admissionNumber || location?.state?.rollNo || undefined,
                     // For Board courses, set numberOfInstallments to course duration - 1 (since DP covers Month 1)
                     numberOfInstallments: admissionType === "BOARD" ? Math.max(1, feeBreakdown.courseDurationMonths - 1) : formData.numberOfInstallments
                 })

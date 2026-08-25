@@ -105,7 +105,49 @@ export const createBoardAdmission = async (req, res) => {
             return res.status(400).json({ message: "A valid Student ID is required for admission" });
         }
 
-        const student = await Students.findById(studentId).populate('batches');
+        let student = await Students.findById(studentId).populate('batches');
+        if (!student) {
+            const [PNTSEStudent, PMOStudent] = await Promise.all([
+                import("../../models/PNTSEStudent.js").then(m => m.default),
+                import("../../models/PMOStudent.js").then(m => m.default)
+            ]);
+            const [pntse, pmo] = await Promise.all([
+                PNTSEStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean(),
+                PMOStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean()
+            ]);
+            const doc = pntse || pmo;
+            if (doc) {
+                if (doc.studentId && mongoose.Types.ObjectId.isValid(doc.studentId)) {
+                    student = await Students.findById(doc.studentId).populate('batches');
+                    if (student) studentId = student._id;
+                }
+                if (!student) {
+                    const newStudent = new Students({
+                        _id: mongoose.Types.ObjectId.isValid(studentId) ? studentId : new mongoose.Types.ObjectId(),
+                        studentsDetails: [{
+                            studentName: doc.name,
+                            mobileNum: doc.mobile,
+                            whatsappNumber: doc.secondaryMobile || doc.mobile,
+                            studentEmail: doc.email || "",
+                            centre: doc.centre?.centreName || (typeof doc.centre === 'string' ? doc.centre : centre || ""),
+                            programme: programme || "CRP",
+                            lastClass: lastClass || doc.class?.name || (typeof doc.class === 'string' ? doc.class : "")
+                        }],
+                        status: 'Active',
+                        isEnrolled: true
+                    });
+                    student = await newStudent.save();
+                    studentId = student._id;
+
+                    if (pntse) {
+                        await PNTSEStudent.findByIdAndUpdate(doc._id, { studentId: student._id });
+                    } else if (pmo) {
+                        await PMOStudent.findByIdAndUpdate(doc._id, { studentId: student._id });
+                    }
+                }
+            }
+        }
+
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
         }
@@ -336,6 +378,11 @@ export const createBoardAdmission = async (req, res) => {
             department
         });
 
+        const existingEnrollNo = req.body.admissionNumber || req.body.rollNo || (student && (student.admissionNumber || student.studentsDetails?.[0]?.rollNo || student.studentsDetails?.[0]?.admissionNumber));
+        if (existingEnrollNo) {
+            newAdmission.admissionNumber = existingEnrollNo;
+        }
+
         await newAdmission.save();
 
         // --- Create Unified Payment Record for Admission/Initial Payment + Exam Fee ---
@@ -395,6 +442,15 @@ export const createBoardAdmission = async (req, res) => {
             updatedByUserId: req.user?._id,
             department
         };
+
+        if (newAdmission.admissionNumber) {
+            studentUpdatePayload.admissionNumber = newAdmission.admissionNumber;
+            if (student.studentsDetails && student.studentsDetails[0]) {
+                student.studentsDetails[0].rollNo = newAdmission.admissionNumber;
+                student.studentsDetails[0].admissionNumber = newAdmission.admissionNumber;
+                studentUpdatePayload.studentsDetails = student.studentsDetails;
+            }
+        }
 
         if (examTagName) {
             studentUpdatePayload.sessionExamCourse = [{

@@ -76,7 +76,46 @@ export const createAdmission = async (req, res) => {
         }
 
         // Fetch student details for carry forward balance
-        const student = await Student.findById(studentId).populate('batches');
+        let student = await Student.findById(studentId).populate('batches');
+        if (!student) {
+            const [PNTSEStudent, PMOStudent] = await Promise.all([
+                import("../../models/PNTSEStudent.js").then(m => m.default),
+                import("../../models/PMOStudent.js").then(m => m.default)
+            ]);
+            const [pntse, pmo] = await Promise.all([
+                PNTSEStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean(),
+                PMOStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean()
+            ]);
+            const doc = pntse || pmo;
+            if (doc) {
+                if (doc.studentId && mongoose.Types.ObjectId.isValid(doc.studentId)) {
+                    student = await Student.findById(doc.studentId).populate('batches');
+                }
+                if (!student) {
+                    const newStudent = new Student({
+                        _id: mongoose.Types.ObjectId.isValid(studentId) ? studentId : new mongoose.Types.ObjectId(),
+                        studentsDetails: [{
+                            studentName: doc.name,
+                            mobileNum: doc.mobile,
+                            whatsappNumber: doc.secondaryMobile || doc.mobile,
+                            studentEmail: doc.email || "",
+                            centre: doc.centre?.centreName || (typeof doc.centre === 'string' ? doc.centre : centre || ""),
+                            programme: programme || "CRP"
+                        }],
+                        status: 'Active',
+                        isEnrolled: true
+                    });
+                    student = await newStudent.save();
+
+                    if (pntse) {
+                        await PNTSEStudent.findByIdAndUpdate(doc._id, { studentId: student._id });
+                    } else if (pmo) {
+                        await PMOStudent.findByIdAndUpdate(doc._id, { studentId: student._id });
+                    }
+                }
+            }
+        }
+
         if (!student) {
             return res.status(404).json({ message: "Student not found" });
         }
@@ -328,8 +367,13 @@ export const createAdmission = async (req, res) => {
         }
 
         // Check for existing admission to reuse Admission Number
-        const existingAdmission = await Admission.findOne({ student: studentId }).sort({ createdAt: -1 });
-        const admissionNumber = existingAdmission ? existingAdmission.admissionNumber : undefined;
+        const existingEnrollNo = req.body.admissionNumber || req.body.rollNo || (student && (student.admissionNumber || student.studentsDetails?.[0]?.rollNo || student.studentsDetails?.[0]?.admissionNumber));
+        let admissionNumber = existingEnrollNo;
+        if (!admissionNumber) {
+            const existingAdmission = await Admission.findOne({ student: studentId }).sort({ createdAt: -1 });
+            admissionNumber = existingAdmission ? existingAdmission.admissionNumber : undefined;
+        }
+
         // Initialize monthly subject history for Board admissions
         const monthlyHistory = [];
         if (admissionType === "BOARD" && durationMonths > 0) {
@@ -389,8 +433,8 @@ export const createAdmission = async (req, res) => {
             downPaymentMethod: paymentMethod,
             downPaymentTransactionId: transactionId,
             downPaymentBankName: bankName,
-            downPaymentAccountHolderName: accountHolderName,
-            downPaymentChequeDate: chequeDate,
+            accountHolderName: accountHolderName,
+            chequeDate: chequeDate,
             downPaymentBankAccount: (bankAccount && bankAccount !== "") ? bankAccount : undefined
         });
 
@@ -409,8 +453,17 @@ export const createAdmission = async (req, res) => {
             carryForwardBalance: 0,
             updatedBy: req.user?.name || "System",
             updatedByUserId: req.user?._id,
-            department: departmentId
+            department: departmentId || student.department
         };
+
+        if (admission.admissionNumber) {
+            studentUpdatePayload.admissionNumber = admission.admissionNumber;
+            if (student.studentsDetails && student.studentsDetails[0]) {
+                student.studentsDetails[0].rollNo = admission.admissionNumber;
+                student.studentsDetails[0].admissionNumber = admission.admissionNumber;
+                studentUpdatePayload.studentsDetails = student.studentsDetails;
+            }
+        }
 
         if (batchId) {
             studentUpdatePayload.batches = [batchId];

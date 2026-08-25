@@ -310,7 +310,8 @@ const CarryForward = () => {
 
     const handleEnrollNewCourse = () => {
         if (selectedStudent) {
-            navigate(`/admission/${selectedStudent._id}`);
+            const existingRollNo = studentAdmissions?.[0]?.admissionNumber || selectedStudent.admissionNumber || selectedStudent.rollNo || '';
+            navigate(`/admission/${selectedStudent._id}`, { state: { student: selectedStudent, rollNo: existingRollNo } });
         }
     };
 
@@ -775,14 +776,20 @@ const CarryForward = () => {
                                     </div>
                                     <div className="flex flex-wrap gap-3">
                                         <button
-                                            onClick={() => navigate(`/admission/${searchedStudent._id}`)}
+                                            onClick={() => {
+                                                const existingRollNo = searchedStudentAdmissions?.[0]?.admissionNumber || searchedStudent?.admissionNumber || searchedStudent?.rollNo || '';
+                                                navigate(`/admission/${searchedStudent._id}`, { state: { student: searchedStudent, rollNo: existingRollNo } });
+                                            }}
                                             className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-emerald-500/20 flex items-center gap-2 cursor-pointer"
                                             title="Enroll in a Normal Course"
                                         >
                                             Enroll Normal Course <FaArrowRight />
                                         </button>
                                         <button
-                                            onClick={() => navigate(`/board-course-admission/${searchedStudent._id}`)}
+                                            onClick={() => {
+                                                const existingRollNo = searchedStudentAdmissions?.[0]?.admissionNumber || searchedStudent?.admissionNumber || searchedStudent?.rollNo || '';
+                                                navigate(`/board-course-admission/${searchedStudent._id}`, { state: { student: searchedStudent, rollNo: existingRollNo } });
+                                            }}
                                             className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-purple-500/20 flex items-center gap-2 cursor-pointer"
                                             title="Enroll in a Board Course"
                                         >
@@ -794,6 +801,13 @@ const CarryForward = () => {
                                             title="Carry Forward to PNTSE Course"
                                         >
                                             Carry Forward PNTSE <FaArrowRight />
+                                        </button>
+                                        <button
+                                            onClick={() => navigate(`/pmo/add-student`, { state: { student: searchedStudent, rollNo: searchedStudentAdmissions?.[0]?.admissionNumber || '' } })}
+                                            className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md shadow-indigo-500/20 flex items-center gap-2 cursor-pointer"
+                                            title="Carry Forward to PMO Course"
+                                        >
+                                            Carry Forward PMO <FaArrowRight />
                                         </button>
                                     </div>
                                 </div>
