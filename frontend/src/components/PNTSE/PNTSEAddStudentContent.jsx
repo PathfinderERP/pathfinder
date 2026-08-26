@@ -292,7 +292,7 @@ const PNTSEAddStudentContent = () => {
         if (!form.session) errs.session = 'Session is required';
         if (!form.examTag) errs.examTag = 'Exam Tag is required';
         if (!form.course) errs.course = 'Course is required';
-        if (!form.gender) errs.gender = 'Gender is required';
+        if (!form.school || !form.school.trim()) errs.school = 'School Name is required';
         // Payment panel validations
         if (form.paymentType === 'paid') {
             if (!paymentForm.receivedDate) errs.receivedDate = 'Received date is required';
@@ -530,13 +530,12 @@ const PNTSEAddStudentContent = () => {
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Gender <span className="text-red-400">*</span></label>
+                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Gender</label>
                                     <select name="gender" value={form.gender} onChange={handleChange}
-                                        className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 focus:outline-none focus:ring-1 transition-all cursor-pointer ${errors.gender ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`}>
+                                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer">
                                         <option value="">Select Gender</option>
                                         {genders.map(g => <option key={g} value={g}>{g}</option>)}
                                     </select>
-                                    {errors.gender && <p className="text-xs text-red-400 mt-0.5">{errors.gender}</p>}
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">
@@ -657,9 +656,10 @@ const PNTSEAddStudentContent = () => {
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">
-                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">School Name</label>
+                                    <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">School Name <span className="text-red-400">*</span></label>
                                     <input type="text" name="school" value={form.school} onChange={handleChange} placeholder="Name of school"
-                                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all" />
+                                        className={`px-4 py-2.5 bg-gray-800 border rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-1 transition-all ${errors.school ? 'border-red-500 focus:ring-red-500/30' : 'border-gray-700 focus:border-cyan-500 focus:ring-cyan-500/30'}`} />
+                                    {errors.school && <p className="text-xs text-red-400 mt-0.5">{errors.school}</p>}
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">

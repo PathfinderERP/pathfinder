@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { FaSearch, FaDownload, FaFileImport, FaFileExcel,
     FaGraduationCap, FaUsers, FaTrophy, FaChartLine, FaSortUp, FaSortDown,
     FaSpinner, FaTimes, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaFileInvoice,
-    FaEdit, FaTrash, FaEye, FaBookOpen, FaChalkboardTeacher, FaSchool, FaPlus
+    FaEdit, FaTrash, FaEye, FaBookOpen, FaChalkboardTeacher, FaSchool, FaPlus, FaMoneyBillWave
 } from 'react-icons/fa';
 import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
@@ -621,6 +621,8 @@ const PNTSEAllStudentsContent = () => {
         };
     });
 
+    const totalCollections = students.reduce((acc, s) => acc + (Number(s.amountPaid) || 0), 0);
+
     const stats = [
         { 
             label: 'Total Students', 
@@ -628,6 +630,13 @@ const PNTSEAllStudentsContent = () => {
             icon: <FaUsers />, 
             color: 'from-blue-500 to-cyan-500', 
             bg: 'bg-blue-500/10'
+        },
+        {
+            label: 'Total Collection',
+            value: `₹${totalCollections.toLocaleString('en-IN')}`,
+            icon: <FaMoneyBillWave />,
+            color: 'from-emerald-400 to-green-500',
+            bg: 'bg-emerald-500/10'
         },
         ...classStats
     ];
@@ -702,7 +711,7 @@ const PNTSEAllStudentsContent = () => {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-7 gap-4 mb-8">
                 {stats.map((stat, i) => (
                     <div key={i} className="bg-gray-900 border border-gray-800 rounded-2xl p-5 hover:border-gray-700 transition-all duration-200 flex flex-col justify-between">
                         <div>

@@ -457,6 +457,7 @@ const PMOAddStudentContent = () => {
         if (!form.session) errs.session = 'Session is required';
         if (!form.examTag) errs.examTag = 'Exam Tag is required';
         if (!form.course) errs.course = 'Course is required';
+        if (!form.school || !form.school.trim()) errs.school = 'School Name is required';
 
         if (netPayable > 0) {
             if (!paymentForm.receivedDate) errs.receivedDate = 'Received date is required';
@@ -873,7 +874,7 @@ const PMOAddStudentContent = () => {
                         </div>
 
                         <div>
-                            <label className="block text-gray-400 mb-1.5 font-medium">School Name</label>
+                            <label className="block text-gray-400 mb-1.5 font-medium">School Name <span className="text-rose-500">*</span></label>
                             <input
                                 type="text"
                                 name="school"
@@ -882,6 +883,7 @@ const PMOAddStudentContent = () => {
                                 placeholder="Current School"
                                 className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-2.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-purple-500 transition"
                             />
+                            {errors.school && <p className="text-rose-400 text-[11px] mt-1">{errors.school}</p>}
                         </div>
 
                         <div>
