@@ -60,10 +60,16 @@ export const addOrUpdateActivity = async (req, res) => {
         }
 
         const isSuperAdmin = Array.isArray(req.user.role) 
-            ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
-            : req.user.role === "superAdmin" || req.user.role === "superadmin";
+            ? req.user.role.some(r => typeof r === "string" && (r.toLowerCase() === "superadmin" || r.toLowerCase() === "super admin"))
+            : typeof req.user.role === "string" && (req.user.role.toLowerCase() === "superadmin" || req.user.role.toLowerCase() === "super admin");
 
-        if (!isSuperAdmin) {
+        const isHR = Array.isArray(req.user.role)
+            ? req.user.role.some(r => typeof r === "string" && r.toLowerCase() === "hr")
+            : typeof req.user.role === "string" && req.user.role.toLowerCase() === "hr";
+
+        const isSuperAdminOrHR = isSuperAdmin || isHR;
+
+        if (!isSuperAdminOrHR) {
             const currentMidnight = getMidnightIST();
             const inputMidnight = getMidnightIST(date);
             if (currentMidnight.getTime() !== inputMidnight.getTime()) {
@@ -580,10 +586,16 @@ export const updateActivity = async (req, res) => {
         }
 
         const isSuperAdmin = Array.isArray(req.user.role) 
-            ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
-            : req.user.role === "superAdmin" || req.user.role === "superadmin";
+            ? req.user.role.some(r => typeof r === "string" && (r.toLowerCase() === "superadmin" || r.toLowerCase() === "super admin"))
+            : typeof req.user.role === "string" && (req.user.role.toLowerCase() === "superadmin" || req.user.role.toLowerCase() === "super admin");
 
-        if (!isSuperAdmin) {
+        const isHR = Array.isArray(req.user.role)
+            ? req.user.role.some(r => typeof r === "string" && r.toLowerCase() === "hr")
+            : typeof req.user.role === "string" && req.user.role.toLowerCase() === "hr";
+
+        const isSuperAdminOrHR = isSuperAdmin || isHR;
+
+        if (!isSuperAdminOrHR) {
             const currentMidnight = getMidnightIST();
             const logMidnight = getMidnightIST(log.date);
             if (currentMidnight.getTime() !== logMidnight.getTime()) {
@@ -593,8 +605,7 @@ export const updateActivity = async (req, res) => {
 
         // Check ownership (only the log owner or a superAdmin/HR can edit)
         const isOwner = log.user.toString() === req.user._id.toString();
-        const isAdminOrHR = req.user.role === "superAdmin" || req.user.role === "hr";
-        if (!isOwner && !isAdminOrHR) {
+        if (!isOwner && !isSuperAdminOrHR) {
             return res.status(403).json({ message: "Access denied. You can only edit your own logs." });
         }
 
@@ -629,10 +640,16 @@ export const deleteActivity = async (req, res) => {
         }
 
         const isSuperAdmin = Array.isArray(req.user.role) 
-            ? req.user.role.includes("superAdmin") || req.user.role.includes("superadmin")
-            : req.user.role === "superAdmin" || req.user.role === "superadmin";
+            ? req.user.role.some(r => typeof r === "string" && (r.toLowerCase() === "superadmin" || r.toLowerCase() === "super admin"))
+            : typeof req.user.role === "string" && (req.user.role.toLowerCase() === "superadmin" || req.user.role.toLowerCase() === "super admin");
 
-        if (!isSuperAdmin) {
+        const isHR = Array.isArray(req.user.role)
+            ? req.user.role.some(r => typeof r === "string" && r.toLowerCase() === "hr")
+            : typeof req.user.role === "string" && req.user.role.toLowerCase() === "hr";
+
+        const isSuperAdminOrHR = isSuperAdmin || isHR;
+
+        if (!isSuperAdminOrHR) {
             const currentMidnight = getMidnightIST();
             const logMidnight = getMidnightIST(log.date);
             if (currentMidnight.getTime() !== logMidnight.getTime()) {
@@ -642,8 +659,7 @@ export const deleteActivity = async (req, res) => {
 
         // Check ownership
         const isOwner = log.user.toString() === req.user._id.toString();
-        const isAdminOrHR = req.user.role === "superAdmin" || req.user.role === "hr";
-        if (!isOwner && !isAdminOrHR) {
+        if (!isOwner && !isSuperAdminOrHR) {
             return res.status(403).json({ message: "Access denied." });
         }
 

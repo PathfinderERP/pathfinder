@@ -335,15 +335,21 @@ const DailyTrackingLog = () => {
     // Get current user's centres
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const isSuperAdmin = Array.isArray(currentUser.role)
-        ? currentUser.role.includes('superAdmin') || currentUser.role.includes('superadmin')
-        : currentUser.role === 'superAdmin' || currentUser.role === 'superadmin';
+        ? currentUser.role.some(r => typeof r === 'string' && (r.toLowerCase() === 'superadmin' || r.toLowerCase() === 'super admin'))
+        : typeof currentUser.role === 'string' && (currentUser.role.toLowerCase() === 'superadmin' || currentUser.role.toLowerCase() === 'super admin');
+
+    const isHR = Array.isArray(currentUser.role)
+        ? currentUser.role.some(r => typeof r === 'string' && r.toLowerCase() === 'hr')
+        : typeof currentUser.role === 'string' && currentUser.role.toLowerCase() === 'hr';
+
+    const isSuperAdminOrHR = isSuperAdmin || isHR;
 
     const isToday = selectedDate === getTodayDateString();
     const isPreviousDate = (dateStr) => {
         const todayStr = getTodayDateString();
         return dateStr < todayStr;
     };
-    const canModify = isSuperAdmin || !isPreviousDate(selectedDate);
+    const canModify = isSuperAdminOrHR || !isPreviousDate(selectedDate);
     const [availableCentres, setAvailableCentres] = useState([]);
     const [availableRoles, setAvailableRoles] = useState([]);
 
