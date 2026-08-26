@@ -10,6 +10,7 @@ import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
 import PMOAdmitCard from './PMOAdmitCard';
 import PMOBulkImportModal from './PMOBulkImportModal';
+import Pagination from '../common/Pagination';
 import * as XLSX from 'xlsx';
 
 // Custom Anchored MultiSelect Dropdown for PMO
@@ -219,6 +220,8 @@ const PMOAllStudentsContent = () => {
         course: [],
     });
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
 
     const courses = ['PMO 5', 'PMO 6', 'PMO 7', 'PMO 8', 'PMO 9', 'PMO 10'];
     
@@ -367,10 +370,6 @@ const PMOAllStudentsContent = () => {
     // Bulk Import Modal State
     const [showBulkImportModal, setShowBulkImportModal] = useState(false);
 
-    // Pagination
-    const [currentPage, setCurrentPage] = useState(1);
-    const rowsPerPage = 15;
-
     const getHeaders = () => {
         const token = localStorage.getItem("token");
         return { "Authorization": `Bearer ${token}` };
@@ -518,12 +517,16 @@ const PMOAllStudentsContent = () => {
         return 0;
     });
 
+    // Reset pagination when search query or filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, filters]);
+
     // Pagination
-    const totalPages = Math.ceil(sortedStudents.length / rowsPerPage) || 1;
-    const paginatedStudents = sortedStudents.slice(
-        (currentPage - 1) * rowsPerPage,
-        currentPage * rowsPerPage
-    );
+    const paginatedStudents = React.useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return sortedStudents.slice(startIndex, startIndex + itemsPerPage);
+    }, [sortedStudents, currentPage, itemsPerPage]);
 
     // Export to Excel
     const handleExport = () => {
@@ -945,7 +948,7 @@ const PMOAllStudentsContent = () => {
                                     return (
                                         <tr key={s._id} className="hover:bg-gray-800/40 transition">
                                             <td className="p-3.5 font-mono text-gray-500">
-                                                {(currentPage - 1) * rowsPerPage + idx + 1}
+                                                {(currentPage - 1) * itemsPerPage + idx + 1}
                                             </td>
 
                                             <td className="p-3.5">
@@ -1136,36 +1139,18 @@ const PMOAllStudentsContent = () => {
                 </div>
 
                 {/* Pagination */}
-                {totalPages > 1 && (
-                    <div className="px-6 py-4 bg-gray-950/60 border-t border-gray-800 flex items-center justify-between text-xs text-gray-400">
-                        <span>Showing {(currentPage - 1) * rowsPerPage + 1} to {Math.min(currentPage * rowsPerPage, sortedStudents.length)} of {sortedStudents.length}</span>
-                        <div className="flex gap-1">
-                            <button
-                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                disabled={currentPage === 1}
-                                className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-40 text-gray-200 transition"
-                            >
-                                Prev
-                            </button>
-                            {Array.from({ length: totalPages }, (_, i) => i + 1).slice(Math.max(0, currentPage - 3), currentPage + 2).map(p => (
-                                <button
-                                    key={p}
-                                    onClick={() => setCurrentPage(p)}
-                                    className={`px-3 py-1.5 rounded-lg font-bold transition ${p === currentPage ? 'bg-purple-600 text-white' : 'bg-gray-800 hover:bg-gray-700 text-gray-300'}`}
-                                >
-                                    {p}
-                                </button>
-                            ))}
-                            <button
-                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                disabled={currentPage === totalPages}
-                                className="px-3 py-1.5 rounded-lg bg-gray-800 hover:bg-gray-700 disabled:opacity-40 text-gray-200 transition"
-                            >
-                                Next
-                            </button>
-                        </div>
-                    </div>
-                )}
+                <Pagination
+                    currentPage={currentPage}
+                    totalItems={sortedStudents.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={(page) => setCurrentPage(page)}
+                    onItemsPerPageChange={(size) => {
+                        setItemsPerPage(size);
+                        setCurrentPage(1);
+                    }}
+                    itemsPerPageOptions={[10, 20, 50, 100]}
+                    theme="dark"
+                />
             </div>
 
             {/* Bill Receipt Modal */}
