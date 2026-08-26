@@ -110,34 +110,35 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
             };
         }
         
-        switch (tag?.toUpperCase()) {
-            case 'HOT LEAD':
-            case 'HOT':
-                return { bg: isDarkMode ? 'bg-red-500/10' : 'bg-red-50', text: 'text-red-500', border: 'border-red-500/20' };
-            case 'WARM LEAD':
-            case 'WARM':
-                return { bg: isDarkMode ? 'bg-orange-500/10' : 'bg-orange-50', text: 'text-orange-500', border: 'border-orange-500/20' };
-            case 'NEUTRAL LEAD':
-            case 'NEUTRAL':
-                return { bg: isDarkMode ? 'bg-purple-500/10' : 'bg-purple-50', text: 'text-purple-500', border: 'border-purple-500/20' };
-            case 'COLD LEAD':
-            case 'COLD':
-                return { bg: isDarkMode ? 'bg-blue-500/10' : 'bg-blue-50', text: 'text-blue-500', border: 'border-blue-500/20' };
-            case 'INVALID LEAD':
-            case 'INVALID':
-                return { bg: isDarkMode ? 'bg-gray-500/10' : 'bg-gray-50', text: 'text-gray-400', border: 'border-gray-500/20' };
-            case 'NORMAL ADM':
-            case 'BOARD ADM':
-                return { bg: isDarkMode ? 'bg-purple-500/10' : 'bg-purple-50', text: 'text-purple-500', border: 'border-purple-500/20' };
-            case 'WALK-IN':
-                return { bg: isDarkMode ? 'bg-indigo-500/10' : 'bg-indigo-50', text: 'text-indigo-500', border: 'border-indigo-500/20' };
-            case 'CALL SHORTFALL':
-            case 'COUNSEL SHORTFALL':
-            case 'CALL ADM SHORTFALL':
-                return { bg: isDarkMode ? 'bg-red-500/15' : 'bg-red-50', text: 'text-red-400 font-extrabold', border: 'border-red-500/30' };
-            default:
-                return { bg: isDarkMode ? 'bg-gray-500/10' : 'bg-gray-50', text: isDarkMode ? 'text-gray-300' : 'text-gray-600', border: 'border-gray-500/20' };
+        const tagUpper = (tag || '').toUpperCase();
+        if (tagUpper.includes('HOT')) {
+            return { bg: isDarkMode ? 'bg-red-500/10' : 'bg-red-50', text: 'text-red-500', border: 'border-red-500/20' };
         }
+        if (tagUpper.includes('WARM')) {
+            return { bg: isDarkMode ? 'bg-orange-500/10' : 'bg-orange-50', text: 'text-orange-500', border: 'border-orange-500/20' };
+        }
+        if (tagUpper.includes('NEUTRAL')) {
+            return { bg: isDarkMode ? 'bg-purple-500/10' : 'bg-purple-50', text: 'text-purple-500', border: 'border-purple-500/20' };
+        }
+        if (tagUpper.includes('COLD')) {
+            return { bg: isDarkMode ? 'bg-blue-500/10' : 'bg-blue-50', text: 'text-blue-500', border: 'border-blue-500/20' };
+        }
+        if (tagUpper.includes('INVALID')) {
+            return { bg: isDarkMode ? 'bg-gray-500/10' : 'bg-gray-50', text: 'text-gray-400', border: 'border-gray-500/20' };
+        }
+        if (tagUpper.includes('SERVICE')) {
+            return { bg: isDarkMode ? 'bg-teal-500/10' : 'bg-teal-50', text: 'text-teal-400', border: 'border-teal-500/20' };
+        }
+        if (tagUpper.includes('ADM')) {
+            return { bg: isDarkMode ? 'bg-purple-500/10' : 'bg-purple-50', text: 'text-purple-500', border: 'border-purple-500/20' };
+        }
+        if (tagUpper.includes('WALK-IN')) {
+            return { bg: isDarkMode ? 'bg-indigo-500/10' : 'bg-indigo-50', text: 'text-indigo-500', border: 'border-indigo-500/20' };
+        }
+        if (tagUpper.includes('SHORTFALL')) {
+            return { bg: isDarkMode ? 'bg-red-500/15' : 'bg-red-50', text: 'text-red-400 font-extrabold', border: 'border-red-500/30' };
+        }
+        return { bg: isDarkMode ? 'bg-gray-500/10' : 'bg-gray-50', text: isDarkMode ? 'text-gray-300' : 'text-gray-600', border: 'border-gray-500/20' };
     };
 
     // Helper for category-specific labels

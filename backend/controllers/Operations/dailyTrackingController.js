@@ -1199,6 +1199,14 @@ export const getDailyCenterDetails = async (req, res) => {
                 followUps: { $elemMatch: { updatedBy: userRegex, date: { $gte: historyStart, $lte: historyEnd } } }
             }).select('name phoneNumber createdAt followUps').lean();
 
+            const allServiceCallsHistory = await StudentServiceCall.find({
+                $or: [
+                    { user: userId },
+                    { userName: userRegex }
+                ],
+                createdAt: { $gte: historyStart, $lte: historyEnd }
+            }).lean();
+
             const allNormalAdmissionsHistory = await Admission.find({
                 createdBy: userId,
                 createdAt: { $gte: historyStart, $lte: historyEnd }
@@ -1237,7 +1245,21 @@ export const getDailyCenterDetails = async (req, res) => {
                     });
                 });
 
-                // 2. Process admissions/counsellings for this day
+                // 2. Process service calls for this day
+                allServiceCallsHistory.forEach(sc => {
+                    const scDate = new Date(sc.createdAt);
+                    if (scDate >= dStart && scDate <= dEnd) {
+                        callDetailsCount++;
+                        if (sc.studentPhone && sc.studentPhone !== '-') {
+                            existingPhones.add(sc.studentPhone);
+                        }
+                        if (sc.studentName) {
+                            existingNames.add(sc.studentName.toLowerCase());
+                        }
+                    }
+                });
+
+                // 3. Process admissions/counsellings for this day
                 const addExtra = (studentDetails) => {
                     const phone = studentDetails?.mobileNum || '-';
                     const name = studentDetails?.studentName || 'Unknown Student';
@@ -1599,6 +1621,48 @@ export const getDailyUserActivity = async (req, res) => {
             });
         });
 
+        // Process student service calls today
+        const serviceCallUserQuery = {
+            $or: [
+                { user: userId },
+                { userName: userRegex }
+            ],
+            createdAt: dateFilter
+        };
+        if (centerId) {
+            serviceCallUserQuery.centre = centerId;
+        }
+        const allServiceCallsToday = await StudentServiceCall.find(serviceCallUserQuery).lean();
+
+        allServiceCallsToday.forEach(sc => {
+            const status = (sc.status || 'NEUTRAL').toUpperCase();
+            if (status.includes('HOT')) hotCount++;
+            else if (status.includes('WARM')) warmCount++;
+            else if (status.includes('COLD')) coldCount++;
+            else if (status.includes('NEUTRAL')) neutralCount++;
+            else if (status.includes('INVALID')) invalidCount++;
+
+            callDetails.push({
+                leadId: sc._id,
+                studentName: sc.studentName || 'Unknown Student',
+                phoneNumber: sc.studentPhone || '-',
+                callType: 'SERVICE_CALL',
+                leadType: (sc.status || 'NEUTRAL').toUpperCase(),
+                isCounseled: false,
+                feedback: sc.servicePurpose || 'Service Call',
+                remarks: sc.remarks || '',
+                nextFollowUpDate: sc.nextFollowUpDate || null,
+                date: sc.createdAt,
+                updatedAt: sc.updatedAt || sc.createdAt,
+                courseName: '-',
+                className: '-',
+                boardName: '-',
+                schoolName: '-',
+                followUpCount: 1,
+                source: 'Service Calling'
+            });
+        });
+
         const contactedLeadsCount = callDetails.length;
         const freshContactedCount = callDetails.filter(c => c.callType === 'FRESH').length;
 
@@ -1945,6 +2009,14 @@ export const exportCenterPerformanceExcel = async (req, res) => {
                 followUps: { $elemMatch: { updatedBy: userName, date: dateFilter } }
             }).select('name phoneNumber createdAt followUps').lean();
 
+            const allServiceCallsHistory = await StudentServiceCall.find({
+                $or: [
+                    { user: userId },
+                    { userName: new RegExp(`^${(userName || '').trim()}$`, "i") }
+                ],
+                createdAt: dateFilter
+            }).lean();
+
             const allNormalAdmissionsHistory = await Admission.find({
                 createdBy: userId,
                 createdAt: dateFilter
@@ -1982,7 +2054,21 @@ export const exportCenterPerformanceExcel = async (req, res) => {
                 });
             });
 
-            // 2. Process admissions/counsellings for this range
+            // 2. Process service calls for this range
+            allServiceCallsHistory.forEach(sc => {
+                const scDate = new Date(sc.createdAt);
+                if (scDate >= startDate && scDate <= endDate) {
+                    dailyCalls++;
+                    if (sc.studentPhone && sc.studentPhone !== '-') {
+                        existingPhones.add(sc.studentPhone);
+                    }
+                    if (sc.studentName) {
+                        existingNames.add(sc.studentName.toLowerCase());
+                    }
+                }
+            });
+
+            // 3. Process admissions/counsellings for this range
             const addExtra = (studentDetails) => {
                 const phone = studentDetails?.mobileNum || '-';
                 const name = studentDetails?.studentName || 'Unknown Student';
@@ -2147,6 +2233,39 @@ export const exportUserCallingReportExcel = async (req, res) => {
                     followUpCount: lead.followUps?.length || 0,
                     source: lead.source || '-'
                 });
+            });
+        });
+
+        // Process student service calls today
+        const serviceCallUserQuery = {
+            $or: [
+                { user: userId },
+                { userName: userRegex }
+            ],
+            createdAt: dateFilter
+        };
+        if (centerId) {
+            serviceCallUserQuery.centre = centerId;
+        }
+        const allServiceCallsToday = await StudentServiceCall.find(serviceCallUserQuery).lean();
+
+        allServiceCallsToday.forEach(sc => {
+            callDetails.push({
+                centreName: sc.centreName || (center?.centreName) || '-',
+                studentName: sc.studentName || 'Unknown Student',
+                phoneNumber: sc.studentPhone || '-',
+                callType: 'SERVICE_CALL',
+                leadType: (sc.status || 'NEUTRAL').toUpperCase(),
+                feedback: sc.servicePurpose || 'Service Call',
+                remarks: sc.remarks || '',
+                nextFollowUpDate: sc.nextFollowUpDate || null,
+                date: sc.createdAt,
+                courseName: '-',
+                className: '-',
+                boardName: '-',
+                schoolName: '-',
+                followUpCount: 1,
+                source: 'Service Calling'
             });
         });
 
@@ -2755,6 +2874,52 @@ export const getDailyTrackingDetails = async (req, res) => {
                             tag: fu.status || 'CALL',
                             feedback: fu.feedback || fu.remarks || 'No feedback recorded'
                         });
+                    });
+                });
+
+                // Fetch student service calls
+                const serviceCallAnds = [{ createdAt: dateFilter }];
+
+                if (centerObjectIdList.length > 0 || centerNamesList.length > 0) {
+                    const cOrs = [];
+                    if (centerObjectIdList.length > 0) cOrs.push({ centre: { $in: centerObjectIdList } });
+                    if (centerNamesList.length > 0) cOrs.push({ centreName: { $in: centerNamesList } });
+                    serviceCallAnds.push({ $or: cOrs });
+                }
+
+                if (hasUserFilter) {
+                    const uOrs = [];
+                    if (agentNames.length > 0) uOrs.push({ userName: { $in: agentNames } });
+                    if (agentObjectIdList.length > 0) uOrs.push({ user: { $in: agentObjectIdList } });
+                    if (uOrs.length > 0) serviceCallAnds.push({ $or: uOrs });
+                } else if (isRestrictIndividual) {
+                    serviceCallAnds.push({
+                        $or: [
+                            { userName: req.user.name },
+                            { user: req.user._id }
+                        ]
+                    });
+                }
+
+                if (leadType) {
+                    const cleanLeadType = leadType.replace(/lead/i, '').trim();
+                    serviceCallAnds.push({ status: new RegExp(`^${cleanLeadType}$`, 'i') });
+                }
+
+                const serviceCallQuery = serviceCallAnds.length === 1 ? serviceCallAnds[0] : { $and: serviceCallAnds };
+
+                const serviceCalls = await StudentServiceCall.find(serviceCallQuery).populate('centre').populate('user').lean();
+                serviceCalls.forEach(sc => {
+                    list.push({
+                        id: sc._id.toString(),
+                        name: sc.studentName || 'Unknown Student',
+                        phone: sc.studentPhone || 'N/A',
+                        email: 'N/A',
+                        handledBy: sc.userName || sc.user?.name || 'System',
+                        centreName: sc.centreName || sc.centre?.centreName || 'N/A',
+                        dateTime: sc.createdAt,
+                        tag: sc.status ? `${sc.status.toUpperCase()} (SERVICE)` : 'SERVICE CALL',
+                        feedback: sc.servicePurpose ? `${sc.servicePurpose}${sc.remarks ? ` - ${sc.remarks}` : ''}` : (sc.remarks || 'Student Service Call')
                     });
                 });
 
