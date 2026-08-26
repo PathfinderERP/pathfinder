@@ -122,7 +122,16 @@ const PNTSEAddStudentContent = () => {
                 if (boardsRes.ok) setDbBoards(await boardsRes.json());
                 if (sessionsRes.ok) {
                     const d = await sessionsRes.json();
-                    setDbSessions(Array.isArray(d) ? d : (d.sessions || []));
+                    const allSessions = Array.isArray(d) ? d : (d.sessions || []);
+                    const filtered = allSessions.filter(s => 
+                        (s.sessionName || s.name || '').includes('2026-2027') && s.isGlobalActive !== false
+                    );
+                    const finalSessions = (filtered.length > 0 ? filtered : allSessions.filter(s => (s.sessionName || s.name || '').includes('2026-2027')))
+                        .filter((s, idx, self) => idx === self.findIndex(t => (t.sessionName || t.name) === (s.sessionName || s.name)));
+                    setDbSessions(finalSessions);
+                    if (finalSessions.length > 0) {
+                        setForm(prev => prev.session ? prev : { ...prev, session: finalSessions[0]._id });
+                    }
                 }
                 if (tagsRes.ok) {
                     const allTags = await tagsRes.json();
