@@ -12,6 +12,8 @@ import XLSX from "xlsx";
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
+import LeadManagement from "../../models/LeadManagement.js";
+import CampaignLead from "../../models/CampaignLead.js";
 
 // Helper function to find existing enrollment number across all courses
 const findExistingEnrollment = async (mobile, email) => {
@@ -20,6 +22,11 @@ const findExistingEnrollment = async (mobile, email) => {
     let courseName = null;
     let admissionType = null;
     let existingStudentDoc = null;
+    let normalAdmission = null;
+    let boardAdmission = null;
+    let pntseStudent = null;
+    let prevPmoStudent = null;
+    let leadStudent = null;
 
     // 1. Check ERP Student collection (Normal & Board Admissions)
     let erpStudent = null;
@@ -33,8 +40,8 @@ const findExistingEnrollment = async (mobile, email) => {
     if (erpStudent) {
         existingStudentDoc = erpStudent;
         existingStudentId = erpStudent._id;
-        const normalAdmission = await Admission.findOne({ student: erpStudent._id }).populate('course class').sort({ createdAt: -1 });
-        const boardAdmission = await BoardCourseAdmission.findOne({ studentId: erpStudent._id }).populate('boardId').sort({ createdAt: -1 });
+        normalAdmission = await Admission.findOne({ student: erpStudent._id }).populate('course class board').sort({ createdAt: -1 });
+        boardAdmission = await BoardCourseAdmission.findOne({ studentId: erpStudent._id }).populate('boardId').sort({ createdAt: -1 });
 
         if (normalAdmission?.admissionNumber) {
             existingEnrollmentNo = normalAdmission.admissionNumber;
@@ -42,45 +49,41 @@ const findExistingEnrollment = async (mobile, email) => {
             admissionType = "NORMAL";
         } else if (boardAdmission?.admissionNumber) {
             existingEnrollmentNo = boardAdmission.admissionNumber;
-            courseName = boardAdmission?.boardId?.boardName || "Board Course";
+            courseName = boardAdmission?.boardId?.boardName || boardAdmission?.boardId?.boardCourse || "Board Course";
             admissionType = "BOARD";
         }
     }
 
     // 2. Check PNTSE Student collection
-    if (!existingEnrollmentNo) {
-        let pntseStudent = null;
-        if (mobile) {
-            pntseStudent = await PNTSEStudent.findOne({ mobile }).sort({ createdAt: -1 });
-        }
-        if (!pntseStudent && email) {
-            pntseStudent = await PNTSEStudent.findOne({ email }).sort({ createdAt: -1 });
-        }
+    if (mobile) {
+        pntseStudent = await PNTSEStudent.findOne({ mobile }).populate('class centre board session examTag').sort({ createdAt: -1 });
+    }
+    if (!pntseStudent && email) {
+        pntseStudent = await PNTSEStudent.findOne({ email }).populate('class centre board session examTag').sort({ createdAt: -1 });
+    }
 
-        if (pntseStudent?.rollNo) {
-            existingEnrollmentNo = pntseStudent.rollNo;
-            courseName = pntseStudent.course || "PNTSE";
-            admissionType = "PNTSE";
-            if (pntseStudent.studentId) existingStudentId = pntseStudent.studentId;
-        }
+    if (pntseStudent?.rollNo && !existingEnrollmentNo) {
+        existingEnrollmentNo = pntseStudent.rollNo;
+        courseName = pntseStudent.course || "PNTSE";
+        admissionType = "PNTSE";
+        if (pntseStudent.studentId) existingStudentId = pntseStudent.studentId;
+        existingStudentDoc = pntseStudent;
     }
 
     // 3. Check existing PMO Student collection
-    if (!existingEnrollmentNo) {
-        let prevPmoStudent = null;
-        if (mobile) {
-            prevPmoStudent = await PMOStudent.findOne({ mobile }).sort({ createdAt: -1 });
-        }
-        if (!prevPmoStudent && email) {
-            prevPmoStudent = await PMOStudent.findOne({ email }).sort({ createdAt: -1 });
-        }
+    if (mobile) {
+        prevPmoStudent = await PMOStudent.findOne({ mobile }).populate('class centre board session examTag').sort({ createdAt: -1 });
+    }
+    if (!prevPmoStudent && email) {
+        prevPmoStudent = await PMOStudent.findOne({ email }).populate('class centre board session examTag').sort({ createdAt: -1 });
+    }
 
-        if (prevPmoStudent?.rollNo) {
-            existingEnrollmentNo = prevPmoStudent.rollNo;
-            courseName = prevPmoStudent.course || "PMO";
-            admissionType = "PMO";
-            if (prevPmoStudent.studentId) existingStudentId = prevPmoStudent.studentId;
-        }
+    // 4. Check Lead Management / Campaign Lead
+    if (mobile) {
+        leadStudent = await LeadManagement.findOne({ phone: mobile }).lean() || await CampaignLead.findOne({ mobile }).lean();
+    }
+    if (!leadStudent && email) {
+        leadStudent = await LeadManagement.findOne({ email }).lean() || await CampaignLead.findOne({ email }).lean();
     }
 
     return {
@@ -88,7 +91,13 @@ const findExistingEnrollment = async (mobile, email) => {
         existingStudentId,
         courseName,
         admissionType,
-        existingStudentDoc
+        existingStudentDoc,
+        erpStudent,
+        normalAdmission,
+        boardAdmission,
+        pntseStudent,
+        prevPmoStudent,
+        leadStudent
     };
 };
 
@@ -453,18 +462,65 @@ export const checkDuplicate = async (req, res) => {
 
         let details = null;
         if (enrollment.existingEnrollmentNo || enrollment.existingStudentDoc) {
-            const erpStudent = enrollment.existingStudentDoc;
+            const { erpStudent, normalAdmission, boardAdmission, pntseStudent, prevPmoStudent, leadStudent } = enrollment;
             const erpDetails = erpStudent?.studentsDetails?.[0] || {};
 
+            // Match Board: check boardAdmission -> normalAdmission -> pntseStudent -> prevPmoStudent -> erpDetails -> examSchema
+            const boardId = boardAdmission?.boardId?._id || normalAdmission?.board?._id || pntseStudent?.board?._id || prevPmoStudent?.board?._id || "";
+            const boardName = boardAdmission?.boardId?.boardCourse || boardAdmission?.boardId?.boardName || normalAdmission?.board?.boardCourse || normalAdmission?.board?.boardName || pntseStudent?.board?.boardCourse || pntseStudent?.board?.boardName || prevPmoStudent?.board?.boardCourse || prevPmoStudent?.board?.boardName || erpDetails?.board || erpStudent?.board || erpStudent?.examSchema?.[0]?.board || erpStudent?.examSchema?.[0]?.examName || "";
+
+            // Match Class: check normalAdmission -> pntseStudent -> prevPmoStudent -> erpStudent.examSchema
+            const classId = normalAdmission?.class?._id || pntseStudent?.class?._id || prevPmoStudent?.class?._id || "";
+            const className = normalAdmission?.class?.name || pntseStudent?.class?.name || prevPmoStudent?.class?.name || erpStudent?.examSchema?.[0]?.class || pntseStudent?.course || prevPmoStudent?.course || "";
+
+            // Match Gender
+            const gender = erpDetails?.gender || pntseStudent?.gender || prevPmoStudent?.gender || "";
+
+            // Match School
+            const school = pntseStudent?.school || pntseStudent?.schoolName || prevPmoStudent?.school || erpDetails?.schoolName || erpDetails?.school || leadStudent?.schoolName || leadStudent?.school || "";
+
+            // Match Centre
+            const centre = erpDetails?.centre || pntseStudent?.centre?.centreName || prevPmoStudent?.centre?.centreName || "";
+            const centreId = pntseStudent?.centre?._id || prevPmoStudent?.centre?._id || "";
+
+            // Match Contact & Personal Info
+            const name = erpDetails?.studentName || pntseStudent?.name || prevPmoStudent?.name || "";
+            const studentMobile = erpDetails?.mobileNum || pntseStudent?.mobile || prevPmoStudent?.mobile || mobile || "";
+            const studentEmail = erpDetails?.studentEmail || pntseStudent?.email || prevPmoStudent?.email || email || "";
+            const dob = erpDetails?.dateOfBirth || pntseStudent?.dob || prevPmoStudent?.dob || "";
+            const address = erpDetails?.address || pntseStudent?.address || prevPmoStudent?.address || "";
+            const city = erpDetails?.city || pntseStudent?.city || prevPmoStudent?.city || "";
+            const state = erpDetails?.state || pntseStudent?.state || prevPmoStudent?.state || "";
+            const pincode = erpDetails?.pincode || pntseStudent?.pincode || prevPmoStudent?.pincode || "";
+            const guardianName = erpDetails?.guardians?.[0]?.guardianName || erpStudent?.guardians?.[0]?.guardianName || pntseStudent?.guardianName || prevPmoStudent?.guardianName || "";
+            const guardianMobile = erpDetails?.guardians?.[0]?.guardianMobile || erpStudent?.guardians?.[0]?.guardianMobile || pntseStudent?.guardianMobile || prevPmoStudent?.guardianMobile || "";
+
             details = {
-                student: erpStudent,
-                name: erpDetails.studentName || "",
-                mobile: erpDetails.mobileNum || mobile || "",
-                email: erpDetails.studentEmail || email || "",
-                centre: erpDetails.centre || "",
-                course: enrollment.courseName || "Other Course",
+                student: enrollment.existingStudentDoc,
+                name,
+                mobile: studentMobile,
+                email: studentEmail,
+                gender,
+                dob,
+                school,
+                schoolName: school,
+                centre,
+                centreId,
+                classId,
+                className,
+                class: classId || className,
+                boardId,
+                boardName,
+                board: boardId || boardName,
+                course: enrollment.courseName || enrollment.admissionType || "Existing Course",
                 admissionType: enrollment.admissionType || "EXISTING",
-                rollNo: enrollment.existingEnrollmentNo || ""
+                rollNo: enrollment.existingEnrollmentNo || "",
+                address,
+                city,
+                state,
+                pincode,
+                guardianName,
+                guardianMobile
             };
         }
 

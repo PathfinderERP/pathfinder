@@ -898,6 +898,13 @@ const CarryForward = () => {
                                         Carry Forward PNTSE <FaArrowRight size={10} />
                                     </button>
                                     <button
+                                        onClick={() => navigate(`/pmo/add-student`, { state: { student: selectedStudent, rollNo: selectedStudent.admissionNumber || '' } })}
+                                        className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                                        title="Carry Forward to PMO Course"
+                                    >
+                                        Carry Forward PMO <FaArrowRight size={10} />
+                                    </button>
+                                    <button
                                         onClick={closeStudentModal}
                                         className="text-gray-400 hover:text-white p-2 rounded-xl hover:bg-gray-800 transition-colors cursor-pointer"
                                     >

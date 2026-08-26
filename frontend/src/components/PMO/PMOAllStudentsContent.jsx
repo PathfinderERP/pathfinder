@@ -1053,11 +1053,11 @@ const PMOAllStudentsContent = () => {
                                                                                 remarks: `PMO Fee | Gross: ₹100 | Discount: ₹${s.waiver || 0} | Paid: ₹${s.amountPaid}`
                                                                             },
                                                                             amounts: {
-                                                                                courseFee: (s.amountPaid / 1.18).toFixed(2),
-                                                                                cgst: ((s.amountPaid - s.amountPaid / 1.18) / 2).toFixed(2),
-                                                                                sgst: ((s.amountPaid - s.amountPaid / 1.18) / 2).toFixed(2),
-                                                                                totalAmount: s.amountPaid,
-                                                                                waiver: s.waiver || 0,
+                                                                                courseFee: parseFloat(((Number(s.amountPaid) || 0) / 1.18).toFixed(2)),
+                                                                                cgst: parseFloat((((Number(s.amountPaid) || 0) - (Number(s.amountPaid) || 0) / 1.18) / 2).toFixed(2)),
+                                                                                sgst: parseFloat((((Number(s.amountPaid) || 0) - (Number(s.amountPaid) || 0) / 1.18) / 2).toFixed(2)),
+                                                                                totalAmount: Number(s.amountPaid) || 0,
+                                                                                waiver: Number(s.waiver) || 0,
                                                                                 grossFee: 100
                                                                             }
                                                                         };

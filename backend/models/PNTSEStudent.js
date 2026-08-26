@@ -1,4 +1,11 @@
 import mongoose from "mongoose";
+import "./Master_data/Class.js";
+import "./Master_data/Centre.js";
+import "./Master_data/Session.js";
+import "./Master_data/ExamTag.js";
+import "./Master_data/Boards.js";
+import "./Payment/Payment.js";
+import "./Students.js";
 
 const pntseStudentSchema = new mongoose.Schema({
     name: {

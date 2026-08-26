@@ -329,17 +329,17 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(7);
             doc.rect(xOffset + margin, yPos, colWidth, valueBoxHeight);
-            doc.text('Rs. ' + (billData.amounts?.courseFee || 0).toFixed(2), xOffset + margin + colWidth / 2, yPos + 8, { align: 'center' });
+            doc.text('Rs. ' + Number(billData.amounts?.courseFee || 0).toFixed(2), xOffset + margin + colWidth / 2, yPos + 8, { align: 'center' });
             doc.rect(xOffset + margin + colWidth, yPos, colWidth, valueBoxHeight);
-            doc.text('Rs. ' + (billData.amounts?.sgst || 0).toFixed(2), xOffset + margin + colWidth + colWidth / 2, yPos + 8, { align: 'center' });
+            doc.text('Rs. ' + Number(billData.amounts?.sgst || 0).toFixed(2), xOffset + margin + colWidth + colWidth / 2, yPos + 8, { align: 'center' });
             doc.rect(xOffset + margin + 2 * colWidth, yPos, colWidth, valueBoxHeight);
-            doc.text('Rs. ' + (billData.amounts?.cgst || 0).toFixed(2), xOffset + margin + 2 * colWidth + colWidth / 2, yPos + 8, { align: 'center' });
+            doc.text('Rs. ' + Number(billData.amounts?.cgst || 0).toFixed(2), xOffset + margin + 2 * colWidth + colWidth / 2, yPos + 8, { align: 'center' });
             doc.rect(xOffset + margin + 3 * colWidth, yPos, colWidth, valueBoxHeight);
-            doc.text('Rs. ' + (billData.amounts?.totalAmount || 0).toFixed(2), xOffset + margin + 3 * colWidth + colWidth / 2, yPos + 8, { align: 'center' });
+            doc.text('Rs. ' + Number(billData.amounts?.totalAmount || 0).toFixed(2), xOffset + margin + 3 * colWidth + colWidth / 2, yPos + 8, { align: 'center' });
             yPos += valueBoxHeight;
 
             // Total in words
-            const amountInWords = numberToWords(billData.amounts?.totalAmount || 0);
+            const amountInWords = numberToWords(Number(billData.amounts?.totalAmount || 0));
             const amtRowH = drawRow(yPos, 'Total Amount (in words):', amountInWords);
             yPos += amtRowH;
 
@@ -628,20 +628,20 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                         )}
                                         <div className="flex justify-between">
                                             <span className="text-gray-400">Course Fee (Base)</span>
-                                            <span className="text-white font-medium">₹ {billData.amounts.courseFee.toFixed(2)}</span>
+                                            <span className="text-white font-medium">₹ {Number(billData.amounts?.courseFee || 0).toFixed(2)}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-gray-400">CGST (9%)</span>
-                                            <span className="text-white font-medium">₹ {billData.amounts.cgst.toFixed(2)}</span>
+                                            <span className="text-white font-medium">₹ {Number(billData.amounts?.cgst || 0).toFixed(2)}</span>
                                         </div>
                                         <div className="flex justify-between">
                                             <span className="text-gray-400">SGST (9%)</span>
-                                            <span className="text-white font-medium">₹ {billData.amounts.sgst.toFixed(2)}</span>
+                                            <span className="text-white font-medium">₹ {Number(billData.amounts?.sgst || 0).toFixed(2)}</span>
                                         </div>
                                         <div className="border-t border-gray-700 pt-2 mt-2">
                                             <div className="flex justify-between text-lg font-bold">
                                                 <span className="text-cyan-400">TOTAL AMOUNT</span>
-                                                <span className="text-cyan-400">₹ {billData.amounts.totalAmount.toFixed(2)}</span>
+                                                <span className="text-cyan-400">₹ {Number(billData.amounts?.totalAmount || 0).toFixed(2)}</span>
                                             </div>
                                         </div>
                                     </div>

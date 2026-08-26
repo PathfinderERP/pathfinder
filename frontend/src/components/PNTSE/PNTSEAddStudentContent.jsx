@@ -257,6 +257,28 @@ const PNTSEAddStudentContent = () => {
 
     const handlePaymentChange = (e) => {
         const { name, value } = e.target;
+        if (name === 'waiver') {
+            if (value === '') {
+                setPaymentForm(prev => ({ ...prev, waiver: '' }));
+                return;
+            }
+            const cleanVal = value.replace(/[^0-9]/g, '');
+            if (cleanVal === '') {
+                setPaymentForm(prev => ({ ...prev, waiver: '' }));
+                return;
+            }
+            const num = parseInt(cleanVal, 10);
+            if (!isNaN(num)) {
+                if (num > GROSS_FEE) {
+                    setPaymentForm(prev => ({ ...prev, waiver: String(GROSS_FEE) }));
+                } else if (num < 0) {
+                    setPaymentForm(prev => ({ ...prev, waiver: '0' }));
+                } else {
+                    setPaymentForm(prev => ({ ...prev, waiver: String(num) }));
+                }
+            }
+            return;
+        }
         setPaymentForm(prev => ({ ...prev, [name]: value }));
     };
 
@@ -804,16 +826,14 @@ const PNTSEAddStudentContent = () => {
                                     <div className="flex flex-col gap-1.5">
                                         <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Waiver Amount (Rs.)</label>
                                         <input
-                                            type="number"
+                                            type="text"
+                                            inputMode="numeric"
                                             name="waiver"
                                             value={paymentForm.waiver}
                                             onChange={handlePaymentChange}
-                                            placeholder="0"
-                                            min="0"
-                                            max="100"
-                                            className="px-4 py-2.5 bg-gray-800/80 border border-gray-600 rounded-xl text-sm text-amber-300 placeholder-gray-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all"
+                                            placeholder="0 - 100"
+                                            className="px-4 py-2 bg-gray-800/80 border border-gray-600 rounded-xl text-sm text-amber-300 placeholder-gray-500 focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500/30 transition-all font-bold"
                                         />
-                                        <p className="text-xs text-gray-500">Enter 0–100. Leave blank for no waiver.</p>
                                     </div>
 
                                     {/* Payment Method */}

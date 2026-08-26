@@ -137,65 +137,234 @@ const PMOAddStudentContent = () => {
         fetchMasterData();
     }, []);
 
+    const resolveBoardId = (s, details, boardsList) => {
+        if (!boardsList || boardsList.length === 0) return "";
+        const candidates = [
+            s?.boardId,
+            s?.board,
+            s?.boardName,
+            details?.boardId,
+            details?.board,
+            details?.boardName,
+            s?.examSchema?.[0]?.board,
+            s?.examSchema?.[0]?.examName,
+            details?.examSchema?.[0]?.board,
+            details?.examSchema?.[0]?.examName,
+            s?.studentsDetails?.[0]?.board,
+            details?.studentsDetails?.[0]?.board,
+            s?.course,
+            details?.course
+        ].filter(Boolean);
+
+        for (const cand of candidates) {
+            const candId = typeof cand === 'object' ? cand?._id : cand;
+            if (candId) {
+                const matchById = boardsList.find(b => String(b._id) === String(candId));
+                if (matchById) return matchById._id;
+            }
+
+            const candStr = (typeof cand === 'object' ? (cand.boardCourse || cand.boardName || cand.name || '') : String(cand)).trim();
+            if (candStr) {
+                const candLower = candStr.toLowerCase();
+                const exactMatch = boardsList.find(b =>
+                    (b.boardCourse && b.boardCourse.toLowerCase().trim() === candLower) ||
+                    (b.boardName && b.boardName.toLowerCase().trim() === candLower)
+                );
+                if (exactMatch) return exactMatch._id;
+
+                const partialMatch = boardsList.find(b => {
+                    const bCourse = (b.boardCourse || '').toLowerCase().trim();
+                    const bName = (b.boardName || '').toLowerCase().trim();
+                    return (bCourse && (candLower.includes(bCourse) || bCourse.includes(candLower))) ||
+                           (bName && (candLower.includes(bName) || bName.includes(candLower)));
+                });
+                if (partialMatch) return partialMatch._id;
+            }
+        }
+
+        const schoolStr = (s?.school || s?.schoolName || details?.school || details?.schoolName || '').toLowerCase();
+        if (schoolStr) {
+            if (schoolStr.includes('cbse')) {
+                const m = boardsList.find(b => (b.boardCourse || '').toUpperCase() === 'CBSE');
+                if (m) return m._id;
+            }
+            if (schoolStr.includes('icse')) {
+                const m = boardsList.find(b => (b.boardCourse || '').toUpperCase() === 'ICSE');
+                if (m) return m._id;
+            }
+            if (schoolStr.includes('wb') || schoolStr.includes('wbbse') || schoolStr.includes('wbchse')) {
+                const m = boardsList.find(b => (b.boardCourse || '').toUpperCase().includes('WB'));
+                if (m) return m._id;
+            }
+        }
+
+        const defaultBoard = boardsList.find(b => (b.boardCourse || '').toUpperCase() === 'WBBSE') || boardsList[0];
+        return defaultBoard?._id || "";
+    };
+
+    const resolveClassId = (s, details, classesList) => {
+        if (!classesList || classesList.length === 0) return "";
+        const candidates = [
+            s?.classId,
+            s?.class,
+            s?.className,
+            details?.classId,
+            details?.class,
+            details?.className,
+            s?.examSchema?.[0]?.class,
+            details?.examSchema?.[0]?.class,
+            s?.course,
+            details?.course
+        ].filter(Boolean);
+
+        for (const cand of candidates) {
+            const candId = typeof cand === 'object' ? cand?._id : cand;
+            if (candId) {
+                const matchById = classesList.find(c => String(c._id) === String(candId));
+                if (matchById) return matchById._id;
+            }
+
+            const candStr = typeof cand === 'object' ? (cand.name || '') : String(cand);
+            const digit = candStr.replace(/\D/g, '');
+            if (digit) {
+                const matchByDigit = classesList.find(c => c.name?.replace(/\D/g, '') === digit);
+                if (matchByDigit) return matchByDigit._id;
+            }
+        }
+        return "";
+    };
+
+    const resolveCentreId = (s, details, centresList) => {
+        if (!centresList || centresList.length === 0) return "";
+        const candidates = [
+            s?.centreId,
+            s?.centre,
+            details?.centreId,
+            details?.centre,
+            s?.studentsDetails?.[0]?.centre,
+            details?.studentsDetails?.[0]?.centre
+        ].filter(Boolean);
+
+        for (const cand of candidates) {
+            const candId = typeof cand === 'object' ? cand?._id : cand;
+            if (candId) {
+                const matchById = centresList.find(c => String(c._id) === String(candId));
+                if (matchById) return matchById._id;
+            }
+
+            const candStr = (typeof cand === 'object' ? (cand.centreName || cand.name || cand.enterCode || '') : String(cand)).trim().toLowerCase();
+            if (candStr) {
+                const matchByName = centresList.find(c =>
+                    c.centreName?.toLowerCase().trim() === candStr ||
+                    c.enterCode?.toLowerCase().trim() === candStr ||
+                    c.centreCode?.toLowerCase().trim() === candStr
+                );
+                if (matchByName) return matchByName._id;
+            }
+        }
+        return "";
+    };
+
     const applyCarryForward = (s, customRollNo) => {
-        const details = s.studentsDetails?.[0] || {};
-        
-        let matchedCentreId = "";
-        if (details.centre) {
-            const matched = dbCentres.find(c => c.centreName?.toLowerCase().trim() === details.centre?.toLowerCase().trim());
-            if (matched) matchedCentreId = matched._id;
-        }
+        if (!s) return;
+        const details = s.studentsDetails?.[0] || s || {};
 
-        let matchedClassId = "";
-        const studentClassStr = s.examSchema?.[0]?.class || "";
-        if (studentClassStr) {
-            const studentClassDigit = studentClassStr.replace(/\D/g, "");
-            const matched = dbClasses.find(c => c.name?.replace(/\D/g, "") === studentClassDigit);
-            if (matched) matchedClassId = matched._id;
-        }
+        const matchedCentreId = resolveCentreId(s, details, dbCentres);
+        const matchedClassId = resolveClassId(s, details, dbClasses);
+        const matchedBoardId = resolveBoardId(s, details, dbBoards);
 
-        let matchedBoardId = "";
-        const studentBoard = s.examSchema?.[0]?.board || s.board || "";
-        if (studentBoard && dbBoards.length > 0) {
-            const matched = dbBoards.find(b =>
-                b.boardCourse?.toLowerCase().trim() === String(studentBoard).toLowerCase().trim() ||
-                b.boardName?.toLowerCase().trim() === String(studentBoard).toLowerCase().trim() ||
-                String(b._id) === String(studentBoard)
-            );
-            if (matched) matchedBoardId = matched._id;
-        }
-
+        // Match Course based on Class
         let matchedCourse = "";
-        const studentClassDigit = studentClassStr.replace(/\D/g, "");
-        if (studentClassDigit) {
-            matchedCourse = `PMO ${studentClassDigit}`;
+        let classDigit = "";
+        if (matchedClassId) {
+            const selectedClassObj = dbClasses.find(c => String(c._id) === String(matchedClassId));
+            if (selectedClassObj) {
+                classDigit = selectedClassObj.name?.replace(/\D/g, "");
+            }
         }
+        if (!classDigit) {
+            const rawClassStr = s.className || s.class?.name || s.class || s.examSchema?.[0]?.class || s.course || "";
+            classDigit = String(rawClassStr).replace(/\D/g, "");
+        }
+        if (classDigit) {
+            matchedCourse = `PMO ${classDigit}`;
+        }
+
+        const studentGender = s.gender || details.gender || "";
+        const finalRollNo = customRollNo || s.rollNo || s.admissionNumber || details.rollNo || details.admissionNumber || '';
+
+        const studentSchool = 
+            s.school || 
+            s.schoolName || 
+            details.school || 
+            details.schoolName || 
+            s.studentsDetails?.[0]?.schoolName || 
+            s.studentsDetails?.[0]?.school || 
+            details.studentsDetails?.[0]?.schoolName || 
+            details.studentsDetails?.[0]?.school || 
+            s.currentSchool || 
+            s.previousSchool || 
+            s.presentSchool || 
+            s.studentSchool || 
+            s.institute || 
+            s.institution || 
+            s.instituteName || 
+            "";
+
+        const studentGuardianName = 
+            s.guardianName || 
+            details.guardianName || 
+            details.guardians?.[0]?.guardianName || 
+            s.guardians?.[0]?.guardianName || 
+            details.fatherName || 
+            details.motherName || 
+            s.fatherName || 
+            s.motherName || 
+            details.parentName ||
+            s.parentName ||
+            "";
+
+        const studentGuardianMobile = 
+            s.guardianMobile || 
+            details.guardianMobile || 
+            details.guardians?.[0]?.guardianMobile || 
+            s.guardians?.[0]?.guardianMobile || 
+            details.whatsappNumber || 
+            details.secondaryMobileNum || 
+            details.parentContact ||
+            details.parentMobile ||
+            s.secondaryMobile || 
+            s.whatsappNumber || 
+            s.parentContact ||
+            s.parentMobile ||
+            "";
 
         setForm(prev => ({
             ...prev,
-            name: details.studentName || prev.name,
-            mobile: details.mobileNum || prev.mobile,
-            email: details.studentEmail || prev.email,
-            dob: details.dateOfBirth || prev.dob,
-            gender: details.gender || prev.gender,
-            address: details.address || prev.address,
-            city: details.city || prev.city,
-            state: details.state || prev.state,
-            pincode: details.pincode || prev.pincode,
-            school: details.schoolName || prev.school,
-            guardianName: details.guardians?.[0]?.guardianName || s.guardians?.[0]?.guardianName || prev.guardianName,
-            guardianMobile: details.guardians?.[0]?.guardianMobile || s.guardians?.[0]?.guardianMobile || prev.guardianMobile,
+            name: s.name || s.studentName || details.studentName || details.name || prev.name,
+            mobile: s.mobile || s.mobileNum || details.mobileNum || details.mobile || prev.mobile,
+            secondaryMobile: s.secondaryMobile || details.secondaryMobile || details.whatsappNumber || prev.secondaryMobile,
+            email: s.email || s.studentEmail || details.studentEmail || details.email || prev.email,
+            dob: s.dob || s.dateOfBirth || details.dateOfBirth || details.dob || prev.dob,
+            gender: studentGender || prev.gender,
+            address: s.address || details.address || prev.address,
+            city: s.city || details.city || prev.city,
+            state: s.state || details.state || prev.state,
+            pincode: s.pincode || details.pincode || prev.pincode,
+            school: studentSchool || prev.school,
+            guardianName: studentGuardianName || prev.guardianName,
+            guardianMobile: studentGuardianMobile || prev.guardianMobile,
             centre: matchedCentreId || prev.centre,
             class: matchedClassId || prev.class,
             board: matchedBoardId || prev.board,
             course: matchedCourse || prev.course,
-            studentId: s._id || prev.studentId,
-            rollNo: customRollNo || prev.rollNo
+            studentId: s._id || s.studentId || prev.studentId,
+            rollNo: finalRollNo || prev.rollNo
         }));
     };
 
     useEffect(() => {
-        if (location.state?.student && dbCentres.length > 0 && dbClasses.length > 0) {
+        if (location.state?.student && dbCentres.length > 0 && dbClasses.length > 0 && dbBoards.length > 0) {
             applyCarryForward(location.state.student, location.state.rollNo);
         }
     }, [location.state, dbCentres, dbClasses, dbBoards]);
@@ -253,6 +422,28 @@ const PMOAddStudentContent = () => {
 
     const handlePaymentChange = (e) => {
         const { name, value } = e.target;
+        if (name === 'waiver') {
+            if (value === '') {
+                setPaymentForm(prev => ({ ...prev, waiver: '' }));
+                return;
+            }
+            const cleanVal = value.replace(/[^0-9]/g, '');
+            if (cleanVal === '') {
+                setPaymentForm(prev => ({ ...prev, waiver: '' }));
+                return;
+            }
+            const num = parseInt(cleanVal, 10);
+            if (!isNaN(num)) {
+                if (num > GROSS_FEE) {
+                    setPaymentForm(prev => ({ ...prev, waiver: String(GROSS_FEE) }));
+                } else if (num < 0) {
+                    setPaymentForm(prev => ({ ...prev, waiver: '0' }));
+                } else {
+                    setPaymentForm(prev => ({ ...prev, waiver: String(num) }));
+                }
+            }
+            return;
+        }
         setPaymentForm(prev => ({ ...prev, [name]: value }));
     };
 
@@ -266,7 +457,6 @@ const PMOAddStudentContent = () => {
         if (!form.session) errs.session = 'Session is required';
         if (!form.examTag) errs.examTag = 'Exam Tag is required';
         if (!form.course) errs.course = 'Course is required';
-        if (!form.gender) errs.gender = 'Gender is required';
 
         if (netPayable > 0) {
             if (!paymentForm.receivedDate) errs.receivedDate = 'Received date is required';
@@ -430,18 +620,10 @@ const PMOAddStudentContent = () => {
                             <button
                                 type="button"
                                 onClick={() => {
-                                    if (cfStudentDetails.student) {
-                                        applyCarryForward(cfStudentDetails.student, cfStudentDetails.rollNo);
-                                    } else {
-                                        setForm(prev => ({
-                                            ...prev,
-                                            name: cfStudentDetails.name || prev.name,
-                                            rollNo: cfStudentDetails.rollNo || prev.rollNo
-                                        }));
-                                    }
+                                    applyCarryForward(cfStudentDetails.student || cfStudentDetails, cfStudentDetails.rollNo);
                                     setCfModalOpen(false);
                                 }}
-                                className="px-5 py-2 text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 rounded-lg shadow-lg shadow-purple-600/30 transition flex items-center gap-2"
+                                className="px-5 py-2 text-xs font-bold text-white bg-purple-600 hover:bg-purple-500 rounded-lg shadow-lg shadow-purple-600/30 transition flex items-center gap-2 cursor-pointer"
                             >
                                 <FaCheckCircle /> Auto-Allocate Enrollment ID
                             </button>
@@ -523,7 +705,7 @@ const PMOAddStudentContent = () => {
                         </div>
 
                         <div>
-                            <label className="block text-gray-400 mb-1.5 font-medium">Gender <span className="text-rose-500">*</span></label>
+                            <label className="block text-gray-400 mb-1.5 font-medium">Gender</label>
                             <select
                                 name="gender"
                                 value={form.gender}
@@ -591,8 +773,10 @@ const PMOAddStudentContent = () => {
                                 name="rollNo"
                                 value={form.rollNo}
                                 onChange={handleChange}
+                                disabled={!!form.studentId || !!form.rollNo}
+                                readOnly={!!form.studentId || !!form.rollNo}
                                 placeholder="Auto-generated or Auto-allocated"
-                                className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-2.5 text-purple-300 font-mono font-bold placeholder-gray-600 focus:outline-none focus:border-purple-500 transition"
+                                className={`w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-2.5 text-purple-300 font-mono font-bold placeholder-gray-600 focus:outline-none focus:border-purple-500 transition ${(form.studentId || form.rollNo) ? 'opacity-80 cursor-not-allowed bg-gray-900/90' : ''}`}
                             />
                         </div>
                     </div>
@@ -811,10 +995,9 @@ const PMOAddStudentContent = () => {
                                 <FaTag className="text-amber-400" /> Discount / Waiver (₹)
                             </label>
                             <input
-                                type="number"
+                                type="text"
+                                inputMode="numeric"
                                 name="waiver"
-                                min={0}
-                                max={100}
                                 value={paymentForm.waiver}
                                 onChange={handlePaymentChange}
                                 placeholder="0 - 100 (e.g. 20 for ₹20 discount)"

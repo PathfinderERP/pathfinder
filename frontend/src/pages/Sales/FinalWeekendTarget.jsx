@@ -301,14 +301,21 @@ const FinalWeekendTarget = () => {
     // ── Derive week list from first active centre ─────────────────────────────
     const weekList = data?.centres?.find(c => c.status === "active")?.weeks || [];
 
+    // Helper to identify PHSPS Midnapore
+    const isPhspsMidnapore = (centre) => {
+        if (!centre) return false;
+        const str = (typeof centre === 'object' ? (centre.centreName || '') : String(centre)).toLowerCase();
+        return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
+    };
+
     // ── Summary cards & filtered active centres ──────────────────────────────
     const activeCentres = React.useMemo(() => {
         const raw = data?.centres?.filter(c => c.status === "active") || [];
         return raw.filter(c => isCentreAllowedByZone(c.centreId, c.centreName));
     }, [data, isCentreAllowedByZone]);
-    const totalTarget = activeCentres.reduce((s, c) => s + c.monthlyTargetExclGST, 0);
-    const totalAchieved = activeCentres.reduce((s, c) => s + c.totalAchievedExclGST, 0);
-    const totalWeekend = activeCentres.reduce((s, c) => s + c.totalWeekendExclGST, 0);
+    const totalTarget = activeCentres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + c.monthlyTargetExclGST, 0);
+    const totalAchieved = activeCentres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + c.totalAchievedExclGST, 0);
+    const totalWeekend = activeCentres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + c.totalWeekendExclGST, 0);
 
     // ── Export ────────────────────────────────────────────────────────────────
     const handleExport = () => {
@@ -706,14 +713,15 @@ const FinalWeekendTarget = () => {
                                         </td>
                                         {weekList.map((w, wi) => {
                                             const activeCols = getActiveCols(w);
-                                            // Sum each metric across centres for this week
+                                            // Sum each metric across centres for this week (excluding PHSPS Midnapore)
                                             const totals = activeCols.reduce((acc, col) => {
                                                 if (col.key === "cumulativeShortfall") {
-                                                    const totalCumTarget = activeCentres.reduce((s, c) => s + (c.weeks?.[wi]?.cumulativeTarget || 0), 0);
-                                                    const totalCumAchieved = activeCentres.reduce((s, c) => s + (c.weeks?.[wi]?.cumulativeAchieved || 0), 0);
+                                                    const totalCumTarget = activeCentres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + (c.weeks?.[wi]?.cumulativeTarget || 0), 0);
+                                                    const totalCumAchieved = activeCentres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + (c.weeks?.[wi]?.cumulativeAchieved || 0), 0);
                                                     acc[col.key] = Math.max(0, totalCumTarget - totalCumAchieved);
                                                 } else {
                                                     const sum = activeCentres.reduce((s, c) => {
+                                                        if (isPhspsMidnapore(c.centreName)) return s;
                                                         const m = weekMetrics(c.weeks?.[wi] || {});
                                                         return s + (m[col.key] || 0);
                                                     }, 0);

@@ -273,15 +273,37 @@ export const getCarryForwardStudentDetails = async (req, res) => {
             if (doc) {
                 student = {
                     _id: doc._id,
+                    name: doc.name,
+                    mobile: doc.mobile,
+                    email: doc.email || "",
+                    gender: doc.gender || "",
+                    school: doc.school || doc.schoolName || "",
+                    schoolName: doc.school || doc.schoolName || "",
+                    guardianName: doc.guardianName || "",
+                    guardianMobile: doc.guardianMobile || "",
                     studentsDetails: [{
                         studentName: doc.name,
                         mobileNum: doc.mobile,
                         whatsappNumber: doc.secondaryMobile || doc.mobile,
                         studentEmail: doc.email || "",
+                        gender: doc.gender || "",
+                        schoolName: doc.school || doc.schoolName || "",
+                        school: doc.school || doc.schoolName || "",
+                        guardianName: doc.guardianName || "",
+                        guardianMobile: doc.guardianMobile || "",
+                        guardians: [{
+                            guardianName: doc.guardianName || "",
+                            guardianMobile: doc.guardianMobile || ""
+                        }],
                         centre: doc.centre?.centreName || (typeof doc.centre === 'string' ? doc.centre : ""),
                         class: doc.class?.name || (typeof doc.class === 'string' ? doc.class : "")
                     }],
-                    carryForwardBalance: 0
+                    guardians: [{
+                        guardianName: doc.guardianName || "",
+                        guardianMobile: doc.guardianMobile || ""
+                    }],
+                    carryForwardBalance: 0,
+                    isVirtualStudent: true
                 };
                 studentMobile = doc.mobile;
             }
@@ -445,13 +467,34 @@ export const searchEnrolledStudent = async (req, res) => {
             const doc = matchedPntse || matchedPmo;
             student = {
                 _id: doc._id,
+                name: doc.name,
+                mobile: doc.mobile,
+                email: doc.email || "",
+                gender: doc.gender || "",
+                school: doc.school || doc.schoolName || "",
+                schoolName: doc.school || doc.schoolName || "",
+                guardianName: doc.guardianName || "",
+                guardianMobile: doc.guardianMobile || "",
                 studentsDetails: [{
                     studentName: doc.name,
                     mobileNum: doc.mobile,
                     whatsappNumber: doc.secondaryMobile || doc.mobile,
                     studentEmail: doc.email || "",
+                    gender: doc.gender || "",
+                    schoolName: doc.school || doc.schoolName || "",
+                    school: doc.school || doc.schoolName || "",
+                    guardianName: doc.guardianName || "",
+                    guardianMobile: doc.guardianMobile || "",
+                    guardians: [{
+                        guardianName: doc.guardianName || "",
+                        guardianMobile: doc.guardianMobile || ""
+                    }],
                     centre: doc.centre?.centreName || (typeof doc.centre === 'string' ? doc.centre : ""),
                     class: doc.class?.name || (typeof doc.class === 'string' ? doc.class : "")
+                }],
+                guardians: [{
+                    guardianName: doc.guardianName || "",
+                    guardianMobile: doc.guardianMobile || ""
                 }],
                 carryForwardBalance: 0,
                 isVirtualStudent: true
