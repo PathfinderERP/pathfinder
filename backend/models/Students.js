@@ -1,4 +1,9 @@
 import mongoose from "mongoose";
+import "./Master_data/Batch.js";
+import "./Master_data/Courses.js";
+import "./Master_data/Department.js";
+import "./Master_data/Class.js";
+import "./User.js";
 
 
 const GuardianSchema = new mongoose.Schema({

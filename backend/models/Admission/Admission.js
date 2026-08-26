@@ -1,4 +1,14 @@
 import mongoose from "mongoose";
+import "../Students.js";
+import "../Master_data/Courses.js";
+import "../Master_data/Class.js";
+import "../Master_data/ExamTag.js";
+import "../Master_data/Department.js";
+import "../Master_data/Boards.js";
+import "../Master_data/Subject.js";
+import "../Master_data/Account.js";
+import "../Master_data/Batch.js";
+import "../User.js";
 
 const paymentBreakdownSchema = new mongoose.Schema({
     installmentNumber: { type: Number, required: true },

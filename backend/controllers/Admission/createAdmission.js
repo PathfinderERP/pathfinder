@@ -12,6 +12,10 @@ import { isGstExempt } from "../../utils/gstHelper.js";
 import { rebalanceBoardHistory } from "./generateMonthlyBill.js";
 import { clearCachePattern } from "../../utils/redisCache.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
+import Batch from "../../models/Master_data/Batch.js";
+import Class from "../../models/Master_data/Class.js";
+import Department from "../../models/Master_data/Department.js";
+import Account from "../../models/Master_data/Account.js";
 
 export const createAdmission = async (req, res) => {
     try {
@@ -456,31 +460,32 @@ export const createAdmission = async (req, res) => {
             department: departmentId || student.department
         };
 
-        if (admission.admissionNumber) {
-            studentUpdatePayload.admissionNumber = admission.admissionNumber;
-            if (student.studentsDetails && student.studentsDetails[0]) {
-                student.studentsDetails[0].rollNo = admission.admissionNumber;
-                student.studentsDetails[0].admissionNumber = admission.admissionNumber;
-                studentUpdatePayload.studentsDetails = student.studentsDetails;
+        const updatedStudentsDetails = student.studentsDetails ? JSON.parse(JSON.stringify(student.studentsDetails)) : [];
+        if (updatedStudentsDetails.length > 0) {
+            if (admission.admissionNumber) {
+                studentUpdatePayload.admissionNumber = admission.admissionNumber;
+                updatedStudentsDetails[0].rollNo = admission.admissionNumber;
+                updatedStudentsDetails[0].admissionNumber = admission.admissionNumber;
             }
+            if (boardId) {
+                const boardDoc = await Board.findById(boardId);
+                if (boardDoc) {
+                    updatedStudentsDetails[0].board = boardDoc.boardCourse || boardDoc.boardName || "WBCHSE";
+                    studentUpdatePayload.board = boardDoc._id;
+                }
+            }
+            if (programme) {
+                updatedStudentsDetails[0].programme = programme;
+            }
+            studentUpdatePayload.studentsDetails = updatedStudentsDetails;
+        } else if (admission.admissionNumber) {
+            studentUpdatePayload.admissionNumber = admission.admissionNumber;
         }
 
         if (batchId) {
             studentUpdatePayload.batches = [batchId];
         } else if (Array.isArray(batches) && batches.length > 0) {
             studentUpdatePayload.batches = batches;
-        }
-
-        if (boardId) {
-            const boardDoc = await Board.findById(boardId);
-            if (boardDoc && student.studentsDetails && student.studentsDetails.length > 0) {
-                studentUpdatePayload["studentsDetails.0.board"] = boardDoc.boardCourse || boardDoc.boardName || "WBCHSE";
-                studentUpdatePayload.board = boardDoc._id;
-            }
-        }
-
-        if (programme && student.studentsDetails && student.studentsDetails.length > 0) {
-            studentUpdatePayload["studentsDetails.0.programme"] = programme;
         }
 
         if (examTagName) {
