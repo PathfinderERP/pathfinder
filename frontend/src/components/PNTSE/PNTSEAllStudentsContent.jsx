@@ -9,6 +9,7 @@ import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
 import PNTSEAdmitCard from './PNTSEAdmitCard';
 import PNTSEBulkImportModal from './PNTSEBulkImportModal';
+import Pagination from '../common/Pagination';
 import * as XLSX from 'xlsx';
 
 const formatReportingTime = (timeStr) => {
@@ -37,6 +38,8 @@ const PNTSEAllStudentsContent = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({ zone: '', centre: '', class: '', status: '', session: '' });
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     
     // Bill Generation State
     const [selectedStudentForBill, setSelectedStudentForBill] = useState(null);
@@ -387,6 +390,11 @@ const PNTSEAllStudentsContent = () => {
         return () => clearTimeout(handler);
     }, [searchQuery, filters]);
 
+    // Reset pagination when search query or filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchQuery, filters]);
+
     // Download template
     const handleDownloadTemplate = async () => {
         try {
@@ -575,6 +583,11 @@ const PNTSEAllStudentsContent = () => {
         if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
         return 0;
     });
+
+    const paginatedStudents = React.useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        return sortedStudents.slice(startIndex, startIndex + itemsPerPage);
+    }, [sortedStudents, currentPage, itemsPerPage]);
 
     const pntseClasses = dbClasses.filter(cls => {
         if (!cls || !cls.name) return false;
@@ -803,16 +816,18 @@ const PNTSEAllStudentsContent = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800/50">
-                            {sortedStudents.length === 0 ? (
+                            {paginatedStudents.length === 0 ? (
                                 <tr>
                                     <td colSpan={14} className="text-center py-16 text-gray-500">
                                         <FaGraduationCap className="text-4xl mx-auto mb-3 opacity-30" />
                                         <p>No students found</p>
                                     </td>
                                 </tr>
-                            ) : sortedStudents.map((student, idx) => (
+                            ) : paginatedStudents.map((student, idx) => {
+                                const slNo = (currentPage - 1) * itemsPerPage + idx + 1;
+                                return (
                                 <tr key={student._id} className="hover:bg-gray-800/40 transition-colors duration-150">
-                                    <td className="px-5 py-4 text-gray-400">{idx + 1}</td>
+                                    <td className="px-5 py-4 text-gray-400">{slNo}</td>
                                     <td className="px-5 py-4">
                                         <div className="flex items-center gap-3">
                                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white text-xs font-bold shrink-0">
@@ -920,10 +935,23 @@ const PNTSEAllStudentsContent = () => {
                                         </div>
                                     </td>
                                 </tr>
-                            ))}
+                            );
+                            })}
                         </tbody>
                     </table>
                 </div>
+                <Pagination
+                    currentPage={currentPage}
+                    totalItems={sortedStudents.length}
+                    itemsPerPage={itemsPerPage}
+                    onPageChange={(page) => setCurrentPage(page)}
+                    onItemsPerPageChange={(size) => {
+                        setItemsPerPage(size);
+                        setCurrentPage(1);
+                    }}
+                    itemsPerPageOptions={[10, 20, 50, 100]}
+                    theme="dark"
+                />
             </div>
 
             {/* ==================== IMPORT MODAL ==================== */}
