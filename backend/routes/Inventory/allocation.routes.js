@@ -1,6 +1,7 @@
 import express from "express";
 import { 
     createAllocation, 
+    createBulkAllocation,
     getStudentAllocations, 
     getAllAllocations 
 } from "../../controllers/Inventory/allocationController.js";
@@ -10,6 +11,7 @@ import { requireGranularPermission } from "../../middleware/permissionMiddleware
 const router = express.Router();
 
 router.post("/", protect, requireGranularPermission("operations", "store", "create"), createAllocation);
+router.post("/bulk", protect, requireGranularPermission("operations", "store", "create"), createBulkAllocation);
 router.get("/list", protect, requireGranularPermission("operations", "store", "view"), getAllAllocations);
 router.get("/student/:studentId", protect, requireGranularPermission("operations", "store", "view"), getStudentAllocations);
 

@@ -4,7 +4,7 @@ const AllocationItemSchema = new mongoose.Schema({
     itemName: { 
         type: String, 
         required: true,
-        enum: ['Dress', 'Academic Books', 'Pens', 'Bags', 'Other']
+        trim: true
     },
     quantity: { 
         type: Number, 

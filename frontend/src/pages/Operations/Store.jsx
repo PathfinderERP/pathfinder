@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Layout from '../../components/Layout';
 import { useTheme } from "../../context/ThemeContext";
 import { 
     FaSearch, FaFilter, FaSync, FaUserGraduate, 
     FaBoxOpen, FaClipboardList, FaCheckCircle, 
-    FaUser, FaPhoneAlt, FaBuilding, FaBook, FaShoppingBag, FaTshirt, FaPenNib
+    FaUser, FaPhoneAlt, FaBuilding, FaBook, FaShoppingBag, FaTshirt, FaPenNib,
+    FaArrowLeft, FaUsers, FaCheckSquare, FaSquare, FaPlus, FaIdCard, FaCalculator,
+    FaBoxes, FaCheck, FaTimes, FaMapMarkerAlt, FaChartPie, FaLayerGroup, FaTags
 } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -17,34 +19,50 @@ const StorePage = () => {
     const isDarkMode = theme === 'dark';
     const apiUrl = import.meta.env.VITE_API_URL;
 
-    const [students, setStudents] = useState([]);
-    const [filteredStudents, setFilteredStudents] = useState([]);
+    // Master data & raw states
+    const [rawCentres, setRawCentres] = useState([]);
+    const [allStudents, setAllStudents] = useState([]); // All active students grouped
+    const [masterCourses, setMasterCourses] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState("");
-    const [filterCentre, setFilterCentre] = useState([]);
+
+    // Active View state: 'centres' (centre-wise list) or 'centre_detail' (students inside selected centre)
+    const [viewMode, setViewMode] = useState('centres');
+    const [selectedCentre, setSelectedCentre] = useState(null); // When drilling down into a centre
+
+    // Filter & Search states (Centre level)
+    const [centreSearchQuery, setCentreSearchQuery] = useState("");
+
+    // Filter & Search states (Student level inside centre)
+    const [studentSearchQuery, setStudentSearchQuery] = useState("");
     const [filterCourse, setFilterCourse] = useState([]);
     const [filterBoard, setFilterBoard] = useState([]);
     const [filterGender, setFilterGender] = useState([]);
     const [filterAllocationStatus, setFilterAllocationStatus] = useState([]);
-    
-    // Master Data
-    const [allowedCentres, setAllowedCentres] = useState([]);
-    const [masterCourses, setMasterCourses] = useState([]);
-    const [masterBoards, setMasterBoards] = useState([]);
-    
-    // Pagination
+
+    // Multi-select students inside drilled-down centre
+    const [selectedStudentIds, setSelectedStudentIds] = useState([]);
+
+    // Pagination for students list
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
     // Allocation Modal State
-    const [selectedStudent, setSelectedStudent] = useState(null);
     const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
+    // Modal Target Type: 'centre_all' | 'centre_not_allotted' | 'selected_students' | 'single_student'
+    const [allocationTargetType, setAllocationTargetType] = useState('centre_all');
+    const [modalTargetCentre, setModalTargetCentre] = useState(null);
+    const [modalSingleStudent, setModalSingleStudent] = useState(null);
+    const [modalSelectedStudentsList, setModalSelectedStudentsList] = useState([]);
+
     const [allocationData, setAllocationData] = useState({
         items: [],
-        quantities: {} // { itemName: quantity }
+        quantities: {} // { itemName: quantityPerStudent }
     });
+    const [customItemInput, setCustomItemInput] = useState("");
+    const [customItemsList, setCustomItemsList] = useState([]);
+    const [submittingAllocation, setSubmittingAllocation] = useState(false);
 
-    const user = React.useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
+    const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
     const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
 
     useEffect(() => {
@@ -57,89 +75,154 @@ const StorePage = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            // Fetch centres, courses and students
+            // Fetch centres, courses and admissions
             const [centresRes, coursesRes, studentsRes] = await Promise.all([
                 fetch(`${apiUrl}/centre`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/admission`, { headers })
             ]);
 
-            const centres = centresRes.ok ? await centresRes.ok && await centresRes.json() : [];
-            const courses = coursesRes.ok ? await coursesRes.ok && await coursesRes.json() : [];
-            const admissions = studentsRes.ok ? await studentsRes.ok && await studentsRes.json() : [];
+            const fetchedCentres = centresRes.ok ? await centresRes.json() : [];
+            const fetchedCourses = coursesRes.ok ? await coursesRes.json() : [];
+            const fetchedAdmissions = studentsRes.ok ? await studentsRes.json() : [];
 
-            // Filter centres based on user permissions if not superadmin
+            // Active centres filtering: only centres that are active and allowed for user
+            let userAllowedCentres = [];
             if (!isSuperAdmin) {
                 const userCentres = user.centres || [];
-                const userCentreNames = userCentres.map(c => c.centreName || c.name || c).filter(Boolean);
-                setAllowedCentres(userCentreNames);
+                const userCentreNames = userCentres.map(c => (c.centreName || c.name || c)).filter(Boolean);
+                userAllowedCentres = fetchedCentres.filter(c => 
+                    c.status !== 'deactive' && userCentreNames.includes(c.centreName)
+                );
             } else {
-                setAllowedCentres(centres.map(c => c.centreName));
+                userAllowedCentres = fetchedCentres.filter(c => c.status !== 'deactive');
             }
 
-            setMasterCourses(courses);
+            setRawCentres(userAllowedCentres);
+            setMasterCourses(fetchedCourses);
 
-            // Group admissions by student similar to EnrolledStudentsContent
+            // Group admissions by student and keep ONLY ACTIVE students
             const studentMap = {};
-            admissions.forEach(admission => {
-                const studentId = admission.student?._id;
-                if (studentId) {
-                    if (!studentMap[studentId]) {
-                        studentMap[studentId] = {
-                            student: admission.student,
-                            admissions: [],
-                            latestAdmission: admission
-                        };
-                    }
-                    studentMap[studentId].admissions.push(admission);
-                    // Update latest admission if newer
-                    if (new Date(admission.admissionDate) > new Date(studentMap[studentId].latestAdmission.admissionDate)) {
-                        studentMap[studentId].latestAdmission = admission;
-                    }
+            fetchedAdmissions.forEach(admission => {
+                const student = admission.student;
+                if (!student || !student._id) return;
+
+                // Check active status: student must not be Deactivated and admission must not be INACTIVE/CANCELLED
+                const isStudentActive = student.status !== 'Deactivated';
+                const isAdmissionActive = admission.admissionStatus !== 'INACTIVE' && admission.admissionStatus !== 'CANCELLED';
+
+                if (!isStudentActive || !isAdmissionActive) return;
+
+                const studentId = student._id.toString();
+                if (!studentMap[studentId]) {
+                    studentMap[studentId] = {
+                        student: student,
+                        admissions: [],
+                        latestAdmission: admission,
+                        centre: admission.centre || student.studentsDetails?.[0]?.centre || 'Unknown'
+                    };
+                }
+                studentMap[studentId].admissions.push(admission);
+
+                // Update latest admission if newer
+                if (new Date(admission.admissionDate || admission.createdAt) > new Date(studentMap[studentId].latestAdmission.admissionDate || studentMap[studentId].latestAdmission.createdAt)) {
+                    studentMap[studentId].latestAdmission = admission;
+                    studentMap[studentId].centre = admission.centre || student.studentsDetails?.[0]?.centre || studentMap[studentId].centre;
                 }
             });
 
-            const studentsArray = Object.values(studentMap);
-            setStudents(studentsArray);
-            setFilteredStudents(studentsArray);
+            const activeStudentsArray = Object.values(studentMap);
+            setAllStudents(activeStudentsArray);
+
         } catch (error) {
             console.error("Error fetching store data:", error);
-            toast.error("Failed to load student data");
+            toast.error("Failed to load store inventory data");
         } finally {
             setLoading(false);
         }
     };
 
-    useEffect(() => {
-        let result = students;
-
-        // Apply filters
-        if (!isSuperAdmin && allowedCentres.length > 0) {
-            result = result.filter(item => {
-                const studentCentre = item.student?.studentsDetails?.[0]?.centre;
-                return allowedCentres.includes(studentCentre);
+    // Calculate Centre-wise metrics
+    const centreWiseSummary = useMemo(() => {
+        return rawCentres.map(centre => {
+            const centreName = centre.centreName || "";
+            // Find all active students belonging to this centre (case-insensitive trim match)
+            const centreStudents = allStudents.filter(item => {
+                const studentCentre = (item.centre || item.student?.studentsDetails?.[0]?.centre || "").trim().toLowerCase();
+                return studentCentre === centreName.trim().toLowerCase();
             });
-        }
 
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase();
-            result = result.filter(item => {
+            const totalActiveCount = centreStudents.length;
+            const allottedStudents = centreStudents.filter(item => (item.student?.allocatedItems?.length || 0) > 0);
+            const allottedCount = allottedStudents.length;
+            const notAllottedCount = totalActiveCount - allottedCount;
+
+            // Total units and item breakdown
+            const itemCounts = {};
+            let totalUnits = 0;
+
+            centreStudents.forEach(item => {
+                const allocations = item.student?.allocatedItems || [];
+                allocations.forEach(alloc => {
+                    const name = alloc.itemName || 'Item';
+                    const qty = alloc.quantity || 1;
+                    itemCounts[name] = (itemCounts[name] || 0) + qty;
+                    totalUnits += qty;
+                });
+            });
+
+            return {
+                centreDoc: centre,
+                centreName: centreName,
+                centreCode: centre.centreCode || centre.enterCode || 'N/A',
+                location: centre.location || centre.address || centre.state || '',
+                activeStudents: centreStudents,
+                activeStudentsCount: totalActiveCount,
+                allottedCount,
+                notAllottedCount,
+                totalUnitsAllotted: totalUnits,
+                itemCounts
+            };
+        }).sort((a, b) => b.activeStudentsCount - a.activeStudentsCount);
+    }, [rawCentres, allStudents]);
+
+    // Filtered Centres for Centre View
+    const filteredCentres = useMemo(() => {
+        if (!centreSearchQuery.trim()) return centreWiseSummary;
+        const q = centreSearchQuery.toLowerCase().trim();
+        return centreWiseSummary.filter(c => 
+            c.centreName.toLowerCase().includes(q) ||
+            c.centreCode.toLowerCase().includes(q) ||
+            c.location.toLowerCase().includes(q)
+        );
+    }, [centreWiseSummary, centreSearchQuery]);
+
+    // Active students of the currently selected centre
+    const currentCentreStudents = useMemo(() => {
+        if (!selectedCentre) return [];
+        const foundCentre = centreWiseSummary.find(c => 
+            c.centreName.toLowerCase().trim() === selectedCentre.centreName.toLowerCase().trim()
+        );
+        return foundCentre ? foundCentre.activeStudents : [];
+    }, [selectedCentre, centreWiseSummary]);
+
+    // Filtered students for drilled-down Centre View
+    const filteredStudents = useMemo(() => {
+        let list = currentCentreStudents;
+
+        if (studentSearchQuery.trim()) {
+            const query = studentSearchQuery.toLowerCase().trim();
+            list = list.filter(item => {
                 const s = item.student?.studentsDetails?.[0] || {};
                 return (s.studentName || "").toLowerCase().includes(query) ||
                        (s.mobileNum || "").includes(query) ||
+                       (s.whatsappNumber || "").includes(query) ||
                        (item.latestAdmission?.admissionNumber || "").toLowerCase().includes(query);
             });
         }
 
-        if (filterCentre.length > 0) {
-            result = result.filter(item => {
-                const studentCentre = item.student?.studentsDetails?.[0]?.centre;
-                return filterCentre.includes(studentCentre);
-            });
-        }
-
         if (filterCourse.length > 0) {
-            result = result.filter(item => {
+            list = list.filter(item => {
                 return item.admissions.some(a => {
                     const courseName = a.course?.courseName || a.boardCourseName || "";
                     return filterCourse.includes(courseName);
@@ -148,40 +231,133 @@ const StorePage = () => {
         }
 
         if (filterBoard.length > 0) {
-            result = result.filter(item => {
+            list = list.filter(item => {
                 const studentBoard = item.student?.studentsDetails?.[0]?.board;
                 return filterBoard.includes(studentBoard);
             });
         }
 
         if (filterGender.length > 0) {
-            result = result.filter(item => {
+            list = list.filter(item => {
                 const studentGender = item.student?.studentsDetails?.[0]?.gender;
                 return filterGender.includes(studentGender);
             });
         }
 
         if (filterAllocationStatus.length > 0) {
-            result = result.filter(item => {
-                const hasAllocations = item.student?.allocatedItems?.length > 0;
+            list = list.filter(item => {
+                const hasAllocations = (item.student?.allocatedItems?.length || 0) > 0;
                 if (filterAllocationStatus.includes('allotted') && hasAllocations) return true;
                 if (filterAllocationStatus.includes('not_allotted') && !hasAllocations) return true;
                 return false;
             });
         }
 
-        setFilteredStudents(result);
-        setCurrentPage(1);
-    }, [searchQuery, filterCentre, filterCourse, filterBoard, filterGender, filterAllocationStatus, students, allowedCentres, isSuperAdmin]);
+        return list;
+    }, [currentCentreStudents, studentSearchQuery, filterCourse, filterBoard, filterGender, filterAllocationStatus]);
 
-    const handleAllocate = (student) => {
-        setSelectedStudent(student);
-        setIsAllocationModalOpen(true);
-        // Reset allocation data
-        setAllocationData({ items: [], quantities: {} });
+    // Reset pagination when filter changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [studentSearchQuery, filterCourse, filterBoard, filterGender, filterAllocationStatus]);
+
+    // Clear selection when changing centre
+    useEffect(() => {
+        setSelectedStudentIds([]);
+    }, [selectedCentre]);
+
+    // Drill down to a centre
+    const handleSelectCentre = (centreSummaryItem) => {
+        setSelectedCentre(centreSummaryItem);
+        setViewMode('centre_detail');
+        setStudentSearchQuery("");
+        setFilterCourse([]);
+        setFilterBoard([]);
+        setFilterGender([]);
+        setFilterAllocationStatus([]);
+        setSelectedStudentIds([]);
     };
 
-    const toggleItem = (itemName) => {
+    // Return back to centre list
+    const handleBackToCentres = () => {
+        setViewMode('centres');
+        setSelectedCentre(null);
+        setSelectedStudentIds([]);
+    };
+
+    // Multi-select handlers
+    const handleSelectAllStudents = (e) => {
+        if (e.target.checked) {
+            const allIds = filteredStudents.map(item => item.student._id.toString());
+            setSelectedStudentIds(allIds);
+        } else {
+            setSelectedStudentIds([]);
+        }
+    };
+
+    const handleToggleStudentSelection = (studentId) => {
+        setSelectedStudentIds(prev => 
+            prev.includes(studentId) 
+                ? prev.filter(id => id !== studentId) 
+                : [...prev, studentId]
+        );
+    };
+
+    // Item Catalog
+    const standardItems = [
+        { id: 'academic_books', name: 'Academic Books', icon: <FaBook className="text-blue-500" /> },
+        { id: 'dress', name: 'Dress / Uniform', icon: <FaTshirt className="text-pink-500" /> },
+        { id: 'pens', name: 'Pens & Stationery', icon: <FaPenNib className="text-purple-500" /> },
+        { id: 'bags', name: 'Bags', icon: <FaShoppingBag className="text-orange-500" /> },
+        { id: 'id_card', name: 'ID Card', icon: <FaIdCard className="text-teal-500" /> },
+    ];
+
+    const availableItems = useMemo(() => {
+        const customMapped = customItemsList.map(c => ({
+            id: c.toLowerCase().replace(/\s+/g, '_'),
+            name: c,
+            icon: <FaBoxOpen className="text-cyan-500" />
+        }));
+        return [...standardItems, ...customMapped];
+    }, [customItemsList]);
+
+    // Trigger Modals
+    const handleOpenCentreAllocationModal = (centreSummaryItem) => {
+        setModalTargetCentre(centreSummaryItem);
+        setModalSingleStudent(null);
+        setModalSelectedStudentsList([]);
+        setAllocationTargetType('centre_all');
+        setAllocationData({ items: ['Academic Books'], quantities: { 'Academic Books': 1 } });
+        setIsAllocationModalOpen(true);
+    };
+
+    const handleOpenSelectedStudentsAllocationModal = () => {
+        if (selectedStudentIds.length === 0) {
+            toast.warning("Please select at least one student to allocate");
+            return;
+        }
+        const selectedList = currentCentreStudents.filter(item => 
+            selectedStudentIds.includes(item.student._id.toString())
+        );
+        setModalTargetCentre(selectedCentre);
+        setModalSingleStudent(null);
+        setModalSelectedStudentsList(selectedList);
+        setAllocationTargetType('selected_students');
+        setAllocationData({ items: ['Academic Books'], quantities: { 'Academic Books': 1 } });
+        setIsAllocationModalOpen(true);
+    };
+
+    const handleOpenSingleStudentAllocationModal = (studentItem) => {
+        setModalSingleStudent(studentItem);
+        setModalTargetCentre(selectedCentre);
+        setModalSelectedStudentsList([]);
+        setAllocationTargetType('single_student');
+        setAllocationData({ items: [], quantities: {} });
+        setIsAllocationModalOpen(true);
+    };
+
+    // Item selection inside modal
+    const toggleModalItem = (itemName) => {
         setAllocationData(prev => {
             const exists = prev.items.includes(itemName);
             if (exists) {
@@ -199,7 +375,7 @@ const StorePage = () => {
         });
     };
 
-    const updateQuantity = (itemName, delta) => {
+    const updateModalItemQuantity = (itemName, delta) => {
         setAllocationData(prev => {
             const currentQty = prev.quantities[itemName] || 1;
             const newQty = Math.max(1, currentQty + delta);
@@ -210,422 +386,1055 @@ const StorePage = () => {
         });
     };
 
+    const handleAddCustomItem = () => {
+        if (!customItemInput.trim()) return;
+        const formatted = customItemInput.trim();
+        if (!customItemsList.includes(formatted) && !standardItems.some(s => s.name.toLowerCase() === formatted.toLowerCase())) {
+            setCustomItemsList(prev => [...prev, formatted]);
+            toggleModalItem(formatted);
+            setCustomItemInput("");
+        } else {
+            toast.info("Item already in catalog");
+        }
+    };
+
+    // Calculate dynamic target students count for total allotment
+    const targetStudentsCount = useMemo(() => {
+        if (allocationTargetType === 'single_student') return 1;
+        if (allocationTargetType === 'selected_students') return modalSelectedStudentsList.length;
+        if (!modalTargetCentre) return 0;
+
+        if (allocationTargetType === 'centre_all') {
+            return modalTargetCentre.activeStudentsCount || 0;
+        } else if (allocationTargetType === 'centre_not_allotted') {
+            return modalTargetCentre.notAllottedCount || 0;
+        }
+        return 0;
+    }, [allocationTargetType, modalTargetCentre, modalSelectedStudentsList]);
+
+    // Submit Allocation
     const handleAllocationSubmit = async () => {
         if (allocationData.items.length === 0) {
             toast.warning("Please select at least one item to allocate");
             return;
         }
 
+        if (targetStudentsCount === 0) {
+            toast.warning("No active students selected for allocation");
+            return;
+        }
+
         try {
+            setSubmittingAllocation(true);
             const token = localStorage.getItem("token");
-            const response = await fetch(`${apiUrl}/inventory/allocation`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    studentId: selectedStudent.student._id,
-                    admissionId: selectedStudent.latestAdmission._id,
-                    items: allocationData.items.map(name => ({ 
-                        itemName: name, 
-                        quantity: allocationData.quantities[name] || 1 
-                    }))
-                })
-            });
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
 
-            const data = await response.json();
+            const preparedItems = allocationData.items.map(name => ({
+                itemName: name,
+                quantity: allocationData.quantities[name] || 1
+            }));
 
-            if (response.ok) {
-                toast.success(`Allocated ${allocationData.items.join(', ')} to ${selectedStudent.student.studentsDetails[0].studentName}`);
-                setIsAllocationModalOpen(false);
-                setSelectedStudent(null);
-                fetchInitialData(); // Refresh to update allocation status
+            if (allocationTargetType === 'single_student') {
+                // Single student API call
+                const payload = {
+                    studentId: modalSingleStudent.student._id,
+                    admissionId: modalSingleStudent.latestAdmission._id,
+                    items: preparedItems
+                };
+
+                const res = await fetch(`${apiUrl}/inventory/allocation`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    toast.success(`Successfully allocated items to ${modalSingleStudent.student.studentsDetails?.[0]?.studentName}`);
+                    setIsAllocationModalOpen(false);
+                    fetchInitialData();
+                } else {
+                    toast.error(data.message || "Failed to save allocation");
+                }
             } else {
-                toast.error(data.message || "Failed to save allocation");
+                // Bulk Allocation: Centre or Selected active students
+                let studentsToAllocate = [];
+
+                if (allocationTargetType === 'selected_students') {
+                    studentsToAllocate = modalSelectedStudentsList.map(s => ({
+                        studentId: s.student._id,
+                        admissionId: s.latestAdmission?._id
+                    }));
+                } else if (allocationTargetType === 'centre_all') {
+                    studentsToAllocate = (modalTargetCentre?.activeStudents || []).map(s => ({
+                        studentId: s.student._id,
+                        admissionId: s.latestAdmission?._id
+                    }));
+                } else if (allocationTargetType === 'centre_not_allotted') {
+                    studentsToAllocate = (modalTargetCentre?.activeStudents || [])
+                        .filter(s => (s.student?.allocatedItems?.length || 0) === 0)
+                        .map(s => ({
+                            studentId: s.student._id,
+                            admissionId: s.latestAdmission?._id
+                        }));
+                }
+
+                if (studentsToAllocate.length === 0) {
+                    toast.warning("No eligible active students found for this allocation");
+                    setSubmittingAllocation(false);
+                    return;
+                }
+
+                const payload = {
+                    students: studentsToAllocate,
+                    items: preparedItems
+                };
+
+                const res = await fetch(`${apiUrl}/inventory/allocation/bulk`, {
+                    method: 'POST',
+                    headers,
+                    body: JSON.stringify(payload)
+                });
+                const data = await res.json();
+
+                if (res.ok) {
+                    toast.success(`Total Allotment complete! Distributed items across ${studentsToAllocate.length} active students in ${modalTargetCentre?.centreName || 'selected students'}.`);
+                    setIsAllocationModalOpen(false);
+                    setSelectedStudentIds([]);
+                    fetchInitialData();
+                } else {
+                    toast.error(data.message || "Failed to perform bulk allocation");
+                }
             }
         } catch (error) {
-            console.error("Allocation Error:", error);
-            toast.error("Failed to save allocation due to network error");
+            console.error("Allocation Submit Error:", error);
+            toast.error("An error occurred while saving the allocation.");
+        } finally {
+            setSubmittingAllocation(false);
         }
     };
 
+    // Global Statistics
+    const globalStats = useMemo(() => {
+        const totalActiveCentres = rawCentres.length;
+        const totalActiveStudents = allStudents.length;
+        const totalAllottedStudents = allStudents.filter(s => (s.student?.allocatedItems?.length || 0) > 0).length;
+        const totalPendingStudents = totalActiveStudents - totalAllottedStudents;
+        
+        let totalItemsDispatched = 0;
+        allStudents.forEach(s => {
+            (s.student?.allocatedItems || []).forEach(item => {
+                totalItemsDispatched += (item.quantity || 1);
+            });
+        });
+
+        return {
+            totalActiveCentres,
+            totalActiveStudents,
+            totalAllottedStudents,
+            totalPendingStudents,
+            totalItemsDispatched
+        };
+    }, [rawCentres, allStudents]);
+
+    // Student Pagination slicing
     const indexOfLastItem = currentPage * itemsPerPage;
     const indexOfFirstItem = indexOfLastItem - itemsPerPage;
-    const currentItems = filteredStudents.slice(indexOfFirstItem, indexOfLastItem);
-
-    const availableItems = [
-        { id: 'dress', name: 'Dress', icon: <FaTshirt className="text-pink-500" /> },
-        { id: 'books', name: 'Academic Books', icon: <FaBook className="text-blue-500" /> },
-        { id: 'pens', name: 'Pens', icon: <FaPenNib className="text-purple-500" /> },
-        { id: 'bags', name: 'Bags', icon: <FaShoppingBag className="text-orange-500" /> },
-    ];
+    const currentStudentsPage = filteredStudents.slice(indexOfFirstItem, indexOfLastItem);
 
     return (
         <Layout activePage="Operations">
-            <div className={`p-6 min-h-screen ${isDarkMode ? 'bg-[#0f1214] text-gray-100' : 'bg-gray-50 text-gray-900'}`}>
-                {/* Header */}
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
+            <div className={`p-4 md:p-8 min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#0b0f14] text-gray-100' : 'bg-[#f8fafc] text-gray-900'}`}>
+                <ToastContainer theme={isDarkMode ? 'dark' : 'light'} position="top-right" autoClose={3000} />
+
+                {/* Header & Global Stats */}
+                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold bg-gradient-to-r from-cyan-400 to-blue-500 bg-clip-text text-transparent">
-                            Store & Inventory
-                        </h1>
-                        <p className={`mt-1 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                            Manage student allocations and inventory distribution
-                        </p>
+                        <div className="flex items-center gap-3">
+                            <div className="p-3 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-2xl text-white shadow-lg shadow-cyan-500/20">
+                                <FaBoxes className="text-2xl" />
+                            </div>
+                            <div>
+                                <h1 className="text-2xl md:text-3xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-500 bg-clip-text text-transparent">
+                                    Store & Inventory Allotment
+                                </h1>
+                                <p className={`text-xs md:text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    Active Centre-wise stock management and total student allotment
+                                </p>
+                            </div>
+                        </div>
                     </div>
                     
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
                         <button 
                             onClick={fetchInitialData}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-all ${
-                                isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-white hover:bg-gray-50 text-gray-700 shadow-sm border border-gray-200'
+                            disabled={loading}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all shadow-sm ${
+                                isDarkMode 
+                                ? 'bg-[#151b22] hover:bg-[#1f2937] text-cyan-400 border border-gray-800' 
+                                : 'bg-white hover:bg-gray-50 text-blue-600 border border-gray-200'
                             }`}
                         >
                             <FaSync className={loading ? 'animate-spin' : ''} />
-                            Refresh
+                            Refresh Data
                         </button>
                     </div>
                 </div>
 
-                {/* Filters Section */}
-                <div className={`p-6 rounded-2xl mb-8 ${isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-white shadow-sm border border-gray-100'}`}>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                        {/* Search */}
-                        <div className="relative">
-                            <label className={`block text-xs font-semibold mb-2 uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                Search Student
-                            </label>
-                            <div className="relative">
-                                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                                <input
+                {/* Global Metrics Bar */}
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+                    {/* Active Centres */}
+                    <div className={`p-5 rounded-2xl border transition-all ${isDarkMode ? 'bg-[#12171e] border-gray-800/80 shadow-lg shadow-black/20' : 'bg-white border-gray-100 shadow-sm'}`}>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Active Centres</span>
+                                <h3 className="text-2xl md:text-3xl font-black mt-1 text-cyan-500">{globalStats.totalActiveCentres}</h3>
+                            </div>
+                            <div className="p-3 bg-cyan-500/10 text-cyan-500 rounded-xl">
+                                <FaBuilding className="text-xl" />
+                            </div>
+                        </div>
+                        <p className="text-[11px] text-gray-500 mt-2 font-medium">Eligible operational centres</p>
+                    </div>
+
+                    {/* Total Active Students */}
+                    <div className={`p-5 rounded-2xl border transition-all ${isDarkMode ? 'bg-[#12171e] border-gray-800/80 shadow-lg shadow-black/20' : 'bg-white border-gray-100 shadow-sm'}`}>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Active Students</span>
+                                <h3 className="text-2xl md:text-3xl font-black mt-1 text-blue-500">{globalStats.totalActiveStudents}</h3>
+                            </div>
+                            <div className="p-3 bg-blue-500/10 text-blue-500 rounded-xl">
+                                <FaUserGraduate className="text-xl" />
+                            </div>
+                        </div>
+                        <p className="text-[11px] text-gray-500 mt-2 font-medium">Enrolled & currently active</p>
+                    </div>
+
+                    {/* Total Allotted Students */}
+                    <div className={`p-5 rounded-2xl border transition-all ${isDarkMode ? 'bg-[#12171e] border-gray-800/80 shadow-lg shadow-black/20' : 'bg-white border-gray-100 shadow-sm'}`}>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Allotted vs Pending</span>
+                                <div className="flex items-baseline gap-2 mt-1">
+                                    <h3 className="text-2xl md:text-3xl font-black text-green-500">{globalStats.totalAllottedStudents}</h3>
+                                    <span className="text-xs font-bold text-gray-400">/ {globalStats.totalPendingStudents} pending</span>
+                                </div>
+                            </div>
+                            <div className="p-3 bg-green-500/10 text-green-500 rounded-xl">
+                                <FaCheckCircle className="text-xl" />
+                            </div>
+                        </div>
+                        <div className="w-full bg-gray-700/20 h-1.5 rounded-full mt-3 overflow-hidden">
+                            <div 
+                                className="bg-gradient-to-r from-green-500 to-emerald-400 h-full rounded-full transition-all duration-500"
+                                style={{ width: `${globalStats.totalActiveStudents > 0 ? (globalStats.totalAllottedStudents / globalStats.totalActiveStudents) * 100 : 0}%` }}
+                            />
+                        </div>
+                    </div>
+
+                    {/* Total Items Allotted */}
+                    <div className={`p-5 rounded-2xl border transition-all ${isDarkMode ? 'bg-[#12171e] border-gray-800/80 shadow-lg shadow-black/20' : 'bg-white border-gray-100 shadow-sm'}`}>
+                        <div className="flex justify-between items-start">
+                            <div>
+                                <span className={`text-[11px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Items Dispatched</span>
+                                <h3 className="text-2xl md:text-3xl font-black mt-1 text-purple-500">{globalStats.totalItemsDispatched}</h3>
+                            </div>
+                            <div className="p-3 bg-purple-500/10 text-purple-500 rounded-xl">
+                                <FaClipboardList className="text-xl" />
+                            </div>
+                        </div>
+                        <p className="text-[11px] text-gray-500 mt-2 font-medium">Books, Uniforms, Stationery & Bags</p>
+                    </div>
+                </div>
+
+                {/* ═══════════════════════════════════════════════════════════════════════════════ */}
+                {/* VIEW 1: ACTIVE CENTRE-WISE LIST (DEFAULT VIEW) */}
+                {/* ═══════════════════════════════════════════════════════════════════════════════ */}
+                {viewMode === 'centres' && (
+                    <div className="space-y-6">
+                        {/* Search & Centre Filter Bar */}
+                        <div className={`p-4 md:p-6 rounded-2xl border flex flex-col md:flex-row justify-between items-stretch md:items-center gap-4 ${
+                            isDarkMode ? 'bg-[#12171e] border-gray-800/80' : 'bg-white border-gray-100 shadow-sm'
+                        }`}>
+                            <div className="relative flex-1 max-w-md">
+                                <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm" />
+                                <input 
                                     type="text"
-                                    placeholder="Name, Phone or Admission #"
-                                    value={searchQuery}
-                                    onChange={(e) => setSearchQuery(e.target.value)}
-                                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl border transition-all outline-none ${
+                                    placeholder="Search active centre by name or code..."
+                                    value={centreSearchQuery}
+                                    onChange={(e) => setCentreSearchQuery(e.target.value)}
+                                    className={`w-full pl-10 pr-4 py-2.5 rounded-xl border text-sm transition-all outline-none ${
                                         isDarkMode 
-                                        ? 'bg-[#0f1214] border-gray-700 focus:border-cyan-500 text-white' 
+                                        ? 'bg-[#0b0f14] border-gray-700/80 focus:border-cyan-500 text-white' 
                                         : 'bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900'
                                     }`}
                                 />
                             </div>
-                        </div>
 
-                        {/* Centre Filter */}
-                        <MultiSelectFilter
-                            label="Filter by Centre"
-                            options={allowedCentres.map(c => ({ value: c, label: c.toUpperCase() }))}
-                            selectedValues={filterCentre}
-                            onChange={setFilterCentre}
-                            placeholder="All Centres"
-                        />
-
-                        {/* Course Filter */}
-                        <MultiSelectFilter
-                            label="Filter by Course"
-                            options={[...new Set(masterCourses.map(c => c.courseName).filter(Boolean))].map(c => ({ value: c, label: c.toUpperCase() }))}
-                            selectedValues={filterCourse}
-                            onChange={setFilterCourse}
-                            placeholder="All Courses"
-                        />
-
-                        {/* Board Filter */}
-                        <MultiSelectFilter
-                            label="Filter by Board"
-                            options={[...new Set(students.map(item => item.student?.studentsDetails?.[0]?.board).filter(Boolean))].map(b => ({ value: b, label: b.toUpperCase() }))}
-                            selectedValues={filterBoard}
-                            onChange={setFilterBoard}
-                            placeholder="All Boards"
-                        />
-
-                        {/* Gender Filter */}
-                        <MultiSelectFilter
-                            label="Filter by Gender"
-                            options={['Male', 'Female', 'Other'].map(g => ({ value: g, label: g.toUpperCase() }))}
-                            selectedValues={filterGender}
-                            onChange={setFilterGender}
-                            placeholder="All Genders"
-                        />
-
-                        {/* Allocation Status Filter */}
-                        <MultiSelectFilter
-                            label="Allocation Status"
-                            options={[
-                                { value: 'allotted', label: 'ALLOTTED' },
-                                { value: 'not_allotted', label: 'NOT ALLOTTED' }
-                            ]}
-                            selectedValues={filterAllocationStatus}
-                            onChange={setFilterAllocationStatus}
-                            placeholder="All Status"
-                        />
-
-                        {/* Stats Summary */}
-                        <div className={`p-4 rounded-xl flex items-center justify-between ${isDarkMode ? 'bg-[#0f1214]' : 'bg-gray-50'}`}>
-                            <div>
-                                <p className={`text-xs font-medium uppercase tracking-tighter ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Total Students</p>
-                                <p className="text-2xl font-bold text-cyan-500">{filteredStudents.length}</p>
-                            </div>
-                            <div className="p-3 rounded-lg bg-cyan-500/10">
-                                <FaUserGraduate className="text-cyan-500 text-xl" />
+                            <div className="flex items-center gap-3">
+                                <span className={`text-xs font-bold px-3 py-1.5 rounded-lg border ${
+                                    isDarkMode ? 'bg-gray-800/50 border-gray-700 text-cyan-400' : 'bg-blue-50 border-blue-200 text-blue-700'
+                                }`}>
+                                    Showing {filteredCentres.length} Active Centres
+                                </span>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                {/* Students Table */}
-                <div className={`rounded-2xl overflow-hidden border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead>
-                                <tr className={`${isDarkMode ? 'bg-[#1e252b]' : 'bg-gray-50'} border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                                    <th className="p-4 font-semibold text-sm">Student Info</th>
-                                    <th className="p-4 font-semibold text-sm">Latest Course & Centre</th>
-                                    <th className="p-4 font-semibold text-sm">Contact</th>
-                                    <th className="p-4 font-semibold text-sm text-center">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {loading ? (
-                                    [...Array(5)].map((_, i) => <TableRowSkeleton key={i} columns={4} />)
-                                ) : currentItems.length > 0 ? (
-                                    currentItems.map((item, idx) => {
-                                        const s = item.student?.studentsDetails?.[0] || {};
-                                        return (
-                                            <tr key={idx} className={`border-b transition-colors ${
-                                                isDarkMode ? 'border-gray-800 hover:bg-[#1e252b]' : 'border-gray-100 hover:bg-gray-50'
-                                            }`}>
-                                                <td className="p-4">
+                        {/* Centres Grid */}
+                        {loading ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {[...Array(6)].map((_, i) => (
+                                    <div key={i} className={`p-6 rounded-2xl border animate-pulse ${isDarkMode ? 'bg-[#12171e] border-gray-800' : 'bg-white border-gray-100'}`}>
+                                        <div className="h-6 bg-gray-700/20 rounded-md w-3/4 mb-4" />
+                                        <div className="h-4 bg-gray-700/20 rounded-md w-1/2 mb-6" />
+                                        <div className="h-12 bg-gray-700/10 rounded-xl mb-4" />
+                                        <div className="h-10 bg-gray-700/20 rounded-xl" />
+                                    </div>
+                                ))}
+                            </div>
+                        ) : filteredCentres.length > 0 ? (
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                {filteredCentres.map((centreItem, idx) => {
+                                    const percentAllotted = centreItem.activeStudentsCount > 0 
+                                        ? Math.round((centreItem.allottedCount / centreItem.activeStudentsCount) * 100)
+                                        : 0;
+
+                                    return (
+                                        <div 
+                                            key={idx}
+                                            className={`rounded-2xl border p-6 flex flex-col justify-between transition-all duration-300 hover:shadow-xl group ${
+                                                isDarkMode 
+                                                ? 'bg-[#12171e] border-gray-800 hover:border-cyan-500/40 hover:shadow-cyan-500/5' 
+                                                : 'bg-white border-gray-100 hover:border-blue-300 shadow-sm'
+                                            }`}
+                                        >
+                                            {/* Centre Header */}
+                                            <div>
+                                                <div className="flex justify-between items-start mb-3">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-10 h-10 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold shadow-lg shadow-cyan-500/10">
-                                                            {s.studentName?.charAt(0)}
+                                                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-400 flex items-center justify-center font-bold text-sm border border-cyan-500/30">
+                                                            <FaBuilding />
                                                         </div>
                                                         <div>
-                                                            <p className="font-bold text-sm flex items-center gap-2">
-                                                                {s.studentName}
-                                                                {item.student?.allocatedItems?.length > 0 ? (
-                                                                    <span className="text-[10px] bg-green-500/10 text-green-500 px-2 py-0.5 rounded-full border border-green-500/20">Allotted</span>
-                                                                ) : (
-                                                                    <span className="text-[10px] bg-red-500/10 text-red-500 px-2 py-0.5 rounded-full border border-red-500/20">Not Allotted</span>
+                                                            <h3 className="font-extrabold text-base md:text-lg tracking-tight group-hover:text-cyan-400 transition-colors">
+                                                                {centreItem.centreName}
+                                                            </h3>
+                                                            <p className={`text-xs font-semibold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                                Code: <span className="font-mono text-cyan-500">{centreItem.centreCode}</span>
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
+                                                    <span className={`text-[11px] font-extrabold px-2.5 py-1 rounded-full border ${
+                                                        isDarkMode 
+                                                        ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' 
+                                                        : 'bg-blue-50 text-blue-600 border-blue-200'
+                                                    }`}>
+                                                        ACTIVE
+                                                    </span>
+                                                </div>
+
+                                                {centreItem.location && (
+                                                    <div className="flex items-center gap-1.5 text-xs text-gray-400 mb-4 truncate">
+                                                        <FaMapMarkerAlt className="text-gray-500 shrink-0 text-[10px]" />
+                                                        <span className="truncate">{centreItem.location}</span>
+                                                    </div>
+                                                )}
+
+                                                {/* Active Students & Allotment Metrics Card */}
+                                                <div className={`p-4 rounded-xl mb-4 border ${isDarkMode ? 'bg-[#0b0f14] border-gray-800/60' : 'bg-gray-50 border-gray-200/60'}`}>
+                                                    <div className="flex justify-between items-center mb-2">
+                                                        <span className={`text-xs font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                            Active Students
+                                                        </span>
+                                                        <span className="text-base font-black text-cyan-500 flex items-center gap-1">
+                                                            <FaUsers className="text-xs" />
+                                                            {centreItem.activeStudentsCount}
+                                                        </span>
+                                                    </div>
+
+                                                    <div className="flex justify-between items-center text-xs font-semibold mb-2">
+                                                        <span className="text-green-500 flex items-center gap-1">
+                                                            <FaCheckCircle className="text-[10px]" /> {centreItem.allottedCount} Allotted
+                                                        </span>
+                                                        <span className="text-amber-500 flex items-center gap-1">
+                                                            <FaBoxOpen className="text-[10px]" /> {centreItem.notAllottedCount} Pending
+                                                        </span>
+                                                    </div>
+
+                                                    {/* Progress bar */}
+                                                    <div className="w-full bg-gray-700/20 h-2 rounded-full overflow-hidden">
+                                                        <div 
+                                                            className="bg-gradient-to-r from-cyan-500 to-green-500 h-full rounded-full transition-all duration-500"
+                                                            style={{ width: `${percentAllotted}%` }}
+                                                        />
+                                                    </div>
+                                                    <div className="flex justify-between items-center mt-1 text-[10px] text-gray-500">
+                                                        <span>Allotment Rate</span>
+                                                        <span className="font-bold text-cyan-400">{percentAllotted}%</span>
+                                                    </div>
+                                                </div>
+
+                                                {/* Distributed Items Chips */}
+                                                <div className="mb-4">
+                                                    <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                        Current Dispatched Units ({centreItem.totalUnitsAllotted})
+                                                    </p>
+                                                    {Object.keys(centreItem.itemCounts).length > 0 ? (
+                                                        <div className="flex flex-wrap gap-1.5">
+                                                            {Object.entries(centreItem.itemCounts).slice(0, 4).map(([name, qty], i) => (
+                                                                <span 
+                                                                    key={i} 
+                                                                    className={`text-[10px] px-2 py-0.5 rounded-md font-semibold border ${
+                                                                        isDarkMode ? 'bg-gray-800/60 border-gray-700 text-gray-300' : 'bg-white border-gray-200 text-gray-700 shadow-2xs'
+                                                                    }`}
+                                                                >
+                                                                    {name}: <strong className="text-cyan-500">{qty}</strong>
+                                                                </span>
+                                                            ))}
+                                                            {Object.keys(centreItem.itemCounts).length > 4 && (
+                                                                <span className="text-[10px] px-1.5 py-0.5 rounded-md text-gray-500">
+                                                                    +{Object.keys(centreItem.itemCounts).length - 4} more
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <p className="text-[11px] text-gray-500 italic">No inventory items alloted yet</p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Action Buttons */}
+                                            <div className="pt-4 border-t border-gray-800/40 flex flex-col gap-2 mt-2">
+                                                {/* Centre Total Allotment Button */}
+                                                <button
+                                                    onClick={() => handleOpenCentreAllocationModal(centreItem)}
+                                                    disabled={centreItem.activeStudentsCount === 0}
+                                                    className={`w-full py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md ${
+                                                        centreItem.activeStudentsCount === 0 
+                                                        ? 'opacity-40 cursor-not-allowed bg-gray-800 text-gray-500' 
+                                                        : (isDarkMode 
+                                                            ? 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-[#0b0f14] shadow-cyan-500/10 active:scale-[0.98]' 
+                                                            : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-95 text-white shadow-blue-500/20 active:scale-[0.98]')
+                                                    }`}
+                                                >
+                                                    <FaCalculator />
+                                                    Centre Total Allotment ({centreItem.activeStudentsCount})
+                                                </button>
+
+                                                {/* View Centre Active Students Button */}
+                                                <button
+                                                    onClick={() => handleSelectCentre(centreItem)}
+                                                    className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all border ${
+                                                        isDarkMode 
+                                                        ? 'bg-[#0b0f14] hover:bg-gray-800/60 border-gray-700/80 text-gray-300' 
+                                                        : 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700'
+                                                    }`}
+                                                >
+                                                    <FaUsers />
+                                                    View Active Students ({centreItem.activeStudentsCount})
+                                                </button>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        ) : (
+                            <div className={`p-12 text-center rounded-2xl border ${isDarkMode ? 'bg-[#12171e] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
+                                <FaBuilding className="text-4xl text-gray-500 mx-auto mb-3 opacity-50" />
+                                <h3 className="text-lg font-bold">No Active Centres Found</h3>
+                                <p className="text-sm text-gray-400 mt-1">Try adjusting your search criteria or check centre permissions.</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
+                {/* ═══════════════════════════════════════════════════════════════════════════════ */}
+                {/* VIEW 2: CENTRE DRILL-DOWN (ACTIVE STUDENTS OF SELECTED CENTRE) */}
+                {/* ═══════════════════════════════════════════════════════════════════════════════ */}
+                {viewMode === 'centre_detail' && selectedCentre && (
+                    <div className="space-y-6 animate-in fade-in duration-300">
+                        {/* Navigation & Header */}
+                        <div className={`p-6 rounded-2xl border flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 ${
+                            isDarkMode ? 'bg-[#12171e] border-gray-800/80' : 'bg-white border-gray-100 shadow-sm'
+                        }`}>
+                            <div className="flex items-center gap-4">
+                                <button 
+                                    onClick={handleBackToCentres}
+                                    className={`p-3 rounded-xl border transition-all ${
+                                        isDarkMode 
+                                        ? 'bg-[#0b0f14] hover:bg-gray-800 border-gray-700 text-cyan-400' 
+                                        : 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-blue-600'
+                                    }`}
+                                    title="Back to all centres"
+                                >
+                                    <FaArrowLeft />
+                                </button>
+                                <div>
+                                    <div className="flex items-center gap-2">
+                                        <h2 className="text-xl md:text-2xl font-black tracking-tight">
+                                            {selectedCentre.centreName}
+                                        </h2>
+                                        <span className="text-xs font-mono px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                                            {selectedCentre.centreCode}
+                                        </span>
+                                    </div>
+                                    <p className={`text-xs md:text-sm mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        Showing <strong className="text-cyan-400">{filteredStudents.length}</strong> active students in this centre
+                                    </p>
+                                </div>
+                            </div>
+
+                            {/* Quick Action for this Centre */}
+                            <div className="flex items-center gap-3 w-full lg:w-auto">
+                                <button
+                                    onClick={() => handleOpenCentreAllocationModal(selectedCentre)}
+                                    disabled={selectedCentre.activeStudentsCount === 0}
+                                    className={`flex-1 lg:flex-none py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md ${
+                                        isDarkMode 
+                                        ? 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-[#0b0f14]' 
+                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
+                                    }`}
+                                >
+                                    <FaCalculator />
+                                    Allot All Centre Students ({selectedCentre.activeStudentsCount})
+                                </button>
+                            </div>
+                        </div>
+
+                        {/* Filters for Students inside Centre */}
+                        <div className={`p-6 rounded-2xl border ${isDarkMode ? 'bg-[#12171e] border-gray-800/80' : 'bg-white border-gray-100 shadow-sm'}`}>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                {/* Search Student */}
+                                <div className="relative lg:col-span-2">
+                                    <label className={`block text-[10px] font-bold mb-1.5 uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        Search Student
+                                    </label>
+                                    <div className="relative">
+                                        <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                                        <input 
+                                            type="text"
+                                            placeholder="Name, Phone or Admission #"
+                                            value={studentSearchQuery}
+                                            onChange={(e) => setStudentSearchQuery(e.target.value)}
+                                            className={`w-full pl-9 pr-4 py-2 rounded-xl border text-xs md:text-sm outline-none transition-all ${
+                                                isDarkMode 
+                                                ? 'bg-[#0b0f14] border-gray-700 focus:border-cyan-500 text-white' 
+                                                : 'bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900'
+                                            }`}
+                                        />
+                                    </div>
+                                </div>
+
+                                {/* Course Filter */}
+                                <MultiSelectFilter 
+                                    label="Filter by Course"
+                                    options={[...new Set(masterCourses.map(c => c.courseName).filter(Boolean))].map(c => ({ value: c, label: c.toUpperCase() }))}
+                                    selectedValues={filterCourse}
+                                    onChange={setFilterCourse}
+                                    placeholder="All Courses"
+                                />
+
+                                {/* Board Filter */}
+                                <MultiSelectFilter 
+                                    label="Filter by Board"
+                                    options={[...new Set(currentCentreStudents.map(item => item.student?.studentsDetails?.[0]?.board).filter(Boolean))].map(b => ({ value: b, label: b.toUpperCase() }))}
+                                    selectedValues={filterBoard}
+                                    onChange={setFilterBoard}
+                                    placeholder="All Boards"
+                                />
+
+                                {/* Status Filter */}
+                                <MultiSelectFilter 
+                                    label="Allotment Status"
+                                    options={[
+                                        { value: 'allotted', label: 'ALLOTTED' },
+                                        { value: 'not_allotted', label: 'NOT ALLOTTED' }
+                                    ]}
+                                    selectedValues={filterAllocationStatus}
+                                    onChange={setFilterAllocationStatus}
+                                    placeholder="All Status"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Batch Selection Banner */}
+                        {selectedStudentIds.length > 0 && (
+                            <div className="p-4 rounded-2xl bg-gradient-to-r from-cyan-600 to-blue-600 text-white shadow-xl flex flex-col md:flex-row justify-between items-center gap-4 animate-in fade-in slide-in-from-top duration-300">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-md">
+                                        <FaCheckSquare className="text-xl" />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-black text-sm md:text-base">
+                                            {selectedStudentIds.length} Active Students Selected
+                                        </h4>
+                                        <p className="text-cyan-100 text-xs font-medium">
+                                            Apply total item allotment to selected students simultaneously
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 w-full md:w-auto">
+                                    <button 
+                                        onClick={() => setSelectedStudentIds([])}
+                                        className="py-2 px-3 rounded-xl bg-white/10 hover:bg-white/20 text-xs font-bold transition-colors"
+                                    >
+                                        Clear Selection
+                                    </button>
+                                    <button 
+                                        onClick={handleOpenSelectedStudentsAllocationModal}
+                                        className="py-2 px-4 rounded-xl bg-white text-blue-900 hover:bg-cyan-50 font-black text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-2"
+                                    >
+                                        <FaBoxOpen />
+                                        Allocate Selected ({selectedStudentIds.length})
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Students Table */}
+                        <div className={`rounded-2xl overflow-hidden border ${isDarkMode ? 'bg-[#12171e] border-gray-800/80' : 'bg-white border-gray-100 shadow-sm'}`}>
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left border-collapse">
+                                    <thead>
+                                        <tr className={`border-b text-xs uppercase tracking-wider font-extrabold ${
+                                            isDarkMode ? 'bg-[#182029] border-gray-800 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600'
+                                        }`}>
+                                            <th className="p-4 w-12 text-center">
+                                                <input 
+                                                    type="checkbox"
+                                                    checked={filteredStudents.length > 0 && selectedStudentIds.length === filteredStudents.length}
+                                                    onChange={handleSelectAllStudents}
+                                                    className="w-4 h-4 rounded text-cyan-500 focus:ring-cyan-400 cursor-pointer"
+                                                />
+                                            </th>
+                                            <th className="p-4">Active Student</th>
+                                            <th className="p-4">Course & Board</th>
+                                            <th className="p-4">Contact</th>
+                                            <th className="p-4">Allocated Items</th>
+                                            <th className="p-4 text-center">Action</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-800/30 text-xs">
+                                        {loading ? (
+                                            [...Array(5)].map((_, i) => <TableRowSkeleton key={i} columns={6} />)
+                                        ) : currentStudentsPage.length > 0 ? (
+                                            currentStudentsPage.map((item, idx) => {
+                                                const s = item.student?.studentsDetails?.[0] || {};
+                                                const isSelected = selectedStudentIds.includes(item.student._id.toString());
+                                                const hasAllocations = (item.student?.allocatedItems?.length || 0) > 0;
+
+                                                return (
+                                                    <tr 
+                                                        key={idx}
+                                                        className={`transition-colors ${
+                                                            isSelected 
+                                                            ? (isDarkMode ? 'bg-cyan-500/10' : 'bg-blue-50/70') 
+                                                            : (isDarkMode ? 'hover:bg-[#182029]/70' : 'hover:bg-gray-50')
+                                                        }`}
+                                                    >
+                                                        {/* Checkbox */}
+                                                        <td className="p-4 text-center">
+                                                            <input 
+                                                                type="checkbox"
+                                                                checked={isSelected}
+                                                                onChange={() => handleToggleStudentSelection(item.student._id.toString())}
+                                                                className="w-4 h-4 rounded text-cyan-500 focus:ring-cyan-400 cursor-pointer"
+                                                            />
+                                                        </td>
+
+                                                        {/* Student Profile */}
+                                                        <td className="p-4">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-500 to-blue-600 flex items-center justify-center text-white font-bold text-xs shadow-md shrink-0">
+                                                                    {s.studentName?.charAt(0) || 'S'}
+                                                                </div>
+                                                                <div>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <span className="font-extrabold text-sm tracking-tight">
+                                                                            {s.studentName || 'Unnamed Student'}
+                                                                        </span>
+                                                                        {hasAllocations ? (
+                                                                            <span className="text-[9px] font-extrabold bg-green-500/10 text-green-500 px-1.5 py-0.5 rounded border border-green-500/20">
+                                                                                ALLOTTED
+                                                                            </span>
+                                                                        ) : (
+                                                                            <span className="text-[9px] font-extrabold bg-amber-500/10 text-amber-500 px-1.5 py-0.5 rounded border border-amber-500/20">
+                                                                                PENDING
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                    <p className={`text-[11px] font-mono mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                                        ID: {item.latestAdmission?.admissionNumber || 'N/A'}
+                                                                    </p>
+                                                                </div>
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Course & Board */}
+                                                        <td className="p-4">
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center gap-1.5 font-semibold text-xs">
+                                                                    <FaBook className="text-cyan-500 text-[10px]" />
+                                                                    <span>{item.latestAdmission?.course?.courseName || item.latestAdmission?.boardCourseName || 'General'}</span>
+                                                                </div>
+                                                                {s.board && (
+                                                                    <span className={`text-[10px] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                                        Board: {s.board}
+                                                                    </span>
                                                                 )}
-                                                            </p>
-                                                            <p className={`text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                                ID: {item.latestAdmission?.admissionNumber || 'N/A'}
-                                                            </p>
-                                                            {item.student?.allocatedItems?.length > 0 && (
-                                                                <div className="mt-2 flex flex-wrap gap-1">
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Contact */}
+                                                        <td className="p-4">
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <div className="flex items-center gap-1.5 text-xs">
+                                                                    <FaPhoneAlt className="text-green-500 text-[10px]" />
+                                                                    <span className="font-mono">{s.mobileNum || 'N/A'}</span>
+                                                                </div>
+                                                                {s.studentEmail && (
+                                                                    <span className="text-[10px] text-gray-500 truncate max-w-[140px]">
+                                                                        {s.studentEmail}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Allocated Items Pills */}
+                                                        <td className="p-4">
+                                                            {hasAllocations ? (
+                                                                <div className="flex flex-wrap gap-1 max-w-xs">
                                                                     {Object.entries(
                                                                         item.student.allocatedItems.reduce((acc, curr) => {
                                                                             acc[curr.itemName] = (acc[curr.itemName] || 0) + (curr.quantity || 1);
                                                                             return acc;
                                                                         }, {})
                                                                     ).map(([name, qty], i) => (
-                                                                        <span key={i} className={`text-[10px] px-2 py-0.5 rounded-md border ${
-                                                                            isDarkMode ? 'bg-gray-800/50 border-gray-700 text-gray-400' : 'bg-gray-100 border-gray-200 text-gray-600'
-                                                                        }`}>
-                                                                            {name} (x{qty})
+                                                                        <span 
+                                                                            key={i} 
+                                                                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
+                                                                                isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-700'
+                                                                            }`}
+                                                                        >
+                                                                            {name} <strong className="text-cyan-500">x{qty}</strong>
                                                                         </span>
                                                                     ))}
                                                                 </div>
+                                                            ) : (
+                                                                <span className="text-[11px] text-gray-500 italic">None</span>
                                                             )}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="flex flex-col gap-1">
-                                                        <div className="flex items-center gap-1.5 text-xs">
-                                                            <FaBook className="text-cyan-500" />
-                                                            <span className="font-medium">{item.latestAdmission?.course?.courseName || item.latestAdmission?.boardCourseName || 'N/A'}</span>
-                                                        </div>
-                                                        <div className="flex items-center gap-1.5 text-xs">
-                                                            <FaBuilding className="text-amber-500" />
-                                                            <span className={isDarkMode ? 'text-gray-400' : 'text-gray-500'}>{s.centre || 'N/A'}</span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="flex flex-col gap-1">
-                                                        <div className="flex items-center gap-1.5 text-xs">
-                                                            <FaPhoneAlt className="text-green-500" />
-                                                            <span>{s.mobileNum}</span>
-                                                        </div>
-                                                        <div className="text-xs text-gray-500 truncate max-w-[150px]">
-                                                            {s.studentEmail}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="flex justify-center">
-                                                        <button 
-                                                            onClick={() => handleAllocate(item)}
-                                                            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all shadow-lg ${
-                                                                isDarkMode 
-                                                                ? 'bg-cyan-500 hover:bg-cyan-400 text-[#0f1214] shadow-cyan-500/20' 
-                                                                : 'bg-blue-600 hover:bg-blue-700 text-white shadow-blue-500/20'
-                                                            }`}
-                                                        >
-                                                            <FaBoxOpen />
-                                                            Allocate Items
-                                                        </button>
-                                                    </div>
+                                                        </td>
+
+                                                        {/* Single Allocate Button */}
+                                                        <td className="p-4 text-center">
+                                                            <button 
+                                                                onClick={() => handleOpenSingleStudentAllocationModal(item)}
+                                                                className={`px-3 py-1.5 rounded-lg text-[11px] font-bold transition-all shadow-sm ${
+                                                                    isDarkMode 
+                                                                    ? 'bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30' 
+                                                                    : 'bg-blue-50 hover:bg-blue-100 text-blue-600 border border-blue-200'
+                                                                }`}
+                                                            >
+                                                                Allocate
+                                                            </button>
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })
+                                        ) : (
+                                            <tr>
+                                                <td colSpan="6" className="p-12 text-center">
+                                                    <FaUsers className="text-4xl text-gray-500 mx-auto mb-2 opacity-40" />
+                                                    <p className="text-base font-bold">No Active Students Match Filter</p>
+                                                    <p className="text-xs text-gray-500 mt-1">Try resetting search or filter tags</p>
                                                 </td>
                                             </tr>
-                                        );
-                                    })
-                                ) : (
-                                    <tr>
-                                        <td colSpan="4" className="p-12 text-center">
-                                            <div className="flex flex-col items-center gap-2 opacity-50">
-                                                <FaSearch className="text-4xl mb-2" />
-                                                <p className="text-lg font-medium">No students found</p>
-                                                <p className="text-sm">Try adjusting your filters or search query</p>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )}
-                            </tbody>
-                        </table>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        {/* Pagination */}
+                        <div className="mt-4">
+                            <Pagination 
+                                currentPage={currentPage}
+                                totalItems={filteredStudents.length}
+                                itemsPerPage={itemsPerPage}
+                                onPageChange={setCurrentPage}
+                            />
+                        </div>
                     </div>
-                </div>
+                )}
 
-                <div className="mt-8">
-                    <Pagination
-                        currentPage={currentPage}
-                        totalItems={filteredStudents.length}
-                        itemsPerPage={itemsPerPage}
-                        onPageChange={setCurrentPage}
-                    />
-                </div>
-
-                {/* Allocation Modal */}
+                {/* ═══════════════════════════════════════════════════════════════════════════════ */}
+                {/* INTERACTIVE ALLOCATION MODAL (CENTRE TOTAL & STUDENT MODES) */}
+                {/* ═══════════════════════════════════════════════════════════════════════════════ */}
                 {isAllocationModalOpen && (
-                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-                        <div className={`w-full max-w-lg rounded-[32px] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 ${isDarkMode ? 'bg-[#1a1f24]/90 backdrop-blur-xl border border-white/10' : 'bg-white/95 backdrop-blur-xl border border-gray-200'}`}>
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+                        <div className={`w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 border ${
+                            isDarkMode ? 'bg-[#12171e] border-gray-800' : 'bg-white border-gray-200'
+                        }`}>
                             {/* Modal Header */}
-                            <div className="p-8 bg-gradient-to-br from-cyan-600 to-blue-700 text-white relative">
-                                <h3 className="text-2xl font-black flex items-center gap-3 tracking-tight">
-                                    <div className="p-2 bg-white/20 rounded-xl backdrop-blur-md">
-                                        <FaBoxOpen className="text-white" />
+                            <div className="p-6 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 text-white relative">
+                                <div className="flex items-center gap-3">
+                                    <div className="p-2.5 bg-white/20 rounded-2xl backdrop-blur-md text-xl">
+                                        <FaCalculator />
                                     </div>
-                                    Allocate New Assets
-                                </h3>
-                                <p className="text-cyan-100/80 text-sm mt-2 font-medium">Student: <span className="text-white font-bold">{selectedStudent?.student?.studentsDetails[0]?.studentName}</span></p>
+                                    <div>
+                                        <h3 className="text-xl font-black tracking-tight">
+                                            {allocationTargetType === 'single_student' 
+                                                ? 'Individual Item Allotment'
+                                                : `Centre Total Allotment: ${modalTargetCentre?.centreName || 'Selected Students'}`
+                                            }
+                                        </h3>
+                                        <p className="text-cyan-100 text-xs font-medium mt-0.5">
+                                            {allocationTargetType === 'single_student'
+                                                ? `Student: ${modalSingleStudent?.student?.studentsDetails?.[0]?.studentName}`
+                                                : `Targeting Active Centre Students`
+                                            }
+                                        </p>
+                                    </div>
+                                </div>
                                 <button 
                                     onClick={() => setIsAllocationModalOpen(false)}
-                                    className="absolute top-8 right-8 w-10 h-10 flex items-center justify-center rounded-full bg-black/10 hover:bg-black/20 text-white transition-all group"
+                                    className="absolute top-6 right-6 w-8 h-8 flex items-center justify-center rounded-full bg-black/20 hover:bg-black/40 text-white transition-all"
                                 >
-                                    <FaSync className="rotate-45 group-hover:rotate-0 transition-transform duration-300" />
+                                    <FaTimes />
                                 </button>
                             </div>
 
                             {/* Modal Body */}
-                            <div className="p-8 max-h-[70vh] overflow-y-auto custom-scrollbar">
-                                {selectedStudent?.student?.allocatedItems?.length > 0 && (
-                                    <div className="mb-8">
-                                        <p className={`text-xs font-bold uppercase tracking-widest mb-4 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                            Already Allotted
-                                        </p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {Object.entries(
-                                                selectedStudent.student.allocatedItems.reduce((acc, curr) => {
-                                                    acc[curr.itemName] = (acc[curr.itemName] || 0) + (curr.quantity || 1);
-                                                    return acc;
-                                                }, {})
-                                            ).map(([name, qty], i) => (
-                                                <div key={i} className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border-2 ${
-                                                    isDarkMode ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-green-50 border-green-200 text-green-700'
-                                                }`}>
-                                                    <FaCheckCircle className="text-xs" />
-                                                    <span className="text-xs font-bold">{name}</span>
-                                                    <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${isDarkMode ? 'bg-green-500/20' : 'bg-green-100'}`}>x{qty}</span>
+                            <div className="p-6 max-h-[75vh] overflow-y-auto space-y-6">
+                                {/* Scope Selector (if Centre Level) */}
+                                {allocationTargetType !== 'single_student' && allocationTargetType !== 'selected_students' && (
+                                    <div>
+                                        <label className={`block text-[11px] font-bold uppercase tracking-wider mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                            Select Target Scope
+                                        </label>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => setAllocationTargetType('centre_all')}
+                                                className={`p-3 rounded-xl border text-left transition-all ${
+                                                    allocationTargetType === 'centre_all'
+                                                    ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400' : 'bg-blue-50 border-blue-500 text-blue-700')
+                                                    : (isDarkMode ? 'bg-gray-800/40 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600')
+                                                }`}
+                                            >
+                                                <div className="font-extrabold text-xs">All Active Students</div>
+                                                <div className="text-[11px] font-bold opacity-80 mt-0.5">
+                                                    {modalTargetCentre?.activeStudentsCount || 0} Students
                                                 </div>
-                                            ))}
+                                            </button>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => setAllocationTargetType('centre_not_allotted')}
+                                                className={`p-3 rounded-xl border text-left transition-all ${
+                                                    allocationTargetType === 'centre_not_allotted'
+                                                    ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400' : 'bg-blue-50 border-blue-500 text-blue-700')
+                                                    : (isDarkMode ? 'bg-gray-800/40 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600')
+                                                }`}
+                                            >
+                                                <div className="font-extrabold text-xs">Only Not Allotted</div>
+                                                <div className="text-[11px] font-bold opacity-80 mt-0.5">
+                                                    {modalTargetCentre?.notAllottedCount || 0} Students
+                                                </div>
+                                            </button>
                                         </div>
                                     </div>
                                 )}
 
-                                <p className={`text-sm mb-6 font-bold flex items-center gap-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                    <FaClipboardList className="text-cyan-500" />
-                                    Select Items to Allot
-                                </p>
-
-                                <div className="grid grid-cols-1 gap-4">
-                                    {availableItems.map(item => (
-                                        <div 
-                                            key={item.id}
-                                            className={`group p-4 rounded-2xl border-2 transition-all duration-300 flex items-center justify-between ${
-                                                allocationData.items.includes(item.name)
-                                                ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500 shadow-[0_0_20px_rgba(6,182,212,0.1)]' : 'bg-blue-50 border-blue-500 shadow-blue-100 shadow-xl')
-                                                : (isDarkMode ? 'bg-gray-800/30 border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-100 hover:border-gray-200 shadow-sm')
-                                            }`}
-                                        >
-                                            <div 
-                                                className="flex items-center gap-4 cursor-pointer flex-1"
-                                                onClick={() => toggleItem(item.name)}
-                                            >
-                                                <div className={`text-2xl p-4 rounded-2xl transition-transform duration-300 group-hover:scale-110 ${isDarkMode ? 'bg-gray-900 border border-white/5' : 'bg-white shadow-md'}`}>
-                                                    {item.icon}
-                                                </div>
-                                                <div>
-                                                    <span className="text-base font-bold block">{item.name}</span>
-                                                    <span className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Select to allocate</span>
-                                                </div>
-                                            </div>
-                                            
-                                            {allocationData.items.includes(item.name) && (
-                                                <div className="flex items-center gap-3 bg-white/10 rounded-xl p-1 px-2 border border-white/10">
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); updateQuantity(item.name, -1); }}
-                                                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                                                            isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-cyan-400' : 'bg-white hover:bg-gray-100 text-blue-600'
-                                                        }`}
-                                                    >
-                                                        -
-                                                    </button>
-                                                    <span className="w-6 text-center font-black text-sm">
-                                                        {allocationData.quantities[item.name]}
-                                                    </span>
-                                                    <button 
-                                                        onClick={(e) => { e.stopPropagation(); updateQuantity(item.name, 1); }}
-                                                        className={`w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${
-                                                            isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-cyan-400' : 'bg-white hover:bg-gray-100 text-blue-600'
-                                                        }`}
-                                                    >
-                                                        +
-                                                    </button>
-                                                </div>
-                                            )}
+                                {/* Target Students Count Badge */}
+                                <div className={`p-4 rounded-xl border flex items-center justify-between ${
+                                    isDarkMode ? 'bg-[#0b0f14] border-gray-800' : 'bg-cyan-50/60 border-cyan-200'
+                                }`}>
+                                    <div className="flex items-center gap-2.5">
+                                        <FaUsers className="text-cyan-500 text-base" />
+                                        <div>
+                                            <span className={`text-[11px] font-bold block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                Target Active Students for this Allotment
+                                            </span>
+                                            <span className="text-xs font-semibold text-gray-500">
+                                                {allocationTargetType === 'single_student' ? '1 Individual Student' : `${targetStudentsCount} active students in batch`}
+                                            </span>
                                         </div>
-                                    ))}
+                                    </div>
+                                    <span className="text-xl font-black text-cyan-500">
+                                        {targetStudentsCount}
+                                    </span>
                                 </div>
 
-                                <div className="mt-10 flex gap-4">
+                                {/* Items Catalog Selection */}
+                                <div>
+                                    <label className={`block text-[11px] font-bold uppercase tracking-wider mb-2.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        Select Inventory Items & Quantity per Student
+                                    </label>
+
+                                    <div className="space-y-2.5">
+                                        {availableItems.map(item => {
+                                            const isSelected = allocationData.items.includes(item.name);
+                                            const qty = allocationData.quantities[item.name] || 1;
+                                            const totalAllotment = targetStudentsCount * qty;
+
+                                            return (
+                                                <div 
+                                                    key={item.id}
+                                                    className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                                                        isSelected
+                                                        ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500 shadow-md' : 'bg-blue-50 border-blue-500 shadow-sm')
+                                                        : (isDarkMode ? 'bg-gray-800/30 border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-200 hover:border-gray-300')
+                                                    }`}
+                                                >
+                                                    <div 
+                                                        className="flex items-center gap-3 cursor-pointer flex-1"
+                                                        onClick={() => toggleModalItem(item.name)}
+                                                    >
+                                                        <div className="text-xl p-2 rounded-xl bg-black/10 dark:bg-white/5 shrink-0">
+                                                            {item.icon}
+                                                        </div>
+                                                        <div>
+                                                            <span className="text-xs font-black block">{item.name}</span>
+                                                            <span className={`text-[10px] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                                {isSelected 
+                                                                    ? `${qty} / student × ${targetStudentsCount} students = ${totalAllotment} total`
+                                                                    : 'Click to select item'
+                                                                }
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    {isSelected && (
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex items-center bg-black/20 dark:bg-white/10 rounded-lg p-0.5 border border-white/10">
+                                                                <button 
+                                                                    type="button"
+                                                                    onClick={() => updateModalItemQuantity(item.name, -1)}
+                                                                    className="w-6 h-6 flex items-center justify-center rounded font-bold hover:bg-white/20 transition-colors text-xs"
+                                                                >
+                                                                    -
+                                                                </button>
+                                                                <span className="w-7 text-center font-extrabold text-xs">
+                                                                    {qty}
+                                                                </span>
+                                                                <button 
+                                                                    type="button"
+                                                                    onClick={() => updateModalItemQuantity(item.name, 1)}
+                                                                    className="w-6 h-6 flex items-center justify-center rounded font-bold hover:bg-white/20 transition-colors text-xs"
+                                                                >
+                                                                    +
+                                                                </button>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+
+                                {/* Custom Item Add */}
+                                <div className="flex gap-2">
+                                    <input 
+                                        type="text"
+                                        placeholder="Add custom item name (e.g. Study Module, Lab Kit)..."
+                                        value={customItemInput}
+                                        onChange={(e) => setCustomItemInput(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomItem())}
+                                        className={`flex-1 px-3 py-2 rounded-xl border text-xs outline-none ${
+                                            isDarkMode ? 'bg-[#0b0f14] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
+                                        }`}
+                                    />
+                                    <button 
+                                        type="button"
+                                        onClick={handleAddCustomItem}
+                                        className="px-3 py-2 rounded-xl bg-gray-700 hover:bg-gray-600 text-white font-bold text-xs flex items-center gap-1.5"
+                                    >
+                                        <FaPlus /> Add
+                                    </button>
+                                </div>
+
+                                {/* ══════════════════════════════════════════════════════════════ */}
+                                {/* LIVE TOTAL ALLOTMENT CALCULATION BREAKDOWN */}
+                                {/* ══════════════════════════════════════════════════════════════ */}
+                                {allocationData.items.length > 0 && (
+                                    <div className={`p-4 rounded-2xl border ${
+                                        isDarkMode ? 'bg-[#0b0f14] border-cyan-500/30' : 'bg-blue-50/60 border-blue-200'
+                                    }`}>
+                                        <div className="flex items-center gap-2 text-xs font-black text-cyan-500 mb-2">
+                                            <FaCalculator />
+                                            <span>TOTAL ALLOTMENT BREAKDOWN</span>
+                                        </div>
+
+                                        <div className="space-y-1 text-xs">
+                                            {allocationData.items.map((itemName, i) => {
+                                                const qty = allocationData.quantities[itemName] || 1;
+                                                const totalItemUnits = targetStudentsCount * qty;
+                                                return (
+                                                    <div key={i} className="flex justify-between items-center py-1 border-b border-gray-700/20 last:border-0">
+                                                        <span className="font-semibold text-gray-300">{itemName}:</span>
+                                                        <span className="font-mono">
+                                                            {targetStudentsCount} students × {qty} = <strong className="text-cyan-400">{totalItemUnits} Units</strong>
+                                                        </span>
+                                                    </div>
+                                                );
+                                            })}
+
+                                            <div className="pt-2 flex justify-between items-center font-extrabold text-sm border-t border-gray-700/50">
+                                                <span>Grand Total Items To Dispatch:</span>
+                                                <span className="text-base font-black text-cyan-400">
+                                                    {allocationData.items.reduce((acc, curr) => acc + (targetStudentsCount * (allocationData.quantities[curr] || 1)), 0)} Units
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Action Buttons */}
+                                <div className="flex gap-3 pt-2">
                                     <button
+                                        type="button"
                                         onClick={() => setIsAllocationModalOpen(false)}
-                                        className={`flex-1 py-4 rounded-2xl font-black text-sm tracking-wider uppercase transition-all ${
-                                            isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+                                        className={`flex-1 py-3 rounded-xl font-extrabold text-xs uppercase tracking-wider transition-colors ${
+                                            isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                                         }`}
                                     >
                                         Cancel
                                     </button>
                                     <button
+                                        type="button"
                                         onClick={handleAllocationSubmit}
-                                        disabled={allocationData.items.length === 0}
-                                        className={`flex-[2] py-4 rounded-2xl font-black text-sm tracking-wider uppercase transition-all shadow-xl disabled:opacity-50 disabled:cursor-not-allowed ${
+                                        disabled={allocationData.items.length === 0 || targetStudentsCount === 0 || submittingAllocation}
+                                        className={`flex-[2] py-3 rounded-xl font-black text-xs uppercase tracking-wider transition-all shadow-lg flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed ${
                                             isDarkMode 
-                                            ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 shadow-cyan-500/20' 
-                                            : 'bg-gradient-to-r from-blue-600 to-cyan-500 text-white hover:opacity-90 shadow-blue-500/20'
+                                            ? 'bg-gradient-to-r from-cyan-500 to-blue-600 text-[#0b0f14] hover:from-cyan-400 hover:to-blue-500 shadow-cyan-500/20' 
+                                            : 'bg-gradient-to-r from-blue-600 to-cyan-600 text-white hover:opacity-95 shadow-blue-500/20'
                                         }`}
                                     >
-                                        Confirm Allocation
+                                        {submittingAllocation ? (
+                                            <>
+                                                <FaSync className="animate-spin" />
+                                                Allocating...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FaCheck />
+                                                Confirm Total Allotment
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </div>
                         </div>
                     </div>
                 )}
-
-                <ToastContainer />
             </div>
         </Layout>
     );
