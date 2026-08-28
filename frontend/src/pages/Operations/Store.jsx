@@ -6,7 +6,8 @@ import {
     FaBoxOpen, FaClipboardList, FaCheckCircle, 
     FaUser, FaPhoneAlt, FaBuilding, FaBook, FaShoppingBag, FaTshirt, FaPenNib,
     FaArrowLeft, FaUsers, FaCheckSquare, FaSquare, FaPlus, FaIdCard, FaCalculator,
-    FaBoxes, FaCheck, FaTimes, FaMapMarkerAlt, FaChartPie, FaLayerGroup, FaTags
+    FaBoxes, FaCheck, FaTimes, FaMapMarkerAlt, FaChartPie, FaLayerGroup, FaTags,
+    FaGraduationCap, FaNetworkWired, FaUniversity, FaCalendarAlt
 } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
@@ -19,24 +20,37 @@ const StorePage = () => {
     const isDarkMode = theme === 'dark';
     const apiUrl = import.meta.env.VITE_API_URL;
 
-    // Master data & raw states
-    const [rawCentres, setRawCentres] = useState([]);
-    const [allStudents, setAllStudents] = useState([]); // All active students grouped
-    const [masterCourses, setMasterCourses] = useState([]);
+    // Overview data states
+    const [centreWiseSummary, setCentreWiseSummary] = useState([]);
+    const [masterSessions, setMasterSessions] = useState([]);
+    const [masterClasses, setMasterClasses] = useState([]);
+    const [masterDepartments, setMasterDepartments] = useState([]);
+    const [masterBoards, setMasterBoards] = useState([]);
+    const [globalStats, setGlobalStats] = useState({
+        totalActiveCentres: 0,
+        totalActiveStudents: 0,
+        totalAllottedStudents: 0,
+        totalPendingStudents: 0,
+        totalItemsDispatched: 0
+    });
     const [loading, setLoading] = useState(true);
 
     // Active View state: 'centres' (centre-wise list) or 'centre_detail' (students inside selected centre)
     const [viewMode, setViewMode] = useState('centres');
     const [selectedCentre, setSelectedCentre] = useState(null); // When drilling down into a centre
+    const [currentCentreStudents, setCurrentCentreStudents] = useState([]);
+    const [loadingStudents, setLoadingStudents] = useState(false);
+    const [centreStudentsCache, setCentreStudentsCache] = useState({});
 
     // Filter & Search states (Centre level)
     const [centreSearchQuery, setCentreSearchQuery] = useState("");
 
     // Filter & Search states (Student level inside centre)
     const [studentSearchQuery, setStudentSearchQuery] = useState("");
-    const [filterCourse, setFilterCourse] = useState([]);
+    const [filterSession, setFilterSession] = useState([]);
+    const [filterClass, setFilterClass] = useState([]);
+    const [filterDepartment, setFilterDepartment] = useState([]);
     const [filterBoard, setFilterBoard] = useState([]);
-    const [filterGender, setFilterGender] = useState([]);
     const [filterAllocationStatus, setFilterAllocationStatus] = useState([]);
 
     // Multi-select students inside drilled-down centre
@@ -62,149 +76,112 @@ const StorePage = () => {
     const [customItemsList, setCustomItemsList] = useState([]);
     const [submittingAllocation, setSubmittingAllocation] = useState(false);
 
-    const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
-    const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
-
     useEffect(() => {
         fetchInitialData();
     }, []);
 
+    // Blazing-fast initial overview load using the dedicated aggregation endpoint
     const fetchInitialData = async () => {
         try {
             setLoading(true);
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            // Fetch centres, courses and admissions
-            const [centresRes, coursesRes, studentsRes] = await Promise.all([
-                fetch(`${apiUrl}/centre`, { headers }),
-                fetch(`${apiUrl}/course`, { headers }),
-                fetch(`${apiUrl}/admission`, { headers })
-            ]);
-
-            const fetchedCentres = centresRes.ok ? await centresRes.json() : [];
-            const fetchedCourses = coursesRes.ok ? await coursesRes.json() : [];
-            const fetchedAdmissions = studentsRes.ok ? await studentsRes.json() : [];
-
-            // Active centres filtering: only centres that are active and allowed for user
-            let userAllowedCentres = [];
-            if (!isSuperAdmin) {
-                const userCentres = user.centres || [];
-                const userCentreNames = userCentres.map(c => (c.centreName || c.name || c)).filter(Boolean);
-                userAllowedCentres = fetchedCentres.filter(c => 
-                    c.status !== 'deactive' && userCentreNames.includes(c.centreName)
-                );
-            } else {
-                userAllowedCentres = fetchedCentres.filter(c => c.status !== 'deactive');
+            const res = await fetch(`${apiUrl}/inventory/allocation/overview`, { headers });
+            if (!res.ok) {
+                throw new Error("Failed to fetch store overview");
             }
 
-            setRawCentres(userAllowedCentres);
-            setMasterCourses(fetchedCourses);
-
-            // Group admissions by student and keep ONLY ACTIVE students
-            const studentMap = {};
-            fetchedAdmissions.forEach(admission => {
-                const student = admission.student;
-                if (!student || !student._id) return;
-
-                // Check active status: student must not be Deactivated and admission must not be INACTIVE/CANCELLED
-                const isStudentActive = student.status !== 'Deactivated';
-                const isAdmissionActive = admission.admissionStatus !== 'INACTIVE' && admission.admissionStatus !== 'CANCELLED';
-
-                if (!isStudentActive || !isAdmissionActive) return;
-
-                const studentId = student._id.toString();
-                if (!studentMap[studentId]) {
-                    studentMap[studentId] = {
-                        student: student,
-                        admissions: [],
-                        latestAdmission: admission,
-                        centre: admission.centre || student.studentsDetails?.[0]?.centre || 'Unknown'
-                    };
-                }
-                studentMap[studentId].admissions.push(admission);
-
-                // Update latest admission if newer
-                if (new Date(admission.admissionDate || admission.createdAt) > new Date(studentMap[studentId].latestAdmission.admissionDate || studentMap[studentId].latestAdmission.createdAt)) {
-                    studentMap[studentId].latestAdmission = admission;
-                    studentMap[studentId].centre = admission.centre || student.studentsDetails?.[0]?.centre || studentMap[studentId].centre;
-                }
-            });
-
-            const activeStudentsArray = Object.values(studentMap);
-            setAllStudents(activeStudentsArray);
-
+            const data = await res.json();
+            setCentreWiseSummary(data.centreWiseSummary || []);
+            setMasterSessions(data.masterSessions || []);
+            setMasterClasses(data.masterClasses || []);
+            setMasterDepartments(data.masterDepartments || []);
+            setMasterBoards(data.masterBoards || []);
+            if (data.globalStats) {
+                setGlobalStats(data.globalStats);
+            }
         } catch (error) {
-            console.error("Error fetching store data:", error);
-            toast.error("Failed to load store inventory data");
+            console.error("Error fetching store overview:", error);
+            toast.error("Failed to load store inventory overview");
         } finally {
             setLoading(false);
         }
     };
 
-    // Calculate Centre-wise metrics
-    const centreWiseSummary = useMemo(() => {
-        return rawCentres.map(centre => {
-            const centreName = centre.centreName || "";
-            // Find all active students belonging to this centre (case-insensitive trim match)
-            const centreStudents = allStudents.filter(item => {
-                const studentCentre = (item.centre || item.student?.studentsDetails?.[0]?.centre || "").trim().toLowerCase();
-                return studentCentre === centreName.trim().toLowerCase();
-            });
+    // Fast fetch for active students belonging to a single centre
+    const fetchCentreStudents = async (centreName, forceRefresh = false) => {
+        if (!centreName) return [];
+        const cacheKey = centreName.trim().toLowerCase();
 
-            const totalActiveCount = centreStudents.length;
-            const allottedStudents = centreStudents.filter(item => (item.student?.allocatedItems?.length || 0) > 0);
-            const allottedCount = allottedStudents.length;
-            const notAllottedCount = totalActiveCount - allottedCount;
+        if (!forceRefresh && centreStudentsCache[cacheKey]) {
+            setCurrentCentreStudents(centreStudentsCache[cacheKey]);
+            return centreStudentsCache[cacheKey];
+        }
 
-            // Total units and item breakdown
-            const itemCounts = {};
-            let totalUnits = 0;
+        try {
+            setLoadingStudents(true);
+            const token = localStorage.getItem("token");
+            const headers = { Authorization: `Bearer ${token}` };
 
-            centreStudents.forEach(item => {
-                const allocations = item.student?.allocatedItems || [];
-                allocations.forEach(alloc => {
-                    const name = alloc.itemName || 'Item';
-                    const qty = alloc.quantity || 1;
-                    itemCounts[name] = (itemCounts[name] || 0) + qty;
-                    totalUnits += qty;
-                });
-            });
+            const res = await fetch(`${apiUrl}/inventory/allocation/centre-students?centre=${encodeURIComponent(centreName.trim())}`, { headers });
+            if (!res.ok) {
+                throw new Error("Failed to fetch centre students");
+            }
 
-            return {
-                centreDoc: centre,
-                centreName: centreName,
-                centreCode: centre.centreCode || centre.enterCode || 'N/A',
-                location: centre.location || centre.address || centre.state || '',
-                activeStudents: centreStudents,
-                activeStudentsCount: totalActiveCount,
-                allottedCount,
-                notAllottedCount,
-                totalUnitsAllotted: totalUnits,
-                itemCounts
-            };
-        }).sort((a, b) => b.activeStudentsCount - a.activeStudentsCount);
-    }, [rawCentres, allStudents]);
+            const studentsData = await res.json();
+            setCentreStudentsCache(prev => ({ ...prev, [cacheKey]: studentsData }));
+            setCurrentCentreStudents(studentsData);
+            return studentsData;
+        } catch (error) {
+            console.error("Error fetching centre students:", error);
+            toast.error(`Failed to load students for ${centreName}`);
+            setCurrentCentreStudents([]);
+            return [];
+        } finally {
+            setLoadingStudents(false);
+        }
+    };
 
     // Filtered Centres for Centre View
     const filteredCentres = useMemo(() => {
         if (!centreSearchQuery.trim()) return centreWiseSummary;
         const q = centreSearchQuery.toLowerCase().trim();
         return centreWiseSummary.filter(c => 
-            c.centreName.toLowerCase().includes(q) ||
-            c.centreCode.toLowerCase().includes(q) ||
-            c.location.toLowerCase().includes(q)
+            (c.centreName || "").toLowerCase().includes(q) ||
+            (c.centreCode || "").toLowerCase().includes(q) ||
+            (c.location || "").toLowerCase().includes(q)
         );
     }, [centreWiseSummary, centreSearchQuery]);
 
-    // Active students of the currently selected centre
-    const currentCentreStudents = useMemo(() => {
-        if (!selectedCentre) return [];
-        const foundCentre = centreWiseSummary.find(c => 
-            c.centreName.toLowerCase().trim() === selectedCentre.centreName.toLowerCase().trim()
-        );
-        return foundCentre ? foundCentre.activeStudents : [];
-    }, [selectedCentre, centreWiseSummary]);
+    // Available dynamic filter options
+    const availableSessionOptions = useMemo(() => {
+        return masterSessions.map(s => ({ value: s, label: s }));
+    }, [masterSessions]);
+
+    const availableClassOptions = useMemo(() => {
+        const set = new Set(masterClasses);
+        currentCentreStudents.forEach(item => {
+            if (item.resolvedClass && item.resolvedClass !== "N/A") set.add(item.resolvedClass);
+        });
+        return Array.from(set).filter(Boolean).map(cls => ({ value: cls, label: `Class ${cls}`.replace('Class Class', 'Class') }));
+    }, [masterClasses, currentCentreStudents]);
+
+    const availableDepartmentOptions = useMemo(() => {
+        const set = new Set(masterDepartments);
+        currentCentreStudents.forEach(item => {
+            if (item.resolvedDepartment && item.resolvedDepartment !== "N/A") set.add(item.resolvedDepartment);
+        });
+        return Array.from(set).filter(Boolean).map(dept => ({ value: dept, label: dept.toUpperCase() }));
+    }, [masterDepartments, currentCentreStudents]);
+
+    const availableBoardOptions = useMemo(() => {
+        const set = new Set(masterBoards);
+        currentCentreStudents.forEach(item => {
+            if (item.resolvedBoard && item.resolvedBoard !== "N/A") set.add(item.resolvedBoard);
+        });
+        return Array.from(set).filter(Boolean).map(b => ({ value: b, label: b.toUpperCase() }));
+    }, [masterBoards, currentCentreStudents]);
 
     // Filtered students for drilled-down Centre View
     const filteredStudents = useMemo(() => {
@@ -221,26 +198,31 @@ const StorePage = () => {
             });
         }
 
-        if (filterCourse.length > 0) {
+        if (filterSession.length > 0) {
             list = list.filter(item => {
-                return item.admissions.some(a => {
-                    const courseName = a.course?.courseName || a.boardCourseName || "";
-                    return filterCourse.includes(courseName);
-                });
+                const studentSession = item.resolvedSession || "N/A";
+                return filterSession.includes(studentSession);
+            });
+        }
+
+        if (filterClass.length > 0) {
+            list = list.filter(item => {
+                const studentClass = item.resolvedClass || "N/A";
+                return filterClass.includes(studentClass);
+            });
+        }
+
+        if (filterDepartment.length > 0) {
+            list = list.filter(item => {
+                const studentDept = item.resolvedDepartment || "N/A";
+                return filterDepartment.includes(studentDept);
             });
         }
 
         if (filterBoard.length > 0) {
             list = list.filter(item => {
-                const studentBoard = item.student?.studentsDetails?.[0]?.board;
+                const studentBoard = item.resolvedBoard || "N/A";
                 return filterBoard.includes(studentBoard);
-            });
-        }
-
-        if (filterGender.length > 0) {
-            list = list.filter(item => {
-                const studentGender = item.student?.studentsDetails?.[0]?.gender;
-                return filterGender.includes(studentGender);
             });
         }
 
@@ -254,12 +236,12 @@ const StorePage = () => {
         }
 
         return list;
-    }, [currentCentreStudents, studentSearchQuery, filterCourse, filterBoard, filterGender, filterAllocationStatus]);
+    }, [currentCentreStudents, studentSearchQuery, filterSession, filterClass, filterDepartment, filterBoard, filterAllocationStatus]);
 
     // Reset pagination when filter changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [studentSearchQuery, filterCourse, filterBoard, filterGender, filterAllocationStatus]);
+    }, [studentSearchQuery, filterSession, filterClass, filterDepartment, filterBoard, filterAllocationStatus]);
 
     // Clear selection when changing centre
     useEffect(() => {
@@ -271,11 +253,13 @@ const StorePage = () => {
         setSelectedCentre(centreSummaryItem);
         setViewMode('centre_detail');
         setStudentSearchQuery("");
-        setFilterCourse([]);
+        setFilterSession([]);
+        setFilterClass([]);
+        setFilterDepartment([]);
         setFilterBoard([]);
-        setFilterGender([]);
         setFilterAllocationStatus([]);
         setSelectedStudentIds([]);
+        fetchCentreStudents(centreSummaryItem.centreName);
     };
 
     // Return back to centre list
@@ -441,7 +425,7 @@ const StorePage = () => {
                 // Single student API call
                 const payload = {
                     studentId: modalSingleStudent.student._id,
-                    admissionId: modalSingleStudent.latestAdmission._id,
+                    admissionId: modalSingleStudent.latestAdmission?._id,
                     items: preparedItems
                 };
 
@@ -456,42 +440,25 @@ const StorePage = () => {
                     toast.success(`Successfully allocated items to ${modalSingleStudent.student.studentsDetails?.[0]?.studentName}`);
                     setIsAllocationModalOpen(false);
                     fetchInitialData();
+                    if (selectedCentre) {
+                        fetchCentreStudents(selectedCentre.centreName, true);
+                    }
                 } else {
                     toast.error(data.message || "Failed to save allocation");
                 }
             } else {
-                // Bulk Allocation: Centre or Selected active students
-                let studentsToAllocate = [];
+                // Bulk Allocation
+                let payload = { items: preparedItems };
 
                 if (allocationTargetType === 'selected_students') {
-                    studentsToAllocate = modalSelectedStudentsList.map(s => ({
+                    payload.students = modalSelectedStudentsList.map(s => ({
                         studentId: s.student._id,
                         admissionId: s.latestAdmission?._id
                     }));
-                } else if (allocationTargetType === 'centre_all') {
-                    studentsToAllocate = (modalTargetCentre?.activeStudents || []).map(s => ({
-                        studentId: s.student._id,
-                        admissionId: s.latestAdmission?._id
-                    }));
-                } else if (allocationTargetType === 'centre_not_allotted') {
-                    studentsToAllocate = (modalTargetCentre?.activeStudents || [])
-                        .filter(s => (s.student?.allocatedItems?.length || 0) === 0)
-                        .map(s => ({
-                            studentId: s.student._id,
-                            admissionId: s.latestAdmission?._id
-                        }));
+                } else if (allocationTargetType === 'centre_all' || allocationTargetType === 'centre_not_allotted') {
+                    payload.centreName = modalTargetCentre?.centreName;
+                    payload.scope = allocationTargetType;
                 }
-
-                if (studentsToAllocate.length === 0) {
-                    toast.warning("No eligible active students found for this allocation");
-                    setSubmittingAllocation(false);
-                    return;
-                }
-
-                const payload = {
-                    students: studentsToAllocate,
-                    items: preparedItems
-                };
 
                 const res = await fetch(`${apiUrl}/inventory/allocation/bulk`, {
                     method: 'POST',
@@ -501,10 +468,22 @@ const StorePage = () => {
                 const data = await res.json();
 
                 if (res.ok) {
-                    toast.success(`Total Allotment complete! Distributed items across ${studentsToAllocate.length} active students in ${modalTargetCentre?.centreName || 'selected students'}.`);
+                    toast.success(`Total Allotment complete! Distributed items across ${data.count || targetStudentsCount} active students.`);
                     setIsAllocationModalOpen(false);
                     setSelectedStudentIds([]);
+                    // Clear cache for updated centre and reload
+                    if (modalTargetCentre?.centreName) {
+                        const cKey = modalTargetCentre.centreName.trim().toLowerCase();
+                        setCentreStudentsCache(prev => {
+                            const updated = { ...prev };
+                            delete updated[cKey];
+                            return updated;
+                        });
+                    }
                     fetchInitialData();
+                    if (selectedCentre) {
+                        fetchCentreStudents(selectedCentre.centreName, true);
+                    }
                 } else {
                     toast.error(data.message || "Failed to perform bulk allocation");
                 }
@@ -516,29 +495,6 @@ const StorePage = () => {
             setSubmittingAllocation(false);
         }
     };
-
-    // Global Statistics
-    const globalStats = useMemo(() => {
-        const totalActiveCentres = rawCentres.length;
-        const totalActiveStudents = allStudents.length;
-        const totalAllottedStudents = allStudents.filter(s => (s.student?.allocatedItems?.length || 0) > 0).length;
-        const totalPendingStudents = totalActiveStudents - totalAllottedStudents;
-        
-        let totalItemsDispatched = 0;
-        allStudents.forEach(s => {
-            (s.student?.allocatedItems || []).forEach(item => {
-                totalItemsDispatched += (item.quantity || 1);
-            });
-        });
-
-        return {
-            totalActiveCentres,
-            totalActiveStudents,
-            totalAllottedStudents,
-            totalPendingStudents,
-            totalItemsDispatched
-        };
-    }, [rawCentres, allStudents]);
 
     // Student Pagination slicing
     const indexOfLastItem = currentPage * itemsPerPage;
@@ -570,7 +526,13 @@ const StorePage = () => {
                     
                     <div className="flex items-center gap-3 w-full lg:w-auto justify-end">
                         <button 
-                            onClick={fetchInitialData}
+                            onClick={() => {
+                                setCentreStudentsCache({});
+                                fetchInitialData();
+                                if (selectedCentre) {
+                                    fetchCentreStudents(selectedCentre.centreName, true);
+                                }
+                            }}
                             disabled={loading}
                             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-bold text-xs md:text-sm transition-all shadow-sm ${
                                 isDarkMode 
@@ -784,7 +746,7 @@ const StorePage = () => {
                                                     <p className={`text-[10px] font-bold uppercase tracking-wider mb-2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                                         Current Dispatched Units ({centreItem.totalUnitsAllotted})
                                                     </p>
-                                                    {Object.keys(centreItem.itemCounts).length > 0 ? (
+                                                    {centreItem.itemCounts && Object.keys(centreItem.itemCounts).length > 0 ? (
                                                         <div className="flex flex-wrap gap-1.5">
                                                             {Object.entries(centreItem.itemCounts).slice(0, 4).map(([name, qty], i) => (
                                                                 <span 
@@ -906,22 +868,22 @@ const StorePage = () => {
                             </div>
                         </div>
 
-                        {/* Filters for Students inside Centre */}
+                        {/* Filters for Students inside Centre: Search, Active Session, Class, Department, Board, Allotment Status */}
                         <div className={`p-6 rounded-2xl border ${isDarkMode ? 'bg-[#12171e] border-gray-800/80' : 'bg-white border-gray-100 shadow-sm'}`}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
                                 {/* Search Student */}
-                                <div className="relative lg:col-span-2">
+                                <div className="relative">
                                     <label className={`block text-[10px] font-bold mb-1.5 uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                         Search Student
                                     </label>
                                     <div className="relative">
-                                        <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                                        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
                                         <input 
                                             type="text"
-                                            placeholder="Name, Phone or Admission #"
+                                            placeholder="Name, Phone or ID"
                                             value={studentSearchQuery}
                                             onChange={(e) => setStudentSearchQuery(e.target.value)}
-                                            className={`w-full pl-9 pr-4 py-2 rounded-xl border text-xs md:text-sm outline-none transition-all ${
+                                            className={`w-full pl-8 pr-3 py-2 rounded-xl border text-xs outline-none transition-all ${
                                                 isDarkMode 
                                                 ? 'bg-[#0b0f14] border-gray-700 focus:border-cyan-500 text-white' 
                                                 : 'bg-gray-50 border-gray-200 focus:border-blue-500 text-gray-900'
@@ -930,19 +892,37 @@ const StorePage = () => {
                                     </div>
                                 </div>
 
-                                {/* Course Filter */}
+                                {/* Active Session Filter */}
                                 <MultiSelectFilter 
-                                    label="Filter by Course"
-                                    options={[...new Set(masterCourses.map(c => c.courseName).filter(Boolean))].map(c => ({ value: c, label: c.toUpperCase() }))}
-                                    selectedValues={filterCourse}
-                                    onChange={setFilterCourse}
-                                    placeholder="All Courses"
+                                    label="Filter by Session"
+                                    options={availableSessionOptions}
+                                    selectedValues={filterSession}
+                                    onChange={setFilterSession}
+                                    placeholder="All Active Sessions"
+                                />
+
+                                {/* Class Filter */}
+                                <MultiSelectFilter 
+                                    label="Filter by Class"
+                                    options={availableClassOptions}
+                                    selectedValues={filterClass}
+                                    onChange={setFilterClass}
+                                    placeholder="All Classes"
+                                />
+
+                                {/* Department Filter */}
+                                <MultiSelectFilter 
+                                    label="Filter by Department"
+                                    options={availableDepartmentOptions}
+                                    selectedValues={filterDepartment}
+                                    onChange={setFilterDepartment}
+                                    placeholder="All Departments"
                                 />
 
                                 {/* Board Filter */}
                                 <MultiSelectFilter 
                                     label="Filter by Board"
-                                    options={[...new Set(currentCentreStudents.map(item => item.student?.studentsDetails?.[0]?.board).filter(Boolean))].map(b => ({ value: b, label: b.toUpperCase() }))}
+                                    options={availableBoardOptions}
                                     selectedValues={filterBoard}
                                     onChange={setFilterBoard}
                                     placeholder="All Boards"
@@ -1014,15 +994,16 @@ const StorePage = () => {
                                                 />
                                             </th>
                                             <th className="p-4">Active Student</th>
-                                            <th className="p-4">Course & Board</th>
+                                            <th className="p-4">Session & Class</th>
+                                            <th className="p-4">Dept & Board</th>
                                             <th className="p-4">Contact</th>
                                             <th className="p-4">Allocated Items</th>
                                             <th className="p-4 text-center">Action</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-800/30 text-xs">
-                                        {loading ? (
-                                            [...Array(5)].map((_, i) => <TableRowSkeleton key={i} columns={6} />)
+                                        {loadingStudents ? (
+                                            [...Array(5)].map((_, i) => <TableRowSkeleton key={i} columns={7} />)
                                         ) : currentStudentsPage.length > 0 ? (
                                             currentStudentsPage.map((item, idx) => {
                                                 const s = item.student?.studentsDetails?.[0] || {};
@@ -1076,18 +1057,33 @@ const StorePage = () => {
                                                             </div>
                                                         </td>
 
-                                                        {/* Course & Board */}
+                                                        {/* Session & Class */}
                                                         <td className="p-4">
                                                             <div className="flex flex-col gap-1">
-                                                                <div className="flex items-center gap-1.5 font-semibold text-xs">
-                                                                    <FaBook className="text-cyan-500 text-[10px]" />
-                                                                    <span>{item.latestAdmission?.course?.courseName || item.latestAdmission?.boardCourseName || 'General'}</span>
+                                                                <div className="flex items-center gap-1.5 font-bold text-xs text-cyan-400">
+                                                                    <FaGraduationCap className="text-cyan-500 text-xs shrink-0" />
+                                                                    <span>{item.resolvedClass && item.resolvedClass !== "N/A" ? `Class ${item.resolvedClass}` : 'Class N/A'}</span>
                                                                 </div>
-                                                                {s.board && (
-                                                                    <span className={`text-[10px] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                                        Board: {s.board}
-                                                                    </span>
+                                                                {item.resolvedSession && item.resolvedSession !== "N/A" && (
+                                                                    <div className="flex items-center gap-1 text-[10px] text-gray-400 font-mono">
+                                                                        <FaCalendarAlt className="text-[9px] text-gray-500" />
+                                                                        <span>{item.resolvedSession}</span>
+                                                                    </div>
                                                                 )}
+                                                            </div>
+                                                        </td>
+
+                                                        {/* Dept & Board */}
+                                                        <td className="p-4">
+                                                            <div className="flex flex-col gap-1">
+                                                                <div className="flex items-center gap-1.5 text-xs">
+                                                                    <FaUniversity className="text-purple-400 text-[10px] shrink-0" />
+                                                                    <span className="font-bold text-purple-400">{item.resolvedBoard || 'Board N/A'}</span>
+                                                                </div>
+                                                                <div className="flex items-center gap-1.5 text-[11px] text-gray-400">
+                                                                    <FaNetworkWired className="text-gray-500 text-[10px] shrink-0" />
+                                                                    <span className="truncate max-w-[140px]">{item.resolvedDepartment || 'Dept N/A'}</span>
+                                                                </div>
                                                             </div>
                                                         </td>
 
@@ -1095,11 +1091,11 @@ const StorePage = () => {
                                                         <td className="p-4">
                                                             <div className="flex flex-col gap-0.5">
                                                                 <div className="flex items-center gap-1.5 text-xs">
-                                                                    <FaPhoneAlt className="text-green-500 text-[10px]" />
+                                                                    <FaPhoneAlt className="text-green-500 text-[10px] shrink-0" />
                                                                     <span className="font-mono">{s.mobileNum || 'N/A'}</span>
                                                                 </div>
                                                                 {s.studentEmail && (
-                                                                    <span className="text-[10px] text-gray-500 truncate max-w-[140px]">
+                                                                    <span className="text-[10px] text-gray-500 truncate max-w-[130px]">
                                                                         {s.studentEmail}
                                                                     </span>
                                                                 )}
@@ -1149,7 +1145,7 @@ const StorePage = () => {
                                             })
                                         ) : (
                                             <tr>
-                                                <td colSpan="6" className="p-12 text-center">
+                                                <td colSpan="7" className="p-12 text-center">
                                                     <FaUsers className="text-4xl text-gray-500 mx-auto mb-2 opacity-40" />
                                                     <p className="text-base font-bold">No Active Students Match Filter</p>
                                                     <p className="text-xs text-gray-500 mt-1">Try resetting search or filter tags</p>
