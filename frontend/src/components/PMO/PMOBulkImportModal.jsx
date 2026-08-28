@@ -231,14 +231,10 @@ const PMOBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
         const { dupMob, dupEmail } = getDuplicateIndices(parsedRows);
 
         const rowsWithErrors = parsedRows.filter((r, i) => {
-            const mob = r.mobile?.trim();
-            const em = r.email?.trim()?.toLowerCase();
-            const inDbPmo = (mob && dbDupMobiles.has(mob)) || (em && dbDupEmails.has(em));
             return (
                 validateRow(r).length > 0 ||
                 dupMob.has(i) ||
-                dupEmail.has(i) ||
-                inDbPmo
+                dupEmail.has(i)
             );
         });
 
@@ -295,8 +291,7 @@ const PMOBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
     const isRowValid = (r, i) =>
         validateRow(r).length === 0 &&
         !dupMob.has(i) &&
-        !dupEmail.has(i) &&
-        !isRowDbDup(r);
+        !dupEmail.has(i);
 
     const validCount = parsedRows.filter((r, i) => isRowValid(r, i)).length;
     const invalidCount = parsedRows.length - validCount;
@@ -372,11 +367,11 @@ const PMOBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                     {invalidCount > 0 && (
                                         <span className="text-rose-400 flex items-center gap-1"><FaTimesCircle /> Errors: {invalidCount}</span>
                                     )}
+                                    {dbDupCount > 0 && (
+                                        <span className="text-blue-400 flex items-center gap-1"><FaExclamationTriangle /> Updates: {dbDupCount}</span>
+                                    )}
                                     {erpCarryCount > 0 && (
                                         <span className="text-violet-400 flex items-center gap-1"><FaIdCard /> Auto-Enrollment: {erpCarryCount}</span>
-                                    )}
-                                    {dbDupCount > 0 && (
-                                        <span className="text-amber-400 flex items-center gap-1"><FaExclamationTriangle /> PMO Duplicates: {dbDupCount}</span>
                                     )}
                                 </div>
                                 <div className="flex gap-2">
@@ -425,18 +420,20 @@ const PMOBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                             const isCarry = isRowErpCarryForward(r);
 
                                             return (
-                                                <tr key={i} className={!valid ? "bg-rose-950/20" : isCarry ? "bg-violet-950/20" : ""}>
+                                                <tr key={i} className={!valid ? "bg-rose-950/20" : isDbDup ? "bg-blue-950/20" : isCarry ? "bg-violet-950/20" : ""}>
                                                     <td className="p-3 font-mono text-gray-500">{i + 1}</td>
                                                     <td className="p-3">
                                                         {valid ? (
-                                                            isCarry ? (
+                                                            isDbDup ? (
+                                                                <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30 text-[10px] font-bold">Update Record</span>
+                                                            ) : isCarry ? (
                                                                 <span className="px-2 py-0.5 rounded bg-violet-500/20 text-violet-300 border border-violet-500/30 text-[10px] font-bold">Auto ID</span>
                                                             ) : (
-                                                                <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">Ready</span>
+                                                                <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">New Student</span>
                                                             )
                                                         ) : (
-                                                            <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold" title={[...errs, isDup ? "Duplicate in sheet" : "", isDbDup ? "Already in PMO" : ""].filter(Boolean).join(", ")}>
-                                                                {isDbDup ? "PMO Dup" : isDup ? "Sheet Dup" : "Invalid"}
+                                                            <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold" title={[...errs, isDup ? "Duplicate in sheet" : ""].filter(Boolean).join(", ")}>
+                                                                {isDup ? "Sheet Dup" : "Invalid"}
                                                             </span>
                                                         )}
                                                     </td>

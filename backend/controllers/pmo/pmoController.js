@@ -739,18 +739,18 @@ export const importExcel = async (req, res) => {
                     return foundKey ? row[foundKey] : undefined;
                 };
 
-                const name = String(getRowValue("Name*") ?? getRowValue("Name") ?? "").trim();
-                const mobile = String(getRowValue("Mobile") ?? "").trim();
-                const secondaryMobile = String(getRowValue("Secondary Mobile") ?? "").trim() || undefined;
-                const email = String(getRowValue("Email") ?? "").trim() || undefined;
-                const dob = String(getRowValue("DOB") ?? "").trim() || undefined;
-                const gender = String(getRowValue("Gender") ?? "").trim() || undefined;
-                const className = String(getRowValue("Class Name") ?? "").trim();
-                const boardName = String(getRowValue("Board Name") ?? getRowValue("Board") ?? "").trim();
-                const centreName = String(getRowValue("Centre Name") ?? "").trim();
-                const sessionName = String(getRowValue("Session Name") ?? "").trim();
-                const examTagName = String(getRowValue("ExamTag Name") ?? "").trim();
-                let course = String(getRowValue("Course") ?? "").trim();
+                const name = String(row.name ?? getRowValue("Name*") ?? getRowValue("Name") ?? "").trim();
+                const mobile = String(row.mobile ?? getRowValue("Mobile") ?? "").trim();
+                const secondaryMobile = String(row.secondaryMobile ?? getRowValue("Secondary Mobile") ?? "").trim() || undefined;
+                const email = String(row.email ?? getRowValue("Email") ?? "").trim() || undefined;
+                const dob = String(row.dob ?? getRowValue("DOB") ?? "").trim() || undefined;
+                const gender = String(row.gender ?? getRowValue("Gender") ?? "").trim() || undefined;
+                const className = String(row.className ?? getRowValue("Class Name") ?? getRowValue("Class") ?? "").trim();
+                const boardName = String(row.boardName ?? getRowValue("Board Name") ?? getRowValue("Board") ?? "").trim();
+                const centreName = String(row.centreName ?? getRowValue("Centre Name") ?? getRowValue("Centre") ?? "").trim();
+                const sessionName = String(row.sessionName ?? getRowValue("Session Name") ?? getRowValue("Session") ?? "").trim();
+                const examTagName = String(row.examTagName ?? getRowValue("ExamTag Name") ?? getRowValue("ExamTag") ?? "").trim();
+                let course = String(row.course ?? getRowValue("Course") ?? "").trim();
                 if (/^PMO\s+CLASS\s+(\d+)$/i.test(course)) {
                     course = course.toUpperCase().replace(/PMO\s+CLASS\s+(\d+)/i, 'PMO $1');
                 }
@@ -861,11 +861,26 @@ export const importExcel = async (req, res) => {
                     continue;
                 }
 
-                // Check PMO duplicate
-                const pmoDupMobile = await PMOStudent.findOne({ mobile, course, session: sessionObj._id });
+                // Check PMO duplicate: if exists, update schedule & details!
+                const pmoDupMobile = await PMOStudent.findOne({ mobile, course, session: sessionObj._id }) ||
+                                     await PMOStudent.findOne({ mobile });
                 if (pmoDupMobile) {
-                    results.failed++;
-                    results.errors.push(`Row ${rowNum}: Student already registered in PMO for ${course} (Roll: ${pmoDupMobile.rollNo}).`);
+                    if (examVenue) pmoDupMobile.examVenue = examVenue;
+                    if (examDate) pmoDupMobile.examDate = examDate;
+                    if (reportingTime) pmoDupMobile.reportingTime = reportingTime;
+                    if (examTime) pmoDupMobile.timeSlot = examTime;
+                    if (school) pmoDupMobile.school = school;
+                    if (guardianName) pmoDupMobile.guardianName = guardianName;
+                    if (guardianMobile) pmoDupMobile.guardianMobile = guardianMobile;
+                    if (address) pmoDupMobile.address = address;
+                    if (city) pmoDupMobile.city = city;
+                    if (state) pmoDupMobile.state = state;
+                    if (pincode) pmoDupMobile.pincode = pincode;
+                    if (remarks) pmoDupMobile.remarks = remarks;
+
+                    await pmoDupMobile.save();
+                    results.success++;
+                    results.carryForward++;
                     continue;
                 }
 
