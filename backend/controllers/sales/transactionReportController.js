@@ -264,7 +264,8 @@ export const getTransactionReport = async (req, res) => {
                 { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfoNormal" } },
                 { $lookup: { from: "boardcourseadmissions", localField: "admission", foreignField: "_id", as: "admissionInfoBoard" } },
                 { $lookup: { from: "pntsestudents", localField: "admission", foreignField: "_id", as: "admissionInfoPntse" } },
-                { $addFields: { admissionInfo: { $ifNull: [{ $arrayElemAt: ["$admissionInfoNormal", 0] }, { $arrayElemAt: ["$admissionInfoBoard", 0] }, { $arrayElemAt: ["$admissionInfoPntse", 0] }] } } },
+                { $lookup: { from: "pmostudents", localField: "admission", foreignField: "_id", as: "admissionInfoPmo" } },
+                { $addFields: { admissionInfo: { $ifNull: [{ $arrayElemAt: ["$admissionInfoNormal", 0] }, { $arrayElemAt: ["$admissionInfoBoard", 0] }, { $arrayElemAt: ["$admissionInfoPntse", 0] }, { $arrayElemAt: ["$admissionInfoPmo", 0] }] } } },
                 { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
                 { $lookup: { from: "centreschemas", localField: "admissionInfo.centre", foreignField: "_id", as: "pntseCentreInfo" } },
                 { $addFields: { "admissionInfo.centre": { $cond: { if: { $gt: [{ $size: "$pntseCentreInfo" }, 0] }, then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] }, else: "$admissionInfo.centre" } } } },
@@ -348,12 +349,21 @@ export const getTransactionReport = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: "pmostudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPmo"
+                }
+            },
+            {
                 $addFields: {
                     admissionInfo: {
                         $ifNull: [
                             { $arrayElemAt: ["$admissionInfoNormal", 0] },
                             { $arrayElemAt: ["$admissionInfoBoard", 0] },
-                            { $arrayElemAt: ["$admissionInfoPntse", 0] }
+                            { $arrayElemAt: ["$admissionInfoPntse", 0] },
+                            { $arrayElemAt: ["$admissionInfoPmo", 0] }
                         ]
                     }
                 }
@@ -455,6 +465,14 @@ export const getTransactionReport = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: "sessions",
+                    localField: "admissionInfo.session",
+                    foreignField: "_id",
+                    as: "pntseSessionInfo"
+                }
+            },
+            {
                 $addFields: {
                     departmentDetails: {
                         $ifNull: [
@@ -540,8 +558,27 @@ export const getTransactionReport = async (req, res) => {
 
                     centre: "$effectiveCentre",
                     course: { $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName", "$admissionInfo.course", "$boardCourseName"] },
-                    department: { $ifNull: ["$departmentDetails.departmentName", "BOARD", "PNTSE"] },
-                    session: "$admissionInfo.academicSession",
+                    department: {
+                        $cond: {
+                            if: { $gt: [{ $size: { $ifNull: ["$admissionInfoPmo", []] } }, 0] },
+                            then: "PMO",
+                            else: {
+                                $cond: {
+                                    if: { $gt: [{ $size: { $ifNull: ["$admissionInfoPntse", []] } }, 0] },
+                                    then: "PNTSE",
+                                    else: { $ifNull: ["$departmentDetails.departmentName", "BOARD"] }
+                                }
+                            }
+                        }
+                    },
+                    session: {
+                        $ifNull: [
+                            "$admissionInfo.academicSession",
+                            { $arrayElemAt: ["$pntseSessionInfo.sessionName", 0] },
+                            { $arrayElemAt: ["$pntseSessionInfo.name", 0] },
+                            "$admissionInfo.session"
+                        ]
+                    },
                     admissionNumber: { $ifNull: ["$admissionInfo.admissionNumber", "$admissionInfo.rollNo"] },
                     receivedDate: "$receivedDate",
                     receiptNo: "$billId",
@@ -625,7 +662,8 @@ export const getTransactionReport = async (req, res) => {
                 { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfoNormal" } },
                 { $lookup: { from: "boardcourseadmissions", localField: "admission", foreignField: "_id", as: "admissionInfoBoard" } },
                 { $lookup: { from: "pntsestudents", localField: "admission", foreignField: "_id", as: "admissionInfoPntse" } },
-                { $addFields: { admissionInfo: { $ifNull: [{ $arrayElemAt: ["$admissionInfoNormal", 0] }, { $arrayElemAt: ["$admissionInfoBoard", 0] }, { $arrayElemAt: ["$admissionInfoPntse", 0] }] } } },
+                { $lookup: { from: "pmostudents", localField: "admission", foreignField: "_id", as: "admissionInfoPmo" } },
+                { $addFields: { admissionInfo: { $ifNull: [{ $arrayElemAt: ["$admissionInfoNormal", 0] }, { $arrayElemAt: ["$admissionInfoBoard", 0] }, { $arrayElemAt: ["$admissionInfoPntse", 0] }, { $arrayElemAt: ["$admissionInfoPmo", 0] }] } } },
                 { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
                 { $lookup: { from: "centreschemas", localField: "admissionInfo.centre", foreignField: "_id", as: "pntseCentreInfo" } },
                 { $addFields: { "admissionInfo.centre": { $cond: { if: { $gt: [{ $size: "$pntseCentreInfo" }, 0] }, then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] }, else: "$admissionInfo.centre" } } } },

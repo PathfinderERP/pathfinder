@@ -3994,7 +3994,7 @@ const EnrolledStudentsContent = () => {
                                         <option value="CASH" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>CASH</option>
                                         <option value="UPI" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>UPI</option>
                                         <option value="CARD" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>CARD</option>
-                                        <option value="BANK_TRANSFER" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>BANK TRANSFER</option>
+                                        <option value="BANK_TRANSFER" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>BANK_TRANSFER</option>
                                         <option value="CHEQUE" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>CHEQUE</option>
                                         {/* <option value="RAZORPAY_POS" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>RAZORPAY POS (TERMINAL)</option> */}
                                     </select>

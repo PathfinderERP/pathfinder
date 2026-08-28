@@ -745,7 +745,7 @@ const ManageBoardAdmission = () => {
                                         <option value="ONLINE">ONLINE / CARD</option>
                                         <option value="UPI">UPI</option>
                                         <option value="CHEQUE">CHEQUE</option>
-                                        <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                                        <option value="BANK_TRANSFER">BANK_TRANSFER</option>
                                         {/* <option value="RAZORPAY_SMS">RAZORPAY SMS PAY</option> */}
                                     </select>
                                 </div>
@@ -914,8 +914,8 @@ const ManageBoardAdmission = () => {
                                 setNcrpPaymentModal(true);
                             }}
                             className={`px-8 py-3 font-black uppercase text-xs rounded-lg transition-all shadow-lg tracking-widest flex items-center gap-2 ${admission?.studentId?.status === 'Deactivated'
-                                    ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
-                                    : 'bg-cyan-500 text-black hover:bg-cyan-400'
+                                ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
+                                : 'bg-cyan-500 text-black hover:bg-cyan-400'
                                 }`}
                         >
                             <FaMoneyBillWave /> PAY NOW
@@ -966,8 +966,8 @@ const ManageBoardAdmission = () => {
                                         setPaymentForm({ ...paymentForm, amount: admission.examFee - (admission.examFeePaid || 0) });
                                     }}
                                     className={`flex-1 py-4 font-black uppercase text-xs rounded-lg transition-all shadow-lg ${admission?.studentId?.status === 'Deactivated'
-                                            ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
-                                            : 'bg-cyan-500 text-black hover:bg-cyan-400'
+                                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
+                                        : 'bg-cyan-500 text-black hover:bg-cyan-400'
                                         }`}
                                 >
                                     PAY NOW
@@ -1169,8 +1169,8 @@ const ManageBoardAdmission = () => {
                                         setPaymentForm({ ...paymentForm, amount: admission.additionalThingsAmount - (admission.additionalThingsPaid || 0) });
                                     }}
                                     className={`flex-1 py-4 font-black uppercase text-xs rounded-lg transition-all shadow-lg ${admission?.studentId?.status === 'Deactivated'
-                                            ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
-                                            : 'bg-cyan-500 text-black hover:bg-cyan-400'
+                                        ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
+                                        : 'bg-cyan-500 text-black hover:bg-cyan-400'
                                         }`}
                                 >
                                     PAY NOW
