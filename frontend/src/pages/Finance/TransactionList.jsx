@@ -750,7 +750,7 @@ const TransactionList = () => {
                         </div>
                         {isPaymentDropdownOpen && (
                             <div className={`absolute top-full left-0 mt-1 w-60 z-50 ${dropdownBg} rounded-lg shadow-xl max-h-60 overflow-y-auto`}>
-                                {["CASH", "UPI", "CARD", "BANK TRANSFER", "CHEQUE"].map(mode => (
+                                {["CASH", "UPI", "CARD", "BANK_TRANSFER", "CHEQUE"].map(mode => (
                                     <div
                                         key={mode}
                                         className={`px-3 py-2 cursor-pointer flex items-center gap-2 ${dropdownRow}`}
