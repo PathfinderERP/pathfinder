@@ -48,11 +48,19 @@ const COL_MAP = {
     "State":                          "state",
     "Pincode":                        "pincode",
     "Remarks":                        "remarks",
+    "Exam Date (YYYY-MM-DD)":         "examDate",
+    "Exam Date":                      "examDate",
     "Exam Venue":                     "examVenue",
     "Reporting Time (e.g. 09:30 AM)": "reportingTime",
     "Reporting Time":                 "reportingTime",
+    "Exam Time Slot (e.g. 10:00 AM - 11:30 AM)": "timeSlot",
+    "Exam Time Slot":                 "timeSlot",
+    "Exam Time (e.g. 10:00 AM - 11:30 AM)": "timeSlot",
     "Exam Time (e.g. 10:00 AM)":      "timeSlot",
     "Exam Time":                      "timeSlot",
+    "Time Slot (e.g. 10:00 AM - 11:30 AM)": "timeSlot",
+    "Time Slot":                      "timeSlot",
+    "Exam Slot":                      "timeSlot",
 };
 
 const parseRow = (rawRow) => {
@@ -404,6 +412,7 @@ const PMOBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                             <th className="p-3">Board</th>
                                             <th className="p-3">Centre</th>
                                             <th className="p-3">Course</th>
+                                            <th className="p-3">Exam Schedule & Slot</th>
                                             <th className="p-3 text-right">Actions</th>
                                         </tr>
                                     </thead>
@@ -437,6 +446,12 @@ const PMOBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                                     <td className="p-3">{r.boardName || "—"}</td>
                                                     <td className="p-3">{r.centreName || "—"}</td>
                                                     <td className="p-3 text-violet-400 font-medium">{r.course || "—"}</td>
+                                                    <td className="p-3">
+                                                        <div className="text-gray-300">{r.examVenue || '—'}</div>
+                                                        <div className="text-[11px] text-gray-400 font-mono mt-0.5">
+                                                            {r.examDate || '—'} {r.reportingTime && `(${r.reportingTime})`} {r.timeSlot && `| Slot: ${r.timeSlot}`}
+                                                        </div>
+                                                    </td>
                                                     <td className="p-3 text-right">
                                                         <button
                                                             onClick={() => handleDeleteRow(i)}

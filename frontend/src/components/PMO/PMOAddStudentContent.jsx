@@ -359,7 +359,11 @@ const PMOAddStudentContent = () => {
             board: matchedBoardId || prev.board,
             course: matchedCourse || prev.course,
             studentId: s._id || s.studentId || prev.studentId,
-            rollNo: finalRollNo || prev.rollNo
+            rollNo: finalRollNo || prev.rollNo,
+            examDate: s.examDate || details.examDate || prev.examDate,
+            examVenue: s.examVenue || details.examVenue || prev.examVenue,
+            reportingTime: s.reportingTime || details.reportingTime || prev.reportingTime,
+            timeSlot: s.timeSlot || details.timeSlot || prev.timeSlot
         }));
     };
 

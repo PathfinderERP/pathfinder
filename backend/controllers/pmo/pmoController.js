@@ -651,7 +651,7 @@ export const downloadTemplate = async (req, res) => {
                 "Exam Date (YYYY-MM-DD)": "2026-09-15",
                 "Exam Venue": "Hazra Main Center",
                 "Reporting Time (e.g. 09:30 AM)": "09:30 AM",
-                "Exam Time (e.g. 10:00 AM)": "10:00 AM"
+                "Exam Time Slot (e.g. 10:00 AM - 11:30 AM)": "10:00 AM - 11:30 AM"
             },
             {
                 "Name*": "Priya Verma",
@@ -677,7 +677,7 @@ export const downloadTemplate = async (req, res) => {
                 "Exam Date (YYYY-MM-DD)": "2026-09-15",
                 "Exam Venue": "Dumdum Branch",
                 "Reporting Time (e.g. 09:30 AM)": "10:30 AM",
-                "Exam Time (e.g. 10:00 AM)": "11:00 AM"
+                "Exam Time Slot (e.g. 10:00 AM - 11:30 AM)": "11:00 AM - 12:30 PM"
             }
         ];
 
@@ -688,7 +688,7 @@ export const downloadTemplate = async (req, res) => {
             { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 10 },
             { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
             { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 25 }, { wch: 15 },
-            { wch: 18 }, { wch: 10 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 30 }, { wch: 30 }
+            { wch: 18 }, { wch: 10 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 30 }, { wch: 35 }
         ];
 
         XLSX.utils.book_append_sheet(wb, ws, "PMO Students");
@@ -762,10 +762,18 @@ export const importExcel = async (req, res) => {
                 const state = String(getRowValue("State") ?? "").trim() || undefined;
                 const pincode = String(getRowValue("Pincode") ?? "").trim() || undefined;
                 const remarks = String(getRowValue("Remarks") ?? "").trim() || undefined;
-                const examVenue = String(getRowValue("Exam Venue") ?? "").trim() || undefined;
-                const reportingTime = String(getRowValue("Reporting Time") ?? "").trim() || undefined;
-                const examTime = String(getRowValue("Exam Time") ?? "").trim() || undefined;
-                const examDate = String(getRowValue("Exam Date") ?? "").trim() || undefined;
+                const examVenue = String(row.examVenue ?? getRowValue("Exam Venue") ?? "").trim() || undefined;
+                const reportingTime = String(row.reportingTime ?? getRowValue("Reporting Time") ?? "").trim() || undefined;
+                const examTime = String(
+                    row.timeSlot ??
+                    row.examTime ??
+                    getRowValue("Exam Time Slot") ??
+                    getRowValue("Exam Time") ??
+                    getRowValue("Time Slot") ??
+                    getRowValue("Exam Slot") ??
+                    ""
+                ).trim() || undefined;
+                const examDate = String(row.examDate ?? getRowValue("Exam Date") ?? "").trim() || undefined;
                 const studentId = getRowValue("studentId") || undefined;
 
                 if (!name || !mobile || !className || !boardName || !centreName || !sessionName || !examTagName || !course) {

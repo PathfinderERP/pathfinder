@@ -1078,7 +1078,7 @@ const PMOAllStudentsContent = () => {
                                             <td className="p-3.5">
                                                 <div className="text-gray-300">{s.examVenue || s.centre?.centreName || '—'}</div>
                                                 <div className="text-[11px] text-gray-500 font-mono mt-0.5">
-                                                    {s.examDate || '—'} {s.reportingTime && `(${formatReportingTime(s.reportingTime)})`}
+                                                    {s.examDate || '—'} {s.reportingTime && `(${formatReportingTime(s.reportingTime)})`} {s.timeSlot && `| ${s.timeSlot}`}
                                                 </div>
                                             </td>
 
@@ -1302,10 +1302,14 @@ const PMOAllStudentsContent = () => {
                                 <div><span className="text-gray-500">Course:</span> <span className="text-purple-300 font-bold block mt-0.5">{viewStudent.course}</span></div>
                                 <div><span className="text-gray-500">Centre:</span> <span className="text-gray-200 block mt-0.5">{viewStudent.centre?.centreName} ({getZoneName(viewStudent.centre)})</span></div>
                                 <div><span className="text-gray-500">Fee Paid:</span> <span className="text-emerald-400 font-bold block mt-0.5">₹{viewStudent.amountPaid} (Discount: ₹{viewStudent.waiver || 0})</span></div>
-                                <div><span className="text-gray-500">Exam Venue:</span> <span className="text-gray-200 block mt-0.5">{viewStudent.examVenue || '—'}</span></div>
-                                <div><span className="text-gray-500">Exam Date & Time:</span> <span className="text-gray-200 block mt-0.5">{viewStudent.examDate || '—'} {viewStudent.reportingTime && `(${formatReportingTime(viewStudent.reportingTime)})`}</span></div>
+                                <div><span className="text-gray-500">Exam Venue:</span> <span className="text-gray-200 block mt-0.5">{viewStudent.examVenue || viewStudent.centre?.centreName || '—'}</span></div>
+                                <div><span className="text-gray-500">Exam Date:</span> <span className="text-gray-200 block mt-0.5">{viewStudent.examDate || '—'}</span></div>
+                                <div><span className="text-gray-500">Reporting Time:</span> <span className="text-gray-200 block mt-0.5">{formatReportingTime(viewStudent.reportingTime)}</span></div>
+                                <div><span className="text-gray-500">Exam Time Slot:</span> <span className="text-purple-300 font-bold block mt-0.5">{viewStudent.timeSlot || '—'}</span></div>
                                 <div><span className="text-gray-500">Status:</span> <span className="text-gray-200 block mt-0.5">{viewStudent.status}</span></div>
                                 <div><span className="text-gray-500">Score & Rank:</span> <span className="text-gray-200 block mt-0.5">{viewStudent.score || 0} pts (Rank: {viewStudent.rank || '—'})</span></div>
+                                <div><span className="text-gray-500">School:</span> <span className="text-gray-200 block mt-0.5">{viewStudent.school || '—'}</span></div>
+                                <div><span className="text-gray-500">Guardian:</span> <span className="text-gray-200 block mt-0.5">{viewStudent.guardianName || '—'} ({viewStudent.guardianMobile || '—'})</span></div>
                             </div>
                         </div>
                     </div>
@@ -1315,125 +1319,304 @@ const PMOAllStudentsContent = () => {
             {/* Edit Modal */}
             {showEditModal && editStudent && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm animate-fade-in">
-                    <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="px-6 py-4 bg-gradient-to-r from-purple-950 to-indigo-950 border-b border-gray-800 flex justify-between items-center">
                             <h3 className="font-bold text-white text-base">Edit PMO Student: {editStudent.name}</h3>
                             <button onClick={() => setShowEditModal(false)} className="text-gray-400 hover:text-white">
                                 <FaTimes />
                             </button>
                         </div>
-                        <form onSubmit={handleEditSubmit} className="p-6 overflow-y-auto space-y-4 text-xs">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <div>
-                                    <label className="block text-gray-400 mb-1 font-medium">Full Name <span className="text-rose-500">*</span></label>
-                                    <input
-                                        type="text"
-                                        name="name"
-                                        value={editForm.name}
-                                        onChange={handleEditChange}
-                                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
-                                    />
-                                    {editErrors.name && <p className="text-rose-400 text-[11px] mt-1">{editErrors.name}</p>}
-                                </div>
+                        <form onSubmit={handleEditSubmit} className="p-6 overflow-y-auto space-y-5 text-xs">
+                            {/* Personal & Academic Details */}
+                            <div>
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-3">1. Personal & Contact Details</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Full Name <span className="text-rose-500">*</span></label>
+                                        <input
+                                            type="text"
+                                            name="name"
+                                            value={editForm.name}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        />
+                                        {editErrors.name && <p className="text-rose-400 text-[11px] mt-1">{editErrors.name}</p>}
+                                    </div>
 
-                                <div>
-                                    <label className="block text-gray-400 mb-1 font-medium">Mobile <span className="text-rose-500">*</span></label>
-                                    <input
-                                        type="text"
-                                        name="mobile"
-                                        maxLength={10}
-                                        value={editForm.mobile}
-                                        onChange={handleEditChange}
-                                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500 font-mono"
-                                    />
-                                    {editErrors.mobile && <p className="text-rose-400 text-[11px] mt-1">{editErrors.mobile}</p>}
-                                </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Mobile <span className="text-rose-500">*</span></label>
+                                        <input
+                                            type="text"
+                                            name="mobile"
+                                            maxLength={10}
+                                            value={editForm.mobile}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500 font-mono"
+                                        />
+                                        {editErrors.mobile && <p className="text-rose-400 text-[11px] mt-1">{editErrors.mobile}</p>}
+                                    </div>
 
-                                <div>
-                                    <label className="block text-gray-400 mb-1 font-medium">Email</label>
-                                    <input
-                                        type="email"
-                                        name="email"
-                                        value={editForm.email}
-                                        onChange={handleEditChange}
-                                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
-                                    />
-                                </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Secondary Mobile</label>
+                                        <input
+                                            type="text"
+                                            name="secondaryMobile"
+                                            maxLength={10}
+                                            value={editForm.secondaryMobile}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500 font-mono"
+                                        />
+                                    </div>
 
-                                <div>
-                                    <label className="block text-gray-400 mb-1 font-medium">Class</label>
-                                    <select
-                                        name="class"
-                                        value={editForm.class}
-                                        onChange={handleEditChange}
-                                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
-                                    >
-                                        <option value="">Select Class</option>
-                                        {dbClasses.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                                    </select>
-                                </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Email</label>
+                                        <input
+                                            type="email"
+                                            name="email"
+                                            value={editForm.email}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        />
+                                    </div>
 
-                                <div>
-                                    <label className="block text-gray-400 mb-1 font-medium">Centre</label>
-                                    <select
-                                        name="centre"
-                                        value={editForm.centre}
-                                        onChange={handleEditChange}
-                                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
-                                    >
-                                        <option value="">Select Centre</option>
-                                        {dbCentres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
-                                    </select>
-                                </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Date of Birth</label>
+                                        <input
+                                            type="date"
+                                            name="dob"
+                                            value={editForm.dob ? editForm.dob.split('T')[0] : ''}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        />
+                                    </div>
 
-                                <div>
-                                    <label className="block text-gray-400 mb-1 font-medium">Course</label>
-                                    <select
-                                        name="course"
-                                        value={editForm.course}
-                                        onChange={handleEditChange}
-                                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-purple-300 font-bold focus:outline-none focus:border-purple-500"
-                                    >
-                                        <option value="">Select Course</option>
-                                        {courses.map(c => <option key={c} value={c}>{c}</option>)}
-                                    </select>
-                                </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Gender</label>
+                                        <select
+                                            name="gender"
+                                            value={editForm.gender}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        >
+                                            <option value="">Select Gender</option>
+                                            <option value="Male">Male</option>
+                                            <option value="Female">Female</option>
+                                            <option value="Other">Other</option>
+                                        </select>
+                                    </div>
 
-                                <div>
-                                    <label className="block text-gray-400 mb-1 font-medium">Status</label>
-                                    <select
-                                        name="status"
-                                        value={editForm.status}
-                                        onChange={handleEditChange}
-                                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
-                                    >
-                                        <option value="Appeared">Appeared</option>
-                                        <option value="Qualified">Qualified</option>
-                                        <option value="Not Qualified">Not Qualified</option>
-                                    </select>
-                                </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Class</label>
+                                        <select
+                                            name="class"
+                                            value={editForm.class}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        >
+                                            <option value="">Select Class</option>
+                                            {dbClasses.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                                        </select>
+                                    </div>
 
-                                <div>
-                                    <label className="block text-gray-400 mb-1 font-medium">Score</label>
-                                    <input
-                                        type="number"
-                                        name="score"
-                                        value={editForm.score}
-                                        onChange={handleEditChange}
-                                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
-                                    />
-                                </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Board</label>
+                                        <select
+                                            name="board"
+                                            value={editForm.board}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        >
+                                            <option value="">Select Board</option>
+                                            {dbBoards.map(b => <option key={b._id} value={b._id}>{b.boardCourse || b.boardName}</option>)}
+                                        </select>
+                                    </div>
 
-                                <div>
-                                    <label className="block text-gray-400 mb-1 font-medium">Rank</label>
-                                    <input
-                                        type="number"
-                                        name="rank"
-                                        value={editForm.rank}
-                                        onChange={handleEditChange}
-                                        className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
-                                    />
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Centre</label>
+                                        <select
+                                            name="centre"
+                                            value={editForm.centre}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        >
+                                            <option value="">Select Centre</option>
+                                            {dbCentres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Course</label>
+                                        <select
+                                            name="course"
+                                            value={editForm.course}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-purple-300 font-bold focus:outline-none focus:border-purple-500"
+                                        >
+                                            <option value="">Select Course</option>
+                                            {courses.map(c => <option key={c} value={c}>{c}</option>)}
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">School Name</label>
+                                        <input
+                                            type="text"
+                                            name="school"
+                                            value={editForm.school}
+                                            onChange={handleEditChange}
+                                            placeholder="Current School"
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Enrollment / Roll No</label>
+                                        <input
+                                            type="text"
+                                            name="rollNo"
+                                            value={editForm.rollNo}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-purple-300 font-mono font-bold focus:outline-none focus:border-purple-500"
+                                        />
+                                    </div>
                                 </div>
+                            </div>
+
+                            {/* Exam Schedule & Venue Fields */}
+                            <div>
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-3">2. Exam Schedule & Hall Ticket Info</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Exam Date</label>
+                                        <input
+                                            type="date"
+                                            name="examDate"
+                                            value={editForm.examDate ? editForm.examDate.split('T')[0] : ''}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Exam Venue</label>
+                                        <input
+                                            type="text"
+                                            name="examVenue"
+                                            value={editForm.examVenue}
+                                            onChange={handleEditChange}
+                                            placeholder="e.g. HAZRA H.O"
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Reporting Time</label>
+                                        <input
+                                            type="time"
+                                            name="reportingTime"
+                                            value={editForm.reportingTime}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Exam Time Slot</label>
+                                        <input
+                                            type="text"
+                                            name="timeSlot"
+                                            value={editForm.timeSlot}
+                                            onChange={handleEditChange}
+                                            placeholder="e.g. 10:00 AM - 11:30 AM"
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Guardian Info */}
+                            <div>
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-3">3. Guardian Details</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Guardian Name</label>
+                                        <input
+                                            type="text"
+                                            name="guardianName"
+                                            value={editForm.guardianName}
+                                            onChange={handleEditChange}
+                                            placeholder="Parent / Guardian Name"
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Guardian Mobile</label>
+                                        <input
+                                            type="text"
+                                            name="guardianMobile"
+                                            maxLength={10}
+                                            value={editForm.guardianMobile}
+                                            onChange={handleEditChange}
+                                            placeholder="Guardian Contact"
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500 font-mono"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Status, Score & Rank */}
+                            <div>
+                                <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-3">4. Result & Status</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Status</label>
+                                        <select
+                                            name="status"
+                                            value={editForm.status}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        >
+                                            <option value="Appeared">Appeared</option>
+                                            <option value="Qualified">Qualified</option>
+                                            <option value="Not Qualified">Not Qualified</option>
+                                        </select>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Score</label>
+                                        <input
+                                            type="number"
+                                            name="score"
+                                            value={editForm.score}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 font-medium">Rank</label>
+                                        <input
+                                            type="number"
+                                            name="rank"
+                                            value={editForm.rank}
+                                            onChange={handleEditChange}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                        />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Remarks */}
+                            <div>
+                                <label className="block text-gray-400 mb-1 font-medium">Remarks</label>
+                                <input
+                                    type="text"
+                                    name="remarks"
+                                    value={editForm.remarks}
+                                    onChange={handleEditChange}
+                                    placeholder="Additional notes"
+                                    className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
+                                />
                             </div>
 
                             <div className="flex justify-end gap-3 pt-4 border-t border-gray-800">

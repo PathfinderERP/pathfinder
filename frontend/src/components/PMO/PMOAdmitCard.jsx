@@ -100,16 +100,33 @@ const PMOAdmitCard = ({ student, onClose }) => {
 
     if (student.examDate) {
         try {
-            const dateObj = new Date(student.examDate);
-            if (!isNaN(dateObj.getTime())) {
-                const dayStr = String(dateObj.getDate()).padStart(2, '0');
-                const monthStr = String(dateObj.getMonth() + 1).padStart(2, '0');
-                const yearStr = String(dateObj.getFullYear());
-
-                examDay = dayStr.split('');
-                examMonth = monthStr.split('');
-                examYear = yearStr.split('');
+            const rawDate = String(student.examDate).trim();
+            if (/^\d{4}-\d{2}-\d{2}/.test(rawDate)) {
+                // ISO YYYY-MM-DD format
+                const [y, m, d] = rawDate.split('T')[0].split('-');
+                examDay = d.padStart(2, '0').split('');
+                examMonth = m.padStart(2, '0').split('');
+                examYear = y.split('');
                 isExamDatePopulated = true;
+            } else if (/^\d{1,2}[\/-]\d{1,2}[\/-]\d{4}/.test(rawDate)) {
+                // DD/MM/YYYY or DD-MM-YYYY format
+                const parts = rawDate.split(/[\/-]/);
+                examDay = parts[0].padStart(2, '0').split('');
+                examMonth = parts[1].padStart(2, '0').split('');
+                examYear = parts[2].split('');
+                isExamDatePopulated = true;
+            } else {
+                const dateObj = new Date(rawDate);
+                if (!isNaN(dateObj.getTime())) {
+                    const dayStr = String(dateObj.getDate()).padStart(2, '0');
+                    const monthStr = String(dateObj.getMonth() + 1).padStart(2, '0');
+                    const yearStr = String(dateObj.getFullYear());
+
+                    examDay = dayStr.split('');
+                    examMonth = monthStr.split('');
+                    examYear = yearStr.split('');
+                    isExamDatePopulated = true;
+                }
             }
         } catch (e) {
             console.error("Error parsing exam date:", e);
