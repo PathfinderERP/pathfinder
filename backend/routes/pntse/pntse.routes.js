@@ -10,7 +10,7 @@ router.post("/create", requireGranularPermission("pntse", "addStudent", "create"
 router.get("/list", requireGranularPermission("pntse", "allStudents", "view"), getPNTSEStudents);
 router.get("/check-duplicate", requireGranularPermission("pntse", "allStudents", "view"), checkDuplicate);
 router.post("/check-duplicates-bulk", requireGranularPermission("pntse", "allStudents", "view"), checkDuplicatesBulk);
-router.get("/template", requireGranularPermission("pntse", "allStudents", "import"), downloadTemplate);
+router.get("/template", requireGranularPermission("pntse", "allStudents", "view"), downloadTemplate);
 router.post("/import-excel", requireGranularPermission("pntse", "allStudents", "import"), upload.single("file"), importExcel);
 router.patch("/:id/set-free", requireGranularPermission("pntse", "allStudents", "edit"), setStudentFree);
 router.post("/:id/process-payment", requireGranularPermission("pntse", "allStudents", "edit"), processStudentPayment);

@@ -734,46 +734,44 @@ export const importExcel = async (req, res) => {
             const rowNum = i + 2;
 
             try {
-                const getRowValue = (prefix) => {
-                    const foundKey = Object.keys(row).find(k => k.toLowerCase().startsWith(prefix.toLowerCase()));
-                    return foundKey ? row[foundKey] : undefined;
+                const getRowValue = (...prefixes) => {
+                    const keys = Object.keys(row);
+                    for (const prefix of prefixes) {
+                        const foundKey = keys.find(k => k.toLowerCase().trim().startsWith(prefix.toLowerCase()));
+                        if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null && String(row[foundKey]).trim() !== "") {
+                            return String(row[foundKey]).trim();
+                        }
+                    }
+                    return undefined;
                 };
 
-                const name = String(row.name ?? getRowValue("Name*") ?? getRowValue("Name") ?? "").trim();
+                const name = String(row.name ?? getRowValue("Name*", "Name") ?? "").trim();
                 const mobile = String(row.mobile ?? getRowValue("Mobile") ?? "").trim();
                 const secondaryMobile = String(row.secondaryMobile ?? getRowValue("Secondary Mobile") ?? "").trim() || undefined;
                 const email = String(row.email ?? getRowValue("Email") ?? "").trim() || undefined;
                 const dob = String(row.dob ?? getRowValue("DOB") ?? "").trim() || undefined;
                 const gender = String(row.gender ?? getRowValue("Gender") ?? "").trim() || undefined;
-                const className = String(row.className ?? getRowValue("Class Name") ?? getRowValue("Class") ?? "").trim();
-                const boardName = String(row.boardName ?? getRowValue("Board Name") ?? getRowValue("Board") ?? "").trim();
-                const centreName = String(row.centreName ?? getRowValue("Centre Name") ?? getRowValue("Centre") ?? "").trim();
-                const sessionName = String(row.sessionName ?? getRowValue("Session Name") ?? getRowValue("Session") ?? "").trim();
-                const examTagName = String(row.examTagName ?? getRowValue("ExamTag Name") ?? getRowValue("ExamTag") ?? "").trim();
-                let course = String(row.course ?? getRowValue("Course") ?? "").trim();
+                const className = String(row.className ?? getRowValue("Class Name*", "Class Name", "Class") ?? "").trim();
+                const boardName = String(row.boardName ?? getRowValue("Board Name*", "Board Name", "Board") ?? "").trim();
+                const centreName = String(row.centreName ?? getRowValue("Centre Name*", "Centre Name", "Centre", "Center Name", "Center") ?? "").trim();
+                const sessionName = String(row.sessionName ?? getRowValue("Session Name*", "Session Name", "Session") ?? "").trim();
+                const examTagName = String(row.examTagName ?? getRowValue("ExamTag Name*", "ExamTag Name", "ExamTag", "Exam Tag") ?? "").trim();
+                let course = String(row.course ?? getRowValue("Course*", "Course") ?? "").trim();
                 if (/^PMO\s+CLASS\s+(\d+)$/i.test(course)) {
                     course = course.toUpperCase().replace(/PMO\s+CLASS\s+(\d+)/i, 'PMO $1');
                 }
-                const school = String(getRowValue("School") ?? "").trim() || undefined;
-                const guardianName = String(getRowValue("Guardian Name") ?? "").trim() || undefined;
-                const guardianMobile = String(getRowValue("Guardian Mobile") ?? "").trim() || undefined;
-                const address = String(getRowValue("Address") ?? "").trim() || undefined;
-                const city = String(getRowValue("City") ?? "").trim() || undefined;
-                const state = String(getRowValue("State") ?? "").trim() || undefined;
-                const pincode = String(getRowValue("Pincode") ?? "").trim() || undefined;
-                const remarks = String(getRowValue("Remarks") ?? "").trim() || undefined;
-                const examVenue = String(row.examVenue ?? getRowValue("Exam Venue") ?? "").trim() || undefined;
-                const reportingTime = String(row.reportingTime ?? getRowValue("Reporting Time") ?? "").trim() || undefined;
-                const examTime = String(
-                    row.timeSlot ??
-                    row.examTime ??
-                    getRowValue("Exam Time Slot") ??
-                    getRowValue("Exam Time") ??
-                    getRowValue("Time Slot") ??
-                    getRowValue("Exam Slot") ??
-                    ""
-                ).trim() || undefined;
-                const examDate = String(row.examDate ?? getRowValue("Exam Date") ?? "").trim() || undefined;
+                const school = String(row.school ?? getRowValue("School") ?? "").trim() || undefined;
+                const guardianName = String(row.guardianName ?? getRowValue("Guardian Name", "Guardian") ?? "").trim() || undefined;
+                const guardianMobile = String(row.guardianMobile ?? getRowValue("Guardian Mobile") ?? "").trim() || undefined;
+                const address = String(row.address ?? getRowValue("Address") ?? "").trim() || undefined;
+                const city = String(row.city ?? getRowValue("City") ?? "").trim() || undefined;
+                const state = String(row.state ?? getRowValue("State") ?? "").trim() || undefined;
+                const pincode = String(row.pincode ?? getRowValue("Pincode", "Pin Code") ?? "").trim() || undefined;
+                const remarks = String(row.remarks ?? getRowValue("Remarks") ?? "").trim() || undefined;
+                const examVenue = row.examVenue || getRowValue("Exam Venue", "Venue") || undefined;
+                const reportingTime = row.reportingTime || getRowValue("Reporting Time", "Reporting", "Report Time") || undefined;
+                const examTime = row.timeSlot || row.examTime || getRowValue("Exam Time Slot", "Exam Time", "Time Slot", "Exam Slot", "Slot") || undefined;
+                const examDate = row.examDate || getRowValue("Exam Date", "ExamDate", "Date") || undefined;
                 const studentId = getRowValue("studentId") || undefined;
 
                 if (!name || !mobile || !className || !boardName || !centreName || !sessionName || !examTagName || !course) {

@@ -21,7 +21,7 @@ router.post("/create", requireGranularPermission("pmo", "addStudent", "create"),
 router.get("/list", requireGranularPermission("pmo", "allStudents", "view"), getPMOStudents);
 router.get("/check-duplicate", requireGranularPermission("pmo", "allStudents", "view"), checkDuplicate);
 router.post("/check-duplicates-bulk", requireGranularPermission("pmo", "allStudents", "view"), checkDuplicatesBulk);
-router.get("/template", requireGranularPermission("pmo", "allStudents", "import"), downloadTemplate);
+router.get("/template", requireGranularPermission("pmo", "allStudents", "view"), downloadTemplate);
 router.post("/import-excel", requireGranularPermission("pmo", "allStudents", "import"), upload.single("file"), importExcel);
 router.patch("/:id/set-free", requireGranularPermission("pmo", "allStudents", "edit"), setStudentFree);
 router.post("/:id/process-payment", requireGranularPermission("pmo", "allStudents", "edit"), processStudentPayment);

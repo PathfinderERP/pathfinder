@@ -49,25 +49,86 @@ const COL_MAP = {
     "State":                          "state",
     "Pincode":                        "pincode",
     "Remarks":                        "remarks",
+    "Exam Date (YYYY-MM-DD)":         "examDate",
+    "Exam Date":                      "examDate",
     "Exam Venue":                     "examVenue",
     "Reporting Time (e.g. 09:30 AM)": "reportingTime",
     "Reporting Time":                 "reportingTime",
+    "Exam Time Slot (e.g. 10:00 AM - 11:30 AM)": "timeSlot",
+    "Exam Time Slot":                 "timeSlot",
+    "Exam Time (e.g. 10:00 AM - 11:30 AM)": "timeSlot",
     "Exam Time (e.g. 10:00 AM)":      "timeSlot",
     "Exam Time":                      "timeSlot",
+    "Time Slot (e.g. 10:00 AM - 11:30 AM)": "timeSlot",
+    "Time Slot":                      "timeSlot",
+    "Exam Slot":                      "timeSlot",
 };
 
 const parseRow = (rawRow) => {
     const row = {};
-    Object.entries(rawRow).forEach(([key, val]) => {
-        const field = COL_MAP[key.trim()];
+    Object.entries(rawRow).forEach(([rawKey, val]) => {
+        const key = rawKey.trim();
+        let field = COL_MAP[key];
+        if (!field) {
+            const lowerKey = key.toLowerCase();
+            if (lowerKey.includes("exam date") || lowerKey === "date") field = "examDate";
+            else if (lowerKey.includes("exam venue") || lowerKey.includes("venue")) field = "examVenue";
+            else if (lowerKey.includes("reporting time") || lowerKey.includes("report time")) field = "reportingTime";
+            else if (lowerKey.includes("time slot") || lowerKey.includes("exam time") || lowerKey.includes("exam slot") || lowerKey.includes("slot")) field = "timeSlot";
+            else if (lowerKey.includes("secondary mobile")) field = "secondaryMobile";
+            else if (lowerKey.includes("guardian mobile")) field = "guardianMobile";
+            else if (lowerKey.includes("guardian name") || lowerKey.includes("guardian")) field = "guardianName";
+            else if (lowerKey.includes("class")) field = "className";
+            else if (lowerKey.includes("board")) field = "boardName";
+            else if (lowerKey.includes("centre") || lowerKey.includes("center")) field = "centreName";
+            else if (lowerKey.includes("session")) field = "sessionName";
+            else if (lowerKey.includes("examtag") || lowerKey.includes("exam tag")) field = "examTagName";
+            else if (lowerKey.includes("course")) field = "course";
+            else if (lowerKey.includes("school")) field = "school";
+            else if (lowerKey.includes("mobile") || lowerKey.includes("phone")) field = "mobile";
+            else if (lowerKey.includes("email")) field = "email";
+            else if (lowerKey.includes("dob") || lowerKey.includes("birth")) field = "dob";
+            else if (lowerKey.includes("gender") || lowerKey.includes("sex")) field = "gender";
+            else if (lowerKey.includes("address")) field = "address";
+            else if (lowerKey.includes("city")) field = "city";
+            else if (lowerKey.includes("state")) field = "state";
+            else if (lowerKey.includes("pincode") || lowerKey.includes("pin code") || lowerKey.includes("zip")) field = "pincode";
+            else if (lowerKey.includes("remark")) field = "remarks";
+            else if (lowerKey.includes("name")) field = "name";
+        }
         if (field) {
             let strVal = (val !== undefined && val !== null) ? String(val).trim() : "";
+            // Convert Excel decimal time fractions (e.g. 0.395833 for 9:30 AM) to HH:MM AM/PM string
+            if ((field === "reportingTime" || field === "timeSlot") && strVal && /^0\.\d+$/.test(strVal)) {
+                const totalMinutes = Math.round(parseFloat(strVal) * 24 * 60);
+                const h = Math.floor(totalMinutes / 60);
+                const m = totalMinutes % 60;
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                const h12 = h % 12 || 12;
+                strVal = `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+            }
             if (field === "course" && /^PNTSE\s+CLASS\s+(\d+)$/i.test(strVal)) {
                 strVal = strVal.toUpperCase().replace(/PNTSE\s+CLASS\s+(\d+)/i, 'PNTSE $1');
             }
             row[field] = strVal;
         }
     });
+
+    // Auto-fill missing course/examTag/session if className is provided
+    if (row.className) {
+        const classDigits = row.className.replace(/\D/g, '');
+        if (classDigits) {
+            if (!row.course) row.course = `PNTSE ${classDigits}`;
+            if (!row.examTagName) row.examTagName = `PNTSE ${classDigits}`;
+        }
+    }
+    if (!row.examTagName && row.course) {
+        row.examTagName = row.course;
+    }
+    if (!row.sessionName) {
+        row.sessionName = "2025-2026";
+    }
+
     return row;
 };
 
@@ -169,9 +230,9 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
         const reader = new FileReader();
         reader.onload = (ev) => {
             try {
-                const wb  = XLSX.read(ev.target.result, { type: "binary" });
+                const wb  = XLSX.read(ev.target.result, { type: "binary", cellText: true, cellDates: false });
                 const ws  = wb.Sheets[wb.SheetNames[0]];
-                const raw = XLSX.utils.sheet_to_json(ws, { defval: "" });
+                const raw = XLSX.utils.sheet_to_json(ws, { defval: "", raw: false });
                 if (!raw.length) { toast.warning("File is empty."); return; }
                 const rows = raw.map(parseRow).filter(r => r.name?.trim());
                 if (!rows.length) { toast.error("No valid rows found. Ensure 'Name' column exists."); return; }
@@ -238,6 +299,10 @@ const PNTSEBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                 "State": r.state || "",
                 "Pincode": r.pincode || "",
                 "Remarks": r.remarks || "",
+                "Exam Date (YYYY-MM-DD)": r.examDate || "",
+                "Exam Venue": r.examVenue || "",
+                "Reporting Time (e.g. 09:30 AM)": r.reportingTime || "",
+                "Exam Time Slot (e.g. 10:00 AM - 11:30 AM)": r.timeSlot || ""
             })));
             XLSX.utils.book_append_sheet(wb, ws, "Students");
             const buf  = XLSX.write(wb, { bookType: "xlsx", type: "array" });

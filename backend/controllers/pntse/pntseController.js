@@ -544,7 +544,7 @@ export const downloadTemplate = async (req, res) => {
                 "Exam Date (YYYY-MM-DD)": "2026-08-25",
                 "Exam Venue": "Hazra Main Center",
                 "Reporting Time (e.g. 09:30 AM)": "09:30 AM",
-                "Exam Time (e.g. 10:00 AM)": "10:00 AM"
+                "Exam Time Slot (e.g. 10:00 AM - 11:30 AM)": "10:00 AM - 11:30 AM"
             },
             {
                 "Name*": "Priya Verma",
@@ -570,7 +570,7 @@ export const downloadTemplate = async (req, res) => {
                 "Exam Date (YYYY-MM-DD)": "2026-08-25",
                 "Exam Venue": "Dumdum Branch",
                 "Reporting Time (e.g. 09:30 AM)": "10:30 AM",
-                "Exam Time (e.g. 10:00 AM)": "11:00 AM"
+                "Exam Time Slot (e.g. 10:00 AM - 11:30 AM)": "11:00 AM - 12:30 PM"
             }
         ];
 
@@ -582,7 +582,7 @@ export const downloadTemplate = async (req, res) => {
             { wch: 20 }, { wch: 15 }, { wch: 25 }, { wch: 18 }, { wch: 10 },
             { wch: 22 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 }, { wch: 20 },
             { wch: 20 }, { wch: 20 }, { wch: 18 }, { wch: 25 }, { wch: 15 },
-            { wch: 18 }, { wch: 10 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 30 }, { wch: 30 }
+            { wch: 18 }, { wch: 10 }, { wch: 20 }, { wch: 25 }, { wch: 25 }, { wch: 30 }, { wch: 35 }
         ];
 
         XLSX.utils.book_append_sheet(wb, ws, "PNTSE Students");
@@ -628,38 +628,44 @@ export const importExcel = async (req, res) => {
             const rowNum = i + 2; // Excel row number (header is row 1)
 
             try {
-                const getRowValue = (prefix) => {
-                    const foundKey = Object.keys(row).find(k => k.toLowerCase().startsWith(prefix.toLowerCase()));
-                    return foundKey ? row[foundKey] : undefined;
+                const getRowValue = (...prefixes) => {
+                    const keys = Object.keys(row);
+                    for (const prefix of prefixes) {
+                        const foundKey = keys.find(k => k.toLowerCase().trim().startsWith(prefix.toLowerCase()));
+                        if (foundKey && row[foundKey] !== undefined && row[foundKey] !== null && String(row[foundKey]).trim() !== "") {
+                            return String(row[foundKey]).trim();
+                        }
+                    }
+                    return undefined;
                 };
 
-                const name = String(getRowValue("Name*") ?? getRowValue("Name") ?? "").trim();
-                const mobile = String(getRowValue("Mobile") ?? "").trim();
-                const secondaryMobile = String(getRowValue("Secondary Mobile") ?? "").trim() || undefined;
-                const email = String(getRowValue("Email") ?? "").trim() || undefined;
-                const dob = String(getRowValue("DOB") ?? "").trim() || undefined;
-                const gender = String(getRowValue("Gender") ?? "").trim() || undefined;
-                const className = String(getRowValue("Class Name") ?? "").trim();
-                const boardName = String(getRowValue("Board Name") ?? getRowValue("Board") ?? "").trim();
-                const centreName = String(getRowValue("Centre Name") ?? "").trim();
-                const sessionName = String(getRowValue("Session Name") ?? "").trim();
-                const examTagName = String(getRowValue("ExamTag Name") ?? "").trim();
-                let course = String(getRowValue("Course") ?? "").trim();
+                const name = String(row.name ?? getRowValue("Name*", "Name") ?? "").trim();
+                const mobile = String(row.mobile ?? getRowValue("Mobile") ?? "").trim();
+                const secondaryMobile = String(row.secondaryMobile ?? getRowValue("Secondary Mobile") ?? "").trim() || undefined;
+                const email = String(row.email ?? getRowValue("Email") ?? "").trim() || undefined;
+                const dob = String(row.dob ?? getRowValue("DOB") ?? "").trim() || undefined;
+                const gender = String(row.gender ?? getRowValue("Gender") ?? "").trim() || undefined;
+                const className = String(row.className ?? getRowValue("Class Name*", "Class Name", "Class") ?? "").trim();
+                const boardName = String(row.boardName ?? getRowValue("Board Name*", "Board Name", "Board") ?? "").trim();
+                const centreName = String(row.centreName ?? getRowValue("Centre Name*", "Centre Name", "Centre", "Center Name", "Center") ?? "").trim();
+                const sessionName = String(row.sessionName ?? getRowValue("Session Name*", "Session Name", "Session") ?? "").trim();
+                const examTagName = String(row.examTagName ?? getRowValue("ExamTag Name*", "ExamTag Name", "ExamTag", "Exam Tag") ?? "").trim();
+                let course = String(row.course ?? getRowValue("Course*", "Course") ?? "").trim();
                 if (/^PNTSE\s+CLASS\s+(\d+)$/i.test(course)) {
                     course = course.toUpperCase().replace(/PNTSE\s+CLASS\s+(\d+)/i, 'PNTSE $1');
                 }
-                const school = String(getRowValue("School") ?? "").trim() || undefined;
-                const guardianName = String(getRowValue("Guardian Name") ?? "").trim() || undefined;
-                const guardianMobile = String(getRowValue("Guardian Mobile") ?? "").trim() || undefined;
-                const address = String(getRowValue("Address") ?? "").trim() || undefined;
-                const city = String(getRowValue("City") ?? "").trim() || undefined;
-                const state = String(getRowValue("State") ?? "").trim() || undefined;
-                const pincode = String(getRowValue("Pincode") ?? "").trim() || undefined;
-                const remarks = String(getRowValue("Remarks") ?? "").trim() || undefined;
-                const examVenue = String(getRowValue("Exam Venue") ?? "").trim() || undefined;
-                const reportingTime = String(getRowValue("Reporting Time") ?? "").trim() || undefined;
-                const examTime = String(getRowValue("Exam Time") ?? "").trim() || undefined;
-                const examDate = String(getRowValue("Exam Date") ?? "").trim() || undefined;
+                const school = String(row.school ?? getRowValue("School") ?? "").trim() || undefined;
+                const guardianName = String(row.guardianName ?? getRowValue("Guardian Name", "Guardian") ?? "").trim() || undefined;
+                const guardianMobile = String(row.guardianMobile ?? getRowValue("Guardian Mobile") ?? "").trim() || undefined;
+                const address = String(row.address ?? getRowValue("Address") ?? "").trim() || undefined;
+                const city = String(row.city ?? getRowValue("City") ?? "").trim() || undefined;
+                const state = String(row.state ?? getRowValue("State") ?? "").trim() || undefined;
+                const pincode = String(row.pincode ?? getRowValue("Pincode", "Pin Code") ?? "").trim() || undefined;
+                const remarks = String(row.remarks ?? getRowValue("Remarks") ?? "").trim() || undefined;
+                const examVenue = row.examVenue || getRowValue("Exam Venue", "Venue") || undefined;
+                const reportingTime = row.reportingTime || getRowValue("Reporting Time", "Reporting", "Report Time") || undefined;
+                const examTime = row.timeSlot || row.examTime || getRowValue("Exam Time Slot", "Exam Time", "Time Slot", "Exam Slot", "Slot") || undefined;
+                const examDate = row.examDate || getRowValue("Exam Date", "ExamDate", "Date") || undefined;
                 const studentId = getRowValue("studentId") || undefined;
 
                 // Validate required
@@ -759,11 +765,25 @@ export const importExcel = async (req, res) => {
                     continue;
                 }
 
-                // ── Step 1: Check if ALREADY IN PNTSE → REJECT ─────────────────────
+                // ── Step 1: Check if ALREADY IN PNTSE → UPDATE DETAILS ─────────────────────
                 const pntseDupMobile = await PNTSEStudent.findOne({ mobile });
-                if (pntseDupMobile && (!studentId || String(pntseDupMobile.studentId) !== String(studentId))) {
-                    results.failed++;
-                    results.errors.push(`[DUPLICATE_PNTSE] Row ${rowNum}: Mobile "${mobile}" is already registered in PNTSE (student: "${pntseDupMobile.name}", Roll: ${pntseDupMobile.rollNo || 'N/A'}). Duplicate already in PNTSE.`);
+                if (pntseDupMobile) {
+                    pntseDupMobile.examVenue = examVenue || pntseDupMobile.examVenue;
+                    pntseDupMobile.examDate = examDate || pntseDupMobile.examDate;
+                    pntseDupMobile.reportingTime = reportingTime || pntseDupMobile.reportingTime;
+                    pntseDupMobile.timeSlot = examTime || pntseDupMobile.timeSlot;
+                    pntseDupMobile.school = school || pntseDupMobile.school;
+                    pntseDupMobile.guardianName = guardianName || pntseDupMobile.guardianName;
+                    pntseDupMobile.guardianMobile = guardianMobile || pntseDupMobile.guardianMobile;
+                    pntseDupMobile.address = address || pntseDupMobile.address;
+                    pntseDupMobile.city = city || pntseDupMobile.city;
+                    pntseDupMobile.state = state || pntseDupMobile.state;
+                    pntseDupMobile.pincode = pincode || pntseDupMobile.pincode;
+                    pntseDupMobile.remarks = remarks || pntseDupMobile.remarks;
+
+                    await pntseDupMobile.save();
+                    results.success++;
+                    results.carryForward = (results.carryForward || 0) + 1;
                     continue;
                 }
 

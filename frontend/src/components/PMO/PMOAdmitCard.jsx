@@ -135,10 +135,12 @@ const PMOAdmitCard = ({ student, onClose }) => {
 
     const formatReportingTime = (timeStr) => {
         if (!timeStr) return '';
+        // If already formatted with AM/PM, return as-is
+        if (/\d{1,2}:\d{2}\s*(AM|PM)/i.test(timeStr)) return timeStr;
         const parts = timeStr.split(':');
         if (parts.length >= 2) {
             let hours = parseInt(parts[0], 10);
-            const minutes = parts[1];
+            const minutes = parts[1].replace(/[^0-9]/g, '').padStart(2, '0');
             const ampm = hours >= 12 ? 'PM' : 'AM';
             hours = hours % 12;
             hours = hours ? hours : 12;

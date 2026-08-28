@@ -65,16 +65,69 @@ const COL_MAP = {
 
 const parseRow = (rawRow) => {
     const row = {};
-    Object.entries(rawRow).forEach(([key, val]) => {
-        const field = COL_MAP[key.trim()];
+    Object.entries(rawRow).forEach(([rawKey, val]) => {
+        const key = rawKey.trim();
+        let field = COL_MAP[key];
+        if (!field) {
+            const lowerKey = key.toLowerCase();
+            if (lowerKey.includes("exam date") || lowerKey === "date") field = "examDate";
+            else if (lowerKey.includes("exam venue") || lowerKey.includes("venue")) field = "examVenue";
+            else if (lowerKey.includes("reporting time") || lowerKey.includes("report time")) field = "reportingTime";
+            else if (lowerKey.includes("time slot") || lowerKey.includes("exam time") || lowerKey.includes("exam slot") || lowerKey.includes("slot")) field = "timeSlot";
+            else if (lowerKey.includes("secondary mobile")) field = "secondaryMobile";
+            else if (lowerKey.includes("guardian mobile")) field = "guardianMobile";
+            else if (lowerKey.includes("guardian name") || lowerKey.includes("guardian")) field = "guardianName";
+            else if (lowerKey.includes("class")) field = "className";
+            else if (lowerKey.includes("board")) field = "boardName";
+            else if (lowerKey.includes("centre") || lowerKey.includes("center")) field = "centreName";
+            else if (lowerKey.includes("session")) field = "sessionName";
+            else if (lowerKey.includes("examtag") || lowerKey.includes("exam tag")) field = "examTagName";
+            else if (lowerKey.includes("course")) field = "course";
+            else if (lowerKey.includes("school")) field = "school";
+            else if (lowerKey.includes("mobile") || lowerKey.includes("phone")) field = "mobile";
+            else if (lowerKey.includes("email")) field = "email";
+            else if (lowerKey.includes("dob") || lowerKey.includes("birth")) field = "dob";
+            else if (lowerKey.includes("gender") || lowerKey.includes("sex")) field = "gender";
+            else if (lowerKey.includes("address")) field = "address";
+            else if (lowerKey.includes("city")) field = "city";
+            else if (lowerKey.includes("state")) field = "state";
+            else if (lowerKey.includes("pincode") || lowerKey.includes("pin code") || lowerKey.includes("zip")) field = "pincode";
+            else if (lowerKey.includes("remark")) field = "remarks";
+            else if (lowerKey.includes("name")) field = "name";
+        }
         if (field) {
             let strVal = (val !== undefined && val !== null) ? String(val).trim() : "";
+            // Convert Excel decimal time fractions (e.g. 0.395833 for 9:30 AM) to HH:MM AM/PM string
+            if ((field === "reportingTime" || field === "timeSlot") && strVal && /^0\.\d+$/.test(strVal)) {
+                const totalMinutes = Math.round(parseFloat(strVal) * 24 * 60);
+                const h = Math.floor(totalMinutes / 60);
+                const m = totalMinutes % 60;
+                const ampm = h >= 12 ? 'PM' : 'AM';
+                const h12 = h % 12 || 12;
+                strVal = `${String(h12).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+            }
             if (field === "course" && /^PMO\s+CLASS\s+(\d+)$/i.test(strVal)) {
                 strVal = strVal.toUpperCase().replace(/PMO\s+CLASS\s+(\d+)/i, 'PMO $1');
             }
             row[field] = strVal;
         }
     });
+
+    // Auto-fill missing course/examTag/session if className is provided
+    if (row.className) {
+        const classDigits = row.className.replace(/\D/g, '');
+        if (classDigits) {
+            if (!row.course) row.course = `PMO ${classDigits}`;
+            if (!row.examTagName) row.examTagName = `PMO ${classDigits}`;
+        }
+    }
+    if (!row.examTagName && row.course) {
+        row.examTagName = row.course;
+    }
+    if (!row.sessionName) {
+        row.sessionName = "2025-2026";
+    }
+
     return row;
 };
 
@@ -163,9 +216,9 @@ const PMOBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
         reader.onload = async (e) => {
             try {
                 const data = new Uint8Array(e.target.result);
-                const workbook = XLSX.read(data, { type: "array" });
+                const workbook = XLSX.read(data, { type: "array", cellText: true, cellDates: false });
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
-                const json = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+                const json = XLSX.utils.sheet_to_json(sheet, { defval: "", raw: false });
 
                 if (!json.length) {
                     toast.error("Excel sheet is empty");
@@ -395,32 +448,37 @@ const PMOBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                             </div>
 
                             {/* Table */}
-                            <div className="overflow-x-auto border border-gray-800 rounded-xl bg-gray-950">
-                                <table className="w-full text-left text-xs text-gray-300">
-                                    <thead className="bg-gray-900/80 text-gray-400 uppercase text-[10px] font-bold border-b border-gray-800">
+                            <div className="overflow-x-auto border border-gray-800 rounded-xl bg-gray-950 pntse-bulk-scroll">
+                                <table className="w-full text-left text-xs text-gray-300 min-w-[1100px]">
+                                    <thead className="bg-gray-900/80 text-gray-400 uppercase text-[10px] font-bold border-b border-gray-800 sticky top-0 z-10">
                                         <tr>
-                                            <th className="p-3">#</th>
-                                            <th className="p-3">Status</th>
-                                            <th className="p-3">Name</th>
-                                            <th className="p-3">Mobile</th>
-                                            <th className="p-3">Class</th>
-                                            <th className="p-3">Board</th>
-                                            <th className="p-3">Centre</th>
-                                            <th className="p-3">Course</th>
-                                            <th className="p-3">Exam Schedule & Slot</th>
-                                            <th className="p-3 text-right">Actions</th>
+                                            <th className="p-3 w-10">#</th>
+                                            <th className="p-3 min-w-[140px]">Status & Errors</th>
+                                            <th className="p-3 min-w-[130px]">Name</th>
+                                            <th className="p-3 min-w-[110px]">Mobile</th>
+                                            <th className="p-3 min-w-[70px]">Class</th>
+                                            <th className="p-3 min-w-[80px]">Board</th>
+                                            <th className="p-3 min-w-[100px]">Centre</th>
+                                            <th className="p-3 min-w-[100px]">Course</th>
+                                            <th className="p-3 min-w-[100px]">Exam Tag</th>
+                                            <th className="p-3 min-w-[100px]">Session</th>
+                                            <th className="p-3 min-w-[200px]">Exam Schedule & Slot</th>
+                                            <th className="p-3 text-right min-w-[90px]">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-800/60">
                                         {parsedRows.map((r, i) => {
-                                            const valid = isRowValid(r, i);
-                                            const errs = validateRow(r);
-                                            const isDup = dupMob.has(i) || dupEmail.has(i);
+                                            const isEdit  = editingIdx === i;
+                                            const valid   = isRowValid(r, i);
+                                            const errs    = validateRow(r);
+                                            const isDup   = dupMob.has(i) || dupEmail.has(i);
                                             const isDbDup = isRowDbDup(r);
                                             const isCarry = isRowErpCarryForward(r);
 
+                                            const inpStyle = "bg-gray-900 border border-violet-500/50 text-white rounded px-2 py-1 text-xs w-full focus:outline-none focus:border-violet-400";
+
                                             return (
-                                                <tr key={i} className={!valid ? "bg-rose-950/20" : isDbDup ? "bg-blue-950/20" : isCarry ? "bg-violet-950/20" : ""}>
+                                                <tr key={i} className={isEdit ? "bg-violet-950/40 border-l-2 border-l-cyan-400" : !valid ? "bg-rose-950/20" : isDbDup ? "bg-blue-950/20" : isCarry ? "bg-violet-950/20" : "hover:bg-gray-900/40"}>
                                                     <td className="p-3 font-mono text-gray-500">{i + 1}</td>
                                                     <td className="p-3">
                                                         {valid ? (
@@ -432,31 +490,187 @@ const PMOBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                                                 <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[10px] font-bold">New Student</span>
                                                             )
                                                         ) : (
-                                                            <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold" title={[...errs, isDup ? "Duplicate in sheet" : ""].filter(Boolean).join(", ")}>
-                                                                {isDup ? "Sheet Dup" : "Invalid"}
-                                                            </span>
+                                                            <div className="flex flex-col gap-1">
+                                                                <span className="px-2 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-bold inline-block w-max">
+                                                                    {isDup ? "Sheet Duplicate" : "Invalid Row"}
+                                                                </span>
+                                                                {errs.length > 0 && (
+                                                                    <span className="text-[10px] text-rose-400 font-semibold leading-tight">
+                                                                        Missing: {errs.map(e => e.replace(" required", "")).join(", ")}
+                                                                    </span>
+                                                                )}
+                                                            </div>
                                                         )}
                                                     </td>
-                                                    <td className="p-3 font-semibold text-white">{r.name || "—"}</td>
-                                                    <td className="p-3 font-mono">{r.mobile || "—"}</td>
-                                                    <td className="p-3">{r.className || "—"}</td>
-                                                    <td className="p-3">{r.boardName || "—"}</td>
-                                                    <td className="p-3">{r.centreName || "—"}</td>
-                                                    <td className="p-3 text-violet-400 font-medium">{r.course || "—"}</td>
+
+                                                    {/* Name */}
                                                     <td className="p-3">
-                                                        <div className="text-gray-300">{r.examVenue || '—'}</div>
-                                                        <div className="text-[11px] text-gray-400 font-mono mt-0.5">
-                                                            {r.examDate || '—'} {r.reportingTime && `(${r.reportingTime})`} {r.timeSlot && `| Slot: ${r.timeSlot}`}
-                                                        </div>
+                                                        {isEdit ? (
+                                                            <input
+                                                                className={`${inpStyle} ${!editBuf.name ? "border-rose-500" : ""}`}
+                                                                value={editBuf.name || ""}
+                                                                placeholder="Name *"
+                                                                onChange={e => setEditBuf(b => ({ ...b, name: e.target.value }))}
+                                                            />
+                                                        ) : (
+                                                            <span className={`font-semibold ${!r.name ? "text-rose-400 italic" : "text-white"}`}>{r.name || "Missing Name *"}</span>
+                                                        )}
                                                     </td>
+
+                                                    {/* Mobile */}
+                                                    <td className="p-3">
+                                                        {isEdit ? (
+                                                            <input
+                                                                className={`${inpStyle} ${!editBuf.mobile ? "border-rose-500" : ""}`}
+                                                                value={editBuf.mobile || ""}
+                                                                placeholder="Mobile *"
+                                                                onChange={e => setEditBuf(b => ({ ...b, mobile: e.target.value }))}
+                                                            />
+                                                        ) : (
+                                                            <span className={`font-mono ${!r.mobile ? "text-rose-400 italic" : "text-gray-200"}`}>{r.mobile || "Missing *"}</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Class */}
+                                                    <td className="p-3">
+                                                        {isEdit ? (
+                                                            <input
+                                                                className={`${inpStyle} ${!editBuf.className ? "border-rose-500" : ""}`}
+                                                                value={editBuf.className || ""}
+                                                                placeholder="Class *"
+                                                                onChange={e => setEditBuf(b => ({ ...b, className: e.target.value }))}
+                                                            />
+                                                        ) : (
+                                                            <span className={!r.className ? "text-rose-400 italic font-semibold" : ""}>{r.className || "Missing *"}</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Board */}
+                                                    <td className="p-3">
+                                                        {isEdit ? (
+                                                            <input
+                                                                className={`${inpStyle} ${!editBuf.boardName ? "border-rose-500" : ""}`}
+                                                                value={editBuf.boardName || ""}
+                                                                placeholder="Board *"
+                                                                onChange={e => setEditBuf(b => ({ ...b, boardName: e.target.value }))}
+                                                            />
+                                                        ) : (
+                                                            <span className={!r.boardName ? "text-rose-400 italic font-semibold" : ""}>{r.boardName || "Missing *"}</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Centre */}
+                                                    <td className="p-3">
+                                                        {isEdit ? (
+                                                            <input
+                                                                className={`${inpStyle} ${!editBuf.centreName ? "border-rose-500" : ""}`}
+                                                                value={editBuf.centreName || ""}
+                                                                placeholder="Centre *"
+                                                                onChange={e => setEditBuf(b => ({ ...b, centreName: e.target.value }))}
+                                                            />
+                                                        ) : (
+                                                            <span className={!r.centreName ? "text-rose-400 italic font-semibold" : ""}>{r.centreName || "Missing *"}</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Course */}
+                                                    <td className="p-3">
+                                                        {isEdit ? (
+                                                            <input
+                                                                className={`${inpStyle} ${!editBuf.course ? "border-rose-500" : ""}`}
+                                                                value={editBuf.course || ""}
+                                                                placeholder="Course *"
+                                                                onChange={e => setEditBuf(b => ({ ...b, course: e.target.value }))}
+                                                            />
+                                                        ) : (
+                                                            <span className={`font-medium ${!r.course ? "text-rose-400 italic font-bold bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30" : "text-violet-400"}`}>{r.course || "Missing Course *"}</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Exam Tag */}
+                                                    <td className="p-3">
+                                                        {isEdit ? (
+                                                            <input
+                                                                className={`${inpStyle} ${!editBuf.examTagName ? "border-rose-500" : ""}`}
+                                                                value={editBuf.examTagName || ""}
+                                                                placeholder="Exam Tag *"
+                                                                onChange={e => setEditBuf(b => ({ ...b, examTagName: e.target.value }))}
+                                                            />
+                                                        ) : (
+                                                            <span className={`font-medium ${!r.examTagName ? "text-rose-400 italic font-bold bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30" : "text-sky-400"}`}>{r.examTagName || "Missing Tag *"}</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Session */}
+                                                    <td className="p-3">
+                                                        {isEdit ? (
+                                                            <input
+                                                                className={`${inpStyle} ${!editBuf.sessionName ? "border-rose-500" : ""}`}
+                                                                value={editBuf.sessionName || ""}
+                                                                placeholder="Session *"
+                                                                onChange={e => setEditBuf(b => ({ ...b, sessionName: e.target.value }))}
+                                                            />
+                                                        ) : (
+                                                            <span className={`font-medium ${!r.sessionName ? "text-rose-400 italic font-bold bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/30" : "text-amber-400"}`}>{r.sessionName || "Missing Session *"}</span>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Exam Schedule & Slot */}
+                                                    <td className="p-3">
+                                                        {isEdit ? (
+                                                            <div className="grid grid-cols-2 gap-1 min-w-[200px]">
+                                                                <input className={inpStyle} value={editBuf.examVenue || ""} placeholder="Venue" onChange={e => setEditBuf(b => ({ ...b, examVenue: e.target.value }))} />
+                                                                <input className={inpStyle} value={editBuf.examDate || ""} placeholder="YYYY-MM-DD" onChange={e => setEditBuf(b => ({ ...b, examDate: e.target.value }))} />
+                                                                <input className={inpStyle} value={editBuf.reportingTime || ""} placeholder="Reporting" onChange={e => setEditBuf(b => ({ ...b, reportingTime: e.target.value }))} />
+                                                                <input className={inpStyle} value={editBuf.timeSlot || ""} placeholder="Slot" onChange={e => setEditBuf(b => ({ ...b, timeSlot: e.target.value }))} />
+                                                            </div>
+                                                        ) : (
+                                                            <div>
+                                                                <div className="text-gray-300 font-medium">{r.examVenue || '—'}</div>
+                                                                <div className="text-[11px] text-gray-400 font-mono mt-0.5">
+                                                                    {r.examDate || '—'} {r.reportingTime && `(${r.reportingTime})`} {r.timeSlot && `| Slot: ${r.timeSlot}`}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Actions */}
                                                     <td className="p-3 text-right">
-                                                        <button
-                                                            onClick={() => handleDeleteRow(i)}
-                                                            className="p-1.5 text-gray-500 hover:text-rose-400 transition"
-                                                            title="Delete Row"
-                                                        >
-                                                            <FaTrash size={12} />
-                                                        </button>
+                                                        {isEdit ? (
+                                                            <div className="flex items-center justify-end gap-1.5">
+                                                                <button
+                                                                    onClick={handleSaveEdit}
+                                                                    className="p-1.5 bg-emerald-600/30 text-emerald-300 hover:bg-emerald-600/50 rounded transition"
+                                                                    title="Save Changes"
+                                                                >
+                                                                    <FaSave size={13} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={handleCancelEdit}
+                                                                    className="p-1.5 bg-gray-800 text-gray-400 hover:text-white rounded transition"
+                                                                    title="Cancel"
+                                                                >
+                                                                    <FaTimes size={13} />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center justify-end gap-1.5">
+                                                                <button
+                                                                    onClick={() => handleStartEdit(i)}
+                                                                    className="p-1.5 text-cyan-400 hover:text-cyan-300 hover:bg-cyan-500/10 rounded transition"
+                                                                    title="Edit Row"
+                                                                >
+                                                                    <FaEdit size={13} />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDeleteRow(i)}
+                                                                    className="p-1.5 text-gray-500 hover:text-rose-400 hover:bg-rose-500/10 rounded transition"
+                                                                    title="Delete Row"
+                                                                >
+                                                                    <FaTrash size={12} />
+                                                                </button>
+                                                            </div>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             );
@@ -464,6 +678,18 @@ const PMOBulkImportModal = ({ onClose, onSuccess, apiUrl, token }) => {
                                     </tbody>
                                 </table>
                             </div>
+
+                            {/* Error Summary Alert Box */}
+                            {invalidCount > 0 && (
+                                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3.5 flex items-start gap-3">
+                                    <FaExclamationTriangle className="text-rose-400 text-base mt-0.5 shrink-0" />
+                                    <div className="text-xs text-rose-200 leading-relaxed">
+                                        <span className="font-bold text-rose-300">{invalidCount} row(s) have missing required fields or validation errors.</span>
+                                        <br />
+                                        Click the <span className="inline-flex items-center gap-1 font-bold text-cyan-300 bg-cyan-950 px-1.5 py-0.5 rounded border border-cyan-500/30"><FaEdit size={10} /> Edit</span> button on any invalid row above to fix missing information directly in this window before importing!
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
 
