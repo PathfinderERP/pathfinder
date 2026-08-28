@@ -470,7 +470,7 @@ const EnrolledStudentsContent = () => {
         const activeSessionNames = masterSessions.length > 0
             ? masterSessions.filter(s => s.isGlobalActive === true).map(s => s.sessionName || s.name)
             : [];
-        
+
         // Only apply session filtering if activeSessionNames is loaded, otherwise default to all
         const filteredAdmissions = masterSessions.length > 0
             ? admissionsData.filter(admission => activeSessionNames.includes(admission.academicSession))
@@ -1027,10 +1027,10 @@ const EnrolledStudentsContent = () => {
             result = result.filter(item =>
                 item.admissions.some(admission => {
                     const courseName = resolveCourseName(admission);
-                    const isCourseBlank = !courseName || 
-                                          courseName === "N/A" || 
-                                          courseName === "UNKNOWN COURSE" || 
-                                          courseName.startsWith("COURSE ID:");
+                    const isCourseBlank = !courseName ||
+                        courseName === "N/A" ||
+                        courseName === "UNKNOWN COURSE" ||
+                        courseName.startsWith("COURSE ID:");
                     if (filterCourse.includes("BLANK") && isCourseBlank) {
                         return true;
                     }
@@ -1452,8 +1452,8 @@ const EnrolledStudentsContent = () => {
     };
 
     const handleEditProfile = (studentItem, admission = null) => {
-        const targetAdmission = admission || 
-            studentItem.admissions.find(a => a.admissionType === 'NORMAL') || 
+        const targetAdmission = admission ||
+            studentItem.admissions.find(a => a.admissionType === 'NORMAL') ||
             studentItem.latestAdmission;
         setEditAdmission(targetAdmission);
         setShowEditModal(true);
@@ -2483,409 +2483,409 @@ const EnrolledStudentsContent = () => {
                 <CentreWiseReport filteredStudents={filteredStudents} isDarkMode={isDarkMode} resolveClassName={resolveClassName} />
             ) : (
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden transition-all`}>
-                <div className={`p-6 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                    <h3 className={`text-xl font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Student Records</h3>
-                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Manage lifecycle and financial status</p>
-                </div>
-                <div className={`overflow-x-auto custom-scrollbar ${isDarkMode ? 'custom-scrollbar-dark' : 'custom-scrollbar-light'}`}>
-                    <table className="w-full text-left border-collapse">
-                        <thead>
-                            <tr className={`${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>
-                                {canEdit && (
-                                    <th className="p-4 w-[50px]">
-                                        <input
-                                            type="checkbox"
-                                            className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900 cursor-pointer"
-                                            onChange={handleSelectAll}
-                                            checked={
-                                                filteredStudents.length > 0 &&
-                                                filteredStudents.every(s => {
-                                                    const relevantAdmissions = s.admissions.filter(a => {
-                                                        const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
-                                                        if (!isTypeMatch) return false;
-                                                        const admDate = new Date(a.admissionDate);
-                                                        if (startDate && admDate < new Date(startDate)) return false;
-                                                        if (endDate) {
-                                                            const end = new Date(endDate);
-                                                            end.setHours(23, 59, 59, 999);
-                                                            if (admDate > end) return false;
-                                                        }
-                                                        return true;
-                                                    });
-                                                    const latestAdm = relevantAdmissions[0] || s.latestAdmission;
-                                                    return latestAdm && selectedAdmissionIds.includes(latestAdm._id);
-                                                })
-                                            }
-                                        />
-                                    </th>
-                                )}
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Enrollment ID</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Email ID</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Admission Date</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Session</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Class</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Department</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Centre</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Student</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Mobile</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Latest Course</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-center">Courses</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Status</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-center">Assets</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Lead By</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Counselled By</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Admitted By</th>
-                                <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
-                            {loading ? (
-                                [...Array(10)].map((_, i) => (
-                                    <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={canEdit ? 17 : 16} />
-                                ))
-                            ) : filteredStudents.length === 0 ? (
-                                <tr>
-                                    <td colSpan={canEdit ? 17 : 16} className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
-                                        {searchQuery ? "No matches found" : "No records available"}
-                                    </td>
+                    <div className={`p-6 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                        <h3 className={`text-xl font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Student Records</h3>
+                        <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Manage lifecycle and financial status</p>
+                    </div>
+                    <div className={`overflow-x-auto custom-scrollbar ${isDarkMode ? 'custom-scrollbar-dark' : 'custom-scrollbar-light'}`}>
+                        <table className="w-full text-left border-collapse">
+                            <thead>
+                                <tr className={`${isDarkMode ? 'bg-[#131619] text-gray-500' : 'bg-gray-50 text-gray-400'}`}>
+                                    {canEdit && (
+                                        <th className="p-4 w-[50px]">
+                                            <input
+                                                type="checkbox"
+                                                className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900 cursor-pointer"
+                                                onChange={handleSelectAll}
+                                                checked={
+                                                    filteredStudents.length > 0 &&
+                                                    filteredStudents.every(s => {
+                                                        const relevantAdmissions = s.admissions.filter(a => {
+                                                            const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+                                                            if (!isTypeMatch) return false;
+                                                            const admDate = new Date(a.admissionDate);
+                                                            if (startDate && admDate < new Date(startDate)) return false;
+                                                            if (endDate) {
+                                                                const end = new Date(endDate);
+                                                                end.setHours(23, 59, 59, 999);
+                                                                if (admDate > end) return false;
+                                                            }
+                                                            return true;
+                                                        });
+                                                        const latestAdm = relevantAdmissions[0] || s.latestAdmission;
+                                                        return latestAdm && selectedAdmissionIds.includes(latestAdm._id);
+                                                    })
+                                                }
+                                            />
+                                        </th>
+                                    )}
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Enrollment ID</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Email ID</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Admission Date</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Session</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Class</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Department</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Centre</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Student</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Mobile</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Latest Course</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-center">Courses</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Status</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em] text-center">Assets</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Lead By</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Counselled By</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Admitted By</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Actions</th>
                                 </tr>
-                            ) : (
-                                filteredStudents
-                                    .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
-                                    .map((studentItem) => {
-                                        const student = studentItem.student?.studentsDetails?.[0] || {};
-                                        const relevantAdmissions = studentItem.admissions.filter(a => {
-                                            const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
-                                            if (!isTypeMatch) return false;
+                            </thead>
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
+                                {loading ? (
+                                    [...Array(10)].map((_, i) => (
+                                        <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={canEdit ? 17 : 16} />
+                                    ))
+                                ) : filteredStudents.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={canEdit ? 17 : 16} className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
+                                            {searchQuery ? "No matches found" : "No records available"}
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredStudents
+                                        .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
+                                        .map((studentItem) => {
+                                            const student = studentItem.student?.studentsDetails?.[0] || {};
+                                            const relevantAdmissions = studentItem.admissions.filter(a => {
+                                                const isTypeMatch = viewMode === 'Board' ? a.admissionType === 'BOARD' : a.admissionType === 'NORMAL';
+                                                if (!isTypeMatch) return false;
 
-                                            // Refine by date if filters are active
-                                            const admDate = new Date(a.admissionDate);
-                                            if (startDate && admDate < new Date(startDate)) return false;
-                                            if (endDate) {
-                                                const end = new Date(endDate);
-                                                end.setHours(23, 59, 59, 999);
-                                                if (admDate > end) return false;
-                                            }
-                                            return true;
-                                        });
-                                        const latestAdmission = relevantAdmissions[0] || studentItem.latestAdmission;
-                                        const studentImage = student.studentImage || null;
+                                                // Refine by date if filters are active
+                                                const admDate = new Date(a.admissionDate);
+                                                if (startDate && admDate < new Date(startDate)) return false;
+                                                if (endDate) {
+                                                    const end = new Date(endDate);
+                                                    end.setHours(23, 59, 59, 999);
+                                                    if (admDate > end) return false;
+                                                }
+                                                return true;
+                                            });
+                                            const latestAdmission = relevantAdmissions[0] || studentItem.latestAdmission;
+                                            const studentImage = student.studentImage || null;
 
-                                        // Lead By Data
-                                        const leadBy = studentItem.student?.leadBy || latestAdmission?.leadBy;
-                                        const leadByName = typeof leadBy?.name === 'string' ? leadBy.name : (typeof leadBy === 'string' ? leadBy : "System");
-                                        const leadByDate = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleDateString('en-GB') : "N/A";
-                                        const leadByTime = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
+                                            // Lead By Data
+                                            const leadBy = studentItem.student?.leadBy || latestAdmission?.leadBy;
+                                            const leadByName = typeof leadBy?.name === 'string' ? leadBy.name : (typeof leadBy === 'string' ? leadBy : "System");
+                                            const leadByDate = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleDateString('en-GB') : "N/A";
+                                            const leadByTime = leadBy?.createdAt ? new Date(leadBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
 
-                                        // Counselled By Data
-                                        const counselBy = studentItem.student?.counselledByDetails || latestAdmission?.counselledByDetails;
-                                        const counselByName = typeof counselBy?.name === 'string' ? counselBy.name : (typeof studentItem.student?.counselledBy === 'string' ? studentItem.student.counselledBy : "N/A");
-                                        const counselByDate = counselBy?.createdAt ? new Date(counselBy.createdAt).toLocaleDateString('en-GB') : "";
-                                        const counselByTime = counselBy?.createdAt ? new Date(counselBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
+                                            // Counselled By Data
+                                            const counselBy = studentItem.student?.counselledByDetails || latestAdmission?.counselledByDetails;
+                                            const counselByName = typeof counselBy?.name === 'string' ? counselBy.name : (typeof studentItem.student?.counselledBy === 'string' ? studentItem.student.counselledBy : "N/A");
+                                            const counselByDate = counselBy?.createdAt ? new Date(counselBy.createdAt).toLocaleDateString('en-GB') : "";
+                                            const counselByTime = counselBy?.createdAt ? new Date(counselBy.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "";
 
-                                        // Admitted By Data
-                                        const admittedByName = typeof latestAdmission?.createdBy?.name === 'string' ? latestAdmission.createdBy.name : (latestAdmission?.createdBy ? "Unknown" : "System");
-                                        const admittedDate = latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleDateString('en-GB') : "";
-                                        const admittedTime = latestAdmission?.admissionTime || (latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "");
+                                            // Admitted By Data
+                                            const admittedByName = typeof latestAdmission?.createdBy?.name === 'string' ? latestAdmission.createdBy.name : (latestAdmission?.createdBy ? "Unknown" : "System");
+                                            const admittedDate = latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleDateString('en-GB') : "";
+                                            const admittedTime = latestAdmission?.admissionTime || (latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "");
 
-                                        return (
-                                            <tr
-                                                key={studentItem.student._id}
-                                                className={`transition-all group cursor-pointer ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'} ${studentItem.student.status === 'Deactivated' ? (isDarkMode ? 'bg-red-500/5' : 'bg-red-50') : ''}`}
-                                                onClick={() => openStudentModal(studentItem)}
-                                            >
-                                                {canEdit && (
-                                                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
-                                                        <input
-                                                            type="checkbox"
-                                                            className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900 cursor-pointer"
-                                                            checked={latestAdmission && selectedAdmissionIds.includes(latestAdmission._id)}
-                                                            onChange={() => toggleSelection(latestAdmission?._id)}
-                                                            disabled={!latestAdmission}
-                                                        />
-                                                    </td>
-                                                )}
-                                                <td className="p-4 whitespace-nowrap">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`text-[10px] font-black tracking-widest px-3 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-400/5 text-cyan-400 border-cyan-400/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
-                                                            {latestAdmission?.admissionNumber || "N/A"}
-                                                        </span>
-                                                        {latestAdmission?.admissionNumber && (
-                                                            <button
-                                                                onClick={(e) => handleCopy(e, latestAdmission.admissionNumber, "Enrollment ID")}
-                                                                className={`p-1.5 rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700' : 'bg-white text-gray-400 hover:text-cyan-600 hover:bg-gray-100 border border-gray-100 shadow-sm'}`}
-                                                                title="Copy ID"
-                                                            >
-                                                                <FaCopy size={10} />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
-
-                                                <td className="p-4 whitespace-nowrap">
-                                                    <div className="flex items-center gap-2">
-                                                        <span className={`text-[10px] font-black tracking-widest px-3 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-400/5 text-cyan-400 border-cyan-400/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
-                                                            {student?.studentEmail || "N/A"}
-                                                        </span>
-                                                    </div>
-                                                </td>
-
-                                                <td className="p-4 whitespace-nowrap">
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
-                                                            {latestAdmission?.admissionDate ? new Date(latestAdmission.admissionDate).toLocaleDateString('en-GB') : "N/A"}
-                                                        </span>
-                                                        <span className={`text-[8px] font-black tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
-                                                            {latestAdmission?.admissionTime || (latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "N/A")}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4">
-                                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`}>
-                                                        {latestAdmission?.academicSession || "N/A"}
-                                                    </span>
-                                                </td>
-                                                <td className="p-4">
-                                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200'}`}>
-                                                        {resolveClassName(latestAdmission) || "N/A"}
-                                                    </span>
-                                                </td>
-                                                <td className="p-4">
-                                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-white text-gray-600 border-gray-200'}`}>
-                                                        {latestAdmission?.department?.departmentName || "N/A"}
-                                                    </span>
-                                                </td>
-                                                <td className="p-4">
-                                                    <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
-                                                        {latestAdmission?.centre || student.centre || "N/A"}
-                                                    </span>
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className={`w-10 h-10 rounded-[4px] flex items-center justify-center font-black overflow-hidden border ${isDarkMode ? 'border-gray-800 bg-gradient-to-br from-cyan-900 to-blue-900' : 'border-gray-200 bg-gradient-to-br from-cyan-500 to-blue-600 shadow-md'}`}>
-                                                            {studentImage ? (
-                                                                <img src={studentImage} alt={student.studentName} className="w-full h-full object-cover" />
-                                                            ) : (
-                                                                <span className="text-white text-lg">{student.studentName?.charAt(0).toUpperCase() || "S"}</span>
+                                            return (
+                                                <tr
+                                                    key={studentItem.student._id}
+                                                    className={`transition-all group cursor-pointer ${isDarkMode ? 'hover:bg-cyan-500/5' : 'hover:bg-gray-50'} ${studentItem.student.status === 'Deactivated' ? (isDarkMode ? 'bg-red-500/5' : 'bg-red-50') : ''}`}
+                                                    onClick={() => openStudentModal(studentItem)}
+                                                >
+                                                    {canEdit && (
+                                                        <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                                                            <input
+                                                                type="checkbox"
+                                                                className="w-4 h-4 rounded border-gray-700 bg-gray-900 text-cyan-500 focus:ring-cyan-500 focus:ring-offset-gray-900 cursor-pointer"
+                                                                checked={latestAdmission && selectedAdmissionIds.includes(latestAdmission._id)}
+                                                                onChange={() => toggleSelection(latestAdmission?._id)}
+                                                                disabled={!latestAdmission}
+                                                            />
+                                                        </td>
+                                                    )}
+                                                    <td className="p-4 whitespace-nowrap">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-[10px] font-black tracking-widest px-3 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-400/5 text-cyan-400 border-cyan-400/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
+                                                                {latestAdmission?.admissionNumber || "N/A"}
+                                                            </span>
+                                                            {latestAdmission?.admissionNumber && (
+                                                                <button
+                                                                    onClick={(e) => handleCopy(e, latestAdmission.admissionNumber, "Enrollment ID")}
+                                                                    className={`p-1.5 rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-cyan-400 hover:bg-gray-700' : 'bg-white text-gray-400 hover:text-cyan-600 hover:bg-gray-100 border border-gray-100 shadow-sm'}`}
+                                                                    title="Copy ID"
+                                                                >
+                                                                    <FaCopy size={10} />
+                                                                </button>
                                                             )}
-
-
                                                         </div>
-                                                        <div>
-                                                            <div className="flex items-center gap-2">
-                                                                <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{latestAdmission?.studentName || student.studentName || "N/A"}</p>
-                                                                {studentItem.student.status === 'Deactivated' && (
-                                                                    <div className="flex flex-col">
-                                                                        <span className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black rounded-[4px] uppercase tracking-tighter w-fit">
-                                                                            Deactivated
-                                                                        </span>
-                                                                        {studentItem.student.deactivatedBy && (
-                                                                            <span className="text-[7px] font-black text-red-500/80 uppercase tracking-tighter mt-0.5 leading-none">
-                                                                                BY: {studentItem.student.deactivatedBy}
+                                                    </td>
+
+                                                    <td className="p-4 whitespace-nowrap">
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={`text-[10px] font-black tracking-widest px-3 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-400/5 text-cyan-400 border-cyan-400/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
+                                                                {student?.studentEmail || "N/A"}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+
+                                                    <td className="p-4 whitespace-nowrap">
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-800'}`}>
+                                                                {latestAdmission?.admissionDate ? new Date(latestAdmission.admissionDate).toLocaleDateString('en-GB') : "N/A"}
+                                                            </span>
+                                                            <span className={`text-[8px] font-black tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-500'}`}>
+                                                                {latestAdmission?.admissionTime || (latestAdmission?.createdAt ? new Date(latestAdmission.createdAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Kolkata' }) : "N/A")}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20' : 'bg-indigo-50 text-indigo-600 border-indigo-200'}`}>
+                                                            {latestAdmission?.academicSession || "N/A"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200'}`}>
+                                                            {resolveClassName(latestAdmission) || "N/A"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700' : 'bg-white text-gray-600 border-gray-200'}`}>
+                                                            {latestAdmission?.department?.departmentName || "N/A"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
+                                                            {latestAdmission?.centre || student.centre || "N/A"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="flex items-center gap-3">
+                                                            <div className={`w-10 h-10 rounded-[4px] flex items-center justify-center font-black overflow-hidden border ${isDarkMode ? 'border-gray-800 bg-gradient-to-br from-cyan-900 to-blue-900' : 'border-gray-200 bg-gradient-to-br from-cyan-500 to-blue-600 shadow-md'}`}>
+                                                                {studentImage ? (
+                                                                    <img src={studentImage} alt={student.studentName} className="w-full h-full object-cover" />
+                                                                ) : (
+                                                                    <span className="text-white text-lg">{student.studentName?.charAt(0).toUpperCase() || "S"}</span>
+                                                                )}
+
+
+                                                            </div>
+                                                            <div>
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{latestAdmission?.studentName || student.studentName || "N/A"}</p>
+                                                                    {studentItem.student.status === 'Deactivated' && (
+                                                                        <div className="flex flex-col">
+                                                                            <span className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black rounded-[4px] uppercase tracking-tighter w-fit">
+                                                                                Deactivated
                                                                             </span>
-                                                                        )}
-                                                                        {studentItem.student.deactivationDate && (
-                                                                            <span className="text-[6.5px] font-bold text-red-400 uppercase tracking-tighter leading-none mt-0.5">
-                                                                                ON: {new Date(studentItem.student.deactivationDate).toLocaleDateString('en-GB')}
-                                                                            </span>
-                                                                        )}
-                                                                    </div>
+                                                                            {studentItem.student.deactivatedBy && (
+                                                                                <span className="text-[7px] font-black text-red-500/80 uppercase tracking-tighter mt-0.5 leading-none">
+                                                                                    BY: {studentItem.student.deactivatedBy}
+                                                                                </span>
+                                                                            )}
+                                                                            {studentItem.student.deactivationDate && (
+                                                                                <span className="text-[6.5px] font-bold text-red-400 uppercase tracking-tighter leading-none mt-0.5">
+                                                                                    ON: {new Date(studentItem.student.deactivationDate).toLocaleDateString('en-GB')}
+                                                                                </span>
+                                                                            )}
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                                <p className="text-gray-500 text-[10px] font-bold normal-case tracking-wide">{student.studentEmail || ""}</p>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 whitespace-nowrap">
+                                                        <div className={`text-[11px] font-black tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                            {latestAdmission?.mobileNum || student.mobileNum || "N/A"}
+                                                        </div>
+                                                        {(studentItem.nextFollowUpDate || latestAdmission?.nextFollowUpDate || studentItem.latestServiceCall?.nextFollowUpDate) && (
+                                                            <div className="mt-1">
+                                                                <span className={`px-2 py-0.5 rounded-[3px] text-[8px] font-black tracking-wider uppercase border inline-flex items-center gap-1 ${isDarkMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                                                                    Next: {studentItem.nextFollowUpDate || latestAdmission?.nextFollowUpDate || studentItem.latestServiceCall?.nextFollowUpDate}
+                                                                </span>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className={`font-black uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                            {resolveCourseName(latestAdmission)}
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        <span className={`px-3 py-1 rounded-[4px] text-[10px] font-black border ${isDarkMode ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-green-50 text-green-600 border-green-200'}`}>
+                                                            {relevantAdmissions.length}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="flex flex-col gap-1.5">
+                                                            <span className={`px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest border text-center ${getStatusColor(latestAdmission?.admissionStatus)}`}>
+                                                                {latestAdmission?.admissionStatus}
+                                                            </span>
+                                                            <span className={`px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest text-center ${getPaymentStatusColor(latestAdmission?.paymentStatus)}`}>
+                                                                {latestAdmission?.paymentStatus}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4 text-center">
+                                                        {studentItem.student?.allocatedItems?.length > 0 ? (
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <span className={`px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest border text-center bg-green-500/10 text-green-400 border-green-500/20`}>
+                                                                    Allotted
+                                                                </span>
+                                                                <span className="text-[8px] text-gray-500 font-bold">
+                                                                    {studentItem.student.allocatedItems.length} item{studentItem.student.allocatedItems.length !== 1 ? 's' : ''}
+                                                                </span>
+                                                            </div>
+                                                        ) : (
+                                                            <span className={`px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest border text-center bg-red-500/10 text-red-400 border-red-500/20`}>
+                                                                Not Allotted
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    {/* Lead By Column */}
+                                                    <td className="p-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
+                                                                {typeof leadByName === 'string' && leadByName.length > 0 ? leadByName.charAt(0).toUpperCase() : ''}
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                    {leadByName}
+                                                                </span>
+                                                                <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none mt-0.5">
+                                                                    {leadByDate} {leadByTime && `| ${leadByTime}`}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    {/* Counselled By Column */}
+                                                    <td className="p-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200'}`}>
+                                                                {typeof counselByName === 'string' && counselByName.length > 0 ? counselByName.charAt(0).toUpperCase() : ''}
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                    {counselByName}
+                                                                </span>
+                                                                {counselByDate && (
+                                                                    <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none mt-0.5">
+                                                                        {counselByDate} {counselByTime && `| ${counselByTime}`}
+                                                                    </span>
                                                                 )}
                                                             </div>
-                                                            <p className="text-gray-500 text-[10px] font-bold normal-case tracking-wide">{student.studentEmail || ""}</p>
                                                         </div>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4 whitespace-nowrap">
-                                                    <div className={`text-[11px] font-black tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                        {latestAdmission?.mobileNum || student.mobileNum || "N/A"}
-                                                    </div>
-                                                    {(studentItem.nextFollowUpDate || latestAdmission?.nextFollowUpDate || studentItem.latestServiceCall?.nextFollowUpDate) && (
-                                                        <div className="mt-1">
-                                                            <span className={`px-2 py-0.5 rounded-[3px] text-[8px] font-black tracking-wider uppercase border inline-flex items-center gap-1 ${isDarkMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
-                                                                Next: {studentItem.nextFollowUpDate || latestAdmission?.nextFollowUpDate || studentItem.latestServiceCall?.nextFollowUpDate}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className={`font-black uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                        {resolveCourseName(latestAdmission)}
-                                                    </div>
-                                                </td>
-                                                <td className="p-4 text-center">
-                                                    <span className={`px-3 py-1 rounded-[4px] text-[10px] font-black border ${isDarkMode ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-green-50 text-green-600 border-green-200'}`}>
-                                                        {relevantAdmissions.length}
-                                                    </span>
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="flex flex-col gap-1.5">
-                                                        <span className={`px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest border text-center ${getStatusColor(latestAdmission?.admissionStatus)}`}>
-                                                            {latestAdmission?.admissionStatus}
-                                                        </span>
-                                                        <span className={`px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest text-center ${getPaymentStatusColor(latestAdmission?.paymentStatus)}`}>
-                                                            {latestAdmission?.paymentStatus}
-                                                        </span>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4 text-center">
-                                                    {studentItem.student?.allocatedItems?.length > 0 ? (
-                                                        <div className="flex flex-col items-center gap-1">
-                                                            <span className={`px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest border text-center bg-green-500/10 text-green-400 border-green-500/20`}>
-                                                                Allotted
-                                                            </span>
-                                                            <span className="text-[8px] text-gray-500 font-bold">
-                                                                {studentItem.student.allocatedItems.length} item{studentItem.student.allocatedItems.length !== 1 ? 's' : ''}
-                                                            </span>
-                                                        </div>
-                                                    ) : (
-                                                        <span className={`px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest border text-center bg-red-500/10 text-red-400 border-red-500/20`}>
-                                                            Not Allotted
-                                                        </span>
-                                                    )}
-                                                </td>
-                                                {/* Lead By Column */}
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`}>
-                                                            {typeof leadByName === 'string' && leadByName.length > 0 ? leadByName.charAt(0).toUpperCase() : ''}
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                                {leadByName}
-                                                            </span>
-                                                            <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none mt-0.5">
-                                                                {leadByDate} {leadByTime && `| ${leadByTime}`}
-                                                            </span>
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                {/* Counselled By Column */}
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border-purple-500/20' : 'bg-purple-50 text-purple-600 border-purple-200'}`}>
-                                                            {typeof counselByName === 'string' && counselByName.length > 0 ? counselByName.charAt(0).toUpperCase() : ''}
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                                {counselByName}
-                                                            </span>
-                                                            {counselByDate && (
-                                                                <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none mt-0.5">
-                                                                    {counselByDate} {counselByTime && `| ${counselByTime}`}
+                                                    </td>
+                                                    {/* Admitted By Column */}
+                                                    <td className="p-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
+                                                                {typeof admittedByName === 'string' && admittedByName.length > 0 ? admittedByName.charAt(0).toUpperCase() : ''}
+                                                            </div>
+                                                            <div className="flex flex-col">
+                                                                <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                    {admittedByName}
                                                                 </span>
+                                                                {admittedDate && (
+                                                                    <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none mt-0.5">
+                                                                        {admittedDate} {admittedTime && `| ${admittedTime}`}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    openStudentModal(studentItem);
+                                                                }}
+                                                                className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black' : 'bg-cyan-100 text-cyan-600 hover:bg-cyan-500 hover:text-white shadow-sm'}`}
+                                                                title="View Details"
+                                                            >
+                                                                <FaEye size={14} />
+                                                            </button>
+
+                                                            {canEdit && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleEditProfile(studentItem, latestAdmission);
+                                                                    }}
+                                                                    className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500 hover:text-black' : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-500 hover:text-white shadow-sm'}`}
+                                                                    title="Edit Profile"
+                                                                >
+                                                                    <FaEdit size={14} />
+                                                                </button>
+                                                            )}
+
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleOpenServiceCallModal(studentItem);
+                                                                }}
+                                                                className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-black border border-emerald-500/20' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white shadow-sm'}`}
+                                                                title="Service Calling"
+                                                            >
+                                                                <FaPhoneAlt size={14} />
+                                                            </button>
+
+                                                            <button
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    handleViewJourney(studentItem);
+                                                                }}
+                                                                className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black border border-cyan-500/20' : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-600 hover:text-white border border-cyan-200 shadow-sm'}`}
+                                                                title="View Student Journey"
+                                                            >
+                                                                <FaRoute size={14} />
+                                                            </button>
+
+                                                            {canDeactivate && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleToggleStatus(studentItem.student._id, studentItem.student.status || 'Active');
+                                                                    }}
+                                                                    className={`p-2 rounded-[4px] transition-all ${studentItem.student.status === 'Deactivated'
+                                                                        ? (isDarkMode ? "bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-black" : "bg-green-100 text-green-600 hover:bg-green-500 hover:text-white shadow-sm")
+                                                                        : (isDarkMode ? "bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-black" : "bg-red-100 text-red-600 hover:bg-red-500 hover:text-white shadow-sm")
+                                                                        }`}
+                                                                    title={studentItem.student.status === 'Deactivated' ? "Reactivate Student" : "Deactivate Student"}
+                                                                >
+                                                                    {studentItem.student.status === 'Deactivated' ? <FaCheckCircle size={14} /> : <FaTimes size={14} />}
+                                                                </button>
+                                                            )}
+
+                                                            {/* Permanent Delete — only in Deactivated view */}
+                                                            {viewMode === 'Deactivated' && canDelete && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setDeleteConfirm({ show: true, studentItem, inputValue: '' });
+                                                                    }}
+                                                                    className={`p-2 rounded-[4px] transition-all border ${isDarkMode
+                                                                        ? 'bg-red-900/20 text-red-500 border-red-500/30 hover:bg-red-500 hover:text-white hover:border-red-500'
+                                                                        : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-600 hover:text-white shadow-sm'
+                                                                        }`}
+                                                                    title="Permanently Delete Student"
+                                                                >
+                                                                    <FaTrash size={12} />
+                                                                </button>
                                                             )}
                                                         </div>
-                                                    </div>
-                                                </td>
-                                                {/* Admitted By Column */}
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <div className={`w-8 h-8 rounded-[4px] flex items-center justify-center font-black text-[10px] border ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
-                                                            {typeof admittedByName === 'string' && admittedByName.length > 0 ? admittedByName.charAt(0).toUpperCase() : ''}
-                                                        </div>
-                                                        <div className="flex flex-col">
-                                                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                                {admittedByName}
-                                                            </span>
-                                                            {admittedDate && (
-                                                                <span className="text-[8px] font-black text-gray-500 uppercase tracking-widest leading-none mt-0.5">
-                                                                    {admittedDate} {admittedTime && `| ${admittedTime}`}
-                                                                </span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </td>
-                                                <td className="p-4">
-                                                    <div className="flex items-center gap-2">
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                openStudentModal(studentItem);
-                                                            }}
-                                                            className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black' : 'bg-cyan-100 text-cyan-600 hover:bg-cyan-500 hover:text-white shadow-sm'}`}
-                                                            title="View Details"
-                                                        >
-                                                            <FaEye size={14} />
-                                                        </button>
-
-                                                        {canEdit && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleEditProfile(studentItem, latestAdmission);
-                                                                }}
-                                                                className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'bg-yellow-500/10 text-yellow-400 hover:bg-yellow-500 hover:text-black' : 'bg-yellow-100 text-yellow-600 hover:bg-yellow-500 hover:text-white shadow-sm'}`}
-                                                                title="Edit Profile"
-                                                            >
-                                                                <FaEdit size={14} />
-                                                            </button>
-                                                        )}
-
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleOpenServiceCallModal(studentItem);
-                                                            }}
-                                                            className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-black border border-emerald-500/20' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-600 hover:text-white shadow-sm'}`}
-                                                            title="Service Calling"
-                                                        >
-                                                            <FaPhoneAlt size={14} />
-                                                        </button>
-
-                                                        <button
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                handleViewJourney(studentItem);
-                                                            }}
-                                                            className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black border border-cyan-500/20' : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-600 hover:text-white border border-cyan-200 shadow-sm'}`}
-                                                            title="View Student Journey"
-                                                        >
-                                                            <FaRoute size={14} />
-                                                        </button>
-
-                                                        {canDeactivate && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleToggleStatus(studentItem.student._id, studentItem.student.status || 'Active');
-                                                                }}
-                                                                className={`p-2 rounded-[4px] transition-all ${studentItem.student.status === 'Deactivated'
-                                                                    ? (isDarkMode ? "bg-green-500/10 text-green-400 hover:bg-green-500 hover:text-black" : "bg-green-100 text-green-600 hover:bg-green-500 hover:text-white shadow-sm")
-                                                                    : (isDarkMode ? "bg-red-500/10 text-red-400 hover:bg-red-500 hover:text-black" : "bg-red-100 text-red-600 hover:bg-red-500 hover:text-white shadow-sm")
-                                                                    }`}
-                                                                title={studentItem.student.status === 'Deactivated' ? "Reactivate Student" : "Deactivate Student"}
-                                                            >
-                                                                {studentItem.student.status === 'Deactivated' ? <FaCheckCircle size={14} /> : <FaTimes size={14} />}
-                                                            </button>
-                                                        )}
-
-                                                        {/* Permanent Delete — only in Deactivated view */}
-                                                        {viewMode === 'Deactivated' && canDelete && (
-                                                            <button
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    setDeleteConfirm({ show: true, studentItem, inputValue: '' });
-                                                                }}
-                                                                className={`p-2 rounded-[4px] transition-all border ${isDarkMode
-                                                                    ? 'bg-red-900/20 text-red-500 border-red-500/30 hover:bg-red-500 hover:text-white hover:border-red-500'
-                                                                    : 'bg-red-50 text-red-600 border-red-200 hover:bg-red-600 hover:text-white shadow-sm'
-                                                                    }`}
-                                                                title="Permanently Delete Student"
-                                                            >
-                                                                <FaTrash size={12} />
-                                                            </button>
-                                                        )}
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })
-                            )}
-                        </tbody>
-                    </table>
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
-            </div>
             )}
 
             {viewMode !== 'Report' && (
@@ -3991,11 +3991,11 @@ const EnrolledStudentsContent = () => {
                                         className={`w-full p-3 rounded-[4px] border font-black uppercase tracking-widest text-[11px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                     >
                                         <option value="" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>SELECT PAYMENT METHOD</option>
-                                        <option value="CASH" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>HARD CURRENCY (CASH)</option>
-                                        <option value="UPI" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>Online Payment (UPI)</option>
-                                        <option value="CARD" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>CREDIT/DEBIT CARD</option>
-                                        <option value="BANK_TRANSFER" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>BANK WIRE TRANSFER</option>
-                                        <option value="CHEQUE" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>BANK CHEQUE</option>
+                                        <option value="CASH" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>CASH</option>
+                                        <option value="UPI" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>UPI</option>
+                                        <option value="CARD" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>CARD</option>
+                                        <option value="BANK_TRANSFER" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>BANK TRANSFER</option>
+                                        <option value="CHEQUE" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>CHEQUE</option>
                                         {/* <option value="RAZORPAY_POS" className={isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}>RAZORPAY POS (TERMINAL)</option> */}
                                     </select>
                                 </div>
