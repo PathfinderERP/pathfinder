@@ -16,12 +16,13 @@ export const getDailyCollectionReport = async (req, res) => {
 
 export const saveDailyTarget = async (req, res) => {
     try {
-        const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const isSuperAdmin = userRole === "superadmin";
+        const rawRole = req.user.role || "";
+        const userRole = rawRole.toLowerCase().replace(/\s+/g, "");
+        const isSuperAdmin = userRole === "superadmin" || userRole === "admin" || userRole === "ceo" || userRole.includes("admin") || rawRole === "superAdmin";
         const isDigital = userRole === "digital" || userRole === "digitalmarketing" || userRole.includes("digital");
 
         if (!isSuperAdmin && !isDigital) {
-            return res.status(403).json({ message: "Access denied. SuperAdmin or Digital role required." });
+            return res.status(403).json({ message: "Access denied. SuperAdmin, Admin, or Digital role required." });
         }
 
         const { date, centreName, targetAmount } = req.body;
@@ -30,13 +31,12 @@ export const saveDailyTarget = async (req, res) => {
             return res.status(400).json({ message: "Missing required fields: date, centreName, targetAmount" });
         }
 
-        // Set hours to midnight UTC or local time? 
-        // Start of day logic should match the query retrieval logic.
         const targetDate = new Date(date);
         targetDate.setHours(0, 0, 0, 0);
 
-        // Find centre
-        const centreDoc = await Centre.findOne({ centreName: { $regex: new RegExp(`^${centreName.trim()}$`, "i") } });
+        // Escape regex special chars and allow leading/trailing whitespace in DB centreName field
+        const cleanName = centreName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const centreDoc = await Centre.findOne({ centreName: { $regex: new RegExp(`^\\s*${cleanName}\\s*$`, "i") } });
         if (!centreDoc) {
             return res.status(404).json({ message: `Centre '${centreName}' not found` });
         }
