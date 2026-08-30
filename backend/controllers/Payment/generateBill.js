@@ -316,7 +316,17 @@ export const generateBill = async (req, res) => {
                 : (payment?.totalAmount || actualPaidTotal);
 
             let finalCourseFee, finalCgst, finalSgst;
-            if (payment && payment.courseFee !== undefined && payment.cgst !== undefined && payment.sgst !== undefined) {
+            if (exempt) {
+                finalCourseFee = parseFloat(Number(billTotal).toFixed(2));
+                finalCgst = 0;
+                finalSgst = 0;
+                if (payment && (payment.cgst > 0 || payment.sgst > 0)) {
+                    payment.cgst = 0;
+                    payment.sgst = 0;
+                    payment.courseFee = finalCourseFee;
+                    payment.save().catch(err => console.error("Error updating exempt payment in generateBill:", err));
+                }
+            } else if (payment && payment.courseFee !== undefined && payment.cgst !== undefined && payment.sgst !== undefined) {
                 finalCourseFee = parseFloat(Number(payment.courseFee).toFixed(2));
                 finalCgst = parseFloat(Number(payment.cgst).toFixed(2));
                 finalSgst = parseFloat(Number(payment.sgst).toFixed(2));
@@ -442,7 +452,17 @@ export const getBillById = async (req, res) => {
             : (payment.totalAmount || 0);
 
         let finalCourseFee, finalCgst, finalSgst;
-        if (payment.courseFee !== undefined && payment.cgst !== undefined && payment.sgst !== undefined) {
+        if (exempt) {
+            finalCourseFee = parseFloat(Number(billTotal).toFixed(2));
+            finalCgst = 0;
+            finalSgst = 0;
+            if (payment && (payment.cgst > 0 || payment.sgst > 0)) {
+                payment.cgst = 0;
+                payment.sgst = 0;
+                payment.courseFee = finalCourseFee;
+                payment.save().catch(err => console.error("Error updating exempt single payment in generateBill:", err));
+            }
+        } else if (payment.courseFee !== undefined && payment.cgst !== undefined && payment.sgst !== undefined) {
             finalCourseFee = parseFloat(Number(payment.courseFee).toFixed(2));
             finalCgst = parseFloat(Number(payment.cgst).toFixed(2));
             finalSgst = parseFloat(Number(payment.sgst).toFixed(2));

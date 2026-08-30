@@ -413,20 +413,33 @@ const StudentAdmissionPage = () => {
 
         const centre = (student?.studentsDetails?.[0]?.centre || formData.centre || '').toString();
         const isPhsps = centre && /phsps/i.test(centre);
+
+        const boardDoc = boards.find(b => (b._id === formData.boardId || b._id === selectedBoard || b._id === formData.board || b.boardCourse === formData.board));
         const board = (
+            boardDoc?.boardCourse ||
+            boardDoc?.name ||
             selectedBoard?.boardCourse ||
             selectedBoard?.name ||
+            formData.board ||
             student?.studentsDetails?.[0]?.board ||
             student?.examSchema?.[0]?.board ||
-            formData.board ||
             ''
         ).toString();
         const isWbchse = /wbchse/i.test(board);
-        const batches = student?.batches || formData.batches || [];
-        const hasTaat = (Array.isArray(batches) && batches.some(b => {
+
+        const batchDoc = batches.find(b => (b._id === formData.batchId || b._id === formData.batch || b.batchName === formData.batch));
+        const rawBatches = Array.isArray(student?.batches) ? [...student.batches] : (student?.batches ? [student.batches] : []);
+        if (batchDoc) rawBatches.push(batchDoc);
+        if (formData.batchId) rawBatches.push(formData.batchId);
+        if (formData.batch) rawBatches.push(formData.batch);
+        if (student?.carryForwardBatch) rawBatches.push(student.carryForwardBatch);
+        if (student?.markedForCarryForward) rawBatches.push(student.markedForCarryForward);
+        if (student?.studentsDetails?.[0]?.batch) rawBatches.push(student.studentsDetails[0].batch);
+
+        const hasTaat = rawBatches.some(b => {
             const bName = typeof b === 'string' ? b : (b?.batchName || b?.name || '');
-            return /taat/i.test(bName);
-        })) || /taat/i.test(formData.programme || '') || /taat/i.test(student?.studentsDetails?.[0]?.programme || '');
+            return /taat\s*[ab]?\s*(jee|neet)?/i.test(bName) || /taat/i.test(bName);
+        }) || /taat/i.test(formData.programme || '') || /taat/i.test(student?.studentsDetails?.[0]?.programme || '');
         const isExempt = isPhsps || (isWbchse && hasTaat);
 
         // Calculate Total Inclusive Fees BEFORE waiver (Standard GST 18% or 0% if exempt)

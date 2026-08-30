@@ -393,9 +393,21 @@ const DailyCollection = () => {
                 // Export Centres Collection aggregated data
                 const aggregated = dailyDetails.reduce((acc, curr) => {
                     const c = curr.centre || "N/A";
-                    if (!acc[c]) acc[c] = { total: 0 };
+                    if (!acc[c]) acc[c] = { total: 0, totalWithoutGst: 0 };
                     acc[c][curr.paymentMethod] = (acc[c][curr.paymentMethod] || 0) + (curr.paidAmount || 0);
                     acc[c].total += (curr.paidAmount || 0);
+
+                    let itemWithoutGst = 0;
+                    if (curr.revenueWithoutGst !== undefined && curr.revenueWithoutGst !== null) {
+                        itemWithoutGst = Number(curr.revenueWithoutGst);
+                    } else if (curr.courseFee && Number(curr.courseFee) > 0 && (!curr.centre || !/phsps/i.test(curr.centre))) {
+                        itemWithoutGst = Number(curr.courseFee);
+                    } else {
+                        const isPhsps = curr.centre && /phsps/i.test(curr.centre);
+                        itemWithoutGst = isPhsps ? (curr.paidAmount || 0) : ((curr.paidAmount || 0) / 1.18);
+                    }
+                    acc[c].totalWithoutGst = (acc[c].totalWithoutGst || 0) + itemWithoutGst;
+
                     return acc;
                 }, (() => {
                     const initialAcc = {};
@@ -404,7 +416,7 @@ const DailyCollection = () => {
                         : centres;
                     targetCentres.forEach(c => {
                         if (c.centreName) {
-                            initialAcc[c.centreName] = { total: 0 };
+                            initialAcc[c.centreName] = { total: 0, totalWithoutGst: 0 };
                         }
                     });
                     return initialAcc;
@@ -430,7 +442,7 @@ const DailyCollection = () => {
                     });
                     row.push(data.total || 0);
                     const isPhsps = /phsps/i.test(centre);
-                    const withoutGst = isPhsps ? data.total : (data.total / 1.18);
+                    const withoutGst = data.totalWithoutGst !== undefined ? data.totalWithoutGst : (isPhsps ? data.total : (data.total / 1.18));
                     row.push(Number(withoutGst.toFixed(2)) || 0);
                     return row;
                 });
@@ -1286,9 +1298,21 @@ const DailyCollection = () => {
                                 {(() => {
                                     const aggregatedData = activeDetails.reduce((acc, curr) => {
                                         const c = curr.centre || "N/A";
-                                        if (!acc[c]) acc[c] = { total: 0 };
+                                        if (!acc[c]) acc[c] = { total: 0, totalWithoutGst: 0 };
                                         acc[c][curr.paymentMethod] = (acc[c][curr.paymentMethod] || 0) + (curr.paidAmount || 0);
                                         acc[c].total += (curr.paidAmount || 0);
+
+                                        let itemWithoutGst = 0;
+                                        if (curr.revenueWithoutGst !== undefined && curr.revenueWithoutGst !== null) {
+                                            itemWithoutGst = Number(curr.revenueWithoutGst);
+                                        } else if (curr.courseFee && Number(curr.courseFee) > 0 && (!curr.centre || !/phsps/i.test(curr.centre))) {
+                                            itemWithoutGst = Number(curr.courseFee);
+                                        } else {
+                                            const isPhsps = curr.centre && /phsps/i.test(curr.centre);
+                                            itemWithoutGst = isPhsps ? (curr.paidAmount || 0) : ((curr.paidAmount || 0) / 1.18);
+                                        }
+                                        acc[c].totalWithoutGst = (acc[c].totalWithoutGst || 0) + itemWithoutGst;
+
                                         return acc;
                                     }, (() => {
                                         const initialAcc = {};
@@ -1297,7 +1321,7 @@ const DailyCollection = () => {
                                             : activeCentres;
                                         targetCentres.forEach(c => {
                                             if (c.centreName) {
-                                                initialAcc[c.centreName] = { total: 0 };
+                                                initialAcc[c.centreName] = { total: 0, totalWithoutGst: 0 };
                                             }
                                         });
                                         return initialAcc;
@@ -1318,9 +1342,7 @@ const DailyCollection = () => {
                                     const totalWithGst = sortedData.reduce((sum, [centre, data]) => isPhspsMidnapore(centre) ? sum : sum + (data.total || 0), 0);
                                     const totalWithoutGst = sortedData.reduce((sum, [centre, data]) => {
                                         if (isPhspsMidnapore(centre)) return sum;
-                                        const isPhsps = /phsps/i.test(centre);
-                                        const withoutGst = isPhsps ? data.total : (data.total / 1.18);
-                                        return sum + (withoutGst || 0);
+                                        return sum + (data.totalWithoutGst || 0);
                                     }, 0);
 
                                     return (
@@ -1328,7 +1350,7 @@ const DailyCollection = () => {
                                             <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
                                                 {sortedData.map(([centre, data]) => {
                                                     const isPhsps = /phsps/i.test(centre);
-                                                    const rowWithoutGst = isPhsps ? data.total : (data.total / 1.18);
+                                                    const rowWithoutGst = data.totalWithoutGst !== undefined ? data.totalWithoutGst : (isPhsps ? data.total : (data.total / 1.18));
                                                     return (
                                                         <tr key={centre} className={tableRowHoverClass}>
                                                             <td className={`px-4 py-4 font-bold ${cardTextClass}`}>

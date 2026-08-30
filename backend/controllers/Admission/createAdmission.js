@@ -296,11 +296,22 @@ export const createAdmission = async (req, res) => {
             course = { courseDurationMonths: durationMonths, monthlyFees: monthlyFees };
         }
 
+        let resolvedBoard = board;
+        if (!resolvedBoard && boardId) {
+            resolvedBoard = await Board.findById(boardId);
+        }
+        let resolvedBatchName = "";
+        if (batchId) {
+            const BatchModel = (await import("../../models/Master_data/Batch.js")).default;
+            const batchDoc = await BatchModel.findById(batchId);
+            if (batchDoc) resolvedBatchName = batchDoc.batchName;
+        }
+
         const exempt = isGstExempt({
             centreName: centre,
-            boardName: board?.boardCourse || boardCourseNameString,
+            boardName: resolvedBoard?.boardCourse || resolvedBoard?.name || boardCourseNameString || req.body.board,
             student: student,
-            batches: batches || student?.batches,
+            batches: [resolvedBatchName, batchId, ...(Array.isArray(batches) ? batches : (batches ? [batches] : [])), ...(Array.isArray(student?.batches) ? student.batches : (student?.batches ? [student.batches] : []))],
             programme: programme
         });
 

@@ -69,7 +69,7 @@ export const isGstExempt = ({ centreName, batches, boardName, admission, student
         if (admission?.batchId) rawBatchCandidates.push(admission.batchId);
         if (admission?.batchName) rawBatchCandidates.push(admission.batchName);
 
-        // Check if any candidate name matches TAAT
+        // Check if any candidate name matches TAAT (including TAAT A JEE, TAAT B JEE, TAAT A NEET, TAAT B NEET)
         const hasTaatBatch = rawBatchCandidates.some(b => {
             if (!b) return false;
             let bName = "";
@@ -78,14 +78,17 @@ export const isGstExempt = ({ centreName, batches, boardName, admission, student
             } else if (typeof b === 'object') {
                 bName = b.batchName || b.name || b.batch || b.title || '';
             }
-            return /\btaat\b/i.test(bName) || /^taat/i.test(bName) || /taat/i.test(bName);
+            return /\btaat\b/i.test(bName) || 
+                   /taat\s*[ab]?\s*(jee|neet)?/i.test(bName) || 
+                   /^taat/i.test(bName) || 
+                   /taat/i.test(bName);
         });
 
         if (hasTaatBatch) {
             return true;
         }
 
-        // Also check if programme / course / examSchema / remarks contain TAAT
+        // Also check if programme / course / examSchema / carryForward fields contain TAAT
         const extraStrings = [
             programme,
             courseName,
@@ -94,6 +97,8 @@ export const isGstExempt = ({ centreName, batches, boardName, admission, student
             admission?.courseName,
             admission?.boardCourseName,
             admission?.remarks,
+            student?.carryForwardBatch,
+            student?.markedForCarryForward,
             student?.studentsDetails?.[0]?.programme,
             student?.studentsDetails?.[0]?.batch,
             student?.examSchema?.[0]?.batch,

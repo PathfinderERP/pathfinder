@@ -623,7 +623,13 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                                         $cond: {
                                             if: { $and: [{ $ne: ["$courseFee", null] }, { $gt: ["$courseFee", 0] }] },
                                             then: "$courseFee",
-                                            else: { $divide: ["$paidAmount", 1.18] }
+                                            else: {
+                                                $cond: {
+                                                    if: { $and: [{ $eq: ["$cgst", 0] }, { $eq: ["$sgst", 0] }] },
+                                                    then: "$paidAmount",
+                                                    else: { $divide: ["$paidAmount", 1.18] }
+                                                }
+                                            }
                                         }
                                     }
                                 }
