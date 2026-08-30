@@ -43,7 +43,6 @@ export const getTransactionReport = async (req, res) => {
 
         // Base Match for Payment (Inclusive: Show all transactions with activity)
         let baseAttributesMatch = {
-            billId: { $regex: /^PATH/i },
             paidAmount: { $gte: 0 }
         };
 
@@ -88,13 +87,13 @@ export const getTransactionReport = async (req, res) => {
         }
 
         let paymentMatch = {
-            ...baseAttributesMatch,
-            billId: { $regex: /^PATH/i }
+            ...baseAttributesMatch
         };
 
         // Filter by Date Range (startDate/endDate OR year) for the main report
         if (startDate && endDate) {
             const start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
             const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
 
@@ -104,14 +103,13 @@ export const getTransactionReport = async (req, res) => {
             paymentMatch.filterEnd = end;
         } else if (year && !isNaN(parseInt(year))) {
             const targetYear = parseInt(year);
-            const startOfYear = new Date(targetYear, 0, 1);
-            const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59);
+            const startOfYear = new Date(targetYear, 0, 1, 0, 0, 0, 0);
+            const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59, 999);
             paymentMatch.isDateFiltered = true;
             paymentMatch.filterStart = startOfYear;
             paymentMatch.filterEnd = endOfYear;
         } else if (!search) {
             // Default: All transactions up to now
-            // Using a simple date comparison if possible to leverage indexes
             paymentMatch.createdAt = { $lte: new Date() };
         }
 
@@ -131,6 +129,9 @@ export const getTransactionReport = async (req, res) => {
             const allCentres = await Centre.find({}).select("centreName");
             allowedCentreNames = allCentres.map(c => c.centreName);
         }
+
+        // Helper for case-insensitive exact match regex
+        const buildCentreRegexes = (names) => names.filter(Boolean).map(n => new RegExp(`^${n.trim()}$`, 'i'));
 
         // Resolve Zone IDs to Centre IDs/Names if zoneIds passed
         let zoneCentreNames = null;
@@ -154,14 +155,16 @@ export const getTransactionReport = async (req, res) => {
                 let requestedNames = requestedCentres.map(c => c.centreName);
 
                 if (zoneCentreNames !== null) {
-                    requestedNames = requestedNames.filter(name => zoneCentreNames.includes(name));
+                    const zoneLower = zoneCentreNames.map(z => z.toLowerCase().trim());
+                    requestedNames = requestedNames.filter(name => zoneLower.includes(name.toLowerCase().trim()));
                 }
 
                 if (!isSuperAdmin) {
-                    const finalNames = requestedNames.filter(name => allowedCentreNames.includes(name));
-                    admissionMatch["effectiveCentre"] = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
+                    const allowedLower = allowedCentreNames.map(a => a.toLowerCase().trim());
+                    const finalNames = requestedNames.filter(name => allowedLower.includes(name.toLowerCase().trim()));
+                    admissionMatch["effectiveCentre"] = { $in: finalNames.length > 0 ? buildCentreRegexes(finalNames) : ["__NO_MATCH__"] };
                 } else if (requestedNames.length > 0) {
-                    admissionMatch["effectiveCentre"] = { $in: requestedNames };
+                    admissionMatch["effectiveCentre"] = { $in: buildCentreRegexes(requestedNames) };
                 } else {
                     admissionMatch["effectiveCentre"] = { $in: ["__NO_MATCH__"] };
                 }
@@ -169,13 +172,14 @@ export const getTransactionReport = async (req, res) => {
         } else if (zoneCentreNames !== null) {
             let filteredByZone = zoneCentreNames;
             if (!isSuperAdmin) {
-                filteredByZone = filteredByZone.filter(name => allowedCentreNames.includes(name));
+                const allowedLower = allowedCentreNames.map(a => a.toLowerCase().trim());
+                filteredByZone = filteredByZone.filter(name => allowedLower.includes(name.toLowerCase().trim()));
             }
-            admissionMatch["effectiveCentre"] = { $in: filteredByZone.length > 0 ? filteredByZone : ["__NO_MATCH__"] };
+            admissionMatch["effectiveCentre"] = { $in: filteredByZone.length > 0 ? buildCentreRegexes(filteredByZone) : ["__NO_MATCH__"] };
         } else {
             // Default: Exclude franchise and RKM
             const defaultCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/rkm/i.test(name));
-            admissionMatch["effectiveCentre"] = { $in: defaultCentreNames.length > 0 ? defaultCentreNames : ["__NO_MATCH__"] };
+            admissionMatch["effectiveCentre"] = { $in: defaultCentreNames.length > 0 ? buildCentreRegexes(defaultCentreNames) : ["__NO_MATCH__"] };
         }
 
         if (courseIds) {
@@ -246,7 +250,7 @@ export const getTransactionReport = async (req, res) => {
             { $match: baseAttributesMatch },
             {
                 $addFields: {
-                    reportDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
+                    reportDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$chequeDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
                 }
             },
         ];
@@ -309,7 +313,7 @@ export const getTransactionReport = async (req, res) => {
         // Process Detailed Report (Separate Query for Flattened Data)
         const detailedPipeline = [
             { $match: baseAttributesMatch },
-            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } },
+            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$chequeDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } },
         ];
 
         if (paymentMatch.isDateFiltered) {
@@ -322,7 +326,7 @@ export const getTransactionReport = async (req, res) => {
 
         detailedPipeline.push(
             { $sort: { createdAt: -1, effectiveDate: -1 } },
-            { $limit: 5000 }, // Prevent massive data dumps that cause timeouts
+            { $limit: 50000 },
             // 2. Lookup Admission Details from both potential collections
             {
                 $lookup: {

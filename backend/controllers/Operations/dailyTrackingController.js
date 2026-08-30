@@ -9,6 +9,8 @@ import Payment from "../../models/Payment/Payment.js";
 import User from "../../models/User.js";
 import Student from "../../models/Students.js";
 import Employee from "../../models/HR/Employee.js";
+import PNTSEStudent from "../../models/PNTSEStudent.js";
+import PMOStudent from "../../models/PMOStudent.js";
 import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import mongoose from "mongoose";
 import XLSX from "xlsx";
@@ -597,6 +599,43 @@ export const getDailyTracking = async (req, res) => {
             centers = centers.filter(c => zoneCentreIds.has(c._id.toString()));
         }
 
+        // Build global student admission count & carry forward set
+        const [allNormalAdmissions, allBoardAdmissions, allPntseAdmissions, allPmoAdmissions, allCfStudents] = await Promise.all([
+            Admission.find({}, 'student createdAt admissionDate').lean(),
+            BoardCourseAdmission.find({}, 'studentId createdAt admissionDate').lean(),
+            PNTSEStudent.find({}, 'studentId createdAt').lean().catch(() => []),
+            PMOStudent.find({}, 'studentId createdAt').lean().catch(() => []),
+            Student.find({
+                $or: [
+                    { carryForwardBalance: { $gt: 0 } },
+                    { markedForCarryForward: true }
+                ]
+            }).select('_id').lean()
+        ]);
+
+        const studentAdmissionCountMap = {};
+        const cfStudentIdsSet = new Set(allCfStudents.map(s => s._id.toString()));
+
+        allNormalAdmissions.forEach(adm => {
+            const sid = adm.student?.toString();
+            if (sid) studentAdmissionCountMap[sid] = (studentAdmissionCountMap[sid] || 0) + 1;
+        });
+
+        allBoardAdmissions.forEach(adm => {
+            const sid = adm.studentId?.toString();
+            if (sid) studentAdmissionCountMap[sid] = (studentAdmissionCountMap[sid] || 0) + 1;
+        });
+
+        allPntseAdmissions.forEach(adm => {
+            const sid = adm.studentId?.toString();
+            if (sid) studentAdmissionCountMap[sid] = (studentAdmissionCountMap[sid] || 0) + 1;
+        });
+
+        allPmoAdmissions.forEach(adm => {
+            const sid = adm.studentId?.toString();
+            if (sid) studentAdmissionCountMap[sid] = (studentAdmissionCountMap[sid] || 0) + 1;
+        });
+
         // Prepare tracking data
         const trackingData = await Promise.all(centers.map(async (center) => {
             const centerId = center._id;
@@ -908,6 +947,35 @@ export const getDailyTracking = async (req, res) => {
             admissionNormalCount = filteredNormal.length;
             admissionBoardCount = filteredBoard.length;
 
+            let admissionCarryForwardCount = 0;
+            let admissionDirectCount = 0;
+
+            filteredNormal.forEach(adm => {
+                const sid = adm.student?._id ? adm.student._id.toString() : (adm.student ? adm.student.toString() : null);
+                const isCF = (adm.previousBalance && adm.previousBalance > 0) ||
+                             (adm.remarks && /carry\s*forward/i.test(adm.remarks)) ||
+                             (sid && cfStudentIdsSet.has(sid)) ||
+                             (sid && (studentAdmissionCountMap[sid] || 0) > 1);
+                if (isCF) {
+                    admissionCarryForwardCount++;
+                } else {
+                    admissionDirectCount++;
+                }
+            });
+
+            filteredBoard.forEach(adm => {
+                const sid = adm.studentId?._id ? adm.studentId._id.toString() : (adm.studentId ? adm.studentId.toString() : null);
+                const isCF = (adm.previousBalance && adm.previousBalance > 0) ||
+                             (adm.remarks && /carry\s*forward/i.test(adm.remarks)) ||
+                             (sid && cfStudentIdsSet.has(sid)) ||
+                             (sid && (studentAdmissionCountMap[sid] || 0) > 1);
+                if (isCF) {
+                    admissionCarryForwardCount++;
+                } else {
+                    admissionDirectCount++;
+                }
+            });
+
             const normalVal = filteredNormal.reduce((sum, adm) => sum + Math.round((adm.downPayment || 0) / 1.18), 0);
             const boardVal = filteredBoard.reduce((sum, adm) => {
                 const rawAmt = (adm.installments && adm.installments.length > 0) ? (adm.installments[0].paidAmount || 0) : (adm.totalPaidAmount || adm.downPayment || 0);
@@ -1066,6 +1134,8 @@ export const getDailyTracking = async (req, res) => {
                 counselledBoard: counselledBoardCount,
                 admissionNormal: admissionNormalCount,
                 admissionBoard: admissionBoardCount,
+                admissionCarryForward: admissionCarryForwardCount,
+                admissionDirect: admissionDirectCount,
                 admissionAmountVal: collectionsAdmission,
                 collections: `₹${totalCollections.toLocaleString()}`,
                 collectionsVal: totalCollections,
@@ -2773,6 +2843,27 @@ export const getDailyTrackingDetails = async (req, res) => {
                 const allStudentIds = [...normalStudentIds, ...boardStudentIds];
                 const allAdmIds = [...normalAdmissions.map(a => a._id), ...boardAdmissions.map(a => a._id)];
 
+                const [allNormalAdms, allBoardAdms, allPntseAdms, allPmoAdms, allCfDocs] = await Promise.all([
+                    Admission.find({ student: { $in: allStudentIds } }, 'student').lean(),
+                    BoardCourseAdmission.find({ studentId: { $in: allStudentIds } }, 'studentId').lean(),
+                    PNTSEStudent.find({ studentId: { $in: allStudentIds } }, 'studentId').lean().catch(() => []),
+                    PMOStudent.find({ studentId: { $in: allStudentIds } }, 'studentId').lean().catch(() => []),
+                    Student.find({
+                        _id: { $in: allStudentIds },
+                        $or: [
+                            { carryForwardBalance: { $gt: 0 } },
+                            { markedForCarryForward: true }
+                        ]
+                    }).select('_id').lean()
+                ]);
+
+                const studentCounts = {};
+                const cfSet = new Set(allCfDocs.map(s => s._id.toString()));
+                allNormalAdms.forEach(a => { const sid = a.student?.toString(); if (sid) studentCounts[sid] = (studentCounts[sid] || 0) + 1; });
+                allBoardAdms.forEach(a => { const sid = a.studentId?.toString(); if (sid) studentCounts[sid] = (studentCounts[sid] || 0) + 1; });
+                allPntseAdms.forEach(a => { const sid = a.studentId?.toString(); if (sid) studentCounts[sid] = (studentCounts[sid] || 0) + 1; });
+                allPmoAdms.forEach(a => { const sid = a.studentId?.toString(); if (sid) studentCounts[sid] = (studentCounts[sid] || 0) + 1; });
+
                 const admPayments = await Payment.find({
                     $and: [
                         {
@@ -2806,6 +2897,10 @@ export const getDailyTrackingDetails = async (req, res) => {
                     const sId = adm.student?._id ? adm.student._id.toString() : (adm.student ? adm.student.toString() : '');
                     const rawAmt = admPaymentMap[adm._id.toString()] || (sId ? admPaymentMap[sId] : 0) || adm.downPayment || 0;
                     const amountWithoutGst = Math.round(rawAmt / 1.18);
+                    const isCF = (adm.previousBalance && adm.previousBalance > 0) ||
+                                 (adm.remarks && /carry\s*forward/i.test(adm.remarks)) ||
+                                 (sId && cfSet.has(sId)) ||
+                                 (sId && (studentCounts[sId] || 0) > 1);
                     return {
                         id: adm._id.toString(),
                         name: studentName,
@@ -2814,10 +2909,10 @@ export const getDailyTrackingDetails = async (req, res) => {
                         handledBy: adm.createdBy?.name || 'System',
                         centreName: adm.centre || 'N/A',
                         dateTime: adm.createdAt,
-                        tag: 'NORMAL ADM',
+                        tag: isCF ? 'CF • NORMAL ADM' : 'DIRECT • NORMAL ADM',
                         course: adm.course?.courseName || 'N/A',
                         amount: amountWithoutGst,
-                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'} | Fee (excl. GST)`
+                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'} | Fee (excl. GST) | ${isCF ? 'Carry Forward' : 'Direct'}`
                     };
                 });
 
@@ -2829,6 +2924,10 @@ export const getDailyTrackingDetails = async (req, res) => {
                     const sId = adm.studentId?._id ? adm.studentId._id.toString() : (adm.studentId ? adm.studentId.toString() : '');
                     const rawAmt = admPaymentMap[adm._id.toString()] || (sId ? admPaymentMap[sId] : 0) || dpAmount || adm.downPayment || 0;
                     const amountWithoutGst = Math.round(rawAmt / 1.18);
+                    const isCF = (adm.previousBalance && adm.previousBalance > 0) ||
+                                 (adm.remarks && /carry\s*forward/i.test(adm.remarks)) ||
+                                 (sId && cfSet.has(sId)) ||
+                                 (sId && (studentCounts[sId] || 0) > 1);
                     return {
                         id: adm._id.toString(),
                         name: studentName,
@@ -2837,10 +2936,10 @@ export const getDailyTrackingDetails = async (req, res) => {
                         handledBy: adm.createdBy?.name || 'System',
                         centreName: adm.centre || 'N/A',
                         dateTime: adm.createdAt,
-                        tag: 'BOARD ADM',
+                        tag: isCF ? 'CF • BOARD ADM' : 'DIRECT • BOARD ADM',
                         course: adm.boardCourseName || 'N/A',
                         amount: amountWithoutGst,
-                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'} | Fee (excl. GST)`
+                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'} | Fee (excl. GST) | ${isCF ? 'Carry Forward' : 'Direct'}`
                     };
                 });
 

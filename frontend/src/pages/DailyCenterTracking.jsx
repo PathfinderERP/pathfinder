@@ -785,6 +785,8 @@ const DailyCenterTracking = () => {
                     const callsToAdmShortfallPct = totalCallsSum > 0 ? ((callsToAdmShortfall / totalCallsSum) * 100).toFixed(1) + "%" : "0.0%";
 
                     const totalAdmissionAmountSum = filteredCenters.reduce((acc, curr) => acc + (curr.admissionAmountVal || 0), 0);
+                    const totalAdmissionCarryForwardSum = filteredCenters.reduce((acc, curr) => acc + (curr.admissionCarryForward || 0), 0);
+                    const totalAdmissionDirectSum = filteredCenters.reduce((acc, curr) => acc + (curr.admissionDirect || 0), 0);
 
                     const kpiCardsList = [
                         {
@@ -802,7 +804,7 @@ const DailyCenterTracking = () => {
                             value: totalWalkInsSum.toString(),
                             subtext: (
                                 <span>
-                                    Counselling: {totalWalkInsCounselledSum.toLocaleString()} | Admission: {totalWalkInsAdmissionSum.toLocaleString()} | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {walkInsShortfall.toLocaleString()} ({walkInsShortfallPct})</span>
+                                    Counselling: {totalWalkInsCounselledSum.toLocaleString()} | Admission: {totalWalkInsAdmissionSum.toLocaleString()} | <span className="text-red-500 font-bold text-xs uppercase">Shortfall: {walkInsShortfall.toLocaleString()} ({walkInsShortfallPct})</span>
                                 </span>
                             ),
                             icon: <FaWalking />,
@@ -828,7 +830,7 @@ const DailyCenterTracking = () => {
                             value: totalAdmissionSum.toString(),
                             subtext: (
                                 <span>
-                                    Amt (excl. GST): ₹{totalAdmissionAmountSum.toLocaleString()} | Normal: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)}
+                                    Amt (excl. GST): ₹{totalAdmissionAmountSum.toLocaleString()} | Normal: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionNormal || 0), 0)} | Board: {filteredCenters.reduce((acc, curr) => acc + (curr.admissionBoard || 0), 0)} | Carry Forward: {totalAdmissionCarryForwardSum} | Direct: {totalAdmissionDirectSum}
                                 </span>
                             ),
                             icon: <FaUserPlus />,
@@ -841,7 +843,7 @@ const DailyCenterTracking = () => {
                             value: `${totalCounsellingSum.toLocaleString()} Counselled / ${totalCallsSum.toLocaleString()} Calls`,
                             subtext: (
                                 <span>
-                                    Conversion: {callsToCounsPct} | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {callsToCounsShortfall.toLocaleString()} ({callsToCounsShortfallPct})</span>
+                                    Conversion: {callsToCounsPct} | <span className="text-red-500 font-bold text-xs uppercase">Shortfall: {callsToCounsShortfall.toLocaleString()} ({callsToCounsShortfallPct})</span>
                                 </span>
                             ),
                             icon: <FaChartLine />,
@@ -863,7 +865,7 @@ const DailyCenterTracking = () => {
                             value: `${totalAdmissionSum.toLocaleString()} Admissions / ${totalCounsellingSum.toLocaleString()} Counselled`,
                             subtext: (
                                 <span>
-                                    Amt (excl. GST): ₹{totalAdmissionAmountSum.toLocaleString()} | Conv: {counsToAdmPct} | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {counsToAdmShortfall.toLocaleString()} ({counsToAdmShortfallPct})</span>
+                                    Amt (excl. GST): ₹{totalAdmissionAmountSum.toLocaleString()} | Conv: {counsToAdmPct} | <span className="text-red-500 font-bold text-xs uppercase">Shortfall: {counsToAdmShortfall.toLocaleString()} ({counsToAdmShortfallPct})</span>
                                 </span>
                             ),
                             icon: <FaChartLine />,
@@ -885,7 +887,7 @@ const DailyCenterTracking = () => {
                             value: `${totalAdmissionSum.toLocaleString()} Admissions / ${totalCallsSum.toLocaleString()} Calls`,
                             subtext: (
                                 <span>
-                                    Amt (excl. GST): ₹{totalAdmissionAmountSum.toLocaleString()} | Conv: {callsToAdmPct} | <span className="text-red-500 font-bold text-[10px] uppercase">Shortfall: {callsToAdmShortfall.toLocaleString()} ({callsToAdmShortfallPct})</span>
+                                    Amt (excl. GST): ₹{totalAdmissionAmountSum.toLocaleString()} | Conv: {callsToAdmPct} | <span className="text-red-500 font-bold text-xs uppercase">Shortfall: {callsToAdmShortfall.toLocaleString()} ({callsToAdmShortfallPct})</span>
                                 </span>
                             ),
                             icon: <FaChartLine />,
@@ -939,14 +941,14 @@ const DailyCenterTracking = () => {
                                         </div>
                                         <div className="flex-1 min-w-0">
                                             <div className="flex items-center gap-1.5">
-                                                <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} font-medium`}>{kpi.title}</p>
+                                                <p className={`text-xs sm:text-[13px] ${isDarkMode ? 'text-gray-300' : 'text-gray-600'} font-semibold`}>{kpi.title}</p>
                                                 {kpi.navigateTo && (
                                                     <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-400">→ View</span>
                                                 )}
                                             </div>
-                                            <h3 className={`text-base md:text-lg font-bold mt-0.5 leading-snug break-words ${kpi.navigateTo ? kpi.color : ''}`}>{kpi.value}</h3>
+                                            <h3 className={`text-base md:text-xl font-extrabold mt-0.5 leading-snug break-words ${kpi.navigateTo ? kpi.color : ''}`}>{kpi.value}</h3>
                                             {kpi.subtext && (
-                                                <p className={`text-[10px] mt-1 font-semibold leading-normal break-words ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                <p className={`text-xs sm:text-[12.5px] mt-1.5 font-medium leading-relaxed break-words ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
                                                     {kpi.subtext}
                                                 </p>
                                             )}
@@ -1091,17 +1093,23 @@ const DailyCenterTracking = () => {
                                             <div>
                                                 <p className={`text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Daily Calls</p>
                                                 <span className="font-bold text-lg">{center.dailyCalls || 0}</span>
-                                                <p className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                <p className={`text-xs font-medium mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                                     Unique: {center.uniqueCalls || 0} | Same No.: {center.sameNoCalls || 0} | Service: {center.serviceCalls || 0}
                                                 </p>
                                             </div>
                                             <div>
                                                 <p className={`text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Counselled</p>
                                                 <span className="font-bold text-lg">{center.counselledNormal + center.counselledBoard}</span>
+                                                <p className={`text-xs font-medium mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    Normal: {center.counselledNormal || 0} | Board: {center.counselledBoard || 0}
+                                                </p>
                                             </div>
                                             <div>
                                                 <p className={`text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Admission</p>
                                                 <span className="font-bold text-lg">{center.admissionNormal + center.admissionBoard}</span>
+                                                <p className={`text-xs font-medium mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    Normal: {center.admissionNormal || 0} | Board: {center.admissionBoard || 0} | CF: {center.admissionCarryForward || 0} | Direct: {center.admissionDirect || 0}
+                                                </p>
                                             </div>
                                             <div className="col-span-2 pt-2 border-t border-gray-100 dark:border-gray-800">
                                                 <p className={`text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Collection</p>
