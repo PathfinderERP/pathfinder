@@ -270,6 +270,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "financeFees",
             subItems: [
                 { name: "Installment Payment", path: "/finance/installment-payment", permissionSection: "installmentPayment" },
+                { name: "Edit Bill", path: "/finance/edit-bill", permissionSection: "editBill" },
                 { name: "Fee Due List", path: "/finance/fee-due-list", permissionSection: "feeDueList" },
                 { name: "Cheque Management", path: "/finance/cheque-management", permissionSection: "chequeManagement" },
                 { name: "Cheque Deposit Entry", path: "/finance/cheque-deposit-entry", permissionSection: "chequeDepositEntry" },
@@ -532,9 +533,23 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
         }
         return userPermissions.includes(item.name);
     }).map(item => {
-        if (item.subItems && !hasFullAccess) {
+        if (item.subItems) {
             const filteredSubItems = item.subItems.filter(sub => {
                 if (sub.restrictedToSuperAdmin && !isSuperAdmin) return false;
+
+                // Edit Bill: Strictly restricted to superadmin, digital, and accounts roles
+                if (sub.permissionSection === "editBill" || sub.name === "Edit Bill") {
+                    const roles = Array.isArray(user.role) ? user.role : [user.role || ""];
+                    const isRoleAllowed = roles.some(r => {
+                        const clean = (typeof r === "string" ? r : "").toLowerCase().replace(/[\s\-_]+/g, "");
+                        return clean === "superadmin" || clean === "digital" || clean === "accounts" || clean === "account";
+                    });
+                    if (!isRoleAllowed) return false;
+                    return hasPermission(user, "financeFees", "editBill", "view");
+                }
+
+                if (hasFullAccess) return true;
+
                 const permModule = sub.permissionModule || item.permissionModule;
                 if (permModule) {
                     if (sub.permissionSection) {

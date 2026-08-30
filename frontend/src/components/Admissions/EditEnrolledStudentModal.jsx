@@ -927,16 +927,6 @@ const EditEnrolledStudentModal = ({ admission, onClose, onUpdate, isDarkMode }) 
                                                 </div>
 
                                                 <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Filter by Board</label>
-                                                    <select name="board" value={courseFilters.board} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
-                                                        <option value="">ALL BOARDS</option>
-                                                        {masterBoards.sort((a, b) => (a.boardName || a.boardCourse || "").localeCompare(b.boardName || b.boardCourse || "")).map(b => (
-                                                            <option key={b._id} value={b.boardName || b.boardCourse}>{b.boardName || b.boardCourse}</option>
-                                                        ))}
-                                                    </select>
-                                                </div>
-
-                                                <div>
                                                     <label className="text-[8px] font-black text-gray-500 uppercase tracking-[0.15em] mb-1.5 block">Programme</label>
                                                     <select name="programme" value={courseFilters.programme} onChange={handleCourseFilterChange} className={`${inputClass} !p-2 !text-[9px]`}>
                                                         <option value="">ALL</option>

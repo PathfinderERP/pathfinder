@@ -15,6 +15,16 @@ router.post("/generate-bill/:admissionId/:installmentNumber", requireAnyGranular
     { module: "admissions", section: "boardCourseAdmission", action: "edit" }
 ]), generateBill);
 
+import { searchBill, updateBill } from "../../controllers/Payment/editBillController.js";
+
+// Edit Bill Endpoints (must be defined before /bill/:billId to prevent collision)
+router.get("/edit-bill/search", requireAuth, searchBill);
+router.get("/edit-bill/search/:billNumber", requireAuth, searchBill);
+router.put("/edit-bill/update/:paymentId", requireAuth, updateBill);
+router.get("/bill/search", requireAuth, searchBill);
+router.get("/bill/search/:billNumber", requireAuth, searchBill);
+router.put("/bill/update/:paymentId", requireAuth, updateBill);
+
 // Get bill by bill ID
 router.get("/bill/:billId", requireAuth, getBillById);
 

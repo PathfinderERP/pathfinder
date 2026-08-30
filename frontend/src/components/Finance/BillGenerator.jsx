@@ -12,6 +12,12 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
     const apiUrl = import.meta.env.VITE_API_URL;
     const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : '';
 
+    useEffect(() => {
+        if (preloadedBillData) {
+            setBillData(preloadedBillData);
+        }
+    }, [preloadedBillData]);
+
 
     useEffect(() => {
         // Preload logo and convert to PNG base64 for jsPDF

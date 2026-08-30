@@ -146,6 +146,10 @@ export const PERMISSION_MODULES = {
                 label: "Cancel Cheque Payment",
                 operations: ["create", "edit", "delete"]
             },
+            editBill: {
+                label: "Edit Bill",
+                operations: ["create", "edit", "delete"]
+            },
             // billGeneration: {
             //     label: "Bill Generation",
             //     operations: ["create", "edit", "delete"]
@@ -658,6 +662,30 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         (typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
 
     const hasGranularObject = granularPermissions && typeof granularPermissions === 'object' && Object.keys(granularPermissions).length > 0;
+
+    // Edit Bill section resolution: strictly accessible ONLY to superadmin, digital, and accounts roles
+    if (module === 'financeFees' && section === 'editBill') {
+        const isEditBillRole = ['superadmin', 'digital', 'accounts', 'account'].includes(cleanRoleStr);
+        if (!isEditBillRole) return false;
+
+        if (hasGranularObject) {
+            const finSec = granularPermissions?.financeFees;
+            if (!finSec || typeof finSec !== 'object') return false;
+            const editBillSec = finSec.editBill;
+            if (editBillSec && typeof editBillSec === 'object') {
+                if (operation === 'view') {
+                    if (editBillSec.view !== undefined) return editBillSec.view === true;
+                    return Object.values(editBillSec).some(v => v === true);
+                }
+                return editBillSec[operation] === true;
+            }
+            // If editBill is not explicitly in granularPermissions.financeFees yet,
+            // default to true if the user has access to financeFees module
+            return Object.keys(finSec).length > 0;
+        }
+
+        return true;
+    }
 
     // SuperAdmin role: default full access; if custom granularPermissions are configured, enforce them strictly
     if (role && cleanRoleStr === 'superadmin') {

@@ -163,6 +163,7 @@ import PoshComplaint from "./pages/Employee/PoshComplaint";
 import PoshDashboard from "./pages/HR/PoshDashboard";
 import CandidateHiring from "./pages/HR/CandidateHiring";
 import InstallmentPayment from "./pages/Finance/InstallmentPayment";
+import EditBill from "./pages/Finance/EditBill";
 import FeeDueList from "./pages/Finance/FeeDueList";
 import ChequeManagement from "./pages/Finance/ChequeManagement";
 import ChequeDepositEntry from "./pages/Finance/ChequeDepositEntry";
@@ -243,6 +244,7 @@ function App() {
         <Route path="/admission/:studentId" element={<ProtectedRoute><StudentAdmissionPage /></ProtectedRoute>} />
         <Route path="/finance" element={<ProtectedRoute><Finance /></ProtectedRoute>} />
         <Route path="/finance/installment-payment" element={<ProtectedRoute><InstallmentPayment /></ProtectedRoute>} />
+        <Route path="/finance/edit-bill" element={<ProtectedRoute allowedRoles={['superadmin', 'digital', 'accounts', 'account']} requiredPermissionModule="financeFees" requiredPermissionSection="editBill"><EditBill /></ProtectedRoute>} />
         <Route path="/finance/pay-employee" element={<ProtectedRoute><PayEmployee /></ProtectedRoute>} />
         <Route path="/finance/pay-employee/:id" element={<ProtectedRoute><PayEmployeeDetails /></ProtectedRoute>} />
         <Route path="/finance/fee-due-list" element={<ProtectedRoute><FeeDueList /></ProtectedRoute>} />

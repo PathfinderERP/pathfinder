@@ -305,19 +305,28 @@ export const generateBill = async (req, res) => {
                 await payment.save();
             }
 
-            // RE-CALCULATE amounts for the bill response to match UI source of truth
-            // This fixes legacy/corrupted records where totalAmount was set to baseAmount
+            // Use stored amounts from Payment record if available, otherwise calculate using GST helper
             const exempt = isGstExempt({
                 centreName: centre.centreName,
                 admission,
                 student: admission.student || admission.studentId
             });
-            const billTotal = Math.max(actualPaidTotal, payment.totalAmount || 0);
-            const billBase = exempt ? billTotal : billTotal / 1.18;
-            const finalCourseFee = parseFloat(billBase.toFixed(2));
-            const finalGstPool = exempt ? 0 : billTotal - finalCourseFee;
-            const finalCgst = parseFloat((finalGstPool / 2).toFixed(2));
-            const finalSgst = parseFloat((finalGstPool - finalCgst).toFixed(2));
+            const billTotal = payment?.paidAmount !== undefined && payment.paidAmount > 0
+                ? payment.paidAmount
+                : (payment?.totalAmount || actualPaidTotal);
+
+            let finalCourseFee, finalCgst, finalSgst;
+            if (payment && payment.courseFee !== undefined && payment.cgst !== undefined && payment.sgst !== undefined) {
+                finalCourseFee = parseFloat(Number(payment.courseFee).toFixed(2));
+                finalCgst = parseFloat(Number(payment.cgst).toFixed(2));
+                finalSgst = parseFloat(Number(payment.sgst).toFixed(2));
+            } else {
+                const billBase = exempt ? billTotal : billTotal / 1.18;
+                finalCourseFee = parseFloat(billBase.toFixed(2));
+                const finalGstPool = exempt ? 0 : billTotal - finalCourseFee;
+                finalCgst = parseFloat((finalGstPool / 2).toFixed(2));
+                finalSgst = parseFloat((finalGstPool - finalCgst).toFixed(2));
+            }
 
             // Prepare bill data
             const billData = {
@@ -428,11 +437,22 @@ export const getBillById = async (req, res) => {
             admission,
             student: admission?.student
         });
-        const billTotal = payment.totalAmount || payment.paidAmount || 0;
-        const finalCourseFee = exempt ? billTotal : (payment.courseFee || parseFloat((billTotal / 1.18).toFixed(2)));
-        const finalGstPool = exempt ? 0 : (billTotal - finalCourseFee);
-        const finalCgst = exempt ? 0 : (payment.cgst || parseFloat((finalGstPool / 2).toFixed(2)));
-        const finalSgst = exempt ? 0 : (payment.sgst || parseFloat((finalGstPool - finalCgst).toFixed(2)));
+        const billTotal = payment.paidAmount !== undefined && payment.paidAmount > 0
+            ? payment.paidAmount
+            : (payment.totalAmount || 0);
+
+        let finalCourseFee, finalCgst, finalSgst;
+        if (payment.courseFee !== undefined && payment.cgst !== undefined && payment.sgst !== undefined) {
+            finalCourseFee = parseFloat(Number(payment.courseFee).toFixed(2));
+            finalCgst = parseFloat(Number(payment.cgst).toFixed(2));
+            finalSgst = parseFloat(Number(payment.sgst).toFixed(2));
+        } else {
+            const billBase = exempt ? billTotal : billTotal / 1.18;
+            finalCourseFee = parseFloat(billBase.toFixed(2));
+            const finalGstPool = exempt ? 0 : billTotal - finalCourseFee;
+            finalCgst = parseFloat((finalGstPool / 2).toFixed(2));
+            finalSgst = parseFloat((finalGstPool - finalCgst).toFixed(2));
+        }
 
         const billData = {
             billId: payment.billId,

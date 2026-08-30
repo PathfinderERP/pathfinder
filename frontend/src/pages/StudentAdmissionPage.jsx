@@ -964,13 +964,6 @@ const StudentAdmissionPage = () => {
                                                     </select>
                                                 </div>
                                                 <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Board</label>
-                                                    <select name="boardId" value={cFilters.boardId} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
-                                                        <option value="">All Boards</option>
-                                                        {boards.map(b => <option key={b._id} value={b._id}>{b.boardCourse}</option>)}
-                                                    </select>
-                                                </div>
-                                                <div>
                                                     <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Programme</label>
                                                     <select name="programme" value={cFilters.programme} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
                                                         <option value="">All</option>
