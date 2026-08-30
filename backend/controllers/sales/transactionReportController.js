@@ -41,9 +41,10 @@ export const getTransactionReport = async (req, res) => {
             search
         } = req.query;
 
-        // Base Match for Payment (Inclusive: Show all transactions with activity)
+        // Base Match for Payment (Only show transactions where a bill has been generated)
         let baseAttributesMatch = {
-            paidAmount: { $gte: 0 }
+            paidAmount: { $gte: 0 },
+            billId: { $regex: /^PATH/i }
         };
 
         if (minAmount || maxAmount) {

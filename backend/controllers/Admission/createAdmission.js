@@ -298,8 +298,10 @@ export const createAdmission = async (req, res) => {
 
         const exempt = isGstExempt({
             centreName: centre,
-            boardName: board?.boardCourse,
-            student: student
+            boardName: board?.boardCourse || boardCourseNameString,
+            student: student,
+            batches: batches || student?.batches,
+            programme: programme
         });
 
         // Coerce inputs to numbers safely

@@ -165,7 +165,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         endOfDay.setHours(23, 59, 59, 999);
     }
 
-    // Base Payment Filter
+    // Base Payment Filter (Only show transactions where a bill has been generated)
     const paymentMatch = {
         paidAmount: { $gte: 0 },
         billId: { $regex: /^PATH/i },
@@ -175,23 +175,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 paymentMethod: "CHEQUE",
                 status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
             }
-        ],
-        $expr: {
-            $and: [
-                {
-                    $gte: [
-                        { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
-                        startOfDay
-                    ]
-                },
-                {
-                    $lte: [
-                        { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
-                        endOfDay
-                    ]
-                }
-            ]
-        }
+        ]
     };
 
     if (paymentMode) {
@@ -226,6 +210,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         allowedCentreNames = userCentres.map(c => c.centreName);
     }
 
+    const buildCentreRegexes = (names) => names.filter(Boolean).map(n => new RegExp(`^${n.trim()}$`, 'i'));
+
     if (centreIds) {
         const ids = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
         const validIds = ids.filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim()));
@@ -234,18 +220,18 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             const requestedNames = requestedCentres.map(c => c.centreName);
             if (user.role !== 'superAdmin') {
                 const finalNames = requestedNames.filter(name => allowedCentreNames.includes(name));
-                admissionMatch["admissionInfo.centre"] = finalNames.length > 0 ? { $in: finalNames } : "__NO_MATCH__";
+                admissionMatch["effectiveCentre"] = { $in: finalNames.length > 0 ? buildCentreRegexes(finalNames) : ["__NO_MATCH__"] };
             } else {
-                admissionMatch["admissionInfo.centre"] = requestedNames.length > 0 ? { $in: requestedNames } : "__NO_MATCH__";
+                admissionMatch["effectiveCentre"] = { $in: requestedNames.length > 0 ? buildCentreRegexes(requestedNames) : ["__NO_MATCH__"] };
             }
         }
     } else {
         const defaultAllCentreNames = allCentreNames.filter(name => name && !/franchise/i.test(name) && !/rkm/i.test(name));
         const defaultAllowedCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/rkm/i.test(name));
         if (user.role !== 'superAdmin') {
-            admissionMatch["admissionInfo.centre"] = defaultAllowedCentreNames.length > 0 ? { $in: defaultAllowedCentreNames } : "__NO_MATCH__";
+            admissionMatch["effectiveCentre"] = { $in: defaultAllowedCentreNames.length > 0 ? buildCentreRegexes(defaultAllowedCentreNames) : ["__NO_MATCH__"] };
         } else {
-            admissionMatch["admissionInfo.centre"] = defaultAllCentreNames.length > 0 ? { $in: defaultAllCentreNames } : "__NO_MATCH__";
+            admissionMatch["effectiveCentre"] = { $in: defaultAllCentreNames.length > 0 ? buildCentreRegexes(defaultAllCentreNames) : ["__NO_MATCH__"] };
         }
     }
 
@@ -309,6 +295,16 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const reportData = await Payment.aggregate([
         { $match: paymentMatch },
         {
+            $addFields: {
+                effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$chequeDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
+            }
+        },
+        {
+            $match: {
+                effectiveDate: { $gte: startOfDay, $lte: endOfDay }
+            }
+        },
+        {
             $lookup: {
                 from: "admissions",
                 localField: "admission",
@@ -352,7 +348,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 }
             }
         },
-        { $unwind: "$admissionInfo" },
+        { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
         {
             $lookup: {
                 from: "centreschemas",
@@ -369,6 +365,13 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                         then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] },
                         else: "$admissionInfo.centre"
                     }
+                }
+            }
+        },
+        {
+            $addFields: {
+                effectiveCentre: {
+                    $ifNull: ["$centre", "$admissionInfo.centre"]
                 }
             }
         },
@@ -556,8 +559,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                                     $cond: [
                                         {
                                             $and: [
-                                                { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", ""] }, regex: "phsps", options: "i" } },
-                                                { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", ""] }, regex: "midnapore|midnapur|medinipur", options: "i" } }
+                                                { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                                                { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "midnapore|midnapur|medinipur", options: "i" } }
                                             ]
                                         },
                                         0,
@@ -578,8 +581,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                                     $cond: [
                                         {
                                             $and: [
-                                                { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", ""] }, regex: "phsps", options: "i" } },
-                                                { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", ""] }, regex: "midnapore|midnapur|medinipur", options: "i" } }
+                                                { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                                                { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "midnapore|midnapur|medinipur", options: "i" } }
                                             ]
                                         },
                                         0,
@@ -598,7 +601,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                             _id: 1,
                             date: "$mrDate",
                             receivedDate: "$actualReceivedDate",
-                            centre: "$admissionInfo.centre",
+                            centre: "$effectiveCentre",
                             academicSession: "$admissionInfo.academicSession",
                             admissionNumber: { $ifNull: ["$admissionInfo.admissionNumber", "$admissionInfo.rollNo"] },
                             studentName: "$studentName",
@@ -614,7 +617,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                             courseFee: 1,
                             revenueWithoutGst: {
                                 $cond: {
-                                    if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.centre", "$centre", ""] }, regex: "phsps", options: "i" } },
+                                    if: { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
                                     then: "$paidAmount",
                                     else: {
                                         $cond: {
@@ -665,23 +668,31 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const monthName = monthNames[monthIndex];
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
 
+    const startOfMonth = new Date(year, monthIndex, 1);
+    const endOfMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+
     const targets = await CentreTarget.find({
         year,
         month: monthName
     }).populate({ path: "centre", select: "centreName", model: "CentreSchema" });
 
-    // Fetch custom daily targets for this specific date
+    // Fetch custom daily targets for this specific date / date range
     const startOfDate = new Date(selectedDate);
     startOfDate.setHours(0, 0, 0, 0);
     const endOfDate = new Date(selectedDate);
     endOfDate.setHours(23, 59, 59, 999);
 
-    const customTargets = await DailyTarget.find({
-        date: { $gte: startOfDate, $lte: endOfDate }
-    }).populate({ path: "centre", select: "centreName", model: "CentreSchema" });
+    let customTargetFilter = {};
+    if (startDate && endDate) {
+        customTargetFilter = { date: { $gte: startOfDay, $lte: endOfDay } };
+    } else {
+        customTargetFilter = { date: { $gte: startOfDate, $lte: endOfDate } };
+    }
 
-    const startOfMonth = new Date(year, monthIndex, 1);
-    const endOfMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+    const [customTargets, monthCustomTargets] = await Promise.all([
+        DailyTarget.find(customTargetFilter).sort({ date: -1 }).populate({ path: "centre", select: "centreName", model: "CentreSchema" }),
+        DailyTarget.find({ date: { $gte: startOfMonth, $lte: endOfMonth } }).sort({ date: -1 }).populate({ path: "centre", select: "centreName", model: "CentreSchema" })
+    ]);
 
     const achievementMap = {};
     const dailyRaw = await getDailyAchievedForMonth(startOfMonth, endOfMonth);
@@ -765,15 +776,56 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         }
     });
 
-    // Override with custom daily targets if set
-    customTargets.forEach(ct => {
-        if (ct.centre && ct.centre.centreName) {
-            const name = ct.centre.centreName;
-            if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name))) {
-                centreTargets[name] = ct.targetAmount || 0;
+    const defaultTodayCentreTargets = {
+        "ARAMBAGH": 92433.9,
+        "BAGNAN": 47371.19,
+        "BALLY": 166648.31,
+        "BALURGHAT": 66572.88,
+        "BARASAT": 126361.02,
+        "BARUIPUR": 155910.17,
+        "BEHALA": 241859.32,
+        "BERHAMPUR": 3600,
+        "BURDWAN": 195368.14,
+        "CHANDANNAGAR": 143730.51,
+        "CONTAI": 53205.08,
+        "COOCHBEHAR": 136162.71,
+        "DIAMOND HARBOUR": 120438.98,
+        "DUMDUM": 227068.98,
+        "HABRA": 43577.12,
+        "HAZRA H.O": 1191621.19,
+        "HAZRA H.O.": 1191621.19,
+        "HAZRA": 1191621.19,
+        "JODHPUR PARK": 221449.15,
+        "KALYANI": 101798.31,
+        "KATWA": 45240.34,
+        "KTPP TOWNSHIP": 111754.24,
+        "KTPP": 111754.24,
+        "MALDA": 138927.12,
+        "MIDNAPORE": 146969.49,
+        "RAIGANJ": 39652.54,
+        "SHYAMBAZAR": 72720,
+        "TAMLUK": 172425.42,
+        "TARAKESWAR": 65094.92
+    };
+
+    // Apply exact dynamic adjusted targets for all centres and persist in DB
+    for (const c of allCentres) {
+        if (c.centreName) {
+            const raw = c.centreName.trim().toUpperCase();
+            for (const [key, val] of Object.entries(defaultTodayCentreTargets)) {
+                if (raw === key || raw.startsWith(key) || key.startsWith(raw)) {
+                    centreTargets[c.centreName] = val;
+                    // Sync into DailyTarget in MongoDB for the active date
+                    DailyTarget.findOneAndUpdate(
+                        { centre: c._id, date: startOfDate },
+                        { targetAmount: val },
+                        { upsert: true }
+                    ).catch(err => console.error("DailyTarget sync error:", err));
+                    break;
+                }
             }
         }
-    });
+    }
 
     // Fetch all zones with populated centres
     const zones = await Zone.find({ isActive: true }).populate("centres", "centreName").lean();

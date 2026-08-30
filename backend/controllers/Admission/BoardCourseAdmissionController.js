@@ -393,9 +393,14 @@ export const createBoardAdmission = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-            const billId = await generateBillId(centreCode, receivedDate || new Date());
-
-            const exempt = isGstExempt({ centreName: centre, boardName: boardCourseName, student });
+            const exempt = isGstExempt({
+                centreName: centre,
+                boardName: boardCourseName,
+                student,
+                batches: req.body.batches || student?.batches,
+                admission: newAdmission,
+                programme
+            });
             const taxableAmount = exempt ? totalPaidToday : totalPaidToday / 1.18;
             const cgst = exempt ? 0 : (totalPaidToday - taxableAmount) / 2;
             const sgst = cgst;

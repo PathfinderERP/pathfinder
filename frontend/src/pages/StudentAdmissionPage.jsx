@@ -411,8 +411,26 @@ const StudentAdmissionPage = () => {
 
         const feeWaiver = parseFloat(formData.feeWaiver) || 0;
 
-        // Calculate Total Inclusive Fees BEFORE waiver (Standard GST 18%)
-        const totalInclusiveBeforeWaiver = baseFees * 1.18;
+        const centre = (student?.studentsDetails?.[0]?.centre || formData.centre || '').toString();
+        const isPhsps = centre && /phsps/i.test(centre);
+        const board = (
+            selectedBoard?.boardCourse ||
+            selectedBoard?.name ||
+            student?.studentsDetails?.[0]?.board ||
+            student?.examSchema?.[0]?.board ||
+            formData.board ||
+            ''
+        ).toString();
+        const isWbchse = /wbchse/i.test(board);
+        const batches = student?.batches || formData.batches || [];
+        const hasTaat = (Array.isArray(batches) && batches.some(b => {
+            const bName = typeof b === 'string' ? b : (b?.batchName || b?.name || '');
+            return /taat/i.test(bName);
+        })) || /taat/i.test(formData.programme || '') || /taat/i.test(student?.studentsDetails?.[0]?.programme || '');
+        const isExempt = isPhsps || (isWbchse && hasTaat);
+
+        // Calculate Total Inclusive Fees BEFORE waiver (Standard GST 18% or 0% if exempt)
+        const totalInclusiveBeforeWaiver = isExempt ? baseFees : baseFees * 1.18;
 
         // Total Fees after waiver (deducted from total inclusive amount)
         const previousBalance = student?.carryForwardBalance || 0;
@@ -420,11 +438,11 @@ const StudentAdmissionPage = () => {
 
         // Back-calculate Taxable Amount and GST from the new total (exclusive of previous balance)
         const totalForGst = Math.max(0, totalFees - previousBalance);
-        const taxableAmount = parseFloat((totalForGst / 1.18).toFixed(3));
+        const taxableAmount = isExempt ? totalForGst : parseFloat((totalForGst / 1.18).toFixed(3));
 
         // Calculate CGST (9%) and SGST (9%)
-        const cgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
-        const sgstAmount = parseFloat((taxableAmount * 0.09).toFixed(3));
+        const cgstAmount = isExempt ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
+        const sgstAmount = isExempt ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
 
         // Down payment can be a decimal (e.g. ₹500.50)
         const downPayment = parseFloat(formData.downPayment) || 0;
@@ -434,8 +452,8 @@ const StudentAdmissionPage = () => {
         let monthlyAmount = 0;
         if (admissionType === "BOARD") {
             const monthlyTaxable = monthlyFees;
-            const monthlyCgst = parseFloat((monthlyTaxable * 0.09).toFixed(3));
-            const monthlySgst = parseFloat((monthlyTaxable * 0.09).toFixed(3));
+            const monthlyCgst = isExempt ? 0 : parseFloat((monthlyTaxable * 0.09).toFixed(3));
+            const monthlySgst = isExempt ? 0 : parseFloat((monthlyTaxable * 0.09).toFixed(3));
             monthlyAmount = parseFloat((monthlyTaxable + monthlyCgst + monthlySgst).toFixed(3));
         }
 

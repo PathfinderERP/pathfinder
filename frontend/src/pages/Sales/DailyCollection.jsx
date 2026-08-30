@@ -283,6 +283,10 @@ const DailyCollection = () => {
     const handleSaveTarget = async (centreName) => {
         try {
             const token = localStorage.getItem("token");
+            const targetDateToSend = (activePreset === "custom" && endDate)
+                ? endDate
+                : (date || new Date().toISOString().split("T")[0]);
+
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/daily-collection/target`, {
                 method: "POST",
                 headers: {
@@ -290,7 +294,7 @@ const DailyCollection = () => {
                     Authorization: `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    date: date,
+                    date: targetDateToSend,
                     centreName: centreName,
                     targetAmount: Number(editTargetValue)
                 })
