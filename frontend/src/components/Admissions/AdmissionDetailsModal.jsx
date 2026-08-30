@@ -86,9 +86,10 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
         e.preventDefault();
 
         // Validation: Prevent paying more than total remaining balance
-        const currentRemaining = (admission.totalFees || 0) - (admission.totalPaidAmount || 0);
-        if (paymentData.paidAmount > currentRemaining) {
-            toast.error(`Blocked: ₹${paymentData.paidAmount.toLocaleString()} exceeds total remaining balance of ₹${currentRemaining.toLocaleString()}.`);
+        const currentRemaining = Math.round(((admission.totalFees || 0) - (admission.totalPaidAmount || 0)) * 100) / 100;
+        const enteredPaidAmount = parseFloat(paymentData.paidAmount) || 0;
+        if (enteredPaidAmount > currentRemaining + 1) {
+            toast.error(`Blocked: ₹${enteredPaidAmount.toLocaleString()} exceeds total remaining balance of ₹${currentRemaining.toLocaleString()}.`);
             return;
         }
 

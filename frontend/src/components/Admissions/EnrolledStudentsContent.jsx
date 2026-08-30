@@ -1597,9 +1597,10 @@ const EnrolledStudentsContent = () => {
         }
 
         // Validation: Prevent paying more than total remaining balance
-        const remainingBalance = (selectedAdmission.totalFees || 0) - (selectedAdmission.totalPaidAmount || 0);
-        if (paymentData.paidAmount > remainingBalance) {
-            toast.error(`Blocked: ₹${paymentData.paidAmount.toLocaleString()} exceeds total remaining balance of ₹${remainingBalance.toLocaleString()}.`);
+        const remainingBalance = Math.round(((selectedAdmission.totalFees || 0) - (selectedAdmission.totalPaidAmount || 0)) * 100) / 100;
+        const enteredPaidAmount = parseFloat(paymentData.paidAmount) || 0;
+        if (enteredPaidAmount > remainingBalance + 1) {
+            toast.error(`Blocked: ₹${enteredPaidAmount.toLocaleString()} exceeds total remaining balance of ₹${remainingBalance.toLocaleString()}.`);
             return;
         }
 

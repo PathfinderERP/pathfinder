@@ -73,10 +73,10 @@ export const updatePaymentInstallment = async (req, res) => {
         }
 
         // Validation: Cannot pay more than the absolute remaining balance for the entire admission
-        const currentRemaining = (admission.totalFees || 0) - (admission.totalPaidAmount || 0);
+        const currentRemaining = Math.round(((admission.totalFees || 0) - (admission.totalPaidAmount || 0)) * 100) / 100;
         const paidAmountFloat = parseFloat(paidAmount) || 0;
 
-        if (paidAmountFloat > currentRemaining) {
+        if (paidAmountFloat > currentRemaining + 1) {
             return res.status(400).json({
                 message: `Payment rejected: ₹${paidAmountFloat.toLocaleString()} exceeds total course balance of ₹${currentRemaining.toLocaleString()}.`
             });
