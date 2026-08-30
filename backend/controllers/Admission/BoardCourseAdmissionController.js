@@ -378,9 +378,8 @@ export const createBoardAdmission = async (req, res) => {
             department
         });
 
-        const existingEnrollNo = req.body.admissionNumber || req.body.rollNo || (student && (student.admissionNumber || student.studentsDetails?.[0]?.rollNo || student.studentsDetails?.[0]?.admissionNumber));
-        if (existingEnrollNo) {
-            newAdmission.admissionNumber = existingEnrollNo;
+        if (req.body.admissionNumber) {
+            newAdmission.admissionNumber = req.body.admissionNumber;
         }
 
         await newAdmission.save();
@@ -393,6 +392,7 @@ export const createBoardAdmission = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
+            const billId = await generateBillId(centreCode, receivedDate || new Date());
             const exempt = isGstExempt({
                 centreName: centre,
                 boardName: boardCourseName,

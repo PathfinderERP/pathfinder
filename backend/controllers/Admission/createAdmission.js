@@ -372,13 +372,7 @@ export const createAdmission = async (req, res) => {
             });
         }
 
-        // Check for existing admission to reuse Admission Number
-        const existingEnrollNo = req.body.admissionNumber || req.body.rollNo || (student && (student.admissionNumber || student.studentsDetails?.[0]?.rollNo || student.studentsDetails?.[0]?.admissionNumber));
-        let admissionNumber = existingEnrollNo;
-        if (!admissionNumber) {
-            const existingAdmission = await Admission.findOne({ student: studentId }).sort({ createdAt: -1 });
-            admissionNumber = existingAdmission ? existingAdmission.admissionNumber : undefined;
-        }
+        let admissionNumber = req.body.admissionNumber || undefined;
 
         // Initialize monthly subject history for Board admissions
         const monthlyHistory = [];

@@ -204,30 +204,7 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
 boardCourseAdmissionSchema.pre('save', async function () {
     if (!this.admissionNumber) {
         try {
-            // Check if this student ALREADY has an admission number in ANY admission record (Normal, Board, PNTSE, PMO, or Student profile)
             const Admission = mongoose.model("Admission");
-            const targetId = this.studentId;
-
-            const [existingNormal, existingBoard, existingPntse, existingPmo, studentDoc] = await Promise.all([
-                Admission.findOne({ student: targetId, admissionNumber: { $exists: true, $ne: null, $ne: "" } }).lean(),
-                this.constructor.findOne({ studentId: targetId, admissionNumber: { $exists: true, $ne: null, $ne: "" } }).lean(),
-                mongoose.model("PNTSEStudent").findOne({ $or: [{ studentId: targetId }, { _id: targetId }], rollNo: { $exists: true, $ne: null, $ne: "" } }).lean().catch(() => null),
-                mongoose.model("PMOStudent").findOne({ $or: [{ studentId: targetId }, { _id: targetId }], rollNo: { $exists: true, $ne: null, $ne: "" } }).lean().catch(() => null),
-                mongoose.model("Student").findById(targetId).lean().catch(() => null)
-            ]);
-
-            const sharedId = (existingNormal && existingNormal.admissionNumber) ||
-                             (existingBoard && existingBoard.admissionNumber) ||
-                             (existingPntse && existingPntse.rollNo) ||
-                             (existingPmo && existingPmo.rollNo) ||
-                             (studentDoc && (studentDoc.admissionNumber || studentDoc.studentsDetails?.[0]?.rollNo || studentDoc.studentsDetails?.[0]?.admissionNumber));
-
-            if (sharedId) {
-                this.admissionNumber = sharedId;
-                return;
-            }
-
-            // Generate new sequence if student has no existing ID
             const now = new Date();
             const year = now.getFullYear().toString().slice(-2);
             const prefix = `PATH${year}`;

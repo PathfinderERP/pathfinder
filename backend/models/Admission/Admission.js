@@ -278,30 +278,7 @@ admissionSchema.pre('save', async function () {
                 BoardCourseAdmission = null;
             }
 
-            const targetId = this.student;
-
-            const [existingNormal, existingBoard, existingPntse, existingPmo, studentDoc] = await Promise.all([
-                this.constructor.findOne({ student: targetId, admissionNumber: { $exists: true, $ne: null, $ne: "" } }).lean(),
-                BoardCourseAdmission 
-                    ? BoardCourseAdmission.findOne({ studentId: targetId, admissionNumber: { $exists: true, $ne: null, $ne: "" } }).lean()
-                    : Promise.resolve(null),
-                mongoose.model("PNTSEStudent").findOne({ $or: [{ studentId: targetId }, { _id: targetId }], rollNo: { $exists: true, $ne: null, $ne: "" } }).lean().catch(() => null),
-                mongoose.model("PMOStudent").findOne({ $or: [{ studentId: targetId }, { _id: targetId }], rollNo: { $exists: true, $ne: null, $ne: "" } }).lean().catch(() => null),
-                mongoose.model("Student").findById(targetId).lean().catch(() => null)
-            ]);
-
-            const sharedId = (existingNormal && existingNormal.admissionNumber) ||
-                             (existingBoard && existingBoard.admissionNumber) ||
-                             (existingPntse && existingPntse.rollNo) ||
-                             (existingPmo && existingPmo.rollNo) ||
-                             (studentDoc && (studentDoc.admissionNumber || studentDoc.studentsDetails?.[0]?.rollNo || studentDoc.studentsDetails?.[0]?.admissionNumber));
-
-            if (sharedId) {
-                this.admissionNumber = sharedId;
-                return;
-            }
-
-            // Generate new sequence if student has no existing ID
+            // Generate new sequence if admission has no ID
             const now = new Date();
             const year = now.getFullYear().toString().slice(-2);
             const prefix = `PATH${year}`;
