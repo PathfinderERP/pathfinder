@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
-import { FaPrint, FaSave, FaSync, FaCheckCircle, FaTrash, FaCheck, FaExclamationTriangle, FaFileInvoice, FaArrowLeft, FaMoneyBillWave, FaPlus, FaTimes } from 'react-icons/fa';
+import { FaPrint, FaSave, FaSync, FaCheckCircle, FaTrash, FaCheck, FaExclamationTriangle, FaFileInvoice, FaArrowLeft, FaMoneyBillWave, FaPlus, FaTimes, FaEdit } from 'react-icons/fa';
 import BillGenerator from '../components/Finance/BillGenerator';
 import { useTheme } from '../context/ThemeContext';
 import RazorpaySMSModal from '../components/Finance/RazorpaySMSModal';
@@ -27,6 +27,16 @@ const ManageBoardAdmission = () => {
     const [examPaymentModal, setExamPaymentModal] = useState(false);
     const [additionalFeePaymentModal, setAdditionalFeePaymentModal] = useState(false);
     const [ncrpPaymentModal, setNcrpPaymentModal] = useState(false);
+    const [editingInstId, setEditingInstId] = useState(null);
+    const [editMonth, setEditMonth] = useState(0);
+    const [editYear, setEditYear] = useState(new Date().getFullYear());
+    const [isSavingDate, setIsSavingDate] = useState(false);
+
+    const MONTH_NAMES = [
+        "January", "February", "March", "April", "May", "June",
+        "July", "August", "September", "October", "November", "December"
+    ];
+    const YEARS_LIST = Array.from({ length: 15 }, (_, i) => new Date().getFullYear() - 2 + i);
     const [ncrpPaymentForm, setNcrpPaymentForm] = useState({
         paidExamFee: 0,
         paidAdditionalThings: 0,
@@ -365,6 +375,39 @@ const ManageBoardAdmission = () => {
         }
     };
 
+    const handleSaveInstallmentDate = async (instId, e) => {
+        e?.stopPropagation();
+        setIsSavingDate(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/board-admission/update-installment-date/${id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    installmentId: instId,
+                    month: editMonth,
+                    year: editYear
+                })
+            });
+
+            if (response.ok) {
+                toast.success("Installment month/year updated successfully");
+                setEditingInstId(null);
+                fetchData();
+            } else {
+                const data = await response.json();
+                toast.error(data.message || "Failed to update installment date");
+            }
+        } catch {
+            toast.error("Failed to update installment date");
+        } finally {
+            setIsSavingDate(false);
+        }
+    };
+
     const calculateCurrentMonthly = () => {
         if (!masterSubjects.length) return 0;
         return masterSubjects
@@ -478,9 +521,64 @@ const ManageBoardAdmission = () => {
                                                         {isPaid ? <FaCheck /> : inst.monthNumber}
                                                     </div>
                                                     <div className="space-y-1">
-                                                        <p className={`text-sm font-black uppercase ${isPaid ? 'text-emerald-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
-                                                            {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                                                        </p>
+                                                        {editingInstId === inst._id ? (
+                                                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                                <select
+                                                                    value={editMonth}
+                                                                    onChange={(e) => setEditMonth(Number(e.target.value))}
+                                                                    className={`px-2 py-1 text-xs font-bold uppercase rounded border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                                                >
+                                                                    {MONTH_NAMES.map((mName, idx) => (
+                                                                        <option key={mName} value={idx}>{mName.toUpperCase()}</option>
+                                                                    ))}
+                                                                </select>
+                                                                <select
+                                                                    value={editYear}
+                                                                    onChange={(e) => setEditYear(Number(e.target.value))}
+                                                                    className={`px-2 py-1 text-xs font-bold uppercase rounded border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                                                >
+                                                                    {YEARS_LIST.map((y) => (
+                                                                        <option key={y} value={y}>{y}</option>
+                                                                    ))}
+                                                                </select>
+                                                                <button
+                                                                    onClick={(e) => handleSaveInstallmentDate(inst._id, e)}
+                                                                    disabled={isSavingDate}
+                                                                    className="p-1.5 bg-emerald-500 text-black rounded hover:bg-emerald-400 transition-all text-xs font-bold"
+                                                                    title="Save"
+                                                                >
+                                                                    <FaCheck />
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); setEditingInstId(null); }}
+                                                                    className="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 transition-all text-xs font-bold"
+                                                                    title="Cancel"
+                                                                >
+                                                                    <FaTimes />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex items-center gap-2 group/date">
+                                                                <p className={`text-sm font-black uppercase ${isPaid ? 'text-emerald-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
+                                                                    {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                                                                </p>
+                                                                {admission?.studentId?.status !== 'Deactivated' && (
+                                                                    <button
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            const d = new Date(inst.dueDate);
+                                                                            setEditingInstId(inst._id);
+                                                                            setEditMonth(d.getMonth());
+                                                                            setEditYear(d.getFullYear());
+                                                                        }}
+                                                                        className="p-1 text-gray-400 hover:text-cyan-400 transition-all cursor-pointer"
+                                                                        title="Click to update month and year"
+                                                                    >
+                                                                        <FaEdit className="text-xs" />
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                         <p className="text-[11px] font-bold uppercase tracking-wider">
                                                             Payable: <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>₹{inst.payableAmount.toFixed(0)}</span>
                                                         </p>

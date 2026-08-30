@@ -1850,3 +1850,43 @@ export const repairCancelledBoardAdmissions = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+export const updateBoardInstallmentDate = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { installmentId, month, year } = req.body;
+
+        if (month === undefined || year === undefined) {
+            return res.status(400).json({ message: "Month and Year are required." });
+        }
+
+        const admission = await BoardCourseAdmission.findById(id).populate('studentId');
+        if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        if (admission.studentId && admission.studentId.status === 'Deactivated') {
+            return res.status(400).json({ message: "This student is deactivated. Updates are disabled." });
+        }
+
+        const inst = admission.installments.id(installmentId) || admission.installments.find(i => i._id.toString() === installmentId || i.monthNumber === Number(installmentId));
+        if (!inst) {
+            return res.status(404).json({ message: "Installment not found" });
+        }
+
+        const monthIdx = Number(month);
+        const yearNum = Number(year);
+
+        const existingDate = inst.dueDate ? new Date(inst.dueDate) : new Date();
+        const day = existingDate.getDate() || 1;
+
+        const newDueDate = new Date(Date.UTC(yearNum, monthIdx, day, 12, 0, 0));
+        inst.dueDate = newDueDate;
+
+        await admission.save({ validateBeforeSave: false });
+
+        res.status(200).json({ message: "Installment date updated successfully", admission });
+    } catch (error) {
+        console.error("Update Installment Date Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+

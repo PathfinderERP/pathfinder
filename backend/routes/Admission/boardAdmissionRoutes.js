@@ -12,7 +12,8 @@ import {
     bulkUpdateBoardAdmissions,
     deleteBoardAdmission,
     reactivateBoardAdmission,
-    repairCancelledBoardAdmissions
+    repairCancelledBoardAdmissions,
+    updateBoardInstallmentDate
 } from "../../controllers/Admission/BoardCourseAdmissionController.js";
 import {
     createBoardCourseCounselling,
@@ -31,6 +32,7 @@ router.get("/analysis", requireGranularPermission("admissions", "boardCourseAdmi
 router.post("/repair-cancelled", repairCancelledBoardAdmissions);
 router.get("/:id", requireGranularPermission("admissions", "boardCourseAdmission", "view"), getBoardAdmissionById);
 router.put("/update-subjects/:id", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), updateBoardSubjects);
+router.put("/update-installment-date/:id", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), updateBoardInstallmentDate);
 router.post("/collect-installment/:id", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), collectBoardInstallment);
 router.post("/collect-exam-fee/:id", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), collectBoardExamFee);
 router.post("/collect-additional-fee/:id", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), collectBoardAdditionalFee);
