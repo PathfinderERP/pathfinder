@@ -77,36 +77,96 @@ export const calculateCentreTargetAchieved = async (centreName, month, year, cus
                 }
             },
             {
+                $lookup: {
+                    from: "pntsestudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPntse"
+                }
+            },
+            {
+                $lookup: {
+                    from: "pmostudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPmo"
+                }
+            },
+            {
                 $addFields: {
                     admissionDetails: {
                         $ifNull: [
                             { $arrayElemAt: ["$admissionInfoNormal", 0] },
-                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] },
+                            { $arrayElemAt: ["$admissionInfoPntse", 0] },
+                            { $arrayElemAt: ["$admissionInfoPmo", 0] }
                         ]
                     }
                 }
             },
-            { $unwind: "$admissionDetails" },
+            { $unwind: { path: "$admissionDetails", preserveNullAndEmptyArrays: true } },
             {
-                $match: {
-                    "admissionDetails.centre": centreName,
-                    billId: { $exists: true, $nin: [null, "", "-"] },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
-                        { paymentMethod: "CHEQUE" },
-                        { paidAmount: { $gt: 0 } }
-                    ]
+                $lookup: {
+                    from: "centreschemas",
+                    localField: "admissionDetails.centre",
+                    foreignField: "_id",
+                    as: "pntseCentreInfo"
                 }
             },
             {
                 $addFields: {
-                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
-                    revenueBase: { $cond: [{ $gt: ["$courseFee", 0] }, "$courseFee", { $divide: ["$paidAmount", 1.18] }] }
+                    effectiveCentre: {
+                        $ifNull: [
+                            "$centre",
+                            { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] },
+                            "$admissionDetails.centre"
+                        ]
+                    },
+                    effectiveDate: {
+                        $ifNull: [
+                            { $toDate: "$paidDate" },
+                            { $toDate: "$chequeDate" },
+                            { $toDate: "$receivedDate" },
+                            "$createdAt"
+                        ]
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    revenueBase: {
+                        $cond: {
+                            if: { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                            then: "$paidAmount",
+                            else: {
+                                $cond: {
+                                    if: { $and: [{ $ne: ["$courseFee", null] }, { $gt: ["$courseFee", 0] }] },
+                                    then: "$courseFee",
+                                    else: {
+                                        $cond: {
+                                            if: { $and: [{ $eq: ["$cgst", 0] }, { $eq: ["$sgst", 0] }] },
+                                            then: "$paidAmount",
+                                            else: { $divide: ["$paidAmount", 1.18] }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             },
             {
                 $match: {
-                    "effectiveDate": { $gte: startOfMonth, $lte: endOfTargetMonth }
+                    billId: { $regex: /^PATH/i },
+                    $or: [
+                        { status: { $in: ["PAID", "PARTIAL"] } },
+                        {
+                            paymentMethod: "CHEQUE",
+                            status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
+                        }
+                    ],
+                    effectiveCentre: { $regex: new RegExp(`^${(centreName || "").trim()}$`, 'i') },
+                    effectiveDate: { $gte: startOfMonth, $lte: endOfTargetMonth }
                 }
             },
             {
@@ -167,36 +227,96 @@ export const calculateCentreTargetAchievedYearly = async (centreName, financialY
                 }
             },
             {
+                $lookup: {
+                    from: "pntsestudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPntse"
+                }
+            },
+            {
+                $lookup: {
+                    from: "pmostudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPmo"
+                }
+            },
+            {
                 $addFields: {
                     admissionDetails: {
                         $ifNull: [
                             { $arrayElemAt: ["$admissionInfoNormal", 0] },
-                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] },
+                            { $arrayElemAt: ["$admissionInfoPntse", 0] },
+                            { $arrayElemAt: ["$admissionInfoPmo", 0] }
                         ]
                     }
                 }
             },
-            { $unwind: "$admissionDetails" },
+            { $unwind: { path: "$admissionDetails", preserveNullAndEmptyArrays: true } },
             {
-                $match: {
-                    "admissionDetails.centre": centreName,
-                    billId: { $exists: true, $nin: [null, "", "-"] },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
-                        { paymentMethod: "CHEQUE" },
-                        { paidAmount: { $gt: 0 } }
-                    ]
+                $lookup: {
+                    from: "centreschemas",
+                    localField: "admissionDetails.centre",
+                    foreignField: "_id",
+                    as: "pntseCentreInfo"
                 }
             },
             {
                 $addFields: {
-                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
-                    revenueBase: { $cond: [{ $gt: ["$courseFee", 0] }, "$courseFee", { $divide: ["$paidAmount", 1.18] }] }
+                    effectiveCentre: {
+                        $ifNull: [
+                            "$centre",
+                            { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] },
+                            "$admissionDetails.centre"
+                        ]
+                    },
+                    effectiveDate: {
+                        $ifNull: [
+                            { $toDate: "$paidDate" },
+                            { $toDate: "$chequeDate" },
+                            { $toDate: "$receivedDate" },
+                            "$createdAt"
+                        ]
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    revenueBase: {
+                        $cond: {
+                            if: { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                            then: "$paidAmount",
+                            else: {
+                                $cond: {
+                                    if: { $and: [{ $ne: ["$courseFee", null] }, { $gt: ["$courseFee", 0] }] },
+                                    then: "$courseFee",
+                                    else: {
+                                        $cond: {
+                                            if: { $and: [{ $eq: ["$cgst", 0] }, { $eq: ["$sgst", 0] }] },
+                                            then: "$paidAmount",
+                                            else: { $divide: ["$paidAmount", 1.18] }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             },
             {
                 $match: {
-                    "effectiveDate": { $gte: startOfFY, $lte: endOfTarget }
+                    billId: { $regex: /^PATH/i },
+                    $or: [
+                        { status: { $in: ["PAID", "PARTIAL"] } },
+                        {
+                            paymentMethod: "CHEQUE",
+                            status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
+                        }
+                    ],
+                    effectiveCentre: { $regex: new RegExp(`^${(centreName || "").trim()}$`, 'i') },
+                    effectiveDate: { $gte: startOfFY, $lte: endOfTarget }
                 }
             },
             {
@@ -244,7 +364,6 @@ export const calculateCentreTargetAchievedMultiMonth = async (centreName, monthS
         // Construct exact month boundary matches
         const dateMatches = selectedMonths.map(month => {
             const monthIndex = monthNames.indexOf(month);
-            // In Indian FY, Apr-Dec (3-11) fall in fyStartYear. Jan-Mar (0-2) fall in fyEndYear.
             const calYear = monthIndex >= 3 ? fyStartYear : fyEndYear;
             
             return {
@@ -273,35 +392,95 @@ export const calculateCentreTargetAchievedMultiMonth = async (centreName, monthS
                 }
             },
             {
+                $lookup: {
+                    from: "pntsestudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPntse"
+                }
+            },
+            {
+                $lookup: {
+                    from: "pmostudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPmo"
+                }
+            },
+            {
                 $addFields: {
                     admissionDetails: {
                         $ifNull: [
                             { $arrayElemAt: ["$admissionInfoNormal", 0] },
-                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] },
+                            { $arrayElemAt: ["$admissionInfoPntse", 0] },
+                            { $arrayElemAt: ["$admissionInfoPmo", 0] }
                         ]
                     }
                 }
             },
-            { $unwind: "$admissionDetails" },
+            { $unwind: { path: "$admissionDetails", preserveNullAndEmptyArrays: true } },
             {
-                $match: {
-                    "admissionDetails.centre": centreName,
-                    billId: { $exists: true, $nin: [null, "", "-"] },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
-                        { paymentMethod: "CHEQUE" },
-                        { paidAmount: { $gt: 0 } }
-                    ]
+                $lookup: {
+                    from: "centreschemas",
+                    localField: "admissionDetails.centre",
+                    foreignField: "_id",
+                    as: "pntseCentreInfo"
                 }
             },
             {
                 $addFields: {
-                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
-                    revenueBase: { $cond: [{ $gt: ["$courseFee", 0] }, "$courseFee", { $divide: ["$paidAmount", 1.18] }] }
+                    effectiveCentre: {
+                        $ifNull: [
+                            "$centre",
+                            { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] },
+                            "$admissionDetails.centre"
+                        ]
+                    },
+                    effectiveDate: {
+                        $ifNull: [
+                            { $toDate: "$paidDate" },
+                            { $toDate: "$chequeDate" },
+                            { $toDate: "$receivedDate" },
+                            "$createdAt"
+                        ]
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    revenueBase: {
+                        $cond: {
+                            if: { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                            then: "$paidAmount",
+                            else: {
+                                $cond: {
+                                    if: { $and: [{ $ne: ["$courseFee", null] }, { $gt: ["$courseFee", 0] }] },
+                                    then: "$courseFee",
+                                    else: {
+                                        $cond: {
+                                            if: { $and: [{ $eq: ["$cgst", 0] }, { $eq: ["$sgst", 0] }] },
+                                            then: "$paidAmount",
+                                            else: { $divide: ["$paidAmount", 1.18] }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             },
             {
                 $match: {
+                    billId: { $regex: /^PATH/i },
+                    $or: [
+                        { status: { $in: ["PAID", "PARTIAL"] } },
+                        {
+                            paymentMethod: "CHEQUE",
+                            status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
+                        }
+                    ],
+                    effectiveCentre: { $regex: new RegExp(`^${(centreName || "").trim()}$`, 'i') },
                     $or: dateMatches
                 }
             },
@@ -326,46 +505,22 @@ export const calculateCentreTargetAchievedMultiMonth = async (centreName, monthS
 
 /**
  * Updates the 'Target Achieved' for a specific Centre and Month based on a payment date.
- * 
- * @param {string} centreName - The name of the centre (as stored in Admission key)
- * @param {Date} paymentDate - The date of the payment to determine which month/year to update
  */
 export const updateCentreTargetAchieved = async (centreName, paymentDateInput) => {
     try {
         if (!centreName) return;
 
         const paymentDate = new Date(paymentDateInput || Date.now());
-
-        // 1. Determine Period Details
         const year = paymentDate.getFullYear();
-        const monthIndex = paymentDate.getMonth(); // 0-11
+        const monthIndex = paymentDate.getMonth();
         const monthNames = [
             "January", "February", "March", "April", "May", "June",
             "July", "August", "September", "October", "November", "December"
         ];
         const month = monthNames[monthIndex];
 
-        // Financial Year Calculation (e.g., April 2025 to March 2026 is FY 2025-2026)
-        // If Month is Jan(0), Feb(1), Mar(2) -> FY is (Year-1)-(Year)
-        // If Month is Apr(3) to Dec(11) -> FY is (Year)-(Year+1)
-        let fyStart = year;
-        let fyEnd = year + 1;
-        if (monthIndex < 3) {
-            fyStart = year - 1;
-            fyEnd = year;
-        }
-        const financialYear = `${fyStart}-${fyEnd}`;
-
-        // 2. Find Centre ObjectId
-        const centreDoc = await CentreSchema.findOne({ centreName: centreName });
-        if (!centreDoc) {
-            console.warn(`Centre not found with name: ${centreName}`);
-            return;
-        }
-
-        // 3. Find if a Target exists for this period
-        // The user said "on the target achived section it will not be update , uit will just show the data of that centre achivedm"
-        // This implies we should update the 'achievedAmount' on the CentreTarget record.
+        const centreDoc = await CentreSchema.findOne({ centreName: { $regex: new RegExp(`^${centreName.trim()}$`, 'i') } });
+        if (!centreDoc) return;
 
         const targetRecord = await CentreTarget.findOne({
             centre: centreDoc._id,
@@ -373,20 +528,9 @@ export const updateCentreTargetAchieved = async (centreName, paymentDateInput) =
             month: month
         });
 
-        if (!targetRecord) {
-            // Note: If no target exists, we can't update 'achievedAmount' on it.
-            // Requirement usually implies managing targets first.
-            // We will log and skip if no target is set, OR we could create a placeholder.
-            // Given the verified constraints, usually we only update if it exists.
-            // However, to ensure data visibility, let's see. The UI shows rows from `CentreTarget`.
-            // If we don't update, the data won't show.
-            return;
-        }
+        if (!targetRecord) return;
 
-        // 4. Calculate Total Achieved (Cumulative from April 1st)
         const { totalWithGST, totalExclGST } = await calculateCentreTargetAchieved(centreName, month, year);
-
-        // 5. Update Target Record
         targetRecord.achievedAmount = totalWithGST;
         targetRecord.achievedAmountWithGST = totalWithGST;
         targetRecord.achievedAmountExclGST = totalExclGST;
@@ -399,6 +543,7 @@ export const updateCentreTargetAchieved = async (centreName, paymentDateInput) =
 
 export const getBatchAchievedForCentres = async (centreNames, startDate, endDate) => {
     try {
+        const regexes = (centreNames || []).filter(Boolean).map(n => new RegExp(`^${n.trim()}$`, 'i'));
         const result = await Payment.aggregate([
             {
                 $lookup: {
@@ -417,45 +562,105 @@ export const getBatchAchievedForCentres = async (centreNames, startDate, endDate
                 }
             },
             {
+                $lookup: {
+                    from: "pntsestudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPntse"
+                }
+            },
+            {
+                $lookup: {
+                    from: "pmostudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPmo"
+                }
+            },
+            {
                 $addFields: {
                     admissionDetails: {
                         $ifNull: [
                             { $arrayElemAt: ["$admissionInfoNormal", 0] },
-                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] },
+                            { $arrayElemAt: ["$admissionInfoPntse", 0] },
+                            { $arrayElemAt: ["$admissionInfoPmo", 0] }
                         ]
                     }
                 }
             },
-            { $unwind: "$admissionDetails" },
+            { $unwind: { path: "$admissionDetails", preserveNullAndEmptyArrays: true } },
             {
-                $match: {
-                    "admissionDetails.centre": { $in: centreNames },
-                    billId: { $exists: true, $nin: [null, "", "-"] },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
-                        { paymentMethod: "CHEQUE" },
-                        { paidAmount: { $gt: 0 } }
-                    ]
+                $lookup: {
+                    from: "centreschemas",
+                    localField: "admissionDetails.centre",
+                    foreignField: "_id",
+                    as: "pntseCentreInfo"
                 }
             },
             {
                 $addFields: {
-                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
-                    revenueBase: { $cond: [{ $gt: ["$courseFee", 0] }, "$courseFee", { $divide: ["$paidAmount", 1.18] }] }
+                    effectiveCentre: {
+                        $ifNull: [
+                            "$centre",
+                            { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] },
+                            "$admissionDetails.centre"
+                        ]
+                    },
+                    effectiveDate: {
+                        $ifNull: [
+                            { $toDate: "$paidDate" },
+                            { $toDate: "$chequeDate" },
+                            { $toDate: "$receivedDate" },
+                            "$createdAt"
+                        ]
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    revenueBase: {
+                        $cond: {
+                            if: { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                            then: "$paidAmount",
+                            else: {
+                                $cond: {
+                                    if: { $and: [{ $ne: ["$courseFee", null] }, { $gt: ["$courseFee", 0] }] },
+                                    then: "$courseFee",
+                                    else: {
+                                        $cond: {
+                                            if: { $and: [{ $eq: ["$cgst", 0] }, { $eq: ["$sgst", 0] }] },
+                                            then: "$paidAmount",
+                                            else: { $divide: ["$paidAmount", 1.18] }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
                 }
             },
             {
                 $match: {
+                    billId: { $regex: /^PATH/i },
+                    $or: [
+                        { status: { $in: ["PAID", "PARTIAL"] } },
+                        {
+                            paymentMethod: "CHEQUE",
+                            status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
+                        }
+                    ],
+                    effectiveCentre: { $in: regexes },
                     effectiveDate: { $gte: startDate, $lte: endDate }
                 }
             },
             {
                 $group: {
                     _id: {
-                        centre: "$admissionDetails.centre",
-                        year: { $year: "$effectiveDate" },
-                        month: { $month: "$effectiveDate" },
-                        day: { $dayOfMonth: "$effectiveDate" }
+                        centre: "$effectiveCentre",
+                        year: { $year: { date: "$effectiveDate", timezone: "+05:30" } },
+                        month: { $month: { date: "$effectiveDate", timezone: "+05:30" } },
+                        day: { $dayOfMonth: { date: "$effectiveDate", timezone: "+05:30" } }
                     },
                     totalWithGST: { $sum: "$paidAmount" },
                     totalExclGST: { $sum: "$revenueBase" }

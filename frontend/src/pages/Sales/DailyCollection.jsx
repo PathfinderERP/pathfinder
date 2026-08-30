@@ -625,7 +625,7 @@ const DailyCollection = () => {
             z.centres.forEach(c => {
                 const name = c && typeof c === 'object' ? c.centreName : null;
                 const id = c && typeof c === 'object' ? (c._id || c.id) : c;
-                if (name) zoneCentreNames.add(name);
+                if (name) zoneCentreNames.add(name.toLowerCase().trim());
                 if (id) zoneCentreIds.add(id.toString().toLowerCase().trim());
             });
         }
@@ -636,7 +636,7 @@ const DailyCollection = () => {
         : centres;
 
     const activeDetails = selectedZones.length > 0
-        ? dailyDetails.filter(d => d.centre && zoneCentreNames.has(d.centre))
+        ? dailyDetails.filter(d => d.centre && zoneCentreNames.has(d.centre.toLowerCase().trim()))
         : dailyDetails;
 
     const filteredZones = zones.filter((z) =>

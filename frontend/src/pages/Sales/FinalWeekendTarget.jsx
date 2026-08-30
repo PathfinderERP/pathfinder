@@ -310,12 +310,12 @@ const FinalWeekendTarget = () => {
 
     // ── Summary cards & filtered active centres ──────────────────────────────
     const activeCentres = React.useMemo(() => {
-        const raw = data?.centres?.filter(c => c.status === "active") || [];
+        const raw = data?.centres?.filter(c => c.status !== "deactive" && !/franchise/i.test(c.centreName || '') && !/rkm/i.test(c.centreName || '')) || [];
         return raw.filter(c => isCentreAllowedByZone(c.centreId, c.centreName));
     }, [data, isCentreAllowedByZone]);
-    const totalTarget = activeCentres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + c.monthlyTargetExclGST, 0);
-    const totalAchieved = activeCentres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + c.totalAchievedExclGST, 0);
-    const totalWeekend = activeCentres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + c.totalWeekendExclGST, 0);
+    const totalTarget = activeCentres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + (Number(c.monthlyTargetExclGST) || 0), 0);
+    const totalAchieved = activeCentres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + (Number(c.totalAchievedExclGST) || 0), 0);
+    const totalWeekend = activeCentres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + (Number(c.totalWeekendExclGST) || 0), 0);
 
     // ── Export ────────────────────────────────────────────────────────────────
     const handleExport = () => {

@@ -112,10 +112,11 @@ export const getCentreTargets = async (req, res) => {
         } else {
             let targetCentres;
             if (req.user.role !== 'superAdmin') {
-                targetCentres = await Centre.find({ _id: { $in: req.user.centres || [] }, status: { $ne: "deactive" }, centreName: { $nin: [/franchise/i, /rkm/i] } }).select("_id");
+                targetCentres = await Centre.find({ _id: { $in: req.user.centres || [] }, status: { $ne: "deactive" } }).select("_id centreName");
             } else {
-                targetCentres = await Centre.find({ status: { $ne: "deactive" }, centreName: { $nin: [/franchise/i, /rkm/i] } }).select("_id");
+                targetCentres = await Centre.find({ status: { $ne: "deactive" } }).select("_id centreName");
             }
+            targetCentres = targetCentres.filter(c => c && c.centreName && !/franchise/i.test(c.centreName) && !/rkm/i.test(c.centreName));
             const targetIds = targetCentres.map(c => c._id);
             query.centre = { $in: targetIds.length > 0 ? targetIds : [new mongoose.Types.ObjectId()] };
         }
@@ -156,32 +157,34 @@ export const getCentreTargets = async (req, res) => {
                 query.month = { $regex: /,/ };
             } else if (viewMode === "Monthly") {
                 if (month) query.month = month;
-                else query.month = { $not: /,|YEARLY/ };
+                else query.month = { $nin: ["YEARLY"], $regex: "^[^,]+$" };
             } else if (month) {
-                 query.month = month;
+                  query.month = month;
             }
 
             if (year && !isNaN(parseInt(year))) query.year = parseInt(year);
         }
 
-        const targets = await CentreTarget.find(query)
+        let targets = await CentreTarget.find(query)
             .populate({ path: 'centre', select: 'centreName', model: 'CentreSchema' })
             .sort({ createdAt: -1 });
 
-        // Ensure active PHSPS named centres are included even if no explicit target record exists
-        let phspsCentres = [];
+        // Ensure all active non-franchise centres are included even if no explicit target record exists
+        let activeCentresList = [];
         if (req.user.role !== 'superAdmin') {
-            phspsCentres = await Centre.find({ _id: { $in: req.user.centres || [] }, status: { $ne: "deactive" }, centreName: { $regex: /phsps/i } }).select("_id centreName");
+            activeCentresList = await Centre.find({ _id: { $in: req.user.centres || [] }, status: { $ne: "deactive" } }).select("_id centreName");
         } else {
-            phspsCentres = await Centre.find({ status: { $ne: "deactive" }, centreName: { $regex: /phsps/i } }).select("_id centreName");
+            activeCentresList = await Centre.find({ status: { $ne: "deactive" } }).select("_id centreName");
         }
+        activeCentresList = activeCentresList.filter(c => c && c.centreName && !/franchise/i.test(c.centreName) && !/rkm/i.test(c.centreName));
 
         const existingCentreIds = new Set(targets.map(t => t.centre && t.centre._id ? t.centre._id.toString() : (t.centre ? t.centre.toString() : "")));
 
-        phspsCentres.forEach(pCentre => {
+        activeCentresList.forEach(pCentre => {
             if (!existingCentreIds.has(pCentre._id.toString())) {
+                const isPHSPS = /phsps/i.test(pCentre.centreName);
                 targets.push({
-                    _id: `phsps_virt_${pCentre._id}`,
+                    _id: `virt_${pCentre._id}`,
                     centre: pCentre,
                     financialYear: query.financialYear || "2026-2027",
                     year: query.year || new Date().getFullYear(),
@@ -191,10 +194,16 @@ export const getCentreTargets = async (req, res) => {
                     achievedAmount: 0,
                     achievedAmountWithGST: 0,
                     achievedAmountExclGST: 0,
-                    isPHSPS: true,
+                    isPHSPS: isPHSPS,
                     toObject: function() { return { ...this }; }
                 });
             }
+        });
+
+        // Filter out any franchise or rkm centres from targets
+        targets = targets.filter(t => {
+            const cName = t.centre?.centreName || "";
+            return !/franchise/i.test(cName) && !/rkm/i.test(cName);
         });
 
         // Calculate achieved amounts in a single batch aggregation
@@ -215,7 +224,8 @@ export const getCentreTargets = async (req, res) => {
             if (startDate && endDate) {
                 updateGlobalRange(new Date(startDate), new Date(endDate));
             } else if (t.month === "YEARLY") {
-                const parts = t.financialYear.split('-');
+                const fyStr = (typeof t.financialYear === 'string' && t.financialYear) ? t.financialYear : (query.financialYear || "2026-2027");
+                const parts = fyStr.split('-');
                 if (parts.length === 2) {
                     const fyStartYear = parseInt(parts[0], 10);
                     const fyEndYear = parseInt(parts[1], 10);
@@ -226,7 +236,8 @@ export const getCentreTargets = async (req, res) => {
                     updateGlobalRange(start, end);
                 }
             } else if (t.month && t.month.includes(",")) {
-                const parts = t.financialYear.split('-');
+                const fyStr = (typeof t.financialYear === 'string' && t.financialYear) ? t.financialYear : (query.financialYear || "2026-2027");
+                const parts = fyStr.split('-');
                 if (parts.length === 2) {
                     const fyStartYear = parseInt(parts[0], 10);
                     const fyEndYear = parseInt(parts[1], 10);
@@ -260,28 +271,37 @@ export const getCentreTargets = async (req, res) => {
             );
 
             rawAchievements.forEach(r => {
-                const cName = r._id.centre;
+                const cName = (r._id.centre || "").trim().toUpperCase();
                 const y = r._id.year;
                 const m = r._id.month - 1; // 0-indexed
                 const d = r._id.day;
 
                 if (!batchLookup[cName]) batchLookup[cName] = {};
-                const dateKey = new Date(y, m, d).getTime();
+                const dateKey = new Date(y, m, d, 12, 0, 0, 0).getTime();
                 batchLookup[cName][dateKey] = {
-                    withGST: r.totalWithGST || 0,
-                    exclGST: r.totalExclGST || 0
+                    withGST: (batchLookup[cName][dateKey]?.withGST || 0) + (r.totalWithGST || 0),
+                    exclGST: (batchLookup[cName][dateKey]?.exclGST || 0) + (r.totalExclGST || 0)
                 };
             });
         }
 
         const calculateTargetFromLookup = (centreName, start, end, monthString = null) => {
-            const lookup = batchLookup[centreName];
+            const raw = (centreName || "").trim().toUpperCase();
+            let lookup = batchLookup[raw];
+            if (!lookup) {
+                for (const k of Object.keys(batchLookup)) {
+                    if (k === raw || k.startsWith(raw) || raw.startsWith(k)) {
+                        lookup = batchLookup[k];
+                        break;
+                    }
+                }
+            }
             if (!lookup) return { totalWithGST: 0, totalExclGST: 0 };
             
             let totalWithGST = 0;
             let totalExclGST = 0;
-            const startTime = start.getTime();
-            const endTime = end.getTime();
+            const startTime = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 0, 0, 0, 0).getTime();
+            const endTime = new Date(end.getFullYear(), end.getMonth(), end.getDate(), 23, 59, 59, 999).getTime();
             
             const allowedMonths = monthString && monthString.includes(",") 
                 ? monthString.split(",").map(m => m.trim().toLowerCase())
@@ -305,7 +325,7 @@ export const getCentreTargets = async (req, res) => {
         const processedTargets = await Promise.all(targets.map(async (t) => {
             if (t.centre && t.centre.centreName) {
                 if (t.financialYear === "2025-2026") {
-                    return t.toObject();
+                    return typeof t.toObject === 'function' ? t.toObject() : { ...t };
                 }
                 
                 let start, end;
@@ -315,7 +335,8 @@ export const getCentreTargets = async (req, res) => {
                     start = new Date(startDate);
                     end = new Date(endDate);
                 } else if (t.month === "YEARLY") {
-                    const parts = t.financialYear.split('-');
+                    const fyStr = (typeof t.financialYear === 'string' && t.financialYear) ? t.financialYear : (query.financialYear || "2026-2027");
+                    const parts = fyStr.split('-');
                     if (parts.length === 2) {
                         const fyStartYear = parseInt(parts[0], 10);
                         const fyEndYear = parseInt(parts[1], 10);
@@ -325,7 +346,8 @@ export const getCentreTargets = async (req, res) => {
                         if (now < end) end = now;
                     }
                 } else if (t.month && t.month.includes(",")) {
-                    const parts = t.financialYear.split('-');
+                    const fyStr = (typeof t.financialYear === 'string' && t.financialYear) ? t.financialYear : (query.financialYear || "2026-2027");
+                    const parts = fyStr.split('-');
                     if (parts.length === 2) {
                         const fyStartYear = parseInt(parts[0], 10);
                         const fyEndYear = parseInt(parts[1], 10);
@@ -376,7 +398,7 @@ export const getCentreTargets = async (req, res) => {
                 targetObj.achievedAmountExclGST = totalExclGST;
                 return targetObj;
             }
-            return t.toObject();
+            return typeof t.toObject === 'function' ? t.toObject() : { ...t };
         }));
 
         // --- Group Targets by groupId ---
@@ -431,6 +453,7 @@ export const getCentreTargets = async (req, res) => {
 
         res.status(200).json({ targets: finalResults });
     } catch (error) {
+        console.error("getCentreTargets Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
 };

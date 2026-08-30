@@ -86,6 +86,9 @@ const CentreTarget = () => {
                 const resData = await centreRes.json();
                 let centerList = Array.isArray(resData) ? resData : resData.centres || [];
 
+                // Filter out franchise and rkm centres
+                centerList = centerList.filter(c => c && c.centreName && !/franchise/i.test(c.centreName) && !/rkm/i.test(c.centreName));
+
                 // Filter by allocated centers
                 const storedUser = localStorage.getItem("user");
                 if (storedUser) {
@@ -193,6 +196,10 @@ const CentreTarget = () => {
             const cId = t.centre?._id ? t.centre._id : t.centre;
             const cName = t.centre?.centreName;
 
+            if (cName && (/franchise/i.test(cName) || /rkm/i.test(cName))) {
+                return false;
+            }
+
             if (!isCentreAllowedByZone(cId, cName)) {
                 return false;
             }
@@ -208,16 +215,30 @@ const CentreTarget = () => {
         });
     }, [targets, viewMode, selectedMonths, zoneCentreMatchInfo, isCentreAllowedByZone, selectedCentres]);
 
+    const isPhspsMidnapore = (centre) => {
+        if (!centre) return false;
+        const str = centre.toLowerCase();
+        return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
+    };
+
     const grandTotals = React.useMemo(() => {
         return displayedTargets.reduce((acc, t) => {
-            const targetAmountExcl = t.targetAmount || 0;
-            const dateWiseTargetExcl = viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) : 0;
-            const activeTargetExcl = viewMode === "Custom" ? dateWiseTargetExcl : targetAmountExcl;
-            const achievedExcl = t.achievedAmountExclGST || (t.achievedAmount / 1.18) || 0;
-            const shortfallExcl = Math.max(0, activeTargetExcl - achievedExcl);
+            const isPHSPS = t.isPHSPS || (t.centre?.centreName && /phsps/i.test(t.centre.centreName));
+            const cName = t.centre?.centreName || "";
+            const isMidnaporeExcluded = isPhspsMidnapore(cName);
 
-            const targetWithGST = viewMode === "Custom" ? dateWiseTargetExcl * 1.18 : (t.targetAmountWithGST || (targetAmountExcl * 1.18));
-            const achievedWithGST = t.achievedAmountWithGST || t.achievedAmount || 0;
+            const targetAmountExcl = isPHSPS ? 0 : (t.targetAmount || 0);
+            const dateWiseTargetExcl = isPHSPS ? 0 : (viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) : 0);
+            const activeTargetExcl = viewMode === "Custom" ? dateWiseTargetExcl : targetAmountExcl;
+
+            const rawAchievedExcl = t.achievedAmountExclGST || (t.achievedAmount / 1.18) || 0;
+            const rawAchievedWithGST = t.achievedAmountWithGST || t.achievedAmount || 0;
+
+            const achievedExcl = isMidnaporeExcluded ? 0 : rawAchievedExcl;
+            const achievedWithGST = isMidnaporeExcluded ? 0 : rawAchievedWithGST;
+            const shortfallExcl = isPHSPS ? 0 : Math.max(0, activeTargetExcl - (isMidnaporeExcluded ? 0 : rawAchievedExcl));
+
+            const targetWithGST = isPHSPS ? 0 : (viewMode === "Custom" ? dateWiseTargetExcl * 1.18 : (t.targetAmountWithGST || (targetAmountExcl * 1.18)));
 
             acc.totalTargetExclGST += targetAmountExcl;
             acc.totalDateWiseTargetExclGST += dateWiseTargetExcl;

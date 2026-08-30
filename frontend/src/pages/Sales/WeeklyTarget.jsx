@@ -502,11 +502,17 @@ const WeeklyTarget = () => {
             `WeeklyTarget_${selectedMonth}_${selectedYear}.xlsx`);
     };
 
+    const isPhspsMidnapore = (centre) => {
+        if (!centre) return false;
+        const str = centre.toLowerCase();
+        return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
+    };
+
     // Summary
     const summary = data?.centres?.length ? {
-        totalMonthlyTarget: data.centres.reduce((s, c) => s + c.monthlyTargetWithGST, 0),
-        totalAchieved: data.centres.reduce((s, c) => s + c.totalAchievedWithGST, 0),
-        totalWeekend: data.centres.reduce((s, c) => s + c.totalWeekendWithGST, 0)
+        totalMonthlyTarget: data.centres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + c.monthlyTargetWithGST, 0),
+        totalAchieved: data.centres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + c.totalAchievedWithGST, 0),
+        totalWeekend: data.centres.reduce((s, c) => isPhspsMidnapore(c.centreName) ? s : s + c.totalWeekendWithGST, 0)
     } : null;
 
     // Chart Data Preparation

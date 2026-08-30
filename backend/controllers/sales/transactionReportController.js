@@ -14,9 +14,21 @@ export const getTransactionReport = async (req, res) => {
 
         const amountWithoutGstExpr = {
             $cond: {
-                if: { $regexMatch: { input: { $ifNull: ["$centre", "$admissionInfo.centre", ""] }, regex: "phsps", options: "i" } },
+                if: { $regexMatch: { input: { $ifNull: ["$effectiveCentre", "$centre", ""] }, regex: "phsps", options: "i" } },
                 then: "$paidAmount",
-                else: { $ifNull: ["$courseFee", { $divide: ["$paidAmount", 1.18] }] }
+                else: {
+                    $cond: {
+                        if: { $and: [{ $ne: ["$courseFee", null] }, { $gt: ["$courseFee", 0] }] },
+                        then: "$courseFee",
+                        else: {
+                            $cond: {
+                                if: { $and: [{ $eq: ["$cgst", 0] }, { $eq: ["$sgst", 0] }] },
+                                then: "$paidAmount",
+                                else: { $divide: ["$paidAmount", 1.18] }
+                            }
+                        }
+                    }
+                }
             }
         };
 

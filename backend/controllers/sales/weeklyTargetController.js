@@ -92,6 +92,7 @@ const getDailyAchievedForCentre = async (centreName, startDate, endDate) => {
 
 const getDailyAchievedForAllCentres = async (centreNames, startDate, endDate) => {
     try {
+        const regexes = (centreNames || []).filter(Boolean).map(n => new RegExp(`^${n.trim()}$`, 'i'));
         const result = await Payment.aggregate([
             {
                 $lookup: {
@@ -110,51 +111,105 @@ const getDailyAchievedForAllCentres = async (centreNames, startDate, endDate) =>
                 }
             },
             {
+                $lookup: {
+                    from: "pntsestudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPntse"
+                }
+            },
+            {
+                $lookup: {
+                    from: "pmostudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPmo"
+                }
+            },
+            {
                 $addFields: {
                     admissionDetails: {
                         $ifNull: [
                             { $arrayElemAt: ["$admissionInfoNormal", 0] },
-                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] },
+                            { $arrayElemAt: ["$admissionInfoPntse", 0] },
+                            { $arrayElemAt: ["$admissionInfoPmo", 0] }
                         ]
                     }
                 }
             },
-            { $unwind: "$admissionDetails" },
+            { $unwind: { path: "$admissionDetails", preserveNullAndEmptyArrays: true } },
             {
-                $match: {
-                    "admissionDetails.centre": { $in: centreNames },
-                    billId: { $exists: true, $nin: [null, "", "-"] },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
-                        { paymentMethod: { $exists: true } },
-                        { paidAmount: { $gt: 0 } }
-                    ]
+                $lookup: {
+                    from: "centreschemas",
+                    localField: "admissionDetails.centre",
+                    foreignField: "_id",
+                    as: "pntseCentreInfo"
                 }
             },
             {
                 $addFields: {
-                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
-                    revenueBase: {
-                        $cond: [
-                            { $gt: ["$courseFee", 0] },
-                            "$courseFee",
-                            { $divide: ["$paidAmount", 1.18] }
+                    effectiveCentre: {
+                        $ifNull: [
+                            "$centre",
+                            { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] },
+                            "$admissionDetails.centre"
+                        ]
+                    },
+                    effectiveDate: {
+                        $ifNull: [
+                            { $toDate: "$paidDate" },
+                            { $toDate: "$chequeDate" },
+                            { $toDate: "$receivedDate" },
+                            "$createdAt"
                         ]
                     }
                 }
             },
             {
+                $addFields: {
+                    revenueBase: {
+                        $cond: {
+                            if: { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                            then: "$paidAmount",
+                            else: {
+                                $cond: {
+                                    if: { $and: [{ $ne: ["$courseFee", null] }, { $gt: ["$courseFee", 0] }] },
+                                    then: "$courseFee",
+                                    else: {
+                                        $cond: {
+                                            if: { $and: [{ $eq: ["$cgst", 0] }, { $eq: ["$sgst", 0] }] },
+                                            then: "$paidAmount",
+                                            else: { $divide: ["$paidAmount", 1.18] }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            {
                 $match: {
+                    billId: { $regex: /^PATH/i },
+                    $or: [
+                        { status: { $in: ["PAID", "PARTIAL"] } },
+                        {
+                            paymentMethod: "CHEQUE",
+                            status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
+                        }
+                    ],
+                    effectiveCentre: { $in: regexes },
                     effectiveDate: { $gte: startDate, $lte: endDate }
                 }
             },
             {
                 $group: {
                     _id: {
-                        centre: "$admissionDetails.centre",
-                        year: { $year: "$effectiveDate" },
-                        month: { $month: "$effectiveDate" },
-                        day: { $dayOfMonth: "$effectiveDate" },
+                        centre: "$effectiveCentre",
+                        year: { $year: { date: "$effectiveDate", timezone: "+05:30" } },
+                        month: { $month: { date: "$effectiveDate", timezone: "+05:30" } },
+                        day: { $dayOfMonth: { date: "$effectiveDate", timezone: "+05:30" } },
                         method: "$paymentMethod"
                     },
                     totalWithGST: { $sum: "$paidAmount" },
@@ -297,7 +352,7 @@ export const getWeeklyTarget = async (req, res) => {
         const allDailyRaw = await getDailyAchievedForAllCentres(centreNames, startOfMonth, endOfMonth);
         const centreDailyMap = {};
         allDailyRaw.forEach(d => {
-            const cName = d._id.centre;
+            const cName = (d._id.centre || "").trim().toUpperCase();
             if (!centreDailyMap[cName]) {
                 centreDailyMap[cName] = [];
             }
@@ -317,7 +372,16 @@ export const getWeeklyTarget = async (req, res) => {
                 const monthlyTargetWithGST = monthlyTargetExclGST * 1.18;
 
                 // Retrieve daily raw records from our preloaded batch map
-                const dailyRaw = centreDailyMap[c.centreName] || [];
+                const cKey = (c.centreName || "").trim().toUpperCase();
+                let dailyRaw = centreDailyMap[cKey] || [];
+                if (dailyRaw.length === 0) {
+                    for (const k of Object.keys(centreDailyMap)) {
+                        if (k === cKey || k.startsWith(cKey) || cKey.startsWith(k)) {
+                            dailyRaw = centreDailyMap[k];
+                            break;
+                        }
+                    }
+                }
 
                 // Process filters: paymentMethods
                 const methodList = paymentMethods ? paymentMethods.split(",") : null;
@@ -677,7 +741,8 @@ export const getFinalWeekendTarget = async (req, res) => {
             }
         } else {
             centreQuery = {
-                centreName: { $nin: [/franchise/i, /rkm/i] }
+                status: { $ne: "deactive" },
+                centreName: { $not: /franchise|rkm/i }
             };
             if (req.user.role !== "superAdmin") {
                 centreQuery._id = { $in: allowedCentreIds.length > 0 ? allowedCentreIds : ["__NONE__"] };
@@ -693,7 +758,7 @@ export const getFinalWeekendTarget = async (req, res) => {
         const allDailyRaw = await getDailyAchievedForAllCentres(centreNames, startOfMonth, endOfMonth);
         const centreDailyMap = {};
         allDailyRaw.forEach(d => {
-            const cName = d._id.centre;
+            const cName = (d._id.centre || "").trim().toUpperCase();
             if (!centreDailyMap[cName]) {
                 centreDailyMap[cName] = [];
             }
@@ -712,7 +777,16 @@ export const getFinalWeekendTarget = async (req, res) => {
                 const monthlyTargetExclGST = (isPhsps || !targetRecord) ? 0 : targetRecord.targetAmount;
 
                 // Retrieve daily raw records from our preloaded batch map
-                const dailyRaw = centreDailyMap[c.centreName] || [];
+                const cKey = (c.centreName || "").trim().toUpperCase();
+                let dailyRaw = centreDailyMap[cKey] || [];
+                if (dailyRaw.length === 0) {
+                    for (const k of Object.keys(centreDailyMap)) {
+                        if (k === cKey || k.startsWith(cKey) || cKey.startsWith(k)) {
+                            dailyRaw = centreDailyMap[k];
+                            break;
+                        }
+                    }
+                }
 
                 // Build day-keyed map: { dayNum -> { exclGST } }
                 const dayMap = {};
