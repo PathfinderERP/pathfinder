@@ -385,6 +385,16 @@ export const createAdmission = async (req, res) => {
 
         let admissionNumber = req.body.admissionNumber || undefined;
 
+        // Preserve enrollment number: if the student already has one from ANY prior admission,
+        // always reuse it — never generate a second enrollment number for the same student.
+        if (!admissionNumber) {
+            const [existingNormal, existingBoard] = await Promise.all([
+                Admission.findOne({ student: studentId }, 'admissionNumber').sort({ createdAt: 1 }).lean(),
+                BoardCourseAdmission.findOne({ studentId: studentId }, 'admissionNumber').sort({ createdAt: 1 }).lean()
+            ]);
+            admissionNumber = existingNormal?.admissionNumber || existingBoard?.admissionNumber;
+        }
+
         // Initialize monthly subject history for Board admissions
         const monthlyHistory = [];
         if (admissionType === "BOARD" && durationMonths > 0) {

@@ -378,8 +378,20 @@ export const createBoardAdmission = async (req, res) => {
             department
         });
 
+        // Preserve enrollment number: if the student already has one from ANY prior admission,
+        // always reuse it — never generate a second enrollment number for the same student.
         if (req.body.admissionNumber) {
             newAdmission.admissionNumber = req.body.admissionNumber;
+        } else {
+            const AdmissionModel = mongoose.model('Admission');
+            const [existingNormal, existingBoard] = await Promise.all([
+                AdmissionModel.findOne({ student: studentId }, 'admissionNumber').sort({ createdAt: 1 }).lean(),
+                BoardCourseAdmission.findOne({ studentId }, 'admissionNumber').sort({ createdAt: 1 }).lean()
+            ]);
+            const existingAdmNo = existingNormal?.admissionNumber || existingBoard?.admissionNumber;
+            if (existingAdmNo) {
+                newAdmission.admissionNumber = existingAdmNo;
+            }
         }
 
         await newAdmission.save();
