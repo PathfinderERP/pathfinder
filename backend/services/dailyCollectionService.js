@@ -814,23 +814,39 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         "TARAKESWAR": 65094.92
     };
 
-    // Apply exact dynamic adjusted targets for all centres and persist in DB
+    // Set fallback default adjusted targets for centres if not already calculated from CentreTarget
     for (const c of allCentres) {
-        if (c.centreName) {
+        if (c.centreName && (centreTargets[c.centreName] === undefined || centreTargets[c.centreName] === 0)) {
             const raw = c.centreName.trim().toUpperCase();
             for (const [key, val] of Object.entries(defaultTodayCentreTargets)) {
                 if (raw === key || raw.startsWith(key) || key.startsWith(raw)) {
                     centreTargets[c.centreName] = val;
-                    // Sync into DailyTarget in MongoDB for the active date
-                    DailyTarget.findOneAndUpdate(
-                        { centre: c._id, date: startOfDate },
-                        { targetAmount: val },
-                        { upsert: true }
-                    ).catch(err => console.error("DailyTarget sync error:", err));
                     break;
                 }
             }
         }
+    }
+
+    // Apply custom daily targets saved by user (these override monthly/fallback defaults)
+    if (Array.isArray(customTargets) && customTargets.length > 0) {
+        customTargets.forEach(dt => {
+            const cName = dt.centre?.centreName;
+            const targetVal = Number(dt.targetAmount);
+            if (cName && !isNaN(targetVal)) {
+                centreTargets[cName] = targetVal;
+                // Also match any centre in allCentres with case-insensitive name
+                allCentres.forEach(c => {
+                    if (c.centreName && c.centreName.trim().toUpperCase() === cName.trim().toUpperCase()) {
+                        centreTargets[c.centreName] = targetVal;
+                    }
+                });
+            } else if (dt.centre && !isNaN(targetVal)) {
+                const matchCentre = allCentres.find(c => String(c._id) === String(dt.centre?._id || dt.centre));
+                if (matchCentre && matchCentre.centreName) {
+                    centreTargets[matchCentre.centreName] = targetVal;
+                }
+            }
+        });
     }
 
     // Fetch all zones with populated centres

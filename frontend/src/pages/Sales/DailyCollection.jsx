@@ -186,6 +186,13 @@ const DailyCollection = () => {
         }
     };
 
+    const formatLocalDate = (d) => {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth() + 1).padStart(2, '0');
+        const dd = String(d.getDate()).padStart(2, '0');
+        return `${yyyy}-${mm}-${dd}`;
+    };
+
     const fetchDailyCollection = async () => {
         setLoading(true);
         try {
@@ -193,12 +200,6 @@ const DailyCollection = () => {
             const params = new URLSearchParams();
 
             const now = new Date();
-            const formatLocalDate = (d) => {
-                const yyyy = d.getFullYear();
-                const mm = String(d.getMonth() + 1).padStart(2, '0');
-                const dd = String(d.getDate()).padStart(2, '0');
-                return `${yyyy}-${mm}-${dd}`;
-            };
 
             if (activePreset === "today") {
                 const todayStr = formatLocalDate(now);
@@ -283,9 +284,25 @@ const DailyCollection = () => {
     const handleSaveTarget = async (centreName) => {
         try {
             const token = localStorage.getItem("token");
-            const targetDateToSend = (activePreset === "custom" && endDate)
-                ? endDate
-                : (date || new Date().toISOString().split("T")[0]);
+            const now = new Date();
+            let targetDateToSend = formatLocalDate(now);
+            if (activePreset === "today") {
+                targetDateToSend = formatLocalDate(now);
+            } else if (activePreset === "yesterday") {
+                const yesterday = new Date(now);
+                yesterday.setDate(now.getDate() - 1);
+                targetDateToSend = formatLocalDate(yesterday);
+            } else if (activePreset === "last7") {
+                targetDateToSend = formatLocalDate(now);
+            } else if (activePreset === "thisMonth" || activePreset === "lastMonth" || activePreset === "custom") {
+                targetDateToSend = endDate || startDate || date || formatLocalDate(now);
+            } else if (endDate) {
+                targetDateToSend = endDate;
+            } else if (startDate) {
+                targetDateToSend = startDate;
+            } else if (date) {
+                targetDateToSend = date;
+            }
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/daily-collection/target`, {
                 method: "POST",
