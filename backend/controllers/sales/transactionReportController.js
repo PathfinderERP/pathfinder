@@ -32,17 +32,8 @@ export const getTransactionReport = async (req, res) => {
             }
         };
 
-        // Redis Cache Check (Fast 30-second cache for instant pagination and filter views)
-        const cacheKey = generateCacheKey("transaction_report", {
-            ...req.query,
-            userCentres: req.user.centres || [],
-            role: req.user.role
-        });
-
-        const cachedData = await getCache(cacheKey);
-        if (cachedData) {
-            return res.status(200).json(cachedData);
-        }
+        // REDIS CACHING LOGIC
+        // Bypassed for instant real-time live view synchronization with Daily Collection
 
         const {
             year,
@@ -811,9 +802,7 @@ export const getTransactionReport = async (req, res) => {
             }
         };
 
-        // Cache in Redis with 300s (5-min) TTL for fast navigation and instant filter switches
-        await setCache(cacheKey, responseData, 300);
-
+        // Real-time live response (matches Daily Collection live values instantly)
         res.status(200).json(responseData);
 
     } catch (error) {
