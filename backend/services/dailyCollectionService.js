@@ -67,7 +67,7 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
                 $group: {
                     _id: {
                         centre: "$admissionDetails.centre",
-                        day: { $dayOfMonth: "$effectiveDate" }
+                        day: { $dayOfMonth: { date: "$effectiveDate", timezone: "+05:30" } }
                     },
                     totalExclGST: { $sum: "$revenueBase" }
                 }
@@ -149,20 +149,32 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         search
     } = query;
 
+    const cleanDateStr = (d) => {
+        if (!d) return null;
+        return typeof d === "string" ? (d.includes("T") ? d.split("T")[0] : d) : new Date(d).toISOString().split("T")[0];
+    };
+
     let startOfDay;
     let endOfDay;
-    const selectedDate = endDate ? new Date(endDate) : (date ? new Date(date) : new Date());
+    let selectedDate;
 
     if (startDate && endDate) {
-        startOfDay = new Date(startDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        const sStr = cleanDateStr(startDate);
+        const eStr = cleanDateStr(endDate);
+        startOfDay = new Date(`${sStr}T00:00:00+05:30`);
+        endOfDay = new Date(`${eStr}T23:59:59.999+05:30`);
+        selectedDate = new Date(`${eStr}T00:00:00+05:30`);
+    } else if (date) {
+        const dStr = cleanDateStr(date);
+        startOfDay = new Date(`${dStr}T00:00:00+05:30`);
+        endOfDay = new Date(`${dStr}T23:59:59.999+05:30`);
+        selectedDate = new Date(`${dStr}T00:00:00+05:30`);
     } else {
-        selectedDate.setHours(0, 0, 0, 0);
-        startOfDay = selectedDate;
-        endOfDay = new Date(selectedDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        const now = new Date();
+        const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        startOfDay = new Date(`${nowStr}T00:00:00+05:30`);
+        endOfDay = new Date(`${nowStr}T23:59:59.999+05:30`);
+        selectedDate = new Date(`${nowStr}T00:00:00+05:30`);
     }
 
     // Base Payment Filter (Only show transactions where a bill has been generated)
@@ -674,8 +686,10 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const monthName = monthNames[monthIndex];
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
 
-    const startOfMonth = new Date(year, monthIndex, 1);
-    const endOfMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+    const mm = String(monthIndex + 1).padStart(2, '0');
+    const lastDayStr = String(daysInMonth).padStart(2, '0');
+    const startOfMonth = new Date(`${year}-${mm}-01T00:00:00+05:30`);
+    const endOfMonth = new Date(`${year}-${mm}-${lastDayStr}T23:59:59.999+05:30`);
 
     const targets = await CentreTarget.find({
         year,
@@ -683,10 +697,9 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     }).populate({ path: "centre", select: "centreName", model: "CentreSchema" });
 
     // Fetch custom daily targets for this specific date / date range
-    const startOfDate = new Date(selectedDate);
-    startOfDate.setHours(0, 0, 0, 0);
-    const endOfDate = new Date(selectedDate);
-    endOfDate.setHours(23, 59, 59, 999);
+    const dStr = cleanDateStr(selectedDate);
+    const startOfDate = new Date(`${dStr}T00:00:00+05:30`);
+    const endOfDate = new Date(`${dStr}T23:59:59.999+05:30`);
 
     let customTargetFilter = {};
     if (startDate && endDate) {
@@ -783,54 +796,70 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     });
 
     const defaultTodayCentreTargets = {
-        "ARAMBAGH": 92433.9,
-        "BAGNAN": 47371.19,
-        "BALLY": 166648.31,
-        "BALURGHAT": 66572.88,
-        "BARASAT": 126361.02,
-        "BARUIPUR": 155910.17,
-        "BEHALA": 241859.32,
-        "BERHAMPUR": 3600,
+        "ARAMBAGH": 59271.18,
+        "BAGNAN": 7816.1,
+        "BALLY": 58300.84,
+        "BALURGHAT": 53649.14,
+        "BARASAT": 83084.73,
+        "BARUIPUR": 157932.2,
+        "BEHALA": 250038.13,
+        "BERHAMPUR": 6000,
         "BURDWAN": 195368.14,
-        "CHANDANNAGAR": 143730.51,
-        "CONTAI": 53205.08,
-        "COOCHBEHAR": 136162.71,
-        "DIAMOND HARBOUR": 120438.98,
-        "DUMDUM": 227068.98,
-        "HABRA": 43577.12,
-        "HAZRA H.O": 1191621.19,
-        "HAZRA H.O.": 1191621.19,
-        "HAZRA": 1191621.19,
-        "JODHPUR PARK": 221449.15,
-        "KALYANI": 101798.31,
+        "CHANDANNAGAR": 70805.09,
+        "CONTAI": 6100,
+        "COOCHBEHAR": 132694.91,
+        "DIAMOND HARBOUR": 119932.19,
+        "DUMDUM": 153433.896,
+        "HABRA": 4821.18,
+        "HAZRA H.O": 1192927.04,
+        "HAZRA H.O.": 1192927.04,
+        "HAZRA": 1192927.04,
+        "JODHPUR PARK": 188542.38,
+        "KALYANI": 66594.06,
         "KATWA": 45240.34,
-        "KTPP TOWNSHIP": 111754.24,
-        "KTPP": 111754.24,
-        "MALDA": 138927.12,
-        "MIDNAPORE": 146969.49,
-        "RAIGANJ": 39652.54,
-        "SHYAMBAZAR": 72720,
-        "TAMLUK": 172425.42,
-        "TARAKESWAR": 65094.92
+        "KTPP TOWNSHIP": 39458.44,
+        "KTPP": 39458.44,
+        "MALDA": 91495.18,
+        "MIDNAPORE": 12966.04,
+        "RAIGANJ": 31864.4,
+        "SHYAMBAZAR": 38358.474,
+        "TAMLUK": 65830.5,
+        "TARAKESWAR": 8161.04
     };
 
-    // Apply exact dynamic adjusted targets for all centres and persist in DB
+    // Set fallback default adjusted targets for centres if not already calculated from CentreTarget
     for (const c of allCentres) {
-        if (c.centreName) {
+        if (c.centreName && (centreTargets[c.centreName] === undefined || centreTargets[c.centreName] === 0)) {
             const raw = c.centreName.trim().toUpperCase();
             for (const [key, val] of Object.entries(defaultTodayCentreTargets)) {
                 if (raw === key || raw.startsWith(key) || key.startsWith(raw)) {
                     centreTargets[c.centreName] = val;
-                    // Sync into DailyTarget in MongoDB for the active date
-                    DailyTarget.findOneAndUpdate(
-                        { centre: c._id, date: startOfDate },
-                        { targetAmount: val },
-                        { upsert: true }
-                    ).catch(err => console.error("DailyTarget sync error:", err));
                     break;
                 }
             }
         }
+    }
+
+    // Apply custom daily targets saved by user (these override monthly/fallback defaults)
+    if (Array.isArray(customTargets) && customTargets.length > 0) {
+        customTargets.forEach(dt => {
+            const cName = dt.centre?.centreName;
+            const targetVal = Number(dt.targetAmount);
+            if (cName && !isNaN(targetVal)) {
+                centreTargets[cName] = targetVal;
+                // Also match any centre in allCentres with case-insensitive name
+                allCentres.forEach(c => {
+                    if (c.centreName && c.centreName.trim().toUpperCase() === cName.trim().toUpperCase()) {
+                        centreTargets[c.centreName] = targetVal;
+                    }
+                });
+            } else if (dt.centre && !isNaN(targetVal)) {
+                const matchCentre = allCentres.find(c => String(c._id) === String(dt.centre?._id || dt.centre));
+                if (matchCentre && matchCentre.centreName) {
+                    centreTargets[matchCentre.centreName] = targetVal;
+                }
+            }
+        });
     }
 
     // Fetch all zones with populated centres
