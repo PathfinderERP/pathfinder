@@ -32,9 +32,17 @@ export const getTransactionReport = async (req, res) => {
             }
         };
 
-        // REDIS CACHING LOGIC START
-        // Bypassed for instant live view updates
-        // REDIS CACHING LOGIC END
+        // Redis Cache Check (Fast 30-second cache for instant pagination and filter views)
+        const cacheKey = generateCacheKey("transaction_report", {
+            ...req.query,
+            userCentres: req.user.centres || [],
+            role: req.user.role
+        });
+
+        const cachedData = await getCache(cacheKey);
+        if (cachedData) {
+            return res.status(200).json(cachedData);
+        }
 
         const {
             year,
@@ -103,12 +111,18 @@ export const getTransactionReport = async (req, res) => {
             ...baseAttributesMatch
         };
 
+        // Date Filter (Range or Year) in IST (+05:30)
+        const cleanDateStr = (d) => {
+            if (!d) return null;
+            return typeof d === "string" ? (d.includes("T") ? d.split("T")[0] : d) : new Date(d).toISOString().split("T")[0];
+        };
+
         // Filter by Date Range (startDate/endDate OR year) for the main report
         if (startDate && endDate) {
-            const start = new Date(startDate);
-            start.setHours(0, 0, 0, 0);
-            const end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
+            const sStr = cleanDateStr(startDate);
+            const eStr = cleanDateStr(endDate);
+            const start = new Date(`${sStr}T00:00:00+05:30`);
+            const end = new Date(`${eStr}T23:59:59.999+05:30`);
 
             // Date filter will be applied via $addFields + $match in pipelines for better reliability
             paymentMatch.isDateFiltered = true; // Flag to indicate date filter is active
@@ -116,8 +130,8 @@ export const getTransactionReport = async (req, res) => {
             paymentMatch.filterEnd = end;
         } else if (year && !isNaN(parseInt(year))) {
             const targetYear = parseInt(year);
-            const startOfYear = new Date(targetYear, 0, 1, 0, 0, 0, 0);
-            const endOfYear = new Date(targetYear, 11, 31, 23, 59, 59, 999);
+            const startOfYear = new Date(`${targetYear}-01-01T00:00:00+05:30`);
+            const endOfYear = new Date(`${targetYear}-12-31T23:59:59.999+05:30`);
             paymentMatch.isDateFiltered = true;
             paymentMatch.filterStart = startOfYear;
             paymentMatch.filterEnd = endOfYear;
@@ -256,7 +270,6 @@ export const getTransactionReport = async (req, res) => {
         const aggregateMatchStage = aggregateFilters.length > 0 ? { $match: { $and: aggregateFilters } } : { $match: {} };
 
         // Check if we need Admission/Course lookups for the charts
-        // Always set to true to ensure default centre exclusions (franchise/PHSPS) are applied to charts and stats calculations
         const needsAdmissionLookup = true;
 
         const chartPipeline = [
@@ -314,18 +327,31 @@ export const getTransactionReport = async (req, res) => {
 
         chartPipeline.push({
             $facet: {
-                monthlyRevenue: [{ $group: { _id: { $month: "$reportDate" }, revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }],
+                monthlyRevenue: [{ $group: { _id: { $month: { date: "$reportDate", timezone: "+05:30" } }, revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }],
                 paymentMethods: [{ $group: { _id: "$paymentMethod", value: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }],
                 centreRevenue: needsAdmissionLookup ? [{ $group: { _id: "$effectiveCentre", revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $sort: { revenue: -1 } }] : [{ $match: { _id: "__SKIP__" } }],
                 courseRevenue: needsAdmissionLookup ? [{ $group: { _id: { $ifNull: ["$admissionInfo.course", "$boardCourseName"] }, revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $lookup: { from: "courses", localField: "_id", foreignField: "_id", as: "courseDetails" } }, { $project: { name: { $ifNull: [{ $arrayElemAt: ["$courseDetails.courseName", 0] }, "$_id"] }, revenue: 1, revenueWithoutGst: 1, count: 1 } }, { $sort: { revenue: -1 } }] : [{ $match: { _id: "__SKIP__" } }]
             }
         });
 
-        const reportData = await Payment.aggregate(chartPipeline).option({ allowDiskUse: true });
-
+        // (Aggregations will run in parallel via Promise.all below)
         // Process Detailed Report (Separate Query for Flattened Data)
         const detailedPipeline = [
-            { $match: baseAttributesMatch },
+            {
+                $match: paymentMatch.isDateFiltered ? {
+                    $and: [
+                        baseAttributesMatch,
+                        {
+                            $or: [
+                                { paidDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } },
+                                { chequeDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } },
+                                { receivedDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } },
+                                { createdAt: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } }
+                            ]
+                        }
+                    ]
+                } : baseAttributesMatch
+            },
             { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$chequeDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } },
         ];
 
@@ -444,26 +470,6 @@ export const getTransactionReport = async (req, res) => {
             { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
             { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
             { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
-            // Lookup Student Attendance Stats
-            {
-                $lookup: {
-                    from: "studentattendances",
-                    let: { studentId: "$studentInfo._id" },
-                    pipeline: [
-                        { $match: { $expr: { $eq: ["$studentId", "$$studentId"] } } },
-                        {
-                            $group: {
-                                _id: null,
-                                totalClasses: { $sum: 1 },
-                                presentCount: { $sum: { $cond: [{ $eq: ["$status", "Present"] }, 1, 0] } },
-                                absentCount: { $sum: { $cond: [{ $eq: ["$status", "Absent"] }, 1, 0] } }
-                            }
-                        }
-                    ],
-                    as: "attendanceStats"
-                }
-            },
-            { $unwind: { path: "$attendanceStats", preserveNullAndEmptyArrays: true } },
             aggregateMatchStage,
             {
                 $lookup: {
@@ -636,7 +642,6 @@ export const getTransactionReport = async (req, res) => {
                 }
             }
         );
-        const detailedData = await Payment.aggregate(detailedPipeline).option({ allowDiskUse: true });
 
 
         // --- Stats Calculation (Current Year, Previous Year, Current Month, Previous Month) ---
@@ -671,7 +676,8 @@ export const getTransactionReport = async (req, res) => {
 
         const statsPipeline = [
             { $match: baseAttributesMatch },
-            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$chequeDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } }
+            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$chequeDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } },
+            { $match: { effectiveDate: { $gte: startPFY } } }
         ];
 
         if (needsAdmissionLookup) {
@@ -729,7 +735,12 @@ export const getTransactionReport = async (req, res) => {
             }
         });
 
-        const statsData = await Payment.aggregate(statsPipeline).option({ allowDiskUse: true });
+        // Execute all 3 heavy pipelines concurrently in parallel
+        const [reportData, detailedData, statsData] = await Promise.all([
+            Payment.aggregate(chartPipeline).option({ allowDiskUse: true }),
+            Payment.aggregate(detailedPipeline).option({ allowDiskUse: true }),
+            Payment.aggregate(statsPipeline).option({ allowDiskUse: true })
+        ]);
 
         const stats = statsData.length > 0 ? statsData[0] : {
             currentYearWithGst: 0, currentYearWithoutGst: 0,
@@ -800,7 +811,8 @@ export const getTransactionReport = async (req, res) => {
             }
         };
 
-        // Cache bypassed for live updates
+        // Cache in Redis with 300s (5-min) TTL for fast navigation and instant filter switches
+        await setCache(cacheKey, responseData, 300);
 
         res.status(200).json(responseData);
 
