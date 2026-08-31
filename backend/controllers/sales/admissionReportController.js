@@ -34,16 +34,22 @@ export const getAdmissionReport = async (req, res) => {
         let admissionQuery = {};
         let leadQuery = {};
 
-        // Date Filter (Range or Year)
+        // Date Filter (Range or Year) in IST (+05:30)
+        const cleanDateStr = (d) => {
+            if (!d) return null;
+            return typeof d === "string" ? (d.includes("T") ? d.split("T")[0] : d) : new Date(d).toISOString().split("T")[0];
+        };
+
         let start, end;
         if (startDate && endDate) {
-            start = new Date(startDate);
-            end = new Date(endDate);
-            end.setHours(23, 59, 59, 999);
+            const sStr = cleanDateStr(startDate);
+            const eStr = cleanDateStr(endDate);
+            start = new Date(`${sStr}T00:00:00+05:30`);
+            end = new Date(`${eStr}T23:59:59.999+05:30`);
         } else {
             const targetYear = parseInt(year) || new Date().getFullYear();
-            start = new Date(targetYear, 0, 1);
-            end = new Date(targetYear, 11, 31, 23, 59, 59);
+            start = new Date(`${targetYear}-01-01T00:00:00+05:30`);
+            end = new Date(`${targetYear}-12-31T23:59:59.999+05:30`);
         }
 
         admissionQuery.admissionDate = { $gte: start, $lte: end };
@@ -278,7 +284,7 @@ export const getAdmissionReport = async (req, res) => {
                 { $unionWith: { coll: "boardcourseadmissions", pipeline: [{ $match: boardAdmissionQuery }] } },
                 {
                     $group: {
-                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } },
+                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate", timezone: "+05:30" } },
                         count: { $sum: 1 }
                     }
                 },
@@ -294,7 +300,7 @@ export const getAdmissionReport = async (req, res) => {
                 },
                 {
                     $group: {
-                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+                        _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt", timezone: "+05:30" } },
                         count: { $sum: 1 }
                     }
                 },
@@ -341,7 +347,7 @@ export const getAdmissionReport = async (req, res) => {
             const boardTrendRawD = await BoardCourseAdmission.aggregate([
                 { $match: boardAdmissionQuery },
                 { $lookup: { from: "boards", localField: "boardId", foreignField: "_id", as: "boardInfo" } },
-                { $group: { _id: { date: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate" } }, boardName: { $ifNull: [{ $arrayElemAt: ["$boardInfo.boardCourse", 0] }, "Unknown Board"] } }, count: { $sum: 1 } } },
+                { $group: { _id: { date: { $dateToString: { format: "%Y-%m-%d", date: "$admissionDate", timezone: "+05:30" } }, boardName: { $ifNull: [{ $arrayElemAt: ["$boardInfo.boardCourse", 0] }, "Unknown Board"] } }, count: { $sum: 1 } } },
                 { $sort: { "_id.date": 1 } }
             ]);
             const boardTrendMapD = {};
@@ -373,7 +379,7 @@ export const getAdmissionReport = async (req, res) => {
             { $match: admissionQuery },
             {
                 $group: {
-                    _id: { $month: "$admissionDate" },
+                    _id: { $month: { date: "$admissionDate", timezone: "+05:30" } },
                     count: { $sum: 1 }
                 }
             },
@@ -573,8 +579,8 @@ export const getAdmissionReport = async (req, res) => {
             {
                 $group: {
                     _id: {
-                        date: { $dateToString: { format: "%d-%m-%Y", date: "$admissionDate" } },
-                        month: { $month: "$admissionDate" },
+                        date: { $dateToString: { format: "%d-%m-%Y", date: "$admissionDate", timezone: "+05:30" } },
+                        month: { $month: { date: "$admissionDate", timezone: "+05:30" } },
                         centre: "$centre",
                         course: "$courseObjectId",
                         class: "$class",
