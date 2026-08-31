@@ -31,8 +31,8 @@ export const saveDailyTarget = async (req, res) => {
             return res.status(400).json({ message: "Missing required fields: date, centreName, targetAmount" });
         }
 
-        const targetDate = new Date(date);
-        targetDate.setHours(0, 0, 0, 0);
+        const cleanDate = typeof date === "string" ? (date.includes("T") ? date.split("T")[0] : date) : new Date(date).toISOString().split("T")[0];
+        const targetDate = new Date(`${cleanDate}T00:00:00+05:30`);
 
         // Escape regex special chars and allow leading/trailing whitespace in DB centreName field
         const cleanName = centreName.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

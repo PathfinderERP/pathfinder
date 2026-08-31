@@ -67,7 +67,7 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
                 $group: {
                     _id: {
                         centre: "$admissionDetails.centre",
-                        day: { $dayOfMonth: "$effectiveDate" }
+                        day: { $dayOfMonth: { date: "$effectiveDate", timezone: "+05:30" } }
                     },
                     totalExclGST: { $sum: "$revenueBase" }
                 }
@@ -149,20 +149,32 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         search
     } = query;
 
+    const cleanDateStr = (d) => {
+        if (!d) return null;
+        return typeof d === "string" ? (d.includes("T") ? d.split("T")[0] : d) : new Date(d).toISOString().split("T")[0];
+    };
+
     let startOfDay;
     let endOfDay;
-    const selectedDate = endDate ? new Date(endDate) : (date ? new Date(date) : new Date());
+    let selectedDate;
 
     if (startDate && endDate) {
-        startOfDay = new Date(startDate);
-        startOfDay.setHours(0, 0, 0, 0);
-        endOfDay = new Date(endDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        const sStr = cleanDateStr(startDate);
+        const eStr = cleanDateStr(endDate);
+        startOfDay = new Date(`${sStr}T00:00:00+05:30`);
+        endOfDay = new Date(`${eStr}T23:59:59.999+05:30`);
+        selectedDate = new Date(`${eStr}T00:00:00+05:30`);
+    } else if (date) {
+        const dStr = cleanDateStr(date);
+        startOfDay = new Date(`${dStr}T00:00:00+05:30`);
+        endOfDay = new Date(`${dStr}T23:59:59.999+05:30`);
+        selectedDate = new Date(`${dStr}T00:00:00+05:30`);
     } else {
-        selectedDate.setHours(0, 0, 0, 0);
-        startOfDay = selectedDate;
-        endOfDay = new Date(selectedDate);
-        endOfDay.setHours(23, 59, 59, 999);
+        const now = new Date();
+        const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        startOfDay = new Date(`${nowStr}T00:00:00+05:30`);
+        endOfDay = new Date(`${nowStr}T23:59:59.999+05:30`);
+        selectedDate = new Date(`${nowStr}T00:00:00+05:30`);
     }
 
     // Base Payment Filter (Only show transactions where a bill has been generated)
@@ -674,8 +686,10 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const monthName = monthNames[monthIndex];
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
 
-    const startOfMonth = new Date(year, monthIndex, 1);
-    const endOfMonth = new Date(year, monthIndex + 1, 0, 23, 59, 59, 999);
+    const mm = String(monthIndex + 1).padStart(2, '0');
+    const lastDayStr = String(daysInMonth).padStart(2, '0');
+    const startOfMonth = new Date(`${year}-${mm}-01T00:00:00+05:30`);
+    const endOfMonth = new Date(`${year}-${mm}-${lastDayStr}T23:59:59.999+05:30`);
 
     const targets = await CentreTarget.find({
         year,
@@ -683,10 +697,9 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     }).populate({ path: "centre", select: "centreName", model: "CentreSchema" });
 
     // Fetch custom daily targets for this specific date / date range
-    const startOfDate = new Date(selectedDate);
-    startOfDate.setHours(0, 0, 0, 0);
-    const endOfDate = new Date(selectedDate);
-    endOfDate.setHours(23, 59, 59, 999);
+    const dStr = cleanDateStr(selectedDate);
+    const startOfDate = new Date(`${dStr}T00:00:00+05:30`);
+    const endOfDate = new Date(`${dStr}T23:59:59.999+05:30`);
 
     let customTargetFilter = {};
     if (startDate && endDate) {
