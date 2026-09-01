@@ -48,12 +48,12 @@ const LeaveRequest = () => {
         try {
             setLoading(true);
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/leave-requests`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/leave-requests?myRequests=true&limit=100`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.ok) {
                 const data = await response.json();
-                setMyRequests(data);
+                setMyRequests(Array.isArray(data) ? data : (data.requests || []));
             }
         } catch (error) {
             toast.error("Failed to load leave requests");

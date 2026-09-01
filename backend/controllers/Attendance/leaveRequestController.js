@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import LeaveRequest from '../../models/Attendance/LeaveRequest.js';
 import LeaveType from '../../models/Attendance/LeaveType.js';
 import EmployeeAttendance from '../../models/Attendance/EmployeeAttendance.js';
@@ -84,40 +85,120 @@ const checkAvailableLeaveBalance = async (employeeId, leaveTypeId, requestingDay
     return { valid: true, availableDays, totalQuota, usedDays, leaveTypeName: leaveTypeObj.name };
 };
 
-// Get all leave requests (for HR) or employee's own requests
+// Get all leave requests (for HR/Superadmin, Reporting Manager, or employee's own requests)
 export const getLeaveRequests = async (req, res) => {
     try {
-        const { employeeId, status, startDate, endDate } = req.query;
+        const { employeeId, status, startDate, endDate, search, page, limit, myRequests } = req.query;
 
         let filter = {};
 
-        // If employeeId is provided in query, filter by that employee
-        if (employeeId) {
-            filter.employee = employeeId;
+        // 1. Employee personal view (from Leave Request page)
+        if (myRequests === 'true') {
+            const employee = await findEmployeeByUser(req.user.id);
+            if (employee) {
+                filter.employee = employee._id;
+            } else {
+                return res.json({
+                    requests: [],
+                    totalItems: 0,
+                    totalPages: 0,
+                    currentPage: 1,
+                    itemsPerPage: Number(limit) || 10
+                });
+            }
         } else {
-            if (Object.keys(req.query).length === 0) {
-                const employee = await findEmployeeByUser(req.user.id);
-                if (employee) {
-                    filter.employee = employee._id;
-                } else {
-                    // User is not an employee, returns []
-                    return res.json([]);
+            // 2. Leave Management view (Role & Manager hierarchy filtering)
+            const userRole = (req.user?.role || "").toLowerCase().replace(/[\s_]+/g, "");
+            const isSuperAdminOrHR = userRole === "superadmin" || userRole === "hr";
+
+            if (!isSuperAdminOrHR) {
+                // Reporting Manager person: only show leave applications of respective reportees
+                const managerEmployee = await findEmployeeByUser(req.user.id);
+                if (!managerEmployee) {
+                    return res.json({
+                        requests: [],
+                        totalItems: 0,
+                        totalPages: 0,
+                        currentPage: 1,
+                        itemsPerPage: Number(limit) || 10
+                    });
                 }
+
+                const reportees = await Employee.find({ manager: managerEmployee._id }).select('_id');
+                const reporteeIds = reportees.map(e => e._id);
+
+                if (reporteeIds.length === 0) {
+                    return res.json({
+                        requests: [],
+                        totalItems: 0,
+                        totalPages: 0,
+                        currentPage: 1,
+                        itemsPerPage: Number(limit) || 10
+                    });
+                }
+
+                filter.employee = { $in: reporteeIds };
             }
         }
 
-        if (status) filter.status = status;
+        // Search by Employee Name or Employee ID
+        const searchTerm = (search || employeeId || "").trim();
+        if (searchTerm) {
+            const isObjectId = mongoose.Types.ObjectId.isValid(searchTerm) && searchTerm.length === 24;
+            const searchConditions = [
+                { name: { $regex: searchTerm, $options: 'i' } },
+                { employeeId: { $regex: searchTerm, $options: 'i' } }
+            ];
+            if (isObjectId) {
+                searchConditions.push({ _id: searchTerm });
+            }
+
+            const matchedEmployees = await Employee.find({
+                $or: searchConditions
+            }).select('_id');
+
+            const matchedIds = matchedEmployees.map(e => e._id.toString());
+
+            if (filter.employee && filter.employee.$in) {
+                const currentAllowedIds = filter.employee.$in.map(id => id.toString());
+                const intersected = currentAllowedIds.filter(id => matchedIds.includes(id));
+                filter.employee = { $in: intersected };
+            } else if (filter.employee) {
+                if (!matchedIds.includes(filter.employee.toString())) {
+                    filter.employee = { $in: [] };
+                }
+            } else {
+                filter.employee = { $in: matchedIds };
+            }
+        }
+
+        // Status Filter
+        if (status && status !== 'All' && status !== '') {
+            filter.status = status;
+        }
+
+        // Date Range Filter
         if (startDate || endDate) {
             filter.startDate = {};
             if (startDate) filter.startDate.$gte = new Date(startDate);
             if (endDate) filter.startDate.$lte = new Date(endDate);
         }
 
+        // Pagination
+        const pageNum = Math.max(1, parseInt(page, 10) || 1);
+        const limitNum = Math.max(1, parseInt(limit, 10) || 10);
+        const skip = (pageNum - 1) * limitNum;
+
+        const totalItems = await LeaveRequest.countDocuments(filter);
+        const totalPages = Math.ceil(totalItems / limitNum);
+
         const requests = await LeaveRequest.find(filter)
             .populate('employee', 'name employeeId email profileImage')
             .populate('leaveType', 'name days')
             .populate('reviewedBy', 'name email')
-            .sort({ createdAt: -1 });
+            .sort({ createdAt: -1 })
+            .skip(skip)
+            .limit(limitNum);
 
         // Sign profile images
         const signedRequests = await Promise.all(requests.map(async (request) => {
@@ -128,7 +209,13 @@ export const getLeaveRequests = async (req, res) => {
             return reqObj;
         }));
 
-        res.json(signedRequests);
+        res.json({
+            requests: signedRequests,
+            totalItems,
+            totalPages,
+            currentPage: pageNum,
+            itemsPerPage: limitNum
+        });
     } catch (error) {
         console.error('Error fetching leave requests:', error);
         res.status(500).json({ message: 'Error fetching leave requests', error: error.message });

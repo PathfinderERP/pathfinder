@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../../components/Layout";
+import Pagination from "../../../components/common/Pagination";
 import { FaCheck, FaTimes, FaSpinner, FaHistory, FaSearch, FaUserEdit, FaPlus, FaCamera, FaMapMarkedAlt, FaExternalLinkAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const RegularizeTable = () => {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [filters, setFilters] = useState({ status: "" });
+    const [filters, setFilters] = useState({ status: "Pending" });
     const [localFilters, setLocalFilters] = useState({ date: "", center: "", name: "", empId: "" });
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [reviewData, setReviewData] = useState({ status: "Approved", remark: "", fromTime: "", toTime: "", attendanceMode: "custom" });
@@ -27,6 +30,7 @@ const RegularizeTable = () => {
 
     useEffect(() => {
         setSelectedIds([]);
+        setCurrentPage(1);
     }, [filters.status, localFilters]);
 
     const fetchRequests = async () => {
@@ -218,12 +222,12 @@ const RegularizeTable = () => {
                         onChange={(e) => { setFilters({ ...filters, status: e.target.value }); }}
                         className="px-4 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-sm outline-none dark:text-white w-full sm:w-auto"
                     >
-                        <option value="">All Status</option>
                         <option value="Pending">Pending</option>
                         <option value="Approved">Approved</option>
                         <option value="Rejected">Rejected</option>
+                        <option value="">All Status</option>
                     </select>
-                    <button onClick={() => { setLocalFilters({ date: "", center: "", name: "", empId: "" }); setFilters({ status: "" }) }} className="px-6 py-2 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap">Reset All</button>
+                    <button onClick={() => { setLocalFilters({ date: "", center: "", name: "", empId: "" }); setFilters({ status: "Pending" }); setCurrentPage(1); }} className="px-6 py-2 bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300 rounded-lg text-sm font-bold shadow-sm whitespace-nowrap">Reset All</button>
                     <button onClick={fetchRequests} className="px-6 py-2 bg-blue-600 text-white rounded-lg text-sm font-bold shadow-sm whitespace-nowrap">Refresh DB</button>
                 </div>
 
@@ -277,6 +281,7 @@ const RegularizeTable = () => {
                                     </th>
                                     <th className="px-4 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Sl No.</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Employee Name</th>
+                                    <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider">Centre</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Date</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Type</th>
                                     <th className="px-6 py-4 text-xs font-bold text-gray-500 uppercase tracking-wider text-center">Timings</th>
@@ -290,9 +295,9 @@ const RegularizeTable = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {loading ? (
-                                    <tr><td colSpan="12" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td></tr>
+                                    <tr><td colSpan="13" className="px-6 py-10 text-center text-blue-600"><FaSpinner className="animate-spin mx-auto" size={30} /></td></tr>
                                 ) : filteredRequests.length > 0 ? (
-                                    filteredRequests.map((request, index) => (
+                                    filteredRequests.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((request, index) => (
                                         <tr key={request._id} className={`hover:bg-gray-50/50 dark:hover:bg-gray-800/20 ${selectedIds.includes(request._id) ? 'bg-blue-50/40 dark:bg-blue-900/10' : ''}`}>
                                             <td className="px-4 py-4 text-center">
                                                 <input 
@@ -302,10 +307,15 @@ const RegularizeTable = () => {
                                                     className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
                                                 />
                                             </td>
-                                            <td className="px-4 py-4 text-sm text-gray-500 font-medium">{index + 1}</td>
+                                            <td className="px-4 py-4 text-sm text-gray-500 font-medium">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                             <td className="px-6 py-4">
                                                 <div className="font-bold text-gray-800 dark:text-white uppercase text-sm tracking-tight">{request.employeeId?.name || "N/A"}</div>
                                                 <div className="text-[10px] text-gray-500 font-medium tracking-widest">{request.employeeId?.employeeId || "UNKNOWN ID"}</div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                                                    {request.employeeId?.primaryCentre?.centreName || (typeof request.employeeId?.primaryCentre === 'string' ? request.employeeId?.primaryCentre : (request.employeeId?.centerArray?.[0] || "-"))}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4 text-center text-sm font-medium text-gray-600 dark:text-gray-400">
                                                 {new Date(request.date).toLocaleDateString('en-GB')}
@@ -389,7 +399,7 @@ const RegularizeTable = () => {
                                                 <div className="flex justify-center gap-2">
                                                     {request.status === 'Pending' ? (
                                                         <>
-                                                            <button onClick={() => { setSelectedRequest(request); setReviewData({ status: 'Approved', remark: '', fromTime: request.fromTime || "", toTime: request.toTime || "", attendanceMode: "custom" }); setShowStatusModal(true); }} className="p-1.5 bg-green-500 text-white rounded-lg shadow-sm hover:scale-105 transition-transform"><FaCheck size={12} /></button>
+                                                             <button onClick={() => { setSelectedRequest(request); setReviewData({ status: 'Approved', remark: '', fromTime: request.fromTime || "", toTime: request.toTime || "", attendanceMode: "custom" }); setShowStatusModal(true); }} className="p-1.5 bg-green-500 text-white rounded-lg shadow-sm hover:scale-105 transition-transform"><FaCheck size={12} /></button>
                                                             <button onClick={() => { setSelectedRequest(request); setReviewData({ status: 'Rejected', remark: '', fromTime: request.fromTime || "", toTime: request.toTime || "", attendanceMode: "custom" }); setShowStatusModal(true); }} className="p-1.5 bg-red-500 text-white rounded-lg shadow-sm hover:scale-105 transition-transform"><FaTimes size={12} /></button>
                                                         </>
                                                     ) : (
@@ -408,6 +418,22 @@ const RegularizeTable = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination */}
+                    {filteredRequests.length > 0 && (
+                        <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#1a1f24]">
+                            <Pagination
+                                currentPage={currentPage}
+                                totalItems={filteredRequests.length}
+                                itemsPerPage={itemsPerPage}
+                                onPageChange={(page) => setCurrentPage(page)}
+                                onItemsPerPageChange={(limit) => {
+                                    setItemsPerPage(limit);
+                                    setCurrentPage(1);
+                                }}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 

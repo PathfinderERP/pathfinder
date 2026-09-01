@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../../components/Layout";
+import Pagination from "../../../components/common/Pagination";
 import { FaSearch, FaFilter, FaCheck, FaTimes, FaSpinner, FaFileDownload, FaEye, FaPlus, FaCalendarAlt, FaUserEdit } from "react-icons/fa";
 import { toast } from "react-toastify";
 
@@ -7,36 +8,73 @@ const LeaveManagement = () => {
     const [requests, setRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
-        employeeId: "",
-        status: "",
+        search: "",
+        status: "Pending",
         startDate: "",
         endDate: ""
     });
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [totalItems, setTotalItems] = useState(0);
+
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [reviewData, setReviewData] = useState({ status: "Approved", remark: "" });
 
     useEffect(() => {
-        fetchRequests();
+        fetchRequests(1, itemsPerPage, filters);
     }, []);
 
-    const fetchRequests = async () => {
+    const fetchRequests = async (page = currentPage, limit = itemsPerPage, currentFilters = filters) => {
         try {
             setLoading(true);
             const token = localStorage.getItem("token");
-            const queryParams = new URLSearchParams(filters).toString();
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/leave-requests?${queryParams}`, {
+            const queryParams = new URLSearchParams();
+            if (currentFilters.search && currentFilters.search.trim()) {
+                queryParams.append("search", currentFilters.search.trim());
+            }
+            if (currentFilters.status) {
+                queryParams.append("status", currentFilters.status);
+            }
+            if (currentFilters.startDate) {
+                queryParams.append("startDate", currentFilters.startDate);
+            }
+            if (currentFilters.endDate) {
+                queryParams.append("endDate", currentFilters.endDate);
+            }
+            queryParams.append("page", page.toString());
+            queryParams.append("limit", limit.toString());
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/leave-requests?${queryParams.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (response.ok) {
                 const data = await response.json();
-                setRequests(data);
+                if (data && Array.isArray(data.requests)) {
+                    setRequests(data.requests);
+                    setTotalItems(data.totalItems || 0);
+                } else if (Array.isArray(data)) {
+                    setRequests(data);
+                    setTotalItems(data.length);
+                }
             }
         } catch (error) {
             toast.error("Failed to load leave requests");
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleSearch = () => {
+        setCurrentPage(1);
+        fetchRequests(1, itemsPerPage, filters);
+    };
+
+    const handleReset = () => {
+        const defaultFilters = { search: "", status: "Pending", startDate: "", endDate: "" };
+        setFilters(defaultFilters);
+        setCurrentPage(1);
+        fetchRequests(1, itemsPerPage, defaultFilters);
     };
 
     const handleStatusUpdate = async (e) => {
@@ -58,7 +96,7 @@ const LeaveManagement = () => {
             if (response.ok) {
                 toast.success(`Request ${reviewData.status.toLowerCase()}`);
                 setShowStatusModal(false);
-                fetchRequests();
+                fetchRequests(currentPage, itemsPerPage, filters);
             } else {
                 const errData = await response.json();
                 toast.error(errData.message || "Error updating status");
@@ -97,28 +135,49 @@ const LeaveManagement = () => {
                     <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4 items-end">
                         <div className="space-y-1.5 font-medium">
                             <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Search Employee</label>
-                            <input type="text" value={filters.employeeId} onChange={(e) => setFilters({ ...filters, employeeId: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500" placeholder="Employee ID or Name..." />
+                            <input
+                                type="text"
+                                value={filters.search}
+                                onChange={(e) => setFilters({ ...filters, search: e.target.value })}
+                                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                                placeholder="Employee ID or Name..."
+                            />
                         </div>
                         <div className="space-y-1.5 font-medium">
                             <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">From Date</label>
-                            <input type="date" value={filters.startDate} onChange={(e) => setFilters({ ...filters, startDate: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white" />
+                            <input
+                                type="date"
+                                value={filters.startDate}
+                                onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
+                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white"
+                            />
                         </div>
                         <div className="space-y-1.5 font-medium">
                             <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">To Date</label>
-                            <input type="date" value={filters.endDate} onChange={(e) => setFilters({ ...filters, endDate: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white" />
+                            <input
+                                type="date"
+                                value={filters.endDate}
+                                onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
+                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white"
+                            />
                         </div>
                         <div className="space-y-1.5 font-medium">
                             <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Status</label>
-                            <select value={filters.status} onChange={(e) => setFilters({ ...filters, status: e.target.value })} className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white outline-none">
-                                <option value="" className="bg-white dark:bg-[#1a1f24] text-gray-900 dark:text-white">All Status</option>
+                            <select
+                                value={filters.status}
+                                onChange={(e) => setFilters({ ...filters, status: e.target.value })}
+                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white outline-none"
+                            >
                                 <option value="Pending" className="bg-white dark:bg-[#1a1f24] text-gray-900 dark:text-white">Pending</option>
                                 <option value="Approved" className="bg-white dark:bg-[#1a1f24] text-gray-900 dark:text-white">Approved</option>
                                 <option value="Rejected" className="bg-white dark:bg-[#1a1f24] text-gray-900 dark:text-white">Rejected</option>
+                                <option value="" className="bg-white dark:bg-[#1a1f24] text-gray-900 dark:text-white">All Status</option>
                             </select>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={fetchRequests} className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold text-sm">Search</button>
-                            <button onClick={() => { setFilters({ employeeId: "", status: "", startDate: "", endDate: "" }); fetchRequests(); }} className="px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-xl hover:bg-gray-200 font-bold text-sm">Reset</button>
+                            <button onClick={handleSearch} className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold text-sm">Search</button>
+                            <button onClick={handleReset} className="px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-xl hover:bg-gray-200 font-bold text-sm">Reset</button>
                         </div>
                     </div>
                 </div>
@@ -145,7 +204,7 @@ const LeaveManagement = () => {
                                 ) : requests.length > 0 ? (
                                     requests.map((request, index) => (
                                         <tr key={request._id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
-                                            <td className="px-6 py-4 text-xs font-medium text-gray-500">{index + 1}</td>
+                                            <td className="px-6 py-4 text-xs font-medium text-gray-500">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-8 h-8 rounded-full border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
@@ -223,6 +282,26 @@ const LeaveManagement = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination */}
+                    {totalItems > 0 && (
+                        <div className="p-4 border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-[#1a1f24]">
+                            <Pagination
+                                currentPage={currentPage}
+                                totalItems={totalItems}
+                                itemsPerPage={itemsPerPage}
+                                onPageChange={(page) => {
+                                    setCurrentPage(page);
+                                    fetchRequests(page, itemsPerPage, filters);
+                                }}
+                                onItemsPerPageChange={(limit) => {
+                                    setItemsPerPage(limit);
+                                    setCurrentPage(1);
+                                    fetchRequests(1, limit, filters);
+                                }}
+                            />
+                        </div>
+                    )}
                 </div>
             </div>
 
