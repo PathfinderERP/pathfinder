@@ -1010,9 +1010,30 @@ const EmployeeAttendance = () => {
                                 end: endOfMonth(month)
                             });
 
+                            let mPresents = 0;
+                            let mAbsents = 0;
+                            let mWeekOffs = 0;
+                            let mHolidays = 0;
+                            let mLeaves = 0;
+
+                            days.forEach(d => {
+                                const status = getDayStatus(d);
+                                if (status.type === "Present" && status.status !== "Absent") {
+                                    mPresents++;
+                                } else if (status.type === "Leave") {
+                                    mLeaves++;
+                                } else if (status.type === "Absent" || status.status === "Absent") {
+                                    mAbsents++;
+                                } else if (status.type === "Holiday") {
+                                    mHolidays++;
+                                } else if (status.type === "Off" || status.type === "Week Off" || status.name === "Weekly Off") {
+                                    mWeekOffs++;
+                                }
+                            });
+
                             return (
                                 <div key={mIdx} className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border rounded-[2px] p-6 shadow-xl relative overflow-hidden group hover:border-gray-700 transition-all`}>
-                                    <div className="flex justify-between items-center mb-6">
+                                    <div className="flex justify-between items-center mb-4">
                                         <div>
                                             <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase tracking-tighter italic`}>{format(month, 'MMMM')}</h2>
                                             <p className="text-[9px] font-black text-cyan-500 uppercase tracking-widest mt-0.5">
@@ -1021,6 +1042,30 @@ const EmployeeAttendance = () => {
                                         </div>
                                         <div className={`w-8 h-8 ${isDarkMode ? 'bg-gray-900 text-gray-700' : 'bg-gray-50 text-gray-400'} rounded-[2px] flex items-center justify-center text-[10px] font-black`}>
                                             {format(month, 'MM')}
+                                        </div>
+                                    </div>
+
+                                    {/* Monthly Summary Counts */}
+                                    <div className={`grid grid-cols-5 gap-1 mb-5 py-2 px-1 rounded-[2px] ${isDarkMode ? 'bg-black/30 border-gray-800/80' : 'bg-gray-50 border-gray-200'} border text-center`}>
+                                        <div className="flex flex-col">
+                                            <span className="text-[12px] font-black text-emerald-500 leading-tight">{mPresents}</span>
+                                            <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Present</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[12px] font-black text-red-500 leading-tight">{mAbsents}</span>
+                                            <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Absent</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[12px] font-black text-amber-500 leading-tight">{mWeekOffs}</span>
+                                            <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Week Off</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[12px] font-black text-blue-500 leading-tight">{mHolidays}</span>
+                                            <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Holiday</span>
+                                        </div>
+                                        <div className="flex flex-col">
+                                            <span className="text-[12px] font-black text-purple-500 leading-tight">{mLeaves}</span>
+                                            <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Leave</span>
                                         </div>
                                     </div>
 

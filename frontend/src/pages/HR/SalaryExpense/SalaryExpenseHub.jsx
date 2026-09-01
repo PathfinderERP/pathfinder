@@ -3,8 +3,10 @@ import Layout from "../../../components/Layout";
 import {
     FaBuilding, FaUsers, FaMoneyBillWave,
     FaArrowLeft, FaCheck, FaSearch, FaFilter,
-    FaChevronDown, FaChevronUp, FaTimes, FaPaperPlane
+    FaChevronDown, FaChevronUp, FaTimes, FaPaperPlane,
+    FaFileExcel
 } from "react-icons/fa";
+import * as XLSX from "xlsx";
 
 const SALARY_MONTHS = [
     "January", "February", "March", "April", "May", "June",
@@ -276,11 +278,20 @@ const SalaryExpenseHub = () => {
     const [bulkSubmitting, setBulkSubmitting] = useState(false);
 
     const [loading, setLoading] = useState(false);
+    const currentMonthName = SALARY_MONTHS[new Date().getMonth()];
+    const currentYearVal = new Date().getFullYear();
+    const [attendanceMonth, setAttendanceMonth] = useState(currentMonthName);
+    const [attendanceYear, setAttendanceYear] = useState(currentYearVal);
+
+    const isExcludedCentre = (name) => {
+        if (!name) return false;
+        return /phsps|franchise|rkm/i.test(name);
+    };
 
     /* ── fetch centers and employees ── */
     useEffect(() => {
         fetchCenters();
-        fetchEmployees({ _id: "all", centreName: "All Centres" });
+        fetchEmployees({ _id: "all", centreName: "All Centres" }, attendanceMonth, attendanceYear);
     }, []);
 
     const fetchCenters = async () => {
@@ -290,22 +301,26 @@ const SalaryExpenseHub = () => {
                 headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
             });
             const data = await res.json();
-            if (res.ok && data.success) setCenters(data.centers);
+            if (res.ok && data.success) {
+                const validCenters = (data.centers || []).filter(c => !isExcludedCentre(c.centreName));
+                setCenters(validCenters);
+            }
             else toast.error(data.message || "Failed to load centers");
         } catch { toast.error("Network error loading centers"); }
         setLoading(false);
     };
 
     /* ── fetch all employees for a center ── */
-    const fetchEmployees = async (center) => {
+    const fetchEmployees = async (center = selectedCenter, month = attendanceMonth, year = attendanceYear) => {
         setLoading(true);
         try {
-            const res = await fetch(`${API}/hr/salary/all-employees/${center._id}`, {
+            const res = await fetch(`${API}/hr/salary/all-employees/${center._id}?salaryMonth=${month}&year=${year}`, {
                 headers: { Authorization: `Bearer ${localStorage.getItem("token")}` }
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                setEmployees(data.employees);
+                const validEmployees = (data.employees || []).filter(emp => !isExcludedCentre(emp.centreName));
+                setEmployees(validEmployees);
                 setDeptOptions(data.departments || []);
                 setSelectedCenter(center);
                 setSearch("");
@@ -336,7 +351,10 @@ const SalaryExpenseHub = () => {
             if (res.ok && data.success) {
                 setSalaryHistory(data.history || []);
                 setSelectedEmployee(emp);
-                setApprovalData({ salaryMonth: "", salaryPeriod: "", amount: emp.currentSalary ? String(emp.currentSalary) : "" });
+                const suggestedAmount = emp.calculatedSalary !== undefined && emp.calculatedSalary !== null
+                    ? String(emp.calculatedSalary)
+                    : (emp.grossSalary || emp.currentSalary ? String(emp.grossSalary || emp.currentSalary) : "");
+                setApprovalData({ salaryMonth: attendanceMonth, salaryPeriod: "", amount: suggestedAmount });
                 setStep(3);
             } else toast.error(data.message || "Failed to load salary history");
         } catch { toast.error("Network error loading history"); }
@@ -366,11 +384,65 @@ const SalaryExpenseHub = () => {
             });
             const data = await res.json();
             if (data.success) {
-                toast.success("Salary submitted for finance approval ✓");
+                toast.success("Salary approved successfully ✓");
                 setApprovalData({ salaryMonth: "", salaryPeriod: "", amount: selectedEmployee.currentSalary ? String(selectedEmployee.currentSalary) : "" });
                 fetchHistory(selectedEmployee);
-            } else toast.error(data.message || "Submit failed");
+                fetchEmployees(selectedCenter, attendanceMonth, attendanceYear);
+            } else toast.error(data.message || "Approval failed");
         } catch { toast.error("Error submitting approval"); }
+    };
+
+    /* ── Export to Excel ── */
+    const exportToExcel = () => {
+        if (!filtered || filtered.length === 0) {
+            toast.error("No employee data available to export");
+            return;
+        }
+
+        const excelData = filtered.map((emp, index) => {
+            const isApproved = emp.payouts?.some(
+                p => (p.month === attendanceMonth || !p.month) && p.status === "Approved"
+            );
+
+            return {
+                "Sl No": index + 1,
+                "Employee Name": emp.name || "—",
+                "Employee Code": emp.employeeId || "—",
+                "Designation / Role": emp.role || "—",
+                "Department": emp.departmentName || "—",
+                "Centre": emp.centreName || "—",
+                "Contact Number": emp.mobNum || "—",
+                "Bank Account No": emp.accountNumber || "—",
+                "IFSC Code": emp.ifscCode || "—",
+                "Salary Month": `${attendanceMonth} ${attendanceYear}`,
+                "Total Month Days": emp.daysInMonth || 30,
+                "Present Days": emp.presentDays ?? 0,
+                "Week Offs (WO)": emp.weekOffsCount ?? 0,
+                "Holidays (H)": emp.holidaysCount ?? 0,
+                "Leaves (L)": emp.leavesCount ?? 0,
+                "Total Paid Days": emp.totalPaidDays ?? (emp.presentDays ?? 0),
+                "Gross Salary (₹)": emp.grossSalary || emp.currentSalary || 0,
+                "Calculated / Payable Salary (₹)": emp.calculatedSalary !== undefined && emp.calculatedSalary !== null
+                    ? emp.calculatedSalary
+                    : (emp.grossSalary || emp.currentSalary || 0),
+                "Salary Approval Status": isApproved ? "Approved" : "Pending"
+            };
+        });
+
+        const worksheet = XLSX.utils.json_to_sheet(excelData);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, "Salary Sheet");
+
+        // Auto column sizing
+        const keys = Object.keys(excelData[0] || {});
+        worksheet["!cols"] = keys.map(key => ({
+            wch: Math.max(key.length, ...excelData.map(row => String(row[key] ?? "").length)) + 3
+        }));
+
+        const cleanCentre = selectedCenter?.centreName ? selectedCenter.centreName.replace(/\s+/g, "_") : "All_Centres";
+        const filename = `Salary_Sheet_${cleanCentre}_${attendanceMonth}_${attendanceYear}.xlsx`;
+        XLSX.writeFile(workbook, filename);
+        toast.success(`Exported ${filtered.length} employees to Excel ✓`);
     };
 
     /* ── goBack ── */
@@ -424,12 +496,14 @@ const SalaryExpenseHub = () => {
         const amounts = {};
         const months = {};
         selectedEmployees.forEach((emp) => {
-            amounts[emp._id] = emp.currentSalary ? String(emp.currentSalary) : "";
-            months[emp._id] = "";
+            amounts[emp._id] = emp.calculatedSalary !== undefined && emp.calculatedSalary !== null
+                ? String(emp.calculatedSalary)
+                : (emp.grossSalary || emp.currentSalary ? String(emp.grossSalary || emp.currentSalary) : "");
+            months[emp._id] = attendanceMonth;
         });
         setBulkAmounts(amounts);
         setBulkMonths(months);
-        setBulkForm({ salaryMonth: "", salaryPeriod: "", monthMode: "same" });
+        setBulkForm({ salaryMonth: attendanceMonth, salaryPeriod: "", monthMode: "same" });
         setShowBulkModal(true);
     };
 
@@ -479,14 +553,15 @@ const SalaryExpenseHub = () => {
             if (data.success) {
                 const failCount = data.failed?.length || 0;
                 if (failCount > 0) {
-                    toast.warn(`${data.created?.length || 0} submitted, ${failCount} failed`);
+                    toast.warn(`${data.created?.length || 0} approved, ${failCount} failed`);
                 } else {
-                    toast.success(data.message || "Bulk salary requests submitted ✓");
+                    toast.success(data.message || "Bulk salaries approved successfully ✓");
                 }
                 setShowBulkModal(false);
                 clearSelection();
+                fetchEmployees(selectedCenter, attendanceMonth, attendanceYear);
             } else {
-                toast.error(data.message || "Bulk submit failed");
+                toast.error(data.message || "Bulk approval failed");
             }
         } catch {
             toast.error("Error submitting bulk salary requests");
@@ -497,6 +572,8 @@ const SalaryExpenseHub = () => {
     /* ── filtered + grouped employees ── wefwef*/
     const filtered = useMemo(() => {
         return employees.filter(e => {
+            if (isExcludedCentre(e.centreName)) return false;
+
             const isAllCenters = selectedCenterIds.includes("all") || selectedCenterIds.length === 0;
             const matchCenter = isAllCenters || selectedCenterIds.includes(e.centreId);
 
@@ -649,12 +726,42 @@ const SalaryExpenseHub = () => {
                                         }} />
                                 )}
                             </div>
+                                       {/* Attendance Month Selector */}
+                            <div style={{ position: "relative", display: "inline-block", minWidth: 160 }}>
+                                <span style={{ fontSize: "0.78rem", color: sub, display: "block", marginBottom: 4, fontWeight: 600 }}>Attendance Month</span>
+                                <select
+                                    value={attendanceMonth}
+                                    onChange={e => {
+                                        const newM = e.target.value;
+                                        setAttendanceMonth(newM);
+                                        fetchEmployees(selectedCenter, newM, attendanceYear);
+                                    }}
+                                    style={{
+                                        width: "100%",
+                                        background: inputBg,
+                                        border: `1px solid ${border}`,
+                                        borderRadius: 8,
+                                        color: text,
+                                        padding: "9px 12px",
+                                        fontSize: "0.85rem",
+                                        outline: "none",
+                                        height: 38,
+                                        fontWeight: 600,
+                                        cursor: "pointer",
+                                        boxSizing: "border-box"
+                                    }}
+                                >
+                                    {SALARY_MONTHS.map(m => (
+                                        <option key={m} value={m}>{m} {attendanceYear}</option>
+                                    ))}
+                                </select>
+                            </div>
 
                             {/* Center multi-select */}
                             <MultiSelect
                                 label="Centers"
                                 placeholder="Centre"
-                                options={centers.map(c => ({ value: c._id, label: c.centreName }))}
+                                options={centers.filter(c => !isExcludedCentre(c.centreName)).map(c => ({ value: c._id, label: c.centreName }))}
                                 selectedValues={selectedCenterIds}
                                 onChange={setSelectedCenterIds}
                                 isDark={isDark}
@@ -758,11 +865,11 @@ const SalaryExpenseHub = () => {
                                 />
                             </div>
 
-                            {/* Select all + count */}
+                            {/* Selection actions & counter */}
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginLeft: "auto", flexWrap: "wrap" }}>
                                 <label style={{
                                     display: "flex", alignItems: "center", gap: 8, cursor: "pointer",
-                                    fontSize: "0.82rem", color: sub, whiteSpace: "nowrap"
+                                    fontSize: "0.83rem", color: text, userSelect: "none"
                                 }}>
                                     <input
                                         type="checkbox"
@@ -772,67 +879,78 @@ const SalaryExpenseHub = () => {
                                     />
                                     Select all
                                 </label>
-                                <div style={{
-                                    background: `${accent}18`, color: accent2,
-                                    padding: "5px 14px", borderRadius: 20, fontSize: "0.8rem", fontWeight: 700,
-                                    whiteSpace: "nowrap"
-                                }}>
-                                    {filtered.length} employee{filtered.length !== 1 ? "s" : ""}
-                                </div>
+
                                 {selectedIds.size > 0 && (
-                                    <div style={{
-                                        background: "#10b98120", color: "#34d399",
-                                        padding: "5px 14px", borderRadius: 20, fontSize: "0.8rem", fontWeight: 700
-                                    }}>
-                                        {selectedIds.size} selected
-                                    </div>
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={openBulkModal}
+                                            style={{
+                                                background: `linear-gradient(135deg, ${accent}, ${accent2})`,
+                                                color: "#fff", border: "none", borderRadius: 8,
+                                                padding: "8px 14px", cursor: "pointer",
+                                                fontWeight: 700, fontSize: "0.8rem",
+                                                display: "flex", alignItems: "center", gap: 6,
+                                                boxShadow: "0 4px 12px rgba(99,102,241,0.3)"
+                                            }}
+                                        >
+                                            <FaPaperPlane size={11} /> Approve Selected ({selectedIds.size})
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={clearSelection}
+                                            style={{
+                                                background: "transparent",
+                                                border: `1px solid ${border}`,
+                                                borderRadius: 8,
+                                                color: sub,
+                                                padding: "7px 10px",
+                                                fontSize: "0.78rem",
+                                                cursor: "pointer"
+                                            }}
+                                        >
+                                            Clear
+                                        </button>
+                                    </>
                                 )}
+
+                                <button
+                                    type="button"
+                                    onClick={exportToExcel}
+                                    style={{
+                                        background: isDark ? "#064e3b" : "#059669",
+                                        color: "#fff",
+                                        border: "none",
+                                        borderRadius: 8,
+                                        padding: "8px 14px",
+                                        cursor: "pointer",
+                                        fontWeight: 700,
+                                        fontSize: "0.8rem",
+                                        display: "flex",
+                                        alignItems: "center",
+                                        gap: 6,
+                                        boxShadow: "0 2px 8px rgba(5,150,105,0.25)",
+                                        whiteSpace: "nowrap"
+                                    }}
+                                >
+                                    <FaFileExcel size={13} /> Export Excel
+                                </button>
+
+                                <span style={{
+                                    background: `${accent}15`, color: accent2,
+                                    borderRadius: 20, padding: "4px 12px",
+                                    fontSize: "0.82rem", fontWeight: 700
+                                }}>
+                                    {filtered.length} employees
+                                </span>
                             </div>
                         </div>
-
-                        {/* Bulk action bar */}
-                        {selectedIds.size > 0 && (
-                            <div style={{
-                                display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-                                flexWrap: "wrap", marginBottom: 18, padding: "14px 18px",
-                                background: `linear-gradient(135deg, ${accent}22, ${accent2}18)`,
-                                border: `1px solid ${accent}44`, borderRadius: 12
-                            }}>
-                                <div style={{ color: text, fontSize: "0.9rem", fontWeight: 600 }}>
-                                    {selectedIds.size} employee{selectedIds.size !== 1 ? "s" : ""} selected for bulk salary request
-                                </div>
-                                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                                    <button
-                                        type="button"
-                                        onClick={clearSelection}
-                                        style={{
-                                            background: "transparent", border: `1px solid ${border}`,
-                                            borderRadius: 8, padding: "8px 14px", cursor: "pointer",
-                                            color: sub, fontWeight: 600, fontSize: "0.82rem"
-                                        }}
-                                    >
-                                        Clear selection
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={openBulkModal}
-                                        style={{
-                                            background: `linear-gradient(135deg, ${accent}, ${accent2})`,
-                                            color: "#fff", border: "none", borderRadius: 8,
-                                            padding: "8px 16px", cursor: "pointer", fontWeight: 700,
-                                            fontSize: "0.82rem", display: "flex", alignItems: "center", gap: 8
-                                        }}
-                                    >
-                                        <FaPaperPlane size={12} /> Request salary for selected
-                                    </button>
-                                </div>
-                            </div>
-                        )}
 
                         {/* Grouped sections */}
                         {Object.keys(grouped).length === 0 ? (
                             <div style={{ textAlign: "center", padding: 60, color: sub }}>
-                                No employees match your search.
+                                <FaUsers size={36} style={{ marginBottom: 12, opacity: 0.4 }} />
+                                <p style={{ margin: 0, fontWeight: 600 }}>No employees match your search.</p>
                             </div>
                         ) : (
                             Object.entries(grouped).map(([deptName, emps]) => {
@@ -840,7 +958,7 @@ const SalaryExpenseHub = () => {
                                 return (
                                     <div key={deptName} style={{
                                         background: card, border: `1px solid ${border}`,
-                                        borderRadius: 14, marginBottom: 16, overflow: "hidden"
+                                        borderRadius: 12, marginBottom: 14, overflow: "hidden"
                                     }}>
                                         {/* Section header */}
                                         <div
@@ -885,7 +1003,7 @@ const SalaryExpenseHub = () => {
                                                     <thead>
                                                         <tr style={{ background: isDark ? "#0f172a" : "#f1f5f9" }}>
                                                             <th style={{ padding: "10px 16px", width: 44 }} />
-                                                            {["Employee", "ID", "Email", "Mobile", "Department", "Centre", "Bank Account No.", "IFSC Code", "Current Salary", "Action"].map(h => (
+                                                            {["Employee", "ID", "Email", "Mobile", "Department", "Centre", "Bank Account No.", "IFSC Code", "Gross Salary", "Present Days", "Calculated Salary", "Action"].map(h => (
                                                                 <th key={h} style={{
                                                                     padding: "10px 16px", textAlign: "left",
                                                                     color: sub, fontWeight: 700, fontSize: "0.75rem",
@@ -961,21 +1079,89 @@ const SalaryExpenseHub = () => {
                                                                         {emp.ifscCode || "—"}
                                                                     </td>
                                                                     <td style={{ padding: "12px 16px", fontWeight: 700, color: text, whiteSpace: "nowrap" }}>
-                                                                        {fmt(emp.currentSalary)}
+                                                                        {fmt(emp.grossSalary || emp.currentSalary)}
+                                                                    </td>
+                                                                    <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                                                                        <div style={{ display: "flex", flexDirection: "column" }}>
+                                                                            <span style={{
+                                                                                background: isDark ? "#1e3a8a30" : "#dbeafe",
+                                                                                color: isDark ? "#60a5fa" : "#1d4ed8",
+                                                                                padding: "3px 8px",
+                                                                                borderRadius: 6,
+                                                                                fontWeight: 700,
+                                                                                fontSize: "0.82rem",
+                                                                                display: "inline-block",
+                                                                                width: "fit-content"
+                                                                            }}>
+                                                                                {emp.presentDays ?? 0} / {emp.daysInMonth || 30} Days
+                                                                            </span>
+                                                                            <span style={{ fontSize: "0.7rem", color: sub, marginTop: 2 }}>
+                                                                                {emp.totalPaidDays ?? emp.presentDays ?? 0} Paid Days
+                                                                                {(emp.weekOffsCount > 0 || emp.leavesCount > 0 || emp.holidaysCount > 0) && (
+                                                                                    <span style={{ opacity: 0.85, marginLeft: 3 }}>
+                                                                                        ({emp.presentDays ?? 0}P + {emp.weekOffsCount || 0}WO{emp.leavesCount > 0 ? ` + ${emp.leavesCount}L` : ''}{emp.holidaysCount > 0 ? ` + ${emp.holidaysCount}H` : ''})
+                                                                                    </span>
+                                                                                )}
+                                                                            </span>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td style={{ padding: "12px 16px", whiteSpace: "nowrap" }}>
+                                                                        <span style={{
+                                                                            fontWeight: 800,
+                                                                            color: "#10b981",
+                                                                            fontSize: "0.92rem",
+                                                                            background: isDark ? "#064e3b30" : "#d1fae5",
+                                                                            padding: "4px 10px",
+                                                                            borderRadius: 6,
+                                                                            display: "inline-block"
+                                                                        }}>
+                                                                            {fmt(emp.calculatedSalary !== undefined ? emp.calculatedSalary : (emp.grossSalary || emp.currentSalary))}
+                                                                        </span>
                                                                     </td>
                                                                     <td style={{ padding: "12px 16px" }}>
-                                                                        <button
-                                                                            onClick={() => fetchHistory(emp)}
-                                                                            style={{
-                                                                                background: `linear-gradient(135deg, ${accent}, ${accent2})`,
-                                                                                color: "#fff", border: "none", borderRadius: 8,
-                                                                                padding: "7px 14px", cursor: "pointer",
-                                                                                fontWeight: 600, fontSize: "0.78rem",
-                                                                                display: "flex", alignItems: "center", gap: 6,
-                                                                                whiteSpace: "nowrap"
-                                                                            }}>
-                                                                            <FaMoneyBillWave size={12} /> Approve Salary
-                                                                        </button>
+                                                                        {(() => {
+                                                                            const isApprovedThisMonth = emp.payouts?.some(
+                                                                                p => (p.month === attendanceMonth || !p.month) && p.status === "Approved"
+                                                                            );
+                                                                            if (isApprovedThisMonth) {
+                                                                                return (
+                                                                                    <button
+                                                                                        onClick={() => fetchHistory(emp)}
+                                                                                        style={{
+                                                                                            background: isDark ? "#064e3b40" : "#d1fae5",
+                                                                                            color: "#10b981",
+                                                                                            border: `1px solid ${isDark ? "#05966950" : "#a7f3d0"}`,
+                                                                                            borderRadius: 8,
+                                                                                            padding: "6px 13px",
+                                                                                            cursor: "pointer",
+                                                                                            fontWeight: 700,
+                                                                                            fontSize: "0.78rem",
+                                                                                            display: "flex",
+                                                                                            alignItems: "center",
+                                                                                            gap: 6,
+                                                                                            whiteSpace: "nowrap"
+                                                                                        }}
+                                                                                    >
+                                                                                        <FaCheck size={11} /> Approved
+                                                                                    </button>
+                                                                                );
+                                                                            }
+                                                                            return (
+                                                                                <button
+                                                                                    onClick={() => fetchHistory(emp)}
+                                                                                    style={{
+                                                                                        background: `linear-gradient(135deg, ${accent}, ${accent2})`,
+                                                                                        color: "#fff", border: "none", borderRadius: 8,
+                                                                                        padding: "7px 14px", cursor: "pointer",
+                                                                                        fontWeight: 600, fontSize: "0.78rem",
+                                                                                        display: "flex", alignItems: "center", gap: 6,
+                                                                                        whiteSpace: "nowrap"
+                                                                                    }}
+                                                                                >
+                                                                                    <FaMoneyBillWave size={12} /> Approve Salary
+                                                                                </button>
+                                                                            );
+                                                                        })()}
                                                                     </td>
                                                                 </tr>
                                                             );
@@ -1023,7 +1209,9 @@ const SalaryExpenseHub = () => {
                                         ["Center", selectedEmployee.centreName || selectedCenter?.centreName],
                                         ["Bank Account No.", selectedEmployee.accountNumber],
                                         ["IFSC Code", selectedEmployee.ifscCode],
-                                        ["Current Salary", fmt(selectedEmployee.currentSalary)],
+                                        ["Gross Salary", fmt(selectedEmployee.grossSalary || selectedEmployee.currentSalary)],
+                                        ["Present Days", `${selectedEmployee.presentDays ?? 0} / ${selectedEmployee.daysInMonth || 30} Days (${selectedEmployee.totalPaidDays ?? 0} Paid Days)`],
+                                        ["Calculated Salary", fmt(selectedEmployee.calculatedSalary !== undefined ? selectedEmployee.calculatedSalary : selectedEmployee.currentSalary)],
                                     ].map(([l, v]) => (
                                         <div key={l} style={{
                                             background: inputBg, borderRadius: 10,
