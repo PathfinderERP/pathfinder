@@ -208,10 +208,10 @@ export const getStudentFinancialDetails = async (req, res) => {
 
             // Summary
             summary: {
-                totalAdmissions: admissions.length,
-                totalFeesAcrossAll: admissions.reduce((sum, adm) => sum + (adm.totalFees || 0), 0),
-                totalPaidAcrossAll: admissions.reduce((sum, adm) => sum + (adm.totalPaidAmount || 0), 0),
-                totalRemainingAcrossAll: admissions.reduce((sum, adm) => sum + (adm.remainingAmount || 0), 0),
+                totalAdmissions: admissions.filter(adm => adm.admissionStatus !== "INACTIVE" && adm.admissionStatus !== "CANCELLED" && adm.status !== "INACTIVE" && adm.status !== "Deactivated").length,
+                totalFeesAcrossAll: admissions.filter(adm => adm.admissionStatus !== "INACTIVE" && adm.admissionStatus !== "CANCELLED" && adm.status !== "INACTIVE" && adm.status !== "Deactivated").reduce((sum, adm) => sum + (adm.totalFees || 0), 0),
+                totalPaidAcrossAll: admissions.filter(adm => adm.admissionStatus !== "INACTIVE" && adm.admissionStatus !== "CANCELLED" && adm.status !== "INACTIVE" && adm.status !== "Deactivated").reduce((sum, adm) => sum + (adm.totalPaidAmount || 0), 0),
+                totalRemainingAcrossAll: admissions.filter(adm => adm.admissionStatus !== "INACTIVE" && adm.admissionStatus !== "CANCELLED" && adm.status !== "INACTIVE" && adm.status !== "Deactivated").reduce((sum, adm) => sum + (adm.remainingAmount || 0), 0),
                 totalPayments: payments.length
             }
         };

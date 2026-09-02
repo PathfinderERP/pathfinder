@@ -3878,26 +3878,41 @@ const EnrolledStudentsContent = () => {
                             {/* Grand Total Summary */}
                             <div className={`p-8 rounded-[4px] border ${isDarkMode ? 'bg-gradient-to-r from-[#131619] to-[#1a1f24] border-gray-800' : 'bg-gradient-to-r from-gray-50 to-white border-gray-100 shadow-sm'} mt-12`}>
                                 <h4 className={`text-xl font-black uppercase tracking-widest mb-8 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Financial Details</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                    <div className={`p-6 rounded-[4px] border transition-all hover:scale-[1.02] ${isDarkMode ? 'bg-black/20 border-cyan-500/20' : 'bg-white border-cyan-200'}`}>
-                                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1.5">Total Commitment</p>
-                                        <p className="text-4xl font-black italic tracking-tighter text-cyan-500">
-                                            ₹{studentAdmissions.reduce((sum, ad) => sum + (ad.totalFees || 0), 0).toLocaleString()}
-                                        </p>
-                                    </div>
-                                    <div className={`p-6 rounded-[4px] border transition-all hover:scale-[1.02] ${isDarkMode ? 'bg-black/20 border-green-500/20' : 'bg-white border-green-200'}`}>
-                                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1.5">Total Paid</p>
-                                        <p className="text-4xl font-black italic tracking-tighter text-green-500">
-                                            ₹{studentAdmissions.reduce((sum, ad) => sum + (ad.totalPaidAmount || 0), 0).toLocaleString()}
-                                        </p>
-                                    </div>
-                                    <div className={`p-6 rounded-[4px] border transition-all hover:scale-[1.02] ${isDarkMode ? 'bg-black/20 border-yellow-500/20' : 'bg-white border-yellow-200'}`}>
-                                        <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1.5">Remaining</p>
-                                        <p className="text-4xl font-black italic tracking-tighter text-yellow-500">
-                                            ₹{studentAdmissions.reduce((sum, ad) => sum + Math.max(0, (ad.totalFees || 0) - (ad.totalPaidAmount || 0)), 0).toLocaleString()}
-                                        </p>
-                                    </div>
-                                </div>
+                                {(() => {
+                                    const activeAdmissions = studentAdmissions.filter(ad =>
+                                        ad.admissionType !== 'BOARD' &&
+                                        ad.admissionStatus !== 'INACTIVE' &&
+                                        ad.admissionStatus !== 'CANCELLED' &&
+                                        ad.status !== 'INACTIVE' &&
+                                        ad.status !== 'Deactivated'
+                                    );
+                                    const totalCommitment = activeAdmissions.reduce((sum, ad) => sum + (ad.totalFees || 0), 0);
+                                    const totalPaid = activeAdmissions.reduce((sum, ad) => sum + (ad.totalPaidAmount || 0), 0);
+                                    const totalRemaining = activeAdmissions.reduce((sum, ad) => sum + Math.max(0, (ad.totalFees || 0) - (ad.totalPaidAmount || 0)), 0);
+
+                                    return (
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                                            <div className={`p-6 rounded-[4px] border transition-all hover:scale-[1.02] ${isDarkMode ? 'bg-black/20 border-cyan-500/20' : 'bg-white border-cyan-200'}`}>
+                                                <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1.5">Total Commitment</p>
+                                                <p className="text-4xl font-black italic tracking-tighter text-cyan-500">
+                                                    ₹{totalCommitment.toLocaleString()}
+                                                </p>
+                                            </div>
+                                            <div className={`p-6 rounded-[4px] border transition-all hover:scale-[1.02] ${isDarkMode ? 'bg-black/20 border-green-500/20' : 'bg-white border-green-200'}`}>
+                                                <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1.5">Total Paid</p>
+                                                <p className="text-4xl font-black italic tracking-tighter text-green-500">
+                                                    ₹{totalPaid.toLocaleString()}
+                                                </p>
+                                            </div>
+                                            <div className={`p-6 rounded-[4px] border transition-all hover:scale-[1.02] ${isDarkMode ? 'bg-black/20 border-yellow-500/20' : 'bg-white border-yellow-200'}`}>
+                                                <p className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1.5">Remaining</p>
+                                                <p className="text-4xl font-black italic tracking-tighter text-yellow-500">
+                                                    ₹{totalRemaining.toLocaleString()}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         </div>
                     </div>

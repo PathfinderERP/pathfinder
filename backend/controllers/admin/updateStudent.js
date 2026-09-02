@@ -67,9 +67,6 @@ export const updateStudent = async (req, res) => {
                     if (details.studentName) updateFields.studentName = details.studentName;
                     if (details.mobileNum) updateFields.mobileNum = details.mobileNum;
                     if (details.centre) updateFields.centre = details.centre;
-                    if (details.programme) updateFields.programme = details.programme;
-                    if (exam.class) updateFields.lastClass = exam.class;
-                    if (sessionCourse.session) updateFields.academicSession = sessionCourse.session;
  
                     if (details.board) {
                          const boardDoc = await Boards.findOne({
@@ -83,16 +80,20 @@ export const updateStudent = async (req, res) => {
                          }
                     }
  
-                    const board = await Boards.findById(updateFields.boardId || admission.boardId);
-                    if (board) {
-                        updateFields.boardCourseName = `${board.boardCourse} Class ${updateFields.lastClass || admission.lastClass || ''} ${updateFields.programme || admission.programme || ''} ${updateFields.academicSession || admission.academicSession || ''}`;
+                    if (!admission.boardCourseName || admission.boardCourseName.trim() === "") {
+                        const board = await Boards.findById(updateFields.boardId || admission.boardId);
+                        if (board) {
+                            updateFields.boardCourseName = `${board.boardCourse} Class ${admission.lastClass || ''} ${admission.programme || ''} ${admission.academicSession || ''}`.trim();
+                        }
                     }
 
                     if (!admission.department && student.department) {
                         updateFields.department = student.department;
                     }
  
-                    await BoardCourseAdmission.updateOne({ _id: admission._id }, { $set: updateFields });
+                    if (Object.keys(updateFields).length > 0) {
+                        await BoardCourseAdmission.updateOne({ _id: admission._id }, { $set: updateFields });
+                    }
                 }
             }
         } catch (syncErr) {
