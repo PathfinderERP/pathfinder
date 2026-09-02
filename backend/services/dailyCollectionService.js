@@ -729,7 +729,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
 
     const centreTargets = {};
     
-    // Set default daily targets based on weekends target module rules
+    // Calculate dynamic daily target for the selected date based on weekends target module rules
     targets.forEach(t => {
         if (t.centre && t.centre.centreName) {
             const name = t.centre.centreName;
@@ -744,7 +744,6 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 let finalDailyTarget = 0;
 
                 for (const week of fixedWeeks) {
-                    // Proportional target for this week's days
                     const basePhaseTarget = daysInMonth > 0
                         ? (week.actualDays / daysInMonth) * monthlyTargetExclGST
                         : 0;
@@ -759,16 +758,13 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     const prevCumulativeAchievement = cumulativeAchievement;
                     const phaseTarget = Math.max(0, cumulativeTarget - prevCumulativeAchievement);
 
-                    // Check if the selected day falls within this week
                     const isDayInWeek = selectedDayNum >= week.startDay && selectedDayNum <= week.endDay;
 
-                    // Calculate achievements in this week to compute shortfall
                     let phaseAchieved = 0;
                     week.days.forEach(d => {
                         phaseAchieved += dayMap[d.day] || 0;
                     });
 
-                    const phaseShortfall = Math.max(0, phaseTarget - phaseAchieved);
                     cumulativeAchievement += phaseAchieved;
 
                     if (isDayInWeek) {
@@ -795,52 +791,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         }
     });
 
-    const defaultTodayCentreTargets = {
-        "ARAMBAGH": 59271.18,
-        "BAGNAN": 7816.1,
-        "BALLY": 58300.84,
-        "BALURGHAT": 53649.14,
-        "BARASAT": 83084.73,
-        "BARUIPUR": 157932.2,
-        "BEHALA": 250038.13,
-        "BERHAMPUR": 6000,
-        "BURDWAN": 195368.14,
-        "CHANDANNAGAR": 70805.09,
-        "CONTAI": 6100,
-        "COOCHBEHAR": 132694.91,
-        "DIAMOND HARBOUR": 119932.19,
-        "DUMDUM": 153433.896,
-        "HABRA": 4821.18,
-        "HAZRA H.O": 1192927.04,
-        "HAZRA H.O.": 1192927.04,
-        "HAZRA": 1192927.04,
-        "JODHPUR PARK": 188542.38,
-        "KALYANI": 66594.06,
-        "KATWA": 45240.34,
-        "KTPP TOWNSHIP": 39458.44,
-        "KTPP": 39458.44,
-        "MALDA": 91495.18,
-        "MIDNAPORE": 12966.04,
-        "RAIGANJ": 31864.4,
-        "SHYAMBAZAR": 38358.474,
-        "TAMLUK": 65830.5,
-        "TARAKESWAR": 8161.04
-    };
-
-    // Set fallback default adjusted targets for centres if not already calculated from CentreTarget
-    for (const c of allCentres) {
-        if (c.centreName && (centreTargets[c.centreName] === undefined || centreTargets[c.centreName] === 0)) {
-            const raw = c.centreName.trim().toUpperCase();
-            for (const [key, val] of Object.entries(defaultTodayCentreTargets)) {
-                if (raw === key || raw.startsWith(key) || key.startsWith(raw)) {
-                    centreTargets[c.centreName] = val;
-                    break;
-                }
-            }
-        }
-    }
-
-    // Apply custom daily targets saved by user (these override monthly/fallback defaults)
+    // Apply custom daily targets saved by user (these override monthly defaults)
     if (Array.isArray(customTargets) && customTargets.length > 0) {
         customTargets.forEach(dt => {
             const cName = dt.centre?.centreName;
