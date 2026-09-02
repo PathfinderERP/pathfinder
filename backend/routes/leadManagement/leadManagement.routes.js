@@ -23,7 +23,7 @@ import { getTelecallerAnalytics } from "../../controllers/leadManagement/getTele
 import { getAllTelecallerAnalytics } from "../../controllers/leadManagement/getAllTelecallerAnalytics.js";
 import { getCentreLeadAnalysis } from "../../controllers/leadManagement/getCentreAnalysis.js";
 import { resetRedFlags, processDailyPenalty, resetPerformance } from "../../controllers/leadManagement/redFlagController.js";
-import { getPlanners, createPlanner, updatePlannerApproval, saveDraftPlanner, getDraftPlanner } from "../../controllers/leadManagement/marketingPlannerController.js";
+import { getPlanners, createPlanner, updatePlannerApproval, bulkUpdatePlannerApproval, saveDraftPlanner, getDraftPlanner } from "../../controllers/leadManagement/marketingPlannerController.js";
 import { getMyUploads } from "../../controllers/leadManagement/getMyUploads.js";
 import { getCampaigns, getCampaignLeadsDetails, getCampaignAdmissionsDetails, createCampaign, deleteCampaign, updateCampaign, runCampaignAction, uploadCampaignMedia, deleteCampaignMedia, replaceCampaignMedia, getCampaignPresignedUrl } from "../../controllers/leadManagement/campaignController.js";
 import { pushCampaignLeads } from "../../controllers/leadManagement/pushCampaignLeads.js";
@@ -65,6 +65,8 @@ router.post("/performance/reset/:userId", requireAuth, resetPerformance);
 // Marketing Planner routes
 router.get("/planner", requireAuth, getPlanners);
 router.post("/planner", requireAuth, createPlanner);
+router.put("/planner/bulk-approval", requireAuth, bulkUpdatePlannerApproval);
+router.post("/planner/bulk-approval", requireAuth, bulkUpdatePlannerApproval);
 router.put("/planner/:id/approval", requireAuth, updatePlannerApproval);
 router.get("/planner/draft", requireAuth, getDraftPlanner);
 router.post("/planner/draft", requireAuth, saveDraftPlanner);

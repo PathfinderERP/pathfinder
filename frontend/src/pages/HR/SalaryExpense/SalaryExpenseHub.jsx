@@ -806,21 +806,6 @@ const SalaryExpenseHub = () => {
                                 inputBg={inputBg}
                             />
 
-                            {/* Payout Weeks filter */}
-                            <MultiSelect
-                                label="Payout Weeks"
-                                placeholder="Payout Week"
-                                options={PAYOUT_WEEKS.map(w => ({ value: w, label: w }))}
-                                selectedValues={selectedPayoutWeeks}
-                                onChange={setSelectedPayoutWeeks}
-                                isDark={isDark}
-                                card={card}
-                                border={border}
-                                text={text}
-                                sub={sub}
-                                inputBg={inputBg}
-                            />
-
                             {/* Salary Months filter */}
                             <MultiSelect
                                 label="Salary Months"

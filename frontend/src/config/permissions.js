@@ -714,18 +714,21 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
     }
 
     if (module === 'pmo') {
-        const hasDirectPmo = granularPermissions?.[module]?.[section];
-        if (!hasDirectPmo) {
-            if (granularPermissions?.pntse) {
-                return hasPermission(granularPermissionsOrUser, 'pntse', section, operation);
+        if (hasGranularObject) {
+            const pmoSec = granularPermissions?.pmo;
+            if (!pmoSec || typeof pmoSec !== 'object') return false;
+            const secObj = pmoSec[section];
+            if (!secObj || typeof secObj !== 'object') return false;
+            if (operation === 'view') {
+                if (secObj.view !== undefined) return secObj.view === true;
+                return Object.values(secObj).some(v => v === true);
             }
-            if (granularPermissions?.admissions) {
-                return true;
-            }
-            if (['superadmin', 'admin', 'digital', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'counsellor'].includes(cleanRoleStr)) {
-                return true;
-            }
+            return secObj[operation] === true;
         }
+        if (['superadmin', 'admin', 'digital', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'counsellor'].includes(cleanRoleStr)) {
+            return true;
+        }
+        return false;
     }
 
     if (module === 'leadManagement' && section === 'allFollowups') {
@@ -915,14 +918,12 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
                     return sec && (sec.view !== false || Object.values(sec).some(v => v === true));
                 });
             }
-            if (granularPermissions?.pntse || granularPermissions?.admissions) return true;
-            if (['superadmin', 'admin', 'digital', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'counsellor'].includes(cleanRoleStr)) {
-                return true;
-            }
+            return false;
         }
         if (['superadmin', 'admin', 'digital', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'counsellor'].includes(cleanRoleStr)) {
             return true;
         }
+        return false;
     }
     if (module === 'courseManagement') {
         const isCourseTargetRole = [

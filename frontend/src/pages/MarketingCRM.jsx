@@ -5,7 +5,7 @@ import CustomSearchSelect from "../components/common/CustomSearchSelect";
 import {
     FaBullhorn, FaUsers, FaChartLine, FaMoneyBillWave, FaChartPie, FaChartBar,
     FaFileExcel, FaSync, FaSun, FaMoon, FaFilter, FaSearch, FaArrowLeft,
-    FaRedo, FaDownload
+    FaRedo, FaDownload, FaCheck, FaTimes
 } from "react-icons/fa";
 import { useTheme } from "../context/ThemeContext";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -93,6 +93,10 @@ const MarketingCRM = ({ initialTab }) => {
     const [auditStartDate, setAuditStartDate] = useState("");
     const [auditEndDate, setAuditEndDate] = useState("");
     const [exportingAudit, setExportingAudit] = useState(false);
+    const [selectedAuditIds, setSelectedAuditIds] = useState([]);
+    const [bulkAuditLoading, setBulkAuditLoading] = useState(false);
+    const [bulkRemarksModal, setBulkRemarksModal] = useState({ open: false, status: "" });
+    const [bulkRemarksText, setBulkRemarksText] = useState("");
 
     // Filtered marketing performance data
     const marketingPerformance = allPerformance.filter(u => {
@@ -1524,11 +1528,77 @@ const MarketingCRM = ({ initialTab }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [activeTab]);
 
-    // Reset current page to 1 on filter changes
+    // Reset current page to 1 on filter changes and clear selected IDs
     useEffect(() => {
         setCurrentPage(1);
         setPageInput("1");
+        setSelectedAuditIds([]);
     }, [auditSearch, auditFilterPurpose, auditFilterType, auditFilterOwner, auditFilterStatus, auditFilterCentres, auditFilterSchools, auditDateRange, auditStartDate, auditEndDate]);
+
+    useEffect(() => {
+        setSelectedAuditIds([]);
+    }, [activeTab, currentPage, itemsPerPage]);
+
+    const handleBulkApproval = async (targetStatus, optionalRemarks = "") => {
+        if (!selectedAuditIds || selectedAuditIds.length === 0) {
+            toast.warn("No activities selected for bulk action.");
+            return;
+        }
+
+        setBulkAuditLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner/bulk-approval`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    recordIds: selectedAuditIds,
+                    status: targetStatus,
+                    remarks: optionalRemarks
+                })
+            });
+
+            const resData = await response.json();
+            if (response.ok && resData.success) {
+                const currentUserName = currentUser?.name || currentUser?.username || "System";
+                setApprovalState(prev => {
+                    const nextState = { ...prev };
+                    selectedAuditIds.forEach(id => {
+                        nextState[id] = {
+                            ...(nextState[id] || {}),
+                            status: targetStatus,
+                            approvedBy: currentUserName,
+                            ...(optionalRemarks ? { remarks: optionalRemarks } : {})
+                        };
+                    });
+                    return nextState;
+                });
+
+                if (targetStatus === "Approved") {
+                    toast.success(`Successfully approved ${resData.updatedCount || selectedAuditIds.length} activities!`);
+                } else {
+                    toast.error(`Successfully rejected ${resData.updatedCount || selectedAuditIds.length} activities.`);
+                }
+                if (resData.skippedCount > 0) {
+                    toast.info(`${resData.skippedCount} activity record(s) could not be updated due to hierarchy or center restrictions.`);
+                }
+                setSelectedAuditIds([]);
+                setBulkRemarksModal({ open: false, status: "" });
+                setBulkRemarksText("");
+                fetchAuditRecords();
+            } else {
+                toast.error(resData.error || resData.message || "Failed to update selected activities.");
+            }
+        } catch (error) {
+            console.error("Bulk approval error:", error);
+            toast.error("Network error during bulk update.");
+        } finally {
+            setBulkAuditLoading(false);
+        }
+    };
 
     const handleUpdateApprovalStatus = async (recordId, newStatus) => {
         try {
@@ -3973,6 +4043,26 @@ const MarketingCRM = ({ initialTab }) => {
                             const filteredAuditRecords = auditRecords;
                             const filtersActive = auditSearch || auditFilterPurpose.length > 0 || auditFilterType.length > 0 || auditFilterOwner.length > 0 || auditFilterStatus.length > 0 || auditFilterCentres.length > 0 || auditFilterSchools.length > 0 || auditDateRange !== "Today" || auditStartDate || auditEndDate;
 
+                            const eligiblePageRecords = filteredAuditRecords.filter(row => canUserApproveRecord(currentUser, row));
+                            const allPageSelected = eligiblePageRecords.length > 0 && eligiblePageRecords.every(row => selectedAuditIds.includes(row.id));
+                            const somePageSelected = eligiblePageRecords.some(row => selectedAuditIds.includes(row.id));
+                            const isIndeterminate = somePageSelected && !allPageSelected;
+
+                            const toggleSelectAllPage = () => {
+                                if (allPageSelected) {
+                                    setSelectedAuditIds(prev => prev.filter(id => !eligiblePageRecords.some(r => r.id === id)));
+                                } else {
+                                    const pageIds = eligiblePageRecords.map(r => r.id);
+                                    setSelectedAuditIds(prev => Array.from(new Set([...prev, ...pageIds])));
+                                }
+                            };
+
+                            const toggleSelectRow = (rowId) => {
+                                setSelectedAuditIds(prev =>
+                                    prev.includes(rowId) ? prev.filter(id => id !== rowId) : [...prev, rowId]
+                                );
+                            };
+
                             const selectCls = `px-3 py-2 rounded-xl border text-[10px] font-black tracking-widest outline-none cursor-pointer appearance-none transition-all ${isDarkMode ? 'bg-[#1a1f24] border-gray-700 text-white' : 'bg-white border-gray-200 text-[#05080c]'
                                 }`;
 
@@ -4009,6 +4099,55 @@ const MarketingCRM = ({ initialTab }) => {
                                             </span>
                                         </div>
                                     </div>
+
+                                    {/* Bulk Actions Banner */}
+                                    {canApproveOrReject && selectedAuditIds.length > 0 && (
+                                        <div className={`p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-4 shadow-lg transition-all animate-fadeIn ${
+                                            isDarkMode ? 'bg-gradient-to-r from-blue-950/70 via-gray-900 to-indigo-950/70 border-blue-500/40 text-white' : 'bg-gradient-to-r from-blue-50 via-white to-indigo-50 border-blue-200 text-gray-900'
+                                        }`}>
+                                            <div className="flex items-center gap-3">
+                                                <span className="flex items-center justify-center w-8 h-8 rounded-full bg-blue-600 text-white text-xs font-black shadow-md">
+                                                    {selectedAuditIds.length}
+                                                </span>
+                                                <div>
+                                                    <p className="text-xs font-black uppercase tracking-wider">
+                                                        {selectedAuditIds.length} {selectedAuditIds.length === 1 ? 'Activity' : 'Activities'} Selected
+                                                    </p>
+                                                    <p className="text-[10px] text-gray-400 font-bold">
+                                                        Apply bulk decision across selected marketing activities
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-2">
+                                                <button
+                                                    disabled={bulkAuditLoading}
+                                                    onClick={() => setBulkRemarksModal({ open: true, status: "Approved" })}
+                                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-600 hover:bg-emerald-500 text-white shadow-md hover:shadow-emerald-500/30 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                                                >
+                                                    <FaCheck className="w-3 h-3" />
+                                                    {bulkAuditLoading ? "Processing..." : "Bulk Approve"}
+                                                </button>
+                                                <button
+                                                    disabled={bulkAuditLoading}
+                                                    onClick={() => setBulkRemarksModal({ open: true, status: "Rejected" })}
+                                                    className="flex items-center gap-1.5 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-red-600 hover:bg-red-500 text-white shadow-md hover:shadow-red-500/30 active:scale-95 transition-all disabled:opacity-50 cursor-pointer"
+                                                >
+                                                    <FaTimes className="w-3 h-3" />
+                                                    {bulkAuditLoading ? "Processing..." : "Bulk Reject"}
+                                                </button>
+                                                <button
+                                                    disabled={bulkAuditLoading}
+                                                    onClick={() => setSelectedAuditIds([])}
+                                                    className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all active:scale-95 cursor-pointer ${
+                                                        isDarkMode ? 'border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800' : 'border-gray-300 text-gray-600 hover:text-black hover:bg-gray-100'
+                                                    }`}
+                                                >
+                                                    Deselect All
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )}
 
                                     {/* Search + Filter bar */}
                                     {(totalRecordsBeforeFilters > 0 || filtersActive) && (
@@ -4166,6 +4305,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                         setAuditDateRange("Today");
                                                         setAuditStartDate("");
                                                         setAuditEndDate("");
+                                                        setSelectedAuditIds([]);
                                                     }}
                                                     className="px-4 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border border-red-400/40 text-red-500 hover:bg-red-500/10 transition-all active:scale-95 cursor-pointer"
                                                 >
@@ -4196,6 +4336,21 @@ const MarketingCRM = ({ initialTab }) => {
                                                 <table className="w-full text-left border-collapse min-w-[1350px]">
                                                     <thead>
                                                         <tr className="bg-[#05080c] text-white text-[10px] uppercase font-black tracking-widest">
+                                                            {canApproveOrReject && (
+                                                                <th className="px-4 py-4 whitespace-nowrap w-12 text-center">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={allPageSelected}
+                                                                        ref={input => {
+                                                                            if (input) input.indeterminate = isIndeterminate;
+                                                                        }}
+                                                                        onChange={toggleSelectAllPage}
+                                                                        disabled={eligiblePageRecords.length === 0}
+                                                                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600 disabled:opacity-30 align-middle"
+                                                                        title={allPageSelected ? "Deselect All on Page" : "Select All Eligible on Page"}
+                                                                    />
+                                                                </th>
+                                                            )}
                                                             <th className="px-5 py-4 whitespace-nowrap">Date</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Centre</th>
                                                             <th className="px-5 py-4 whitespace-nowrap">Activity Purpose</th>
@@ -4221,19 +4376,19 @@ const MarketingCRM = ({ initialTab }) => {
                                                     <tbody className="text-[11px] font-bold divide-y divide-gray-100 dark:divide-gray-800">
                                                         {auditLoading ? (
                                                             <tr>
-                                                                <td colSpan={canApproveOrReject ? 20 : 19} className="px-5 py-12 text-center">
+                                                                <td colSpan={canApproveOrReject ? 21 : 19} className="px-5 py-12 text-center">
                                                                     <span className="text-[10px] font-bold text-orange-500 animate-pulse uppercase tracking-widest">Loading audit records...</span>
                                                                 </td>
                                                             </tr>
                                                         ) : filteredAuditRecords.length === 0 ? (
                                                             <tr>
-                                                                <td colSpan={canApproveOrReject ? 20 : 19} className="px-5 py-12 text-center">
+                                                                <td colSpan={canApproveOrReject ? 21 : 19} className="px-5 py-12 text-center">
                                                                     <div className="flex flex-col items-center gap-2 text-gray-400">
                                                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-8 h-8 opacity-40">
                                                                             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0015.803 15.803z" />
                                                                         </svg>
                                                                         <p className="text-[10px] font-black uppercase tracking-widest">No records match your filters</p>
-                                                                        <button onClick={() => { setAuditSearch(""); setAuditFilterType([]); setAuditFilterOwner([]); setAuditFilterStatus([]); setAuditFilterCentres([]); }} className="mt-1 text-[9px] font-black uppercase tracking-wider text-blue-500 hover:underline">
+                                                                        <button onClick={() => { setAuditSearch(""); setAuditFilterType([]); setAuditFilterOwner([]); setAuditFilterStatus([]); setAuditFilterCentres([]); setSelectedAuditIds([]); }} className="mt-1 text-[9px] font-black uppercase tracking-wider text-blue-500 hover:underline">
                                                                             Clear all filters
                                                                         </button>
                                                                     </div>
@@ -4248,8 +4403,29 @@ const MarketingCRM = ({ initialTab }) => {
                                                                     Rejected: "text-red-500 bg-red-500/10 border-red-500/20"
                                                                 };
                                                                 const allPhotos = row.photos?.length > 0 ? row.photos : (row.photo ? [row.photo] : []);
+                                                                const isRowSelected = selectedAuditIds.includes(row.id);
+                                                                const isEligible = canUserApproveRecord(currentUser, row);
                                                                 return (
-                                                                    <tr key={row.id} className={`${isDarkMode ? 'text-gray-300 hover:bg-gray-800/20' : 'text-gray-700 hover:bg-gray-50/70'} transition-colors align-top`}>
+                                                                    <tr
+                                                                        key={row.id}
+                                                                        className={`${isDarkMode ? 'text-gray-300 hover:bg-gray-800/20' : 'text-gray-700 hover:bg-gray-50/70'} ${
+                                                                            isRowSelected ? (isDarkMode ? 'bg-blue-950/40 ring-1 ring-inset ring-blue-500/30' : 'bg-blue-50/80 ring-1 ring-inset ring-blue-400/40') : ''
+                                                                        } transition-colors align-top`}
+                                                                    >
+                                                                        {canApproveOrReject && (
+                                                                            <td className="px-4 py-4 whitespace-nowrap text-center">
+                                                                                {isEligible ? (
+                                                                                    <input
+                                                                                        type="checkbox"
+                                                                                        checked={isRowSelected}
+                                                                                        onChange={() => toggleSelectRow(row.id)}
+                                                                                        className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500 cursor-pointer accent-blue-600 align-middle"
+                                                                                    />
+                                                                                ) : (
+                                                                                    <span className="text-gray-500 text-[10px] block text-center" title="Not eligible for approval by you">—</span>
+                                                                                )}
+                                                                            </td>
+                                                                        )}
                                                                         <td className="px-5 py-4 whitespace-nowrap font-mono text-[10px] text-gray-500">
                                                                             {row.date || '—'}
                                                                         </td>
@@ -4353,7 +4529,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                                             {approval.approvedBy || '—'}
                                                                         </td>
                                                                         <td className="px-5 py-4 min-w-[180px]">
-                                                                            {canApproveOrReject && canUserApproveRecord(currentUser, row) ? (
+                                                                            {canApproveOrReject && isEligible ? (
                                                                                 <input
                                                                                     type="text"
                                                                                     placeholder="Add remarks…"
@@ -4373,7 +4549,7 @@ const MarketingCRM = ({ initialTab }) => {
                                                                         </td>
                                                                         {canApproveOrReject && (
                                                                             <td className="px-5 py-4 min-w-[180px]">
-                                                                                {canUserApproveRecord(currentUser, row) ? (
+                                                                                {isEligible ? (
                                                                                     (!approval.status || approval.status === "Pending") ? (
                                                                                         <div className="flex gap-2">
                                                                                             <button
@@ -4404,6 +4580,77 @@ const MarketingCRM = ({ initialTab }) => {
                                                     </tbody>
                                                 </table>
                                             </div>
+
+                                            {/* Bulk Remarks Modal */}
+                                            {bulkRemarksModal.open && (
+                                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fadeIn">
+                                                    <div className={`w-full max-w-md rounded-2xl border p-6 space-y-4 shadow-2xl ${
+                                                        isDarkMode ? 'bg-[#181c22] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900'
+                                                    }`}>
+                                                        <div className="flex items-center justify-between border-b pb-3 dark:border-gray-800">
+                                                            <h3 className="text-base font-black uppercase tracking-tight flex items-center gap-2">
+                                                                {bulkRemarksModal.status === "Approved" ? (
+                                                                    <span className="text-emerald-500 flex items-center gap-1.5">
+                                                                        <FaCheck className="w-4 h-4" /> Bulk Approve Activities
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-red-500 flex items-center gap-1.5">
+                                                                        <FaTimes className="w-4 h-4" /> Bulk Reject Activities
+                                                                    </span>
+                                                                )}
+                                                            </h3>
+                                                            <button
+                                                                onClick={() => { setBulkRemarksModal({ open: false, status: "" }); setBulkRemarksText(""); }}
+                                                                className="text-gray-400 hover:text-white text-sm"
+                                                            >
+                                                                ✕
+                                                            </button>
+                                                        </div>
+
+                                                        <div>
+                                                            <p className="text-xs font-bold text-gray-400 mb-2">
+                                                                You are about to <span className={bulkRemarksModal.status === "Approved" ? "text-emerald-400 font-black" : "text-red-400 font-black"}>{bulkRemarksModal.status.toLowerCase()}</span> <strong className="text-blue-400 font-black">{selectedAuditIds.length}</strong> selected activities.
+                                                            </p>
+                                                            <label className="block text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">
+                                                                Optional Remarks for All Selected:
+                                                            </label>
+                                                            <textarea
+                                                                rows={3}
+                                                                value={bulkRemarksText}
+                                                                onChange={(e) => setBulkRemarksText(e.target.value)}
+                                                                placeholder={`Enter optional remarks for bulk ${bulkRemarksModal.status.toLowerCase()}...`}
+                                                                className={`w-full px-3 py-2 rounded-xl border text-xs outline-none transition-all ${
+                                                                    isDarkMode ? 'bg-[#121519] border-gray-700 text-white placeholder-gray-600 focus:border-blue-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400 focus:border-black'
+                                                                }`}
+                                                            />
+                                                        </div>
+
+                                                        <div className="flex items-center justify-end gap-3 pt-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => { setBulkRemarksModal({ open: false, status: "" }); setBulkRemarksText(""); }}
+                                                                className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider border transition-all ${
+                                                                    isDarkMode ? 'border-gray-700 text-gray-400 hover:text-white' : 'border-gray-300 text-gray-600 hover:text-black'
+                                                                }`}
+                                                            >
+                                                                Cancel
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                disabled={bulkAuditLoading}
+                                                                onClick={() => handleBulkApproval(bulkRemarksModal.status, bulkRemarksText)}
+                                                                className={`px-5 py-2 rounded-xl text-xs font-black uppercase tracking-wider text-white shadow-lg active:scale-95 transition-all disabled:opacity-50 ${
+                                                                    bulkRemarksModal.status === "Approved"
+                                                                        ? 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-600/30'
+                                                                        : 'bg-red-600 hover:bg-red-500 shadow-red-600/30'
+                                                                }`}
+                                                            >
+                                                                {bulkAuditLoading ? "Processing..." : `Confirm ${bulkRemarksModal.status}`}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            )}
 
                                             {/* Pagination Controls */}
                                             {totalRecords > 0 && (

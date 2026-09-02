@@ -773,3 +773,142 @@ export const getDraftPlanner = async (req, res) => {
         res.status(500).json({ error: "Internal Server Error" });
     }
 };
+
+// Bulk Update Planner approval status & optional remarks
+export const bulkUpdatePlannerApproval = async (req, res) => {
+    try {
+        const { recordIds, status, remarks } = req.body;
+
+        if (!recordIds || !Array.isArray(recordIds) || recordIds.length === 0) {
+            return res.status(400).json({ error: "recordIds must be a non-empty array" });
+        }
+
+        if (!status || !["Approved", "Rejected"].includes(status)) {
+            return res.status(400).json({ error: "status must be either 'Approved' or 'Rejected'" });
+        }
+
+        const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const allowedRoles = ["superadmin", "super admin", "admin", "zonalmanager", "areamanager", "zonalhead", "centerincharge", "centreincharge", "assistantzonalmanager", "assistantcenterincharge"];
+        if (!allowedRoles.includes(userRoleStr)) {
+            return res.status(403).json({ error: "Forbidden: You do not have permission to approve/reject plans." });
+        }
+
+        const validObjectIds = recordIds
+            .filter(id => mongoose.Types.ObjectId.isValid(id))
+            .map(id => new mongoose.Types.ObjectId(id));
+
+        if (validObjectIds.length === 0) {
+            return res.status(400).json({ error: "No valid record IDs provided" });
+        }
+
+        const records = await MarketingPlanner.find({ _id: { $in: validObjectIds } }).populate('user');
+        if (records.length === 0) {
+            return res.status(404).json({ error: "No matching planner records found" });
+        }
+
+        const isSuperAdminApprover = ["superadmin", "super admin", "admin"].includes(userRoleStr);
+        const getCentreStrArr = (cList) => {
+            if (!Array.isArray(cList)) return [];
+            return cList.map(c => (c?._id || c?.id || c || "").toString()).filter(Boolean);
+        };
+        const managerCentres = getCentreStrArr(req.user.centres);
+        const approverId = (req.user._id || req.user.id).toString();
+
+        const approvedIds = [];
+        const skippedIds = [];
+
+        for (const record of records) {
+            const ownerUser = record.user;
+            if (!ownerUser) {
+                skippedIds.push(record._id);
+                continue;
+            }
+
+            const ownerRoleStr = (ownerUser.role || "").toLowerCase().replace(/\s+/g, "");
+
+            if (!isSuperAdminApprover) {
+                // Disallow self-approval
+                const isSelf = ownerUser._id.toString() === approverId;
+                if (isSelf) {
+                    skippedIds.push(record._id);
+                    continue;
+                }
+
+                // Center overlap check
+                const ownerCentres = getCentreStrArr(ownerUser.centres);
+                if (managerCentres.length > 0 && ownerCentres.length > 0) {
+                    const hasOverlap = ownerCentres.some(c => managerCentres.includes(c));
+                    if (!hasOverlap) {
+                        skippedIds.push(record._id);
+                        continue;
+                    }
+                }
+
+                // Role hierarchy check
+                if (userRoleStr === "zonalmanager" || userRoleStr === "zonalhead" || userRoleStr === "areamanager") {
+                    const allowedOwners = ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "assistantcentreincharge", "supportstaff", "assistantzonalmanager"];
+                    if (!allowedOwners.includes(ownerRoleStr)) {
+                        skippedIds.push(record._id);
+                        continue;
+                    }
+                } else if (userRoleStr === "assistantzonalmanager") {
+                    const allowedOwners = ["marketing", "centerincharge", "centreincharge", "assistantcenterincharge", "assistantcentreincharge", "supportstaff"];
+                    if (!allowedOwners.includes(ownerRoleStr)) {
+                        skippedIds.push(record._id);
+                        continue;
+                    }
+                } else if (userRoleStr === "centerincharge" || userRoleStr === "centreincharge") {
+                    const allowedOwners = ["marketing", "supportstaff", "assistantcenterincharge", "assistantcentreincharge"];
+                    if (!allowedOwners.includes(ownerRoleStr)) {
+                        skippedIds.push(record._id);
+                        continue;
+                    }
+                } else if (userRoleStr === "assistantcenterincharge" || userRoleStr === "assistantcentreincharge") {
+                    const allowedOwners = ["marketing"];
+                    if (!allowedOwners.includes(ownerRoleStr)) {
+                        skippedIds.push(record._id);
+                        continue;
+                    }
+                } else {
+                    skippedIds.push(record._id);
+                    continue;
+                }
+            } else {
+                const validRoles = ["marketing", "centerincharge", "centreincharge", "zonalmanager", "areamanager", "zonalhead", "superadmin", "super admin", "admin", "assistantzonalmanager", "assistantcenterincharge", "supportstaff"];
+                if (!validRoles.includes(ownerRoleStr)) {
+                    skippedIds.push(record._id);
+                    continue;
+                }
+            }
+
+            approvedIds.push(record._id);
+        }
+
+        if (approvedIds.length === 0) {
+            return res.status(403).json({ error: "Forbidden: You are not authorized to approve/reject any of the selected records." });
+        }
+
+        const updateData = {
+            status,
+            approvedBy: req.user.name || req.user.username || "System"
+        };
+        if (remarks !== undefined && remarks.trim() !== "") {
+            updateData.remarks = remarks.trim();
+        }
+
+        await MarketingPlanner.updateMany(
+            { _id: { $in: approvedIds } },
+            { $set: updateData }
+        );
+
+        res.json({
+            success: true,
+            updatedCount: approvedIds.length,
+            skippedCount: skippedIds.length,
+            message: `Successfully ${status.toLowerCase()} ${approvedIds.length} activities.`
+        });
+    } catch (error) {
+        console.error("Error bulk updating planner approval:", error);
+        res.status(500).json({ error: error.message || "Internal Server Error" });
+    }
+};
