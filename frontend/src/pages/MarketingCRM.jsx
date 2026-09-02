@@ -424,6 +424,7 @@ const MarketingCRM = ({ initialTab }) => {
     const [todayTaskSubmitted, setTodayTaskSubmitted] = useState(false);
     const [submittedActivities, setSubmittedActivities] = useState([]); // holds submitted records for rich display
     const [todayTaskLoading, setTodayTaskLoading] = useState(false);
+    const [submittingFieldPlan, setSubmittingFieldPlan] = useState(false);
 
     // Tomorrow Planner States
     const [tomorrowPlanDate, setTomorrowPlanDate] = useState(getTomorrowDateString());
@@ -948,20 +949,41 @@ const MarketingCRM = ({ initialTab }) => {
                             _id: act._id || null
                         }));
 
-                        // If there are any planner activities that were not yet in the draft, append them
+                        // Deduplicate merged activities: Match by _id OR by (schoolRef || place) + activityPurpose + time
+                        const getActKey = (t) => {
+                            const refOrPlace = (t.schoolRef || t.place || "").toString().trim().toLowerCase();
+                            const purp = (t.activityPurpose || t.type || t.activityType || "").toString().trim().toLowerCase();
+                            const time = (t.time || "").toString().trim();
+                            return `${refOrPlace}__${purp}__${time}`;
+                        };
+
+                        const existingKeys = new Set(mergedActivities.map(getActKey));
+                        const existingIds = new Set(mergedActivities.map(a => a._id ? String(a._id) : "").filter(Boolean));
+
                         if (plannerActivities && plannerActivities.length > 0) {
-                            const draftIds = new Set(
-                                draftActs.map(a => a._id ? String(a._id) : "").filter(Boolean)
-                            );
                             plannerActivities.forEach(pAct => {
                                 const pId = pAct._id ? String(pAct._id) : "";
-                                if (pId && !draftIds.has(pId)) {
+                                const pKey = getActKey(pAct);
+                                const isDup = (pId && existingIds.has(pId)) || existingKeys.has(pKey);
+                                if (!isDup) {
                                     mergedActivities.push(pAct);
+                                    existingKeys.add(pKey);
                                 }
                             });
                         }
 
-                        setTodayActivities(mergedActivities);
+                        // Sanitize any existing duplicates in draftActs
+                        const finalUnique = [];
+                        const seenMergedKeys = new Set();
+                        mergedActivities.forEach(act => {
+                            const k = getActKey(act);
+                            if (!seenMergedKeys.has(k)) {
+                                seenMergedKeys.add(k);
+                                finalUnique.push(act);
+                            }
+                        });
+
+                        setTodayActivities(finalUnique);
                         setExpectedLeadTarget(draftData.draft.expectedLeadTarget || "");
                         setExpectedHotLeads(draftData.draft.expectedHotLeads || "");
                         return;
@@ -1085,6 +1107,25 @@ const MarketingCRM = ({ initialTab }) => {
         }
         if (!newTaskForm.estimatedDuration) {
             toast.error("Duration is required.");
+            return;
+        }
+
+        // Check if identical task already added to list
+        const isDuplicate = tomorrowTasks.some(t => {
+            const tRef = t.schoolRef?._id || t.schoolRef || "";
+            const nRef = newTaskForm.schoolRef || "";
+            const tPlace = (t.place || "").trim().toLowerCase();
+            const nPlace = (newTaskForm.place || "").trim().toLowerCase();
+            const tPurp = (t.activityPurpose || "").trim().toLowerCase();
+            const nPurp = (newTaskForm.activityPurpose || "").trim().toLowerCase();
+            const tTime = (t.time || "").trim();
+            const nTime = (newTaskForm.time || "").trim();
+            const isSameSchool = (tRef && nRef && String(tRef) === String(nRef)) || (tPlace && nPlace && tPlace === nPlace);
+            return isSameSchool && tPurp === nPurp && tTime === nTime;
+        });
+
+        if (isDuplicate) {
+            toast.warn("This task is already added to your activity plan list.");
             return;
         }
 
@@ -1679,6 +1720,7 @@ const MarketingCRM = ({ initialTab }) => {
 
     const handleSubmitFieldPlan = async (e) => {
         e.preventDefault();
+        if (submittingFieldPlan) return;
 
         if (!planDate) {
             toast.error("Please select a date for the field plan.");
@@ -1706,8 +1748,24 @@ const MarketingCRM = ({ initialTab }) => {
             return;
         }
 
-        // Auto-assign default activityStatus if missing
+        // Deduplicate before creating payload
+        const seenActKeys = new Set();
+        const uniqueActs = [];
         todayActivities.forEach(act => {
+            const k = `${(act.schoolRef || act.place || '').toString().trim().toLowerCase()}__${(act.activityPurpose || '').toString().trim().toLowerCase()}__${(act.time || '').toString().trim()}`;
+            if (!seenActKeys.has(k)) {
+                seenActKeys.add(k);
+                uniqueActs.push(act);
+            }
+        });
+
+        if (uniqueActs.length === 0) {
+            toast.error("No valid activities to submit.");
+            return;
+        }
+
+        // Auto-assign default activityStatus if missing
+        uniqueActs.forEach(act => {
             if (!act.activityStatus) act.activityStatus = "Success";
         });
 
@@ -1716,7 +1774,7 @@ const MarketingCRM = ({ initialTab }) => {
         const submittedAt = now.toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
         const submittedTime = now.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 
-        const activitiesPayload = todayActivities.map((act) => ({
+        const activitiesPayload = uniqueActs.map((act) => ({
             type: act.type,
             activityPurpose: act.activityPurpose || "",
             place: act.place || "",
@@ -1739,6 +1797,7 @@ const MarketingCRM = ({ initialTab }) => {
             schoolStatus: act.schoolStatus || ""
         }));
 
+        setSubmittingFieldPlan(true);
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/planner`, {
@@ -1795,6 +1854,8 @@ const MarketingCRM = ({ initialTab }) => {
             console.error("Error submitting field plan:", error);
             toast.error("Failed to connect to database. Plan was not saved.");
             return;
+        } finally {
+            setSubmittingFieldPlan(false);
         }
     };
 
@@ -3325,13 +3386,27 @@ const MarketingCRM = ({ initialTab }) => {
                                             </div>
 
                                             <button
+                                                type="button"
+                                                disabled={submittingFieldPlan}
                                                 onClick={handleSubmitFieldPlan}
-                                                className="w-full py-4 rounded-xl bg-[#05080c] text-white text-[11px] font-black uppercase tracking-widest hover:shadow-xl hover:shadow-black/20 hover:-translate-y-0.5 transition-all active:scale-[0.99] flex items-center justify-center gap-2"
+                                                className="w-full py-4 rounded-xl bg-[#05080c] text-white text-[11px] font-black uppercase tracking-widest hover:shadow-xl hover:shadow-black/20 hover:-translate-y-0.5 transition-all active:scale-[0.99] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
                                             >
-                                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
-                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                                </svg>
-                                                Save Todays Task
+                                                {submittingFieldPlan ? (
+                                                    <>
+                                                        <svg className="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                                        </svg>
+                                                        <span>Submitting Field Plan...</span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2.5} stroke="currentColor" className="w-4 h-4">
+                                                            <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                                        </svg>
+                                                        <span>Save Todays Task</span>
+                                                    </>
+                                                )}
                                             </button>
                                         </>
                                     )}

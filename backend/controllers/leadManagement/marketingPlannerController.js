@@ -130,40 +130,98 @@ export const createPlanner = async (req, res) => {
 
         const createdRecords = [];
         const processedActivities = await processActivitiesImages(activities);
-        for (const act of processedActivities) {
-            const validSchoolRef = (act.schoolRef && mongoose.Types.ObjectId.isValid(act.schoolRef)) ? act.schoolRef : null;
 
-            const newRecord = new MarketingPlanner({
-                user: req.user._id || req.user.id,
+        // Deduplicate incoming array by place/institution + activityPurpose + time
+        const seenKeys = new Set();
+        const uniqueActivities = [];
+        for (const act of processedActivities) {
+            const placeKey = (act.place || act.institution || "").trim().toLowerCase();
+            const purposeKey = (act.activityPurpose || act.type || "").trim().toLowerCase();
+            const timeKey = (act.time || "").trim();
+            const comboKey = `${act.schoolRef || placeKey}__${purposeKey}__${timeKey}`;
+            if (!seenKeys.has(comboKey)) {
+                seenKeys.add(comboKey);
+                uniqueActivities.push(act);
+            }
+        }
+
+        const userId = req.user._id || req.user.id;
+
+        for (const act of uniqueActivities) {
+            const validSchoolRef = (act.schoolRef && mongoose.Types.ObjectId.isValid(act.schoolRef)) ? act.schoolRef : null;
+            const instName = act.place || act.institution || "—";
+            const planFormatted = formatPlanTime(act.time);
+
+            // Check if record for same user, date, institution, purpose, and time already exists (idempotency check)
+            let existingRecord = await MarketingPlanner.findOne({
+                user: userId,
                 date,
-                expectedLeadTarget: Number(expectedLeadTarget),
-                expectedHotLeads: Number(expectedHotLeads),
-                type: act.type || act.activityType || "School Visit",
+                institution: instName,
                 activityPurpose: act.activityPurpose || "",
-                institution: act.place || act.institution || "—",
-                owner: req.user.name || req.user.username || "Unknown",
-                plan: formatPlanTime(act.time),
-                planTimeRaw: act.time || "",
-                estimatedDuration: act.estimatedDuration || "",
-                notes: act.notes || "",
-                priority: act.priority || "Medium",
-                activityStatus: act.activityStatus || "Neutral",
-                nextActivityDate: act.nextActivityDate || "",
-                actual: act.actualTime || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
-                leads: act.expectedLeads || "0",
-                photo: act.photos?.[0] || act.photo || null,
-                photos: act.photos || [],
-                latitude: act.latitude || null,
-                longitude: act.longitude || null,
-                locationName: act.locationName || "",
-                captureDateTime: act.captureDateTime || "",
-                submittedAt: act.submittedAt || new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
-                status: "Pending",
-                remarks: "",
-                schoolRef: validSchoolRef,
-                schoolStatus: act.schoolStatus || ""
+                $or: [
+                    { planTimeRaw: act.time || "" },
+                    { plan: planFormatted }
+                ]
             });
-            await newRecord.save();
+
+            let recordToReturn;
+            if (existingRecord) {
+                // Update the existing record instead of creating a duplicate document
+                existingRecord.expectedLeadTarget = Number(expectedLeadTarget);
+                existingRecord.expectedHotLeads = Number(expectedHotLeads);
+                existingRecord.type = act.type || act.activityType || existingRecord.type;
+                existingRecord.estimatedDuration = act.estimatedDuration || existingRecord.estimatedDuration;
+                existingRecord.notes = act.notes || existingRecord.notes;
+                existingRecord.priority = act.priority || existingRecord.priority;
+                existingRecord.activityStatus = act.activityStatus || existingRecord.activityStatus;
+                existingRecord.nextActivityDate = act.nextActivityDate || existingRecord.nextActivityDate;
+                existingRecord.actual = act.actualTime || existingRecord.actual;
+                existingRecord.leads = act.expectedLeads || existingRecord.leads;
+                if (act.photos && act.photos.length > 0) existingRecord.photos = act.photos;
+                if (act.photo) existingRecord.photo = act.photo;
+                if (act.latitude) existingRecord.latitude = act.latitude;
+                if (act.longitude) existingRecord.longitude = act.longitude;
+                if (act.locationName) existingRecord.locationName = act.locationName;
+                if (act.captureDateTime) existingRecord.captureDateTime = act.captureDateTime;
+                if (validSchoolRef) existingRecord.schoolRef = validSchoolRef;
+                if (act.schoolStatus) existingRecord.schoolStatus = act.schoolStatus;
+
+                await existingRecord.save();
+                recordToReturn = existingRecord;
+            } else {
+                const newRecord = new MarketingPlanner({
+                    user: userId,
+                    date,
+                    expectedLeadTarget: Number(expectedLeadTarget),
+                    expectedHotLeads: Number(expectedHotLeads),
+                    type: act.type || act.activityType || "School Visit",
+                    activityPurpose: act.activityPurpose || "",
+                    institution: instName,
+                    owner: req.user.name || req.user.username || "Unknown",
+                    plan: planFormatted,
+                    planTimeRaw: act.time || "",
+                    estimatedDuration: act.estimatedDuration || "",
+                    notes: act.notes || "",
+                    priority: act.priority || "Medium",
+                    activityStatus: act.activityStatus || "Neutral",
+                    nextActivityDate: act.nextActivityDate || "",
+                    actual: act.actualTime || new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true }),
+                    leads: act.expectedLeads || "0",
+                    photo: act.photos?.[0] || act.photo || null,
+                    photos: act.photos || [],
+                    latitude: act.latitude || null,
+                    longitude: act.longitude || null,
+                    locationName: act.locationName || "",
+                    captureDateTime: act.captureDateTime || "",
+                    submittedAt: act.submittedAt || new Date().toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }),
+                    status: "Pending",
+                    remarks: "",
+                    schoolRef: validSchoolRef,
+                    schoolStatus: act.schoolStatus || ""
+                });
+                await newRecord.save();
+                recordToReturn = newRecord;
+            }
 
             if (validSchoolRef && act.schoolStatus) {
                 try {
@@ -173,7 +231,7 @@ export const createPlanner = async (req, res) => {
                 }
             }
 
-            const recObj = newRecord.toObject();
+            const recObj = recordToReturn.toObject();
             if (recObj.photo) {
                 try {
                     recObj.photo = await getSignedFileUrl(recObj.photo);
@@ -192,7 +250,7 @@ export const createPlanner = async (req, res) => {
             }
             createdRecords.push({
                 ...recObj,
-                id: newRecord._id.toString()
+                id: recordToReturn._id.toString()
             });
             // Sync completed status to LogCalendar, TomorrowPlanner, and AssignedTask
             try {
