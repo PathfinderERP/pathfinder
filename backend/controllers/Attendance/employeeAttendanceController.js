@@ -230,10 +230,20 @@ export const markAttendance = async (req, res) => {
 
             if (attendance.checkOut?.time) return res.status(400).json({ message: "You have already checked out for today." });
 
-            // NEW RULE-BASED STATUS ASSIGNMENT
+            // Ensure employee cannot clock out within 1 hour of clocking in
             const checkOutTime = new Date();
             const checkInTime = new Date(attendance.checkIn.time);
             const diffMs = checkOutTime - checkInTime;
+            const oneHourMs = 60 * 60 * 1000;
+
+            if (diffMs < oneHourMs) {
+                const remainingMinutes = Math.ceil((oneHourMs - diffMs) / (1000 * 60));
+                return res.status(400).json({
+                    message: `You cannot clock out within 1 hour of clocking in. Please try again after ${remainingMinutes} minute(s).`
+                });
+            }
+
+            // NEW RULE-BASED STATUS ASSIGNMENT
             const workedHours = diffMs / (1000 * 60 * 60);
 
             const targetHours = getShiftTargetHours(employee, userRole, workedHours);

@@ -174,6 +174,14 @@ const EmployeeAttendance = () => {
     const [location, setLocation] = useState(null);
     const [selectedDay, setSelectedDay] = useState(null);
     const [systemNotification, setSystemNotification] = useState(null);
+    const [currentTime, setCurrentTime] = useState(Date.now());
+
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(Date.now());
+        }, 1000);
+        return () => clearInterval(timer);
+    }, []);
 
     useEffect(() => {
         fetchAttendance();
@@ -240,7 +248,29 @@ const EmployeeAttendance = () => {
         }
     };
 
+    const todayStrKey = format(new Date(), "yyyy-MM-dd");
+    const todayRecord = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === todayStrKey);
+
+    const checkInTimestamp = todayRecord?.checkIn?.time ? new Date(todayRecord.checkIn.time).getTime() : null;
+    const elapsedSinceCheckIn = checkInTimestamp ? Math.max(0, currentTime - checkInTimestamp) : 0;
+    const oneHourMs = 60 * 60 * 1000;
+    const isWithinOneHour = Boolean(
+        todayRecord &&
+        todayRecord.checkIn?.time &&
+        todayRecord.status !== 'Absent' &&
+        !todayRecord.checkOut?.time &&
+        elapsedSinceCheckIn < oneHourMs
+    );
+    const remainingToUnlockMs = isWithinOneHour ? (oneHourMs - elapsedSinceCheckIn) : 0;
+    const remainingUnlockMins = Math.floor(remainingToUnlockMs / (1000 * 60));
+    const remainingUnlockSecs = Math.floor((remainingToUnlockMs % (1000 * 60)) / 1000);
+
     const handleMarkAttendance = async (type) => {
+        if (type === 'checkOut' && isWithinOneHour) {
+            toast.warning(`You can only clock out after 1 hour of clocking in. Please wait ${remainingUnlockMins}m ${remainingUnlockSecs}s.`);
+            return;
+        }
+
         if (!location) {
             toast.error("Location data not available. Please allow location access.");
             getCurrentLocation();
@@ -577,9 +607,6 @@ const EmployeeAttendance = () => {
         return days.filter(d => workingDays[d]).map(d => d.charAt(0).toUpperCase() + d.slice(1, 3));
     };
 
-    const todayStrKey = format(new Date(), "yyyy-MM-dd");
-    const todayRecord = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === todayStrKey);
-
     const DayDetailsModal = ({ data, onClose }) => {
         if (!data) return null;
         const { day, status } = data;
@@ -885,11 +912,27 @@ const EmployeeAttendance = () => {
                                 ) : !todayRecord.checkOut ? (
                                     <button
                                         onClick={() => handleMarkAttendance('checkOut')}
-                                        disabled={marking || loading}
-                                        className="flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 bg-red-500 hover:bg-red-600 text-white font-black rounded-2xl transition-all shadow-2xl shadow-red-500/20 active:scale-95 disabled:opacity-50"
+                                        disabled={marking || loading || isWithinOneHour}
+                                        title={isWithinOneHour ? `Clock out available after 1 hour (${remainingUnlockMins}m ${remainingUnlockSecs}s remaining)` : ""}
+                                        className={`flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 font-black rounded-2xl transition-all shadow-2xl ${
+                                            isWithinOneHour
+                                                ? 'bg-red-500/40 text-white/70 cursor-not-allowed shadow-red-500/10'
+                                                : 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/20 active:scale-95'
+                                        } disabled:opacity-50`}
                                     >
-                                        <FaBolt size={20} className="animate-pulse" />
-                                        <span className="uppercase tracking-widest text-sm">Clock Out Now</span>
+                                        {isWithinOneHour ? (
+                                            <>
+                                                <FaClock size={20} className="animate-pulse" />
+                                                <span className="uppercase tracking-widest text-sm">
+                                                    Clock Out In {remainingUnlockMins}m {remainingUnlockSecs < 10 ? `0${remainingUnlockSecs}` : remainingUnlockSecs}s
+                                                </span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FaBolt size={20} className="animate-pulse" />
+                                                <span className="uppercase tracking-widest text-sm">Clock Out Now</span>
+                                            </>
+                                        )}
                                     </button>
                                 ) : (
                                     <div className={`flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 font-black rounded-2xl cursor-not-allowed ${isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
