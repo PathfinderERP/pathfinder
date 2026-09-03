@@ -35,8 +35,19 @@ const DailyCollection = () => {
     const [transactionCount, setTransactionCount] = useState(0);
     const [activeTab, setActiveTab] = useState(savedFilters.activeTab || "centers"); // "centers" or "details"
     const [centreTargets, setCentreTargets] = useState({});
+    const [centreTargetMeta, setCentreTargetMeta] = useState({});
     const [editingCentre, setEditingCentre] = useState(null);
     const [editTargetValue, setEditTargetValue] = useState("");
+    const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
+    const [bulkTargetValues, setBulkTargetValues] = useState({});
+    const [bulkCommonValue, setBulkCommonValue] = useState("");
+    const [bulkSearch, setBulkSearch] = useState("");
+    const [bulkSaving, setBulkSaving] = useState(false);
+    const [bulkSelectedDates, setBulkSelectedDates] = useState([]);
+    const [bulkWeekDays, setBulkWeekDays] = useState([]);
+    const [allMonthWeeks, setAllMonthWeeks] = useState([]);
+    const [selectedWeekNumbers, setSelectedWeekNumbers] = useState([1]);
+    const [bulkSelectedCentres, setBulkSelectedCentres] = useState([]);
     const [zones, setZones] = useState([]);
     const [zonalManagers, setZonalManagers] = useState([]);
     const [selectedZones, setSelectedZones] = useState(savedFilters.selectedZones || []);
@@ -256,6 +267,7 @@ const DailyCollection = () => {
                 setPaymentMethods(data.paymentMethods || []);
                 setDailyDetails(sortedDetails);
                 setCentreTargets(data.centreTargets || {});
+                setCentreTargetMeta(data.centreTargetMeta || {});
                 setZones(data.zones || []);
                 setZonalManagers(data.zonalManagers || []);
                 setCurrentPage(1);
@@ -273,6 +285,7 @@ const DailyCollection = () => {
                 setTotalCollection(0);
                 setTransactionCount(0);
                 setCentreTargets({});
+                setCentreTargetMeta({});
             }
         } catch (error) {
             console.error("Error fetching daily collection", error);
@@ -328,6 +341,240 @@ const DailyCollection = () => {
         } catch (error) {
             console.error("Error saving daily target:", error);
             toast.error("Error updating daily target");
+        }
+    };
+
+    const getEffectiveTargetDate = () => {
+        const now = new Date();
+        if (activePreset === "today") return formatLocalDate(now);
+        if (activePreset === "yesterday") {
+            const y = new Date(now);
+            y.setDate(now.getDate() - 1);
+            return formatLocalDate(y);
+        }
+        if (activePreset === "last7") return formatLocalDate(now);
+        return endDate || startDate || date || formatLocalDate(now);
+    };
+
+    const getAllWeeksForMonth = (dateStr) => {
+        try {
+            const parts = dateStr.split("-");
+            const y = parseInt(parts[0], 10);
+            const m = parseInt(parts[1], 10) - 1;
+
+            const daysInMonth = new Date(y, m + 1, 0).getDate();
+            const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+            let startDay = 1;
+            let weekNum = 1;
+            const weeks = [];
+
+            while (startDay <= daysInMonth) {
+                let endDay = startDay;
+                while (endDay < daysInMonth) {
+                    const tempDate = new Date(y, m, endDay);
+                    if (tempDate.getDay() === 0) break; // Sunday ends the week
+                    endDay++;
+                }
+
+                const days = [];
+                for (let d = startDay; d <= endDay; d++) {
+                    const tempDate = new Date(y, m, d);
+                    const dow = tempDate.getDay();
+                    const mm = String(m + 1).padStart(2, '0');
+                    const dd = String(d).padStart(2, '0');
+                    days.push({
+                        dateStr: `${y}-${mm}-${dd}`,
+                        dayNum: d,
+                        dayName: dayNames[dow],
+                        isWeekend: dow === 0 || dow === 6
+                    });
+                }
+
+                weeks.push({
+                    weekNumber: weekNum,
+                    label: `Week ${weekNum} (${startDay} - ${endDay})`,
+                    startDay,
+                    endDay,
+                    days
+                });
+
+                startDay = endDay + 1;
+                weekNum++;
+            }
+            return weeks;
+        } catch (e) {
+            return [];
+        }
+    };
+
+    const openBulkTargetModal = (targetCentresList) => {
+        const initialValues = {};
+        targetCentresList.forEach(cName => {
+            const base = centreTargetMeta[cName]?.baseTarget !== undefined
+                ? centreTargetMeta[cName].baseTarget
+                : (centreTargets[cName] || 0);
+            initialValues[cName] = base;
+        });
+        setBulkTargetValues(initialValues);
+        setBulkCommonValue("");
+        setBulkSearch("");
+
+        const targetDate = getEffectiveTargetDate();
+        const allWeeks = getAllWeeksForMonth(targetDate);
+        setAllMonthWeeks(allWeeks);
+
+        const targetDayOfMonth = parseInt(targetDate.split("-")[2], 10);
+        const matchedWeek = allWeeks.find(w => targetDayOfMonth >= w.startDay && targetDayOfMonth <= w.endDay) || allWeeks[0];
+
+        const initialWeekNum = matchedWeek?.weekNumber || 1;
+        setSelectedWeekNumbers([initialWeekNum]);
+
+        // Pre-select all weekdays of this week by default for quick common weekday targets
+        const weekdaysList = (matchedWeek?.days || []).filter(d => !d.isWeekend).map(d => d.dateStr);
+        setBulkSelectedDates(weekdaysList.length > 0 ? weekdaysList : (matchedWeek?.days || []).map(d => d.dateStr));
+
+        // Pre-select all centres by default
+        setBulkSelectedCentres(targetCentresList);
+
+        setIsBulkModalOpen(true);
+    };
+
+    const handleToggleWeek = (weekNum) => {
+        setSelectedWeekNumbers(prev => {
+            let next;
+            if (prev.includes(weekNum)) {
+                next = prev.filter(x => x !== weekNum);
+                if (next.length === 0) next = [weekNum];
+            } else {
+                next = [...prev, weekNum].sort((a, b) => a - b);
+            }
+
+            const activeWeeks = allMonthWeeks.filter(w => next.includes(w.weekNumber));
+            const validActiveDates = activeWeeks.flatMap(w => w.days).map(d => d.dateStr);
+
+            setBulkSelectedDates(prevDates => {
+                const retained = prevDates.filter(d => validActiveDates.includes(d));
+                if (!prev.includes(weekNum)) {
+                    const newWeek = allMonthWeeks.find(w => w.weekNumber === weekNum);
+                    const newWeekdays = (newWeek?.days || []).filter(d => !d.isWeekend).map(d => d.dateStr);
+                    return Array.from(new Set([...retained, ...newWeekdays]));
+                }
+                return retained;
+            });
+
+            return next;
+        });
+    };
+
+    const handleSelectAllWeeks = () => {
+        const allNums = allMonthWeeks.map(w => w.weekNumber);
+        setSelectedWeekNumbers(allNums);
+        const allWeekdays = allMonthWeeks.flatMap(w => w.days).filter(d => !d.isWeekend).map(d => d.dateStr);
+        setBulkSelectedDates(allWeekdays);
+    };
+
+    const handleSelectWeekdaysAcrossWeeks = () => {
+        const activeWeeks = allMonthWeeks.filter(w => selectedWeekNumbers.includes(w.weekNumber));
+        const weekdays = activeWeeks.flatMap(w => w.days).filter(d => !d.isWeekend).map(d => d.dateStr);
+        setBulkSelectedDates(weekdays);
+    };
+
+    const handleSelectWeekendAcrossWeeks = () => {
+        const activeWeeks = allMonthWeeks.filter(w => selectedWeekNumbers.includes(w.weekNumber));
+        const weekends = activeWeeks.flatMap(w => w.days).filter(d => d.isWeekend).map(d => d.dateStr);
+        setBulkSelectedDates(weekends);
+    };
+
+    const handleSelectAllDaysAcrossWeeks = () => {
+        const activeWeeks = allMonthWeeks.filter(w => selectedWeekNumbers.includes(w.weekNumber));
+        const allDays = activeWeeks.flatMap(w => w.days).map(d => d.dateStr);
+        setBulkSelectedDates(allDays);
+    };
+
+    const handleToggleCentre = (cName) => {
+        setBulkSelectedCentres(prev =>
+            prev.includes(cName) ? prev.filter(c => c !== cName) : [...prev, cName]
+        );
+    };
+
+    const handleToggleAllCentres = (visibleCentres) => {
+        const allSelected = visibleCentres.every(c => bulkSelectedCentres.includes(c));
+        if (allSelected) {
+            setBulkSelectedCentres(prev => prev.filter(c => !visibleCentres.includes(c)));
+        } else {
+            setBulkSelectedCentres(prev => Array.from(new Set([...prev, ...visibleCentres])));
+        }
+    };
+
+    const handleApplyCommonValue = () => {
+        if (bulkCommonValue === "" || isNaN(Number(bulkCommonValue))) return;
+        if (bulkSelectedCentres.length === 0) {
+            toast.error("Please select at least one centre to apply target");
+            return;
+        }
+        const val = Number(bulkCommonValue);
+        setBulkTargetValues(prev => {
+            const next = { ...prev };
+            bulkSelectedCentres.forEach(cName => {
+                next[cName] = val;
+            });
+            return next;
+        });
+        toast.success(`Applied ₹${val} to ${bulkSelectedCentres.length} selected centre(s)`);
+    };
+
+    const handleSaveBulkTargets = async () => {
+        if (!bulkSelectedDates || bulkSelectedDates.length === 0) {
+            toast.error("Please select at least one date to apply targets");
+            return;
+        }
+        if (!bulkSelectedCentres || bulkSelectedCentres.length === 0) {
+            toast.error("Please select at least one centre to apply targets");
+            return;
+        }
+
+        setBulkSaving(true);
+        try {
+            const token = localStorage.getItem("token");
+            const targetsList = Object.entries(bulkTargetValues)
+                .filter(([centreName]) => bulkSelectedCentres.includes(centreName))
+                .map(([centreName, targetAmount]) => ({
+                    centreName,
+                    targetAmount: Number(targetAmount) || 0
+                }));
+
+            if (targetsList.length === 0) {
+                toast.error("No valid targets selected to save");
+                return;
+            }
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/daily-collection/target/bulk`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    dates: bulkSelectedDates,
+                    targets: targetsList
+                })
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                toast.success(data.message || `Saved targets for ${targetsList.length} centres across ${bulkSelectedDates.length} date(s)`);
+                setIsBulkModalOpen(false);
+                fetchDailyCollection();
+            } else {
+                const err = await response.json();
+                toast.error(err.message || "Failed to save bulk targets");
+            }
+        } catch (err) {
+            console.error("Error saving bulk daily targets:", err);
+            toast.error("Failed to save bulk daily targets");
+        } finally {
+            setBulkSaving(false);
         }
     };
 
@@ -1303,7 +1550,19 @@ const DailyCollection = () => {
                                     <tr>
                                         <th className="px-4 py-3">Centre Name</th>
                                         <th className="px-4 py-3 text-right font-bold text-amber-500">
-                                            Daily Target (Adjusted - Excl. GST)
+                                            <div className="flex items-center justify-end gap-2">
+                                                <span>Daily Target (Adjusted - Excl. GST)</span>
+                                                {canEditTarget && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => openBulkTargetModal(activeCentres.map(c => c.centreName).filter(Boolean))}
+                                                        className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30 rounded flex items-center gap-1 transition-all shadow-sm"
+                                                        title="Bulk Update Daily Targets for Current Date"
+                                                    >
+                                                        <FaEdit size={10} /> Bulk
+                                                    </button>
+                                                )}
+                                            </div>
                                         </th>
                                         {paymentMethodsList.map(method => (
                                             <th key={method} className="px-4 py-3 text-right">{method}</th>
@@ -1419,12 +1678,48 @@ const DailyCollection = () => {
                                                                             }}
                                                                             title="Click to edit daily target"
                                                                         >
-                                                                            <span>{formatAmount(centreTargets[centre] || 0)}</span>
+                                                                            <div className="flex flex-col items-end">
+                                                                                <span>{formatAmount(centreTargets[centre] || 0)}</span>
+                                                                                {centreTargetMeta[centre]?.shortfallAdded > 0 && (
+                                                                                    <span
+                                                                                        className="text-[9px] font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-1 py-0.5 rounded mt-0.5"
+                                                                                        title={`Base target: ${formatAmount(centreTargetMeta[centre]?.baseTarget || 0)} + Shortfall adjusted: ${formatAmount(centreTargetMeta[centre]?.shortfallAdded || 0)}`}
+                                                                                    >
+                                                                                        +{formatAmount(centreTargetMeta[centre]?.shortfallAdded)} adj
+                                                                                    </span>
+                                                                                )}
+                                                                                {centreTargetMeta[centre]?.shortfallAdded < 0 && (
+                                                                                    <span
+                                                                                        className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1 py-0.5 rounded mt-0.5"
+                                                                                        title={`Base target: ${formatAmount(centreTargetMeta[centre]?.baseTarget || 0)} - Saturday surplus adjusted: ${formatAmount(Math.abs(centreTargetMeta[centre]?.shortfallAdded))}`}
+                                                                                    >
+                                                                                        -{formatAmount(Math.abs(centreTargetMeta[centre]?.shortfallAdded))} adj
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
                                                                             <FaEdit size={12} className="text-amber-500 opacity-0 group-hover/target:opacity-100 transition-opacity" />
                                                                         </div>
                                                                     )
                                                                 ) : (
-                                                                    <span>{formatAmount(centreTargets[centre] || 0)}</span>
+                                                                    <div className="flex flex-col items-end">
+                                                                        <span>{formatAmount(centreTargets[centre] || 0)}</span>
+                                                                        {centreTargetMeta[centre]?.shortfallAdded > 0 && (
+                                                                            <span
+                                                                                className="text-[9px] font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-1 py-0.5 rounded mt-0.5"
+                                                                                title={`Base target: ${formatAmount(centreTargetMeta[centre]?.baseTarget || 0)} + Shortfall adjusted: ${formatAmount(centreTargetMeta[centre]?.shortfallAdded || 0)}`}
+                                                                            >
+                                                                                +{formatAmount(centreTargetMeta[centre]?.shortfallAdded)} adj
+                                                                            </span>
+                                                                        )}
+                                                                        {centreTargetMeta[centre]?.shortfallAdded < 0 && (
+                                                                            <span
+                                                                                className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1 py-0.5 rounded mt-0.5"
+                                                                                title={`Base target: ${formatAmount(centreTargetMeta[centre]?.baseTarget || 0)} - Saturday surplus adjusted: ${formatAmount(Math.abs(centreTargetMeta[centre]?.shortfallAdded))}`}
+                                                                            >
+                                                                                -{formatAmount(Math.abs(centreTargetMeta[centre]?.shortfallAdded))} adj
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
                                                                 )}
                                                             </td>
                                                             {paymentMethodsList.map(method => (
@@ -1581,6 +1876,278 @@ const DailyCollection = () => {
                     )}
                 </div>
             </div>
+
+            {/* Bulk Daily Target Updation Modal */}
+            {isBulkModalOpen && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+                    <div className={`w-full max-w-3xl rounded-lg shadow-2xl border flex flex-col max-h-[92vh] ${isDarkMode ? "bg-[#13161c] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"}`}>
+                        {/* Header */}
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+                            <div>
+                                <h3 className="text-lg font-bold">Bulk Set Daily Targets</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">
+                                    Set targets across centres for multiple dates simultaneously. Weekday shortfalls automatically adjust into Saturday & Sunday.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setIsBulkModalOpen(false)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                            >
+                                <FaTimes size={16} />
+                            </button>
+                        </div>
+
+                        {/* Week-Wise Selection Section */}
+                        <div className="px-6 py-3 border-b border-gray-200 dark:border-gray-800 bg-slate-50/70 dark:bg-gray-900/30">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-2.5">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300 mr-1">Select Weeks:</span>
+                                    {allMonthWeeks.map(w => {
+                                        const isCurrent = selectedWeekNumbers.includes(w.weekNumber);
+                                        return (
+                                            <button
+                                                key={w.weekNumber}
+                                                type="button"
+                                                onClick={() => handleToggleWeek(w.weekNumber)}
+                                                className={`px-3 py-1 text-xs font-bold rounded transition-all select-none flex items-center gap-1.5 ${
+                                                    isCurrent
+                                                        ? "bg-blue-600 text-white shadow-sm ring-1 ring-blue-400"
+                                                        : isDarkMode
+                                                            ? "bg-gray-800 text-gray-300 hover:bg-gray-700 hover:text-white"
+                                                            : "bg-white border border-gray-300 text-gray-700 hover:bg-gray-100"
+                                                }`}
+                                            >
+                                                <span className={`w-2 h-2 rounded-full ${isCurrent ? "bg-white" : "bg-transparent border border-gray-400"}`} />
+                                                <span>{w.label}</span>
+                                            </button>
+                                        );
+                                    })}
+                                    <button
+                                        type="button"
+                                        onClick={handleSelectAllWeeks}
+                                        className="px-2.5 py-1 text-xs font-bold rounded bg-gray-200 dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-300 dark:hover:bg-gray-700 transition-colors"
+                                    >
+                                        All Weeks
+                                    </button>
+                                </div>
+
+                                <div className="flex items-center gap-1 ml-auto">
+                                    <button
+                                        type="button"
+                                        onClick={handleSelectWeekdaysAcrossWeeks}
+                                        className="px-2 py-0.5 text-[11px] font-bold rounded bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 border border-amber-500/30 transition-colors"
+                                    >
+                                        Weekdays Only (Mon-Fri)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSelectWeekendAcrossWeeks}
+                                        className="px-2 py-0.5 text-[11px] font-bold rounded bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 border border-purple-500/30 transition-colors"
+                                    >
+                                        Weekend Only (Sat-Sun)
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleSelectAllDaysAcrossWeeks}
+                                        className="px-2 py-0.5 text-[11px] font-bold rounded bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 border border-blue-500/30 transition-colors"
+                                    >
+                                        All Days
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-2 pt-1 max-h-[160px] overflow-y-auto">
+                                {allMonthWeeks
+                                    .filter(w => selectedWeekNumbers.includes(w.weekNumber))
+                                    .map(w => (
+                                        <div key={w.weekNumber} className="flex flex-wrap items-center gap-1.5 pb-1 border-b border-gray-100 dark:border-gray-800/60 last:border-0">
+                                            <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400 min-w-[60px]">
+                                                Week {w.weekNumber}:
+                                            </span>
+                                            {w.days.map(d => {
+                                                const isSelected = bulkSelectedDates.includes(d.dateStr);
+                                                return (
+                                                    <button
+                                                        key={d.dateStr}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setBulkSelectedDates(prev =>
+                                                                prev.includes(d.dateStr) ? prev.filter(x => x !== d.dateStr) : [...prev, d.dateStr]
+                                                            );
+                                                        }}
+                                                        className={`px-2.5 py-1 text-xs rounded-md font-semibold border flex items-center gap-1.5 transition-all select-none ${isSelected
+                                                            ? d.isWeekend
+                                                                ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                                                                : "bg-blue-600 text-white border-blue-600 shadow-sm"
+                                                            : isDarkMode
+                                                                ? "bg-[#181b22] border-gray-700 text-gray-400 hover:border-gray-500"
+                                                                : "bg-white border-gray-300 text-gray-600 hover:border-gray-400"
+                                                        }`}
+                                                    >
+                                                        <span className={`w-2 h-2 rounded-full ${isSelected ? "bg-white" : "bg-transparent border border-gray-400"}`} />
+                                                        <span>{d.dayName} {d.dayNum}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    ))}
+                            </div>
+                            <div className="flex items-center justify-between text-[11px] text-gray-500 dark:text-gray-400 pt-2 font-medium">
+                                <span>Click any day to toggle on/off</span>
+                                <span>
+                                    Selected: <b className="text-amber-500">{bulkSelectedDates.length}</b> day(s) across <b className="text-blue-400">{selectedWeekNumbers.length}</b> week(s)
+                                </span>
+                            </div>
+                        </div>
+
+                        {/* Quick Fill & Search Bar */}
+                        <div className="p-4 border-b border-gray-200 dark:border-gray-800 flex flex-wrap items-center justify-between gap-3 bg-gray-50 dark:bg-gray-900/40">
+                            <div className="flex items-center gap-2 flex-1 min-w-[280px]">
+                                <input
+                                    type="number"
+                                    placeholder="Common target amount..."
+                                    value={bulkCommonValue}
+                                    onChange={(e) => setBulkCommonValue(e.target.value)}
+                                    className={`w-44 px-3 py-1.5 text-xs rounded border outline-none ${isDarkMode ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                                />
+                                <button
+                                    type="button"
+                                    onClick={handleApplyCommonValue}
+                                    className="px-3 py-1.5 text-xs font-bold rounded bg-amber-500 hover:bg-amber-600 text-white transition-colors flex items-center gap-1"
+                                >
+                                    Apply to Selected ({bulkSelectedCentres.length})
+                                </button>
+                            </div>
+                            <div className="relative w-48">
+                                <input
+                                    type="text"
+                                    placeholder="Search centre..."
+                                    value={bulkSearch}
+                                    onChange={(e) => setBulkSearch(e.target.value)}
+                                    className={`w-full pl-7 pr-3 py-1.5 text-xs rounded border outline-none ${isDarkMode ? "bg-gray-800 border-gray-700 text-white" : "bg-white border-gray-300 text-gray-900"}`}
+                                />
+                                <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                            </div>
+                        </div>
+
+                        {/* Centres Target List */}
+                        <div className="flex-1 overflow-y-auto p-4 max-h-[50vh]">
+                            {(() => {
+                                const visibleCentres = Object.keys(bulkTargetValues)
+                                    .filter(cName => !bulkSearch || cName.toLowerCase().includes(bulkSearch.toLowerCase()));
+                                const allVisibleSelected = visibleCentres.length > 0 && visibleCentres.every(c => bulkSelectedCentres.includes(c));
+
+                                return (
+                                    <table className="w-full text-xs">
+                                        <thead>
+                                            <tr className="border-b border-gray-200 dark:border-gray-800 text-gray-500 uppercase tracking-wider text-[10px]">
+                                                <th className="pb-2 text-left w-10">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={allVisibleSelected}
+                                                        onChange={() => handleToggleAllCentres(visibleCentres)}
+                                                        className="w-3.5 h-3.5 rounded text-blue-600 cursor-pointer"
+                                                    />
+                                                </th>
+                                                <th className="pb-2 text-left">Centre Name</th>
+                                                <th className="pb-2 text-right">Current Target</th>
+                                                <th className="pb-2 text-right">New Target (Excl. GST)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                                            {visibleCentres.map(cName => {
+                                                const isCentreSelected = bulkSelectedCentres.includes(cName);
+                                                return (
+                                                    <tr
+                                                        key={cName}
+                                                        className={`transition-colors ${
+                                                            isCentreSelected
+                                                                ? "bg-blue-50/40 dark:bg-blue-950/20"
+                                                                : "opacity-60 hover:opacity-100"
+                                                        }`}
+                                                    >
+                                                        <td className="py-2.5">
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isCentreSelected}
+                                                                onChange={() => handleToggleCentre(cName)}
+                                                                className="w-3.5 h-3.5 rounded text-blue-600 cursor-pointer"
+                                                            />
+                                                        </td>
+                                                        <td
+                                                            className="py-2.5 font-semibold text-gray-800 dark:text-gray-200 cursor-pointer select-none"
+                                                            onClick={() => handleToggleCentre(cName)}
+                                                        >
+                                                            {cName}
+                                                        </td>
+                                                        <td className="py-2.5 text-right text-gray-500">
+                                                            ₹{formatAmount(centreTargets[cName] || 0)}
+                                                            {centreTargetMeta[cName]?.shortfallAdded > 0 && (
+                                                                <span className="ml-1.5 text-[9px] font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-1 py-0.2 rounded" title={`Base target: ₹${formatAmount(centreTargetMeta[cName]?.baseTarget || 0)} (+₹${formatAmount(centreTargetMeta[cName]?.shortfallAdded)} shortfall adjusted)`}>
+                                                                    +{formatAmount(centreTargetMeta[cName]?.shortfallAdded)} adj
+                                                                </span>
+                                                            )}
+                                                            {centreTargetMeta[cName]?.shortfallAdded < 0 && (
+                                                                <span className="ml-1.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1 py-0.2 rounded" title={`Base target: ₹${formatAmount(centreTargetMeta[cName]?.baseTarget || 0)} (-₹${formatAmount(Math.abs(centreTargetMeta[cName]?.shortfallAdded))} Saturday surplus adjusted)`}>
+                                                                    -{formatAmount(Math.abs(centreTargetMeta[cName]?.shortfallAdded))} adj
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                        <td className="py-2.5 text-right">
+                                                            <input
+                                                                type="number"
+                                                                value={bulkTargetValues[cName] ?? ""}
+                                                                disabled={!isCentreSelected}
+                                                                onChange={(e) => {
+                                                                    const val = e.target.value;
+                                                                    setBulkTargetValues(prev => ({ ...prev, [cName]: val }));
+                                                                }}
+                                                                className={`w-32 px-2.5 py-1 text-xs text-right rounded border outline-none font-semibold ${
+                                                                    !isCentreSelected
+                                                                        ? "bg-gray-100 dark:bg-gray-800 text-gray-400 cursor-not-allowed border-gray-200 dark:border-gray-800"
+                                                                        : isDarkMode
+                                                                            ? "bg-gray-800 border-gray-700 text-white focus:border-amber-500"
+                                                                            : "bg-white border-gray-300 text-gray-900 focus:border-amber-500"
+                                                                }`}
+                                                            />
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                );
+                            })()}
+                        </div>
+
+                        {/* Footer */}
+                        <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/40">
+                            <span className="text-[11px] text-gray-500">
+                                <b className="text-blue-500">{bulkSelectedCentres.length}</b> of {Object.keys(bulkTargetValues).length} centres selected
+                            </span>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsBulkModalOpen(false)}
+                                    className="px-4 py-1.5 text-xs font-semibold rounded border border-gray-300 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={bulkSaving || bulkSelectedCentres.length === 0}
+                                    onClick={handleSaveBulkTargets}
+                                    className={`px-5 py-1.5 text-xs font-bold rounded bg-green-600 hover:bg-green-700 text-white transition-colors flex items-center gap-1.5 ${
+                                        bulkSaving || bulkSelectedCentres.length === 0 ? "opacity-60 cursor-not-allowed" : ""
+                                    }`}
+                                >
+                                    {bulkSaving ? "Saving..." : `Save Selected (${bulkSelectedCentres.length} centres)`}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Layout>
     );
 };

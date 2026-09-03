@@ -20,7 +20,7 @@ import { getAdmissionReport } from "../../controllers/sales/admissionReportContr
 import { getCourseReport } from "../../controllers/sales/courseReportController.js";
 import { getDiscountReport } from "../../controllers/sales/discountReportController.js";
 import { getTransactionReport } from "../../controllers/sales/transactionReportController.js";
-import { getDailyCollectionReport, saveDailyTarget } from "../../controllers/sales/dailyCollectionController.js";
+import { getDailyCollectionReport, saveDailyTarget, saveBulkDailyTargets } from "../../controllers/sales/dailyCollectionController.js";
 import { getBoardReport } from "../../controllers/sales/boardReportController.js";
 import { getWeeklyTarget, getFinalWeekendTarget, overrideWeeklyTarget, overrideWeeklyTargetBulk } from "../../controllers/sales/weeklyTargetController.js";
 import { saveCourseTarget, getCourseTargetAnalysis, getAdmissionDetails } from "../../controllers/sales/courseTargetController.js";
@@ -48,6 +48,7 @@ router.get("/discount-report", requireAuth, getDiscountReport);
 router.get("/transaction-report", requireAuth, getTransactionReport);
 router.get("/daily-collection", requireAuth, getDailyCollectionReport);
 router.post("/daily-collection/target", requireAuth, saveDailyTarget);
+router.post("/daily-collection/target/bulk", requireAuth, saveBulkDailyTargets);
 router.get("/board-report", requireAuth, getBoardReport);
 router.get("/average-admission-fee", requireAuth, getAverageAdmissionFee);
 

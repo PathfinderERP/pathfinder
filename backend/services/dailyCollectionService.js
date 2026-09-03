@@ -676,14 +676,9 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const paymentMethods = reportData[0]?.paymentMethods || [];
     const details = reportData[0]?.details || [];
 
-    // Fetch centre targets for the selected month and year
+    // Calculate centre daily targets based strictly on user-entered targets for the month
     const year = selectedDate.getFullYear();
     const monthIndex = selectedDate.getMonth();
-    const monthNames = [
-        "January", "February", "March", "April", "May", "June",
-        "July", "August", "September", "October", "November", "December"
-    ];
-    const monthName = monthNames[monthIndex];
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
 
     const mm = String(monthIndex + 1).padStart(2, '0');
@@ -691,27 +686,38 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const startOfMonth = new Date(`${year}-${mm}-01T00:00:00+05:30`);
     const endOfMonth = new Date(`${year}-${mm}-${lastDayStr}T23:59:59.999+05:30`);
 
-    const targets = await CentreTarget.find({
-        year,
-        month: monthName
-    }).populate({ path: "centre", select: "centreName", model: "CentreSchema" });
+    // Fetch user-entered DailyTarget records for this month
+    const monthCustomTargets = await DailyTarget.find({
+        date: { $gte: startOfMonth, $lte: endOfMonth }
+    }).sort({ date: -1 }).populate({ path: "centre", select: "centreName", model: "CentreSchema" });
 
-    // Fetch custom daily targets for this specific date / date range
-    const dStr = cleanDateStr(selectedDate);
-    const startOfDate = new Date(`${dStr}T00:00:00+05:30`);
-    const endOfDate = new Date(`${dStr}T23:59:59.999+05:30`);
+    const getDayOfMonthIST = (d) => {
+        if (!d) return 1;
+        const dateObj = new Date(d);
+        const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+        const ist = new Date(utc + (3600000 * 5.5));
+        return ist.getDate();
+    };
 
-    let customTargetFilter = {};
-    if (startDate && endDate) {
-        customTargetFilter = { date: { $gte: startOfDay, $lte: endOfDay } };
-    } else {
-        customTargetFilter = { date: { $gte: startOfDate, $lte: endOfDate } };
-    }
-
-    const [customTargets, monthCustomTargets] = await Promise.all([
-        DailyTarget.find(customTargetFilter).sort({ date: -1 }).populate({ path: "centre", select: "centreName", model: "CentreSchema" }),
-        DailyTarget.find({ date: { $gte: startOfMonth, $lte: endOfMonth } }).sort({ date: -1 }).populate({ path: "centre", select: "centreName", model: "CentreSchema" })
-    ]);
+    // Build lookup for user-entered daily targets
+    // Keyed by centre ID and centre name (uppercase), then by day number (1..31)
+    const customTargetsByCentre = {};
+    (monthCustomTargets || []).forEach(dt => {
+        const cId = dt.centre?._id?.toString() || dt.centre?.toString();
+        const cName = dt.centre?.centreName?.trim().toUpperCase();
+        const dayNum = getDayOfMonthIST(dt.date);
+        const amt = Number(dt.targetAmount);
+        if (!isNaN(amt)) {
+            if (cId) {
+                if (!customTargetsByCentre[cId]) customTargetsByCentre[cId] = {};
+                customTargetsByCentre[cId][dayNum] = amt;
+            }
+            if (cName) {
+                if (!customTargetsByCentre[cName]) customTargetsByCentre[cName] = {};
+                customTargetsByCentre[cName][dayNum] = amt;
+            }
+        }
+    });
 
     const achievementMap = {};
     const dailyRaw = await getDailyAchievedForMonth(startOfMonth, endOfMonth);
@@ -727,88 +733,155 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const fixedWeeks = buildFixedWeeks(year, monthIndex);
     const selectedDayNum = selectedDate.getDate();
 
-    const centreTargets = {};
-    
-    // Calculate dynamic daily target for the selected date based on weekends target module rules
-    targets.forEach(t => {
-        if (t.centre && t.centre.centreName) {
-            const name = t.centre.centreName;
-            if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name))) {
-                const cNameUpper = name.trim().toUpperCase();
-                const monthlyTargetExclGST = t.targetAmount || 0;
+    // Helper to calculate target for a single day of the month for a centre based exclusively on user-entered targets
+    const calculateDayTargetForCentre = (centreDoc, dayNum) => {
+        const cId = centreDoc._id?.toString();
+        const cName = centreDoc.centreName?.trim() || "";
+        const cNameUpper = cName.toUpperCase();
+        const dayMap = achievementMap[cNameUpper] || {};
 
-                const dayMap = achievementMap[cNameUpper] || {};
+        // Base target is strictly what user added in DailyTarget (0 if not set)
+        const getBaseTargetForDay = (d) => {
+            return customTargetsByCentre[cId]?.[d] ?? customTargetsByCentre[cNameUpper]?.[d] ?? 0;
+        };
 
-                let cumulativeTarget = 0;
-                let cumulativeAchievement = 0;
-                let finalDailyTarget = 0;
+        for (const week of fixedWeeks) {
+            // Check if dayNum belongs to this week
+            const isDayInWeek = dayNum >= week.startDay && dayNum <= week.endDay;
+            if (isDayInWeek) {
+                const weekdayList = week.days.filter(d => !d.isWeekend);
+                const hasSat = week.days.some(d => d.dayName === "Sat");
+                const hasSun = week.days.some(d => d.dayName === "Sun");
 
-                for (const week of fixedWeeks) {
-                    const basePhaseTarget = daysInMonth > 0
-                        ? (week.actualDays / daysInMonth) * monthlyTargetExclGST
-                        : 0;
+                // Calculate weekday shortfall across all weekdays in this week based on user-entered targets
+                let weekdayShortfall = 0;
+                weekdayList.forEach(wDay => {
+                    const wTarget = getBaseTargetForDay(wDay.day);
+                    const wAchieved = dayMap[wDay.day] || 0;
+                    weekdayShortfall += (wTarget - wAchieved);
+                });
 
-                    const overrideVal = t.weeklyTargetsOverride?.[week.weekNumber];
-                    if (overrideVal !== undefined && overrideVal !== null) {
-                        cumulativeTarget = overrideVal;
-                    } else {
-                        cumulativeTarget += basePhaseTarget;
-                    }
+                const targetDayObj = week.days.find(d => d.day === dayNum);
+                const dayName = targetDayObj?.dayName || "";
+                const isWeekend = targetDayObj?.isWeekend || false;
+                const baseTarget = getBaseTargetForDay(dayNum);
 
-                    const prevCumulativeAchievement = cumulativeAchievement;
-                    const phaseTarget = Math.max(0, cumulativeTarget - prevCumulativeAchievement);
-
-                    const isDayInWeek = selectedDayNum >= week.startDay && selectedDayNum <= week.endDay;
-
-                    let phaseAchieved = 0;
-                    week.days.forEach(d => {
-                        phaseAchieved += dayMap[d.day] || 0;
-                    });
-
-                    cumulativeAchievement += phaseAchieved;
-
-                    if (isDayInWeek) {
-                        const weekDaysCount = week.actualDays || week.days.length || 7;
-                        const baseDailyTarget = weekDaysCount > 0 ? (phaseTarget / weekDaysCount) : 0;
-                        const dayIndexInWeek = week.days.findIndex(d => d.day === selectedDayNum);
-
-                        if (dayIndexInWeek <= 0) {
-                            finalDailyTarget = baseDailyTarget;
-                        } else {
-                            let weekPriorAchieved = 0;
-                            for (let i = 0; i < dayIndexInWeek; i++) {
-                                const dNum = week.days[i].day;
-                                weekPriorAchieved += dayMap[dNum] || 0;
-                            }
-                            finalDailyTarget = Math.max(0, ((dayIndexInWeek + 1) * baseDailyTarget) - weekPriorAchieved);
-                        }
-                        break;
-                    }
+                // If weekday: strictly the manual base target (no shortfall adjustment)
+                if (!isWeekend) {
+                    const finalTarget = Math.round(Math.max(0, baseTarget));
+                    return {
+                        finalTarget,
+                        baseTarget: finalTarget,
+                        shortfallAdded: 0,
+                        isWeekend: false,
+                        dayName
+                    };
                 }
 
-                centreTargets[name] = finalDailyTarget;
+                // If no manual target is set for this weekend day, keep it at 0
+                if (baseTarget <= 0) {
+                    return {
+                        finalTarget: 0,
+                        baseTarget: 0,
+                        shortfallAdded: 0,
+                        isWeekend: true,
+                        dayName
+                    };
+                }
+
+                // On Saturday: adjust with total weekday shortfall
+                if (dayName === "Sat") {
+                    const shortfallToAdd = weekdayShortfall > 0 ? weekdayShortfall : 0;
+                    const finalTarget = Math.round(baseTarget + shortfallToAdd);
+                    return {
+                        finalTarget,
+                        baseTarget: Math.round(baseTarget),
+                        shortfallAdded: Math.round(shortfallToAdd),
+                        isWeekend: true,
+                        dayName
+                    };
+                }
+
+                // On Sunday: adjust with remaining shortfall or surplus after Saturday collection
+                if (dayName === "Sun") {
+                    const satDayObj = week.days.find(d => d.dayName === "Sat");
+                    let shortfallAfterSat = weekdayShortfall;
+
+                    if (satDayObj) {
+                        const satBaseTarget = getBaseTargetForDay(satDayObj.day);
+                        const satAchieved = dayMap[satDayObj.day] || 0;
+                        if (satBaseTarget > 0) {
+                            const satAdjustedTarget = satBaseTarget + (weekdayShortfall > 0 ? weekdayShortfall : 0);
+                            shortfallAfterSat = satAdjustedTarget - satAchieved;
+                        } else {
+                            shortfallAfterSat = weekdayShortfall - satAchieved;
+                        }
+                    }
+
+                    // If shortfallAfterSat is positive, target increases; if negative (surplus on Sat), target decreases
+                    const finalTarget = Math.round(Math.max(0, baseTarget + shortfallAfterSat));
+                    const adjDiff = finalTarget - baseTarget;
+
+                    return {
+                        finalTarget,
+                        baseTarget: Math.round(baseTarget),
+                        shortfallAdded: Math.round(adjDiff),
+                        isWeekend: true,
+                        dayName
+                    };
+                }
             }
         }
-    });
 
-    // Apply custom daily targets saved by user (these override monthly defaults)
-    if (Array.isArray(customTargets) && customTargets.length > 0) {
-        customTargets.forEach(dt => {
-            const cName = dt.centre?.centreName;
-            const targetVal = Number(dt.targetAmount);
-            if (cName && !isNaN(targetVal)) {
-                centreTargets[cName] = targetVal;
-                // Also match any centre in allCentres with case-insensitive name
-                allCentres.forEach(c => {
-                    if (c.centreName && c.centreName.trim().toUpperCase() === cName.trim().toUpperCase()) {
-                        centreTargets[c.centreName] = targetVal;
-                    }
+        // Fallback if day not matched
+        const baseTarget = getBaseTargetForDay(dayNum);
+        return {
+            finalTarget: Math.round(baseTarget),
+            baseTarget: Math.round(baseTarget),
+            shortfallAdded: 0,
+            isWeekend: false,
+            dayName: ""
+        };
+    };
+
+    const centreTargets = {};
+    const centreTargetMeta = {};
+
+    const isDateRange = startDate && endDate && cleanDateStr(startDate) !== cleanDateStr(endDate);
+
+    if (isDateRange) {
+        // Accumulate targets across the date range for each centre
+        const sDate = new Date(`${cleanDateStr(startDate)}T00:00:00+05:30`);
+        const eDate = new Date(`${cleanDateStr(endDate)}T23:59:59.999+05:30`);
+        const daysInRange = [];
+        const cur = new Date(sDate);
+        while (cur <= eDate) {
+            daysInRange.push(cur.getDate());
+            cur.setDate(cur.getDate() + 1);
+        }
+
+        allCentres.forEach(c => {
+            if (!c.centreName) return;
+            const name = c.centreName;
+            if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name))) {
+                let rangeSum = 0;
+                daysInRange.forEach(dNum => {
+                    const res = calculateDayTargetForCentre(c, dNum);
+                    rangeSum += res.finalTarget;
                 });
-            } else if (dt.centre && !isNaN(targetVal)) {
-                const matchCentre = allCentres.find(c => String(c._id) === String(dt.centre?._id || dt.centre));
-                if (matchCentre && matchCentre.centreName) {
-                    centreTargets[matchCentre.centreName] = targetVal;
-                }
+                centreTargets[name] = rangeSum;
+                centreTargetMeta[name] = { baseTarget: rangeSum, shortfallAdded: 0, isWeekend: false, isRange: true };
+            }
+        });
+    } else {
+        // Single day target calculation (primary view for Today, Yesterday, or single date)
+        allCentres.forEach(c => {
+            if (!c.centreName) return;
+            const name = c.centreName;
+            if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name))) {
+                const res = calculateDayTargetForCentre(c, selectedDayNum);
+                centreTargets[name] = res.finalTarget;
+                centreTargetMeta[name] = res;
             }
         });
     }
@@ -826,7 +899,9 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         paymentMethods,
         details,
         centreTargets,
+        centreTargetMeta,
         zones,
         zonalManagers
     };
 };
+
