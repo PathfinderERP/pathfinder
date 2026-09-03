@@ -92,6 +92,8 @@ const DailyCollection = () => {
     const [isDepartmentOpen, setIsDepartmentOpen] = useState(false);
     const [isExamTagOpen, setIsExamTagOpen] = useState(false);
     const [isPaymentMethodOpen, setIsPaymentMethodOpen] = useState(false);
+    const [redFlagStatus, setRedFlagStatus] = useState(savedFilters.redFlagStatus || "all"); // "all", "red_flag", "non_red_flag"
+    const [isRedFlagOpen, setIsRedFlagOpen] = useState(false);
 
     const { theme } = useTheme();
 
@@ -108,10 +110,11 @@ const DailyCollection = () => {
             selectedDepartments,
             selectedExamTags,
             selectedPaymentMethods,
+            redFlagStatus,
             searchText
         };
         localStorage.setItem("dailyCollection_filters", JSON.stringify(filtersToSave));
-    }, [date, startDate, endDate, activePreset, activeTab, selectedZones, selectedCentres, selectedCourses, selectedDepartments, selectedExamTags, selectedPaymentMethods, searchText]);
+    }, [date, startDate, endDate, activePreset, activeTab, selectedZones, selectedCentres, selectedCourses, selectedDepartments, selectedExamTags, selectedPaymentMethods, redFlagStatus, searchText]);
 
     useEffect(() => {
         fetchMasterData();
@@ -588,6 +591,8 @@ const DailyCollection = () => {
         setSelectedDepartments([]);
         setSelectedExamTags([]);
         setSelectedPaymentMethods([]);
+        setRedFlagStatus("all");
+        setIsRedFlagOpen(false);
         setCentreSearch("");
         setCourseSearch("");
         setDepartmentSearch("");
@@ -700,7 +705,17 @@ const DailyCollection = () => {
                     return initialAcc;
                 })());
 
-                const sortedAggregated = Object.entries(aggregated).sort((a, b) => a[0].localeCompare(b[0]));
+                const allSortedAggregated = Object.entries(aggregated).sort((a, b) => a[0].localeCompare(b[0]));
+                const sortedAggregated = allSortedAggregated.filter(([centre, data]) => {
+                    if (redFlagStatus === "all") return true;
+                    const isPhsps = /phsps/i.test(centre);
+                    const withoutGst = data.totalWithoutGst !== undefined ? data.totalWithoutGst : (isPhsps ? data.total : (data.total / 1.18));
+                    const target = centreTargets[centre] || 0;
+                    const isRedFlag = withoutGst < target;
+                    if (redFlagStatus === "red_flag") return isRedFlag;
+                    if (redFlagStatus === "non_red_flag") return !isRedFlag;
+                    return true;
+                });
 
                 const headers = [
                     "Centre Name",
@@ -808,7 +823,7 @@ const DailyCollection = () => {
                     "Attendance Status"
                 ];
 
-                const detailsData = dailyDetails.map(item => [
+                const detailsData = redFlagFilteredDetails.map(item => [
                     formatDateTime(item.date),
                     formatDateTime(item.receivedDate),
                     item.centre || "-",
@@ -920,6 +935,42 @@ const DailyCollection = () => {
         ? dailyDetails.filter(d => d.centre && zoneCentreNames.has(d.centre.toLowerCase().trim()))
         : dailyDetails;
 
+    // Precompute collection without GST per centre for red flag status calculation
+    const centreTotalsWithoutGst = React.useMemo(() => {
+        const map = {};
+        activeDetails.forEach(curr => {
+            const c = curr.centre || "N/A";
+            let itemWithoutGst = 0;
+            if (curr.revenueWithoutGst !== undefined && curr.revenueWithoutGst !== null) {
+                itemWithoutGst = Number(curr.revenueWithoutGst);
+            } else if (curr.courseFee && Number(curr.courseFee) > 0 && (!curr.centre || !/phsps/i.test(curr.centre))) {
+                itemWithoutGst = Number(curr.courseFee);
+            } else {
+                const isPhsps = curr.centre && /phsps/i.test(curr.centre);
+                itemWithoutGst = isPhsps ? (curr.paidAmount || 0) : ((curr.paidAmount || 0) / 1.18);
+            }
+            map[c] = (map[c] || 0) + itemWithoutGst;
+        });
+        return map;
+    }, [activeDetails]);
+
+    const isRedFlagCentre = (centreName) => {
+        if (!centreName) return false;
+        const totalNoGst = centreTotalsWithoutGst[centreName] || 0;
+        const target = centreTargets[centreName] || 0;
+        return totalNoGst < target;
+    };
+
+    const redFlagFilteredDetails = React.useMemo(() => {
+        if (redFlagStatus === "red_flag") {
+            return activeDetails.filter(d => isRedFlagCentre(d.centre));
+        }
+        if (redFlagStatus === "non_red_flag") {
+            return activeDetails.filter(d => !isRedFlagCentre(d.centre));
+        }
+        return activeDetails;
+    }, [activeDetails, redFlagStatus, centreTotalsWithoutGst, centreTargets]);
+
     const filteredZones = zones.filter((z) =>
         z.name?.toLowerCase().includes(zoneSearch.toLowerCase())
     );
@@ -944,8 +995,8 @@ const DailyCollection = () => {
         method.toLowerCase().includes(paymentMethodSearch.toLowerCase())
     );
 
-    const pageCount = Math.max(1, Math.ceil(activeDetails.length / pageSize));
-    const paginatedDetails = activeDetails.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+    const pageCount = Math.max(1, Math.ceil(redFlagFilteredDetails.length / pageSize));
+    const paginatedDetails = redFlagFilteredDetails.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
     React.useEffect(() => {
         if (currentPage > pageCount) {
@@ -1192,6 +1243,7 @@ const DailyCollection = () => {
                                     setIsDepartmentOpen(false);
                                     setIsExamTagOpen(false);
                                     setIsPaymentMethodOpen(false);
+                                    setIsRedFlagOpen(false);
                                 }}
                                 className={`w-full rounded-[4px] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
                             >
@@ -1251,6 +1303,7 @@ const DailyCollection = () => {
                                     setIsDepartmentOpen(false);
                                     setIsExamTagOpen(false);
                                     setIsPaymentMethodOpen(false);
+                                    setIsRedFlagOpen(false);
                                 }}
                                 className={`w-full rounded-\[4px\] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
                             >
@@ -1307,6 +1360,7 @@ const DailyCollection = () => {
                                     setIsDepartmentOpen(false);
                                     setIsExamTagOpen(false);
                                     setIsPaymentMethodOpen(false);
+                                    setIsRedFlagOpen(false);
                                 }}
                                 className={`w-full rounded-\[4px\] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
                             >
@@ -1362,21 +1416,23 @@ const DailyCollection = () => {
                                     setIsCentreOpen(false);
                                     setIsCourseOpen(false);
                                     setIsExamTagOpen(false);
+                                    setIsPaymentMethodOpen(false);
+                                    setIsRedFlagOpen(false);
                                 }}
-                                className={`w-full rounded-\[4px\] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
+                                className={`w-full rounded-[4px] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
                             >
                                 <span>{selectedDepartments.length === 0 ? "All Departments" : `${selectedDepartments.length} selected`}</span>
                                 <FaChevronDown className={`transform transition ${isDepartmentOpen ? "rotate-180" : ""}`} />
                             </button>
                             {isDepartmentOpen && (
-                                <div className={`absolute top-full left-0 right-0 mt-1 rounded-\[4px\] shadow-lg z-50 ${filterPopupClass}`}>
+                                <div className={`absolute top-full left-0 right-0 mt-1 rounded-[4px] shadow-lg z-50 ${filterPopupClass}`}>
                                     <div className="flex items-center justify-between px-4 py-2">
                                         <input
                                             type="text"
                                             placeholder="Search department..."
                                             value={departmentSearch}
                                             onChange={(e) => setDepartmentSearch(e.target.value)}
-                                            className={`w-full rounded-t-\[4px\] p-2 text-sm ${filterInputClass}`}
+                                            className={`w-full rounded-t-[4px] p-2 text-sm ${filterInputClass}`}
                                         />
                                         <button
                                             type="button"
@@ -1417,21 +1473,23 @@ const DailyCollection = () => {
                                     setIsCentreOpen(false);
                                     setIsCourseOpen(false);
                                     setIsDepartmentOpen(false);
+                                    setIsPaymentMethodOpen(false);
+                                    setIsRedFlagOpen(false);
                                 }}
-                                className={`w-full rounded-\[4px\] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
+                                className={`w-full rounded-[4px] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
                             >
                                 <span>{selectedExamTags.length === 0 ? "All Exam Tags" : `${selectedExamTags.length} selected`}</span>
                                 <FaChevronDown className={`transform transition ${isExamTagOpen ? "rotate-180" : ""}`} />
                             </button>
                             {isExamTagOpen && (
-                                <div className={`absolute top-full left-0 right-0 mt-1 rounded-\[4px\] shadow-lg z-50 ${filterPopupClass}`}>
+                                <div className={`absolute top-full left-0 right-0 mt-1 rounded-[4px] shadow-lg z-50 ${filterPopupClass}`}>
                                     <div className="flex items-center justify-between px-4 py-2">
                                         <input
                                             type="text"
                                             placeholder="Search exam tag..."
                                             value={examTagSearch}
                                             onChange={(e) => setExamTagSearch(e.target.value)}
-                                            className={`w-full rounded-t-\[4px\] p-2 text-sm ${filterInputClass}`}
+                                            className={`w-full rounded-t-[4px] p-2 text-sm ${filterInputClass}`}
                                         />
                                         <button
                                             type="button"
@@ -1473,6 +1531,7 @@ const DailyCollection = () => {
                                     setIsCourseOpen(false);
                                     setIsDepartmentOpen(false);
                                     setIsExamTagOpen(false);
+                                    setIsRedFlagOpen(false);
                                 }}
                                 className={`w-full rounded-[4px] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
                             >
@@ -1514,6 +1573,80 @@ const DailyCollection = () => {
                                         )) : (
                                             <div className="px-4 py-2 text-gray-500 text-sm">No payment methods found</div>
                                         )}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Red Flag Status Dropdown */}
+                        <div className="relative">
+                            <label className={`block mb-2 text-sm ${secondaryTextClass}`}>Red Flag Status</label>
+                            <button
+                                onClick={() => {
+                                    setIsRedFlagOpen(!isRedFlagOpen);
+                                    setIsZoneOpen(false);
+                                    setIsCentreOpen(false);
+                                    setIsCourseOpen(false);
+                                    setIsDepartmentOpen(false);
+                                    setIsExamTagOpen(false);
+                                    setIsPaymentMethodOpen(false);
+                                }}
+                                className={`w-full rounded-[4px] p-3 text-left flex justify-between items-center ${filterButtonClass}`}
+                            >
+                                <span className="flex items-center gap-2">
+                                    {redFlagStatus === "red_flag" ? (
+                                        <>
+                                            <FaFlag className="text-red-500 animate-pulse" size={12} />
+                                            <span className="text-red-500 font-bold">Red Flag</span>
+                                        </>
+                                    ) : redFlagStatus === "non_red_flag" ? (
+                                        <>
+                                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                            <span className="text-emerald-500 font-bold">Non Red Flag</span>
+                                        </>
+                                    ) : (
+                                        "All Status"
+                                    )}
+                                </span>
+                                <FaChevronDown className={`transform transition ${isRedFlagOpen ? "rotate-180" : ""}`} />
+                            </button>
+                            {isRedFlagOpen && (
+                                <div className={`absolute top-full left-0 right-0 mt-1 rounded-[4px] shadow-lg z-50 py-1 ${filterPopupClass}`}>
+                                    <div
+                                        onClick={() => {
+                                            setRedFlagStatus("all");
+                                            setIsRedFlagOpen(false);
+                                        }}
+                                        className={`flex items-center justify-between px-4 py-2.5 cursor-pointer text-sm font-medium ${filterOptionClass} ${redFlagStatus === "all" ? (isDarkMode ? "bg-slate-800" : "bg-slate-100") : ""}`}
+                                    >
+                                        <span>All Status</span>
+                                        {redFlagStatus === "all" && <span className="text-blue-500 font-bold">✓</span>}
+                                    </div>
+                                    <div
+                                        onClick={() => {
+                                            setRedFlagStatus("red_flag");
+                                            setIsRedFlagOpen(false);
+                                        }}
+                                        className={`flex items-center justify-between px-4 py-2.5 cursor-pointer text-sm font-medium ${filterOptionClass} ${redFlagStatus === "red_flag" ? (isDarkMode ? "bg-slate-800" : "bg-slate-100") : ""}`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <FaFlag className="text-red-500" size={12} />
+                                            <span className="text-red-500 font-bold">Red Flag</span>
+                                        </div>
+                                        {redFlagStatus === "red_flag" && <span className="text-red-500 font-bold">✓</span>}
+                                    </div>
+                                    <div
+                                        onClick={() => {
+                                            setRedFlagStatus("non_red_flag");
+                                            setIsRedFlagOpen(false);
+                                        }}
+                                        className={`flex items-center justify-between px-4 py-2.5 cursor-pointer text-sm font-medium ${filterOptionClass} ${redFlagStatus === "non_red_flag" ? (isDarkMode ? "bg-slate-800" : "bg-slate-100") : ""}`}
+                                    >
+                                        <div className="flex items-center gap-2">
+                                            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+                                            <span className="text-emerald-500 font-bold">Non Red Flag</span>
+                                        </div>
+                                        {redFlagStatus === "non_red_flag" && <span className="text-emerald-500 font-bold">✓</span>}
                                     </div>
                                 </div>
                             )}
@@ -1624,7 +1757,18 @@ const DailyCollection = () => {
                                             }
                                         });
                                         return initialAcc;
-                                    })()); const sortedData = Object.entries(aggregatedData).sort((a, b) => a[0].localeCompare(b[0]));
+                                    })()); 
+                                    const allSortedData = Object.entries(aggregatedData).sort((a, b) => a[0].localeCompare(b[0]));
+                                    const sortedData = allSortedData.filter(([centre, data]) => {
+                                        if (redFlagStatus === "all") return true;
+                                        const isPhsps = /phsps/i.test(centre);
+                                        const rowWithoutGst = data.totalWithoutGst !== undefined ? data.totalWithoutGst : (isPhsps ? data.total : (data.total / 1.18));
+                                        const target = centreTargets[centre] || 0;
+                                        const isRedFlag = rowWithoutGst < target;
+                                        if (redFlagStatus === "red_flag") return isRedFlag;
+                                        if (redFlagStatus === "non_red_flag") return !isRedFlag;
+                                        return true;
+                                    });
 
                                     const isPhspsMidnapore = (centre) => {
                                         if (!centre) return false;
@@ -1797,7 +1941,7 @@ const DailyCollection = () => {
                                             <tr>
                                                 <td colSpan="12" className={`px-4 py-8 text-center ${secondaryTextClass}`}>Loading collection data...</td>
                                             </tr>
-                                        ) : dailyDetails.length === 0 ? (
+                                        ) : redFlagFilteredDetails.length === 0 ? (
                                             <tr>
                                                 <td colSpan="12" className={`px-4 py-8 text-center ${secondaryTextClass}`}>No transactions found for this date.</td>
                                             </tr>
