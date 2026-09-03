@@ -188,7 +188,7 @@ const BoardCourseAdmissionPage = () => {
                 targetStudentId = counselRecord.studentId?._id || counselRecord.studentId;
                 fetchedProgramme = counselRecord.programme || "";
                 startingClass = counselRecord.lastClass || ""; // assign to outer-scope var
-                
+
                 if (counselRecord.examTag?.name) {
                     prefilledTag = counselRecord.examTag.name;
                 } else if (counselRecord.examTag) {
@@ -353,7 +353,7 @@ const BoardCourseAdmissionPage = () => {
                                 const counselSubIds = subData.subjects
                                     .filter(s => targetSubjectIds.some(tid => tid === (s.subjectId?._id?.toString() || s.subjectId?.toString())))
                                     .map(s => s.subjectId?._id?.toString() || s.subjectId?.toString());
-                                  setSelectedSubjectIds(counselSubIds);
+                                setSelectedSubjectIds(counselSubIds);
                             }
                         }
                     }
@@ -1075,9 +1075,9 @@ const BoardCourseAdmissionPage = () => {
                                                     className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
                                                 >
                                                     <option value="CASH">CASH</option>
-                                                    <option value="ONLINE">ONLINE / CARD</option>
+                                                    {/* <option value="ONLINE">ONLINE / CARD</option> */}
                                                     <option value="UPI">UPI</option>
-                                                    <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                                                    <option value="BANK_TRANSFER">BANK_TRANSFER</option>
                                                     <option value="CHEQUE">CHEQUE</option>
                                                 </select>
                                             </div>

@@ -840,7 +840,7 @@ const ManageBoardAdmission = () => {
                                     >
                                         <option value="">Select Method</option>
                                         <option value="CASH">CASH</option>
-                                        <option value="ONLINE">ONLINE / CARD</option>
+                                        {/* <option value="ONLINE">ONLINE / CARD</option> */}
                                         <option value="UPI">UPI</option>
                                         <option value="CHEQUE">CHEQUE</option>
                                         <option value="BANK_TRANSFER">BANK_TRANSFER</option>
