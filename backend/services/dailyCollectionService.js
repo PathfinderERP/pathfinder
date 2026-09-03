@@ -81,7 +81,7 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
 };
 
 const buildFixedWeeks = (year, monthIndex) => {
-    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+    const daysInMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
     const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
     const periods = [];
@@ -91,8 +91,8 @@ const buildFixedWeeks = (year, monthIndex) => {
     while (startDay <= daysInMonth) {
         let endDay = startDay;
         while (endDay < daysInMonth) {
-            const date = new Date(year, monthIndex, endDay);
-            if (date.getDay() === 0) { // Sunday ends the week
+            const date = new Date(Date.UTC(year, monthIndex, endDay));
+            if (date.getUTCDay() === 0) { // Sunday ends the week
                 break;
             }
             endDay++;
@@ -114,8 +114,8 @@ const buildFixedWeeks = (year, monthIndex) => {
             const actualEnd = Math.min(p.end, daysInMonth);
             const days = [];
             for (let d = p.start; d <= actualEnd; d++) {
-                const date = new Date(year, monthIndex, d);
-                const dow  = date.getDay(); // 0=Sun … 6=Sat
+                const date = new Date(Date.UTC(year, monthIndex, d));
+                const dow  = date.getUTCDay(); // 0=Sun … 6=Sat
                 days.push({
                     day:       d,
                     dayName:   dayNames[dow],
@@ -151,30 +151,33 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
 
     const cleanDateStr = (d) => {
         if (!d) return null;
-        return typeof d === "string" ? (d.includes("T") ? d.split("T")[0] : d) : new Date(d).toISOString().split("T")[0];
+        if (typeof d === "string") {
+            return d.includes("T") ? d.split("T")[0] : d;
+        }
+        return new Date(d).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     };
 
     let startOfDay;
     let endOfDay;
-    let selectedDate;
+    let selectedDateStr;
 
     if (startDate && endDate) {
         const sStr = cleanDateStr(startDate);
         const eStr = cleanDateStr(endDate);
         startOfDay = new Date(`${sStr}T00:00:00+05:30`);
         endOfDay = new Date(`${eStr}T23:59:59.999+05:30`);
-        selectedDate = new Date(`${eStr}T00:00:00+05:30`);
+        selectedDateStr = eStr;
     } else if (date) {
         const dStr = cleanDateStr(date);
         startOfDay = new Date(`${dStr}T00:00:00+05:30`);
         endOfDay = new Date(`${dStr}T23:59:59.999+05:30`);
-        selectedDate = new Date(`${dStr}T00:00:00+05:30`);
+        selectedDateStr = dStr;
     } else {
         const now = new Date();
-        const nowStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-        startOfDay = new Date(`${nowStr}T00:00:00+05:30`);
-        endOfDay = new Date(`${nowStr}T23:59:59.999+05:30`);
-        selectedDate = new Date(`${nowStr}T00:00:00+05:30`);
+        const nowISTStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        startOfDay = new Date(`${nowISTStr}T00:00:00+05:30`);
+        endOfDay = new Date(`${nowISTStr}T23:59:59.999+05:30`);
+        selectedDateStr = nowISTStr;
     }
 
     // Base Payment Filter (Only show transactions where a bill has been generated)
@@ -676,12 +679,12 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const paymentMethods = reportData[0]?.paymentMethods || [];
     const details = reportData[0]?.details || [];
 
-    // Calculate centre daily targets based strictly on user-entered targets for the month
-    const year = selectedDate.getFullYear();
-    const monthIndex = selectedDate.getMonth();
-    const daysInMonth = new Date(year, monthIndex + 1, 0).getDate();
+    // Calculate centre daily targets based strictly on user-entered targets for the month in IST
+    const [year, monthNum, selectedDayNum] = selectedDateStr.split('-').map(Number);
+    const monthIndex = monthNum - 1;
+    const daysInMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
 
-    const mm = String(monthIndex + 1).padStart(2, '0');
+    const mm = String(monthNum).padStart(2, '0');
     const lastDayStr = String(daysInMonth).padStart(2, '0');
     const startOfMonth = new Date(`${year}-${mm}-01T00:00:00+05:30`);
     const endOfMonth = new Date(`${year}-${mm}-${lastDayStr}T23:59:59.999+05:30`);
@@ -693,10 +696,9 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
 
     const getDayOfMonthIST = (d) => {
         if (!d) return 1;
-        const dateObj = new Date(d);
-        const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
-        const ist = new Date(utc + (3600000 * 5.5));
-        return ist.getDate();
+        const dateObj = typeof d === "string" ? new Date(d) : d;
+        const istStr = dateObj.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        return Number(istStr.split("-")[2]);
     };
 
     // Build lookup for user-entered daily targets
@@ -731,7 +733,6 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     });
 
     const fixedWeeks = buildFixedWeeks(year, monthIndex);
-    const selectedDayNum = selectedDate.getDate();
 
     // Helper to calculate target for a single day of the month for a centre based exclusively on user-entered targets
     const calculateDayTargetForCentre = (centreDoc, dayNum) => {
@@ -850,14 +851,20 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const isDateRange = startDate && endDate && cleanDateStr(startDate) !== cleanDateStr(endDate);
 
     if (isDateRange) {
-        // Accumulate targets across the date range for each centre
-        const sDate = new Date(`${cleanDateStr(startDate)}T00:00:00+05:30`);
-        const eDate = new Date(`${cleanDateStr(endDate)}T23:59:59.999+05:30`);
+        // Accumulate targets across the date range for each centre (timezone invariant)
+        const sStr = cleanDateStr(startDate);
+        const eStr = cleanDateStr(endDate);
+        const [sYear, sMonth, sDay] = sStr.split('-').map(Number);
+        const [eYear, eMonth, eDay] = eStr.split('-').map(Number);
+
         const daysInRange = [];
-        const cur = new Date(sDate);
-        while (cur <= eDate) {
-            daysInRange.push(cur.getDate());
-            cur.setDate(cur.getDate() + 1);
+        let cur = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+        const endAnchor = new Date(Date.UTC(eYear, eMonth - 1, eDay));
+        while (cur <= endAnchor) {
+            if (cur.getUTCMonth() === monthIndex && cur.getUTCFullYear() === year) {
+                daysInRange.push(cur.getUTCDate());
+            }
+            cur.setUTCDate(cur.getUTCDate() + 1);
         }
 
         allCentres.forEach(c => {
@@ -893,7 +900,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const zonalManagers = await User.find({ role: { $regex: /zonalManager/i } }).select("name centres").lean();
 
     return {
-        date: selectedDate.toISOString().split("T")[0],
+        date: selectedDateStr,
         totalCollection: summary.totalCollection || 0,
         transactionCount: summary.transactionCount || 0,
         paymentMethods,
