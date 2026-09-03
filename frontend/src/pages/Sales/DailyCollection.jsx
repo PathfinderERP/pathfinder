@@ -6,6 +6,16 @@ import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
+const formatLocalDate = (d) => {
+    if (!d) return "";
+    const dateObj = typeof d === "string" ? new Date(d) : d;
+    if (isNaN(dateObj.getTime())) return "";
+    const yyyy = dateObj.getFullYear();
+    const mm = String(dateObj.getMonth() + 1).padStart(2, '0');
+    const dd = String(dateObj.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+};
+
 const DailyCollection = () => {
     const storedUser = localStorage.getItem("user");
     const currentUser = storedUser ? JSON.parse(storedUser) : null;
@@ -25,7 +35,7 @@ const DailyCollection = () => {
     const savedFilters = getSavedFilters();
 
     const [loading, setLoading] = useState(false);
-    const [date, setDate] = useState(savedFilters.date || new Date().toISOString().split("T")[0]);
+    const [date, setDate] = useState(savedFilters.date || formatLocalDate(new Date()));
     const [startDate, setStartDate] = useState(savedFilters.startDate || "");
     const [endDate, setEndDate] = useState(savedFilters.endDate || "");
     const [activePreset, setActivePreset] = useState(savedFilters.activePreset || "today");
@@ -195,13 +205,6 @@ const DailyCollection = () => {
         } catch (error) {
             console.error("Error loading master data", error);
         }
-    };
-
-    const formatLocalDate = (d) => {
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth() + 1).padStart(2, '0');
-        const dd = String(d.getDate()).padStart(2, '0');
-        return `${yyyy}-${mm}-${dd}`;
     };
 
     const fetchDailyCollection = async () => {
@@ -591,9 +594,10 @@ const DailyCollection = () => {
         setExamTagSearch("");
         setPaymentMethodSearch("");
         setSearchText("");
-        setDate(new Date().toISOString().split("T")[0]);
-        setStartDate("");
-        setEndDate("");
+        const todayStr = formatLocalDate(new Date());
+        setDate(todayStr);
+        setStartDate(todayStr);
+        setEndDate(todayStr);
         setActivePreset("today");
         setSelectedZones([]);
         setZoneSearch("");
@@ -613,34 +617,44 @@ const DailyCollection = () => {
 
     const applyPreset = (key) => {
         const now = new Date();
-        let d = now;
         if (key === "today") {
-            d = new Date();
-            setStartDate("");
-            setEndDate("");
+            const todayStr = formatLocalDate(now);
+            setDate(todayStr);
+            setStartDate(todayStr);
+            setEndDate(todayStr);
         } else if (key === "yesterday") {
-            d = new Date();
-            d.setDate(d.getDate() - 1);
-            setStartDate("");
-            setEndDate("");
+            const yDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+            const yStr = formatLocalDate(yDate);
+            setDate(yStr);
+            setStartDate(yStr);
+            setEndDate(yStr);
         } else if (key === "last7") {
-            d = new Date();
-            d.setDate(d.getDate() - 6);
-            setStartDate("");
-            setEndDate("");
+            const sevenDaysAgo = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 6);
+            const startStr = formatLocalDate(sevenDaysAgo);
+            const endStr = formatLocalDate(now);
+            setDate(endStr);
+            setStartDate(startStr);
+            setEndDate(endStr);
         } else if (key === "thisMonth") {
-            d = new Date(now.getFullYear(), now.getMonth(), 1);
-            setStartDate("");
-            setEndDate("");
+            const start = new Date(now.getFullYear(), now.getMonth(), 1);
+            const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+            const startStr = formatLocalDate(start);
+            const endStr = formatLocalDate(end);
+            setDate(startStr);
+            setStartDate(startStr);
+            setEndDate(endStr);
         } else if (key === "lastMonth") {
-            d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-            setStartDate("");
-            setEndDate("");
+            const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const end = new Date(now.getFullYear(), now.getMonth(), 0);
+            const startStr = formatLocalDate(start);
+            const endStr = formatLocalDate(end);
+            setDate(startStr);
+            setStartDate(startStr);
+            setEndDate(endStr);
         } else if (key === "custom") {
-            setStartDate("");
-            setEndDate("");
+            if (!startDate) setStartDate(formatLocalDate(now));
+            if (!endDate) setEndDate(formatLocalDate(now));
         }
-        setDate(d.toISOString().split("T")[0]);
         setActivePreset(key);
     };
 
@@ -738,7 +752,10 @@ const DailyCollection = () => {
                 XLSX.utils.book_append_sheet(workbook, sheet, "Centers Collection");
 
                 // Generate file name with date
-                const fileName = `Centers-Collection-${new Date(date).toISOString().split("T")[0]}.xlsx`;
+                const exportDateLabel = (startDate && endDate && (activePreset === "thisMonth" || activePreset === "lastMonth" || activePreset === "last7" || activePreset === "custom"))
+                    ? `${startDate}_to_${endDate}`
+                    : (date || formatLocalDate(new Date()));
+                const fileName = `Centers-Collection-${exportDateLabel}.xlsx`;
                 XLSX.writeFile(workbook, fileName);
 
                 toast.success("Centers collection exported successfully!");
@@ -987,14 +1004,14 @@ const DailyCollection = () => {
                             <option value="custom">Custom Range</option>
                         </select>
 
-                        {activePreset === "custom" ? (
+                        {activePreset === "custom" || activePreset === "last7" || activePreset === "thisMonth" || activePreset === "lastMonth" ? (
                             <div className="flex flex-col gap-2 mt-3">
                                 <div className="flex flex-col">
                                     <span className="text-[10px] text-gray-500 font-bold uppercase">From:</span>
                                     <input
                                         type="date"
                                         value={startDate}
-                                        onChange={(e) => setStartDate(e.target.value)}
+                                        onChange={(e) => { setStartDate(e.target.value); setActivePreset("custom"); }}
                                         className={`w-full rounded-[4px] p-2 text-xs ${isDarkMode ? "bg-[#15181f] border border-gray-700 text-white" : "bg-white border border-gray-300 text-slate-900"}`}
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                     />
@@ -1004,7 +1021,7 @@ const DailyCollection = () => {
                                     <input
                                         type="date"
                                         value={endDate}
-                                        onChange={(e) => setEndDate(e.target.value)}
+                                        onChange={(e) => { setEndDate(e.target.value); setActivePreset("custom"); }}
                                         className={`w-full rounded-[4px] p-2 text-xs ${isDarkMode ? "bg-[#15181f] border border-gray-700 text-white" : "bg-white border border-gray-300 text-slate-900"}`}
                                         style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                     />
@@ -1015,8 +1032,14 @@ const DailyCollection = () => {
                                 <input
                                     type="date"
                                     value={date}
-                                    onChange={(e) => { setDate(e.target.value); setActivePreset(""); }}
+                                    onChange={(e) => {
+                                        setDate(e.target.value);
+                                        setStartDate(e.target.value);
+                                        setEndDate(e.target.value);
+                                        setActivePreset("");
+                                    }}
                                     className={`w-full rounded-[4px] p-3 text-xs ${isDarkMode ? "bg-[#15181f] border border-gray-700 text-white" : "bg-white border border-gray-300 text-slate-900"}`}
+                                    style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 />
                             </div>
                         )}
