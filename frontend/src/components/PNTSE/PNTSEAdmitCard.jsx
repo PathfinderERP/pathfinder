@@ -176,7 +176,7 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
                 <div className="p-8 overflow-y-auto bg-gray-50 flex-1 flex justify-center">
                     
                     {/* Real Admit Card Structure */}
-                    <div ref={printRef} className="w-[800px] bg-white text-black p-8 font-sans">
+                    <div ref={printRef} className="w-[840px] bg-white text-black p-6 font-sans">
                         {/* Define print specific styles inside */}
                         <style type="text/css" media="print">
                             {`
@@ -185,17 +185,20 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
                             `}
                         </style>
                         
-                        <div className="border-4 border-black p-4 relative h-full flex flex-col">
+                        <div className="border-[3px] border-black p-6 relative flex flex-col">
                             {/* Admit Card Sidebar text */}
-                            <div className="absolute left-0 top-1/2 -translate-y-1/2 -rotate-90 bg-black text-white text-3xl font-extrabold tracking-[0.3em] py-2 px-12 uppercase" style={{ transformOrigin: 'left top', marginTop: '150px', left: '30px' }}>
+                            <div 
+                                className="absolute -left-4 top-8 bottom-8 w-12 bg-black text-white flex items-center justify-center font-extrabold text-2xl tracking-[0.35em] uppercase z-10 shadow-sm"
+                                style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}
+                            >
                                 ADMIT CARD
                             </div>
  
-                            <div className="ml-16 pl-4 pr-6 flex-1">
+                            <div className="ml-12 pl-2 flex flex-col gap-5">
                                 {/* Header / Logo area */}
-                                <div className="text-center mb-6">
-                                    <div className="flex justify-center items-center mb-2 gap-2">
-                                        <div className="w-12 h-12 flex items-center justify-center">
+                                <div className="text-center">
+                                    <div className="flex justify-center items-center gap-3">
+                                        <div className="w-12 h-12 flex items-center justify-center shrink-0">
                                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" className="w-12 h-12">
                                                 {/* Orange Background */}
                                                 <rect width="100" height="100" fill="#E65100"/>
@@ -233,138 +236,150 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
                                                 <line x1="29" y1="74" x2="31" y2="76" stroke="#E65100" strokeWidth="1.5"/>
                                             </svg>
                                         </div>
-                                        <div>
-                                            <h1 className="text-4xl font-extrabold tracking-tight m-0 leading-none">PATHFINDER<sup className="text-xl">&reg;</sup></h1>
-                                            <p className="text-sm font-bold tracking-widest text-gray-800 m-0">Where Aspiration Meets Success</p>
+                                        <div className="text-left">
+                                            <h1 className="text-3xl font-extrabold tracking-tight m-0 leading-none">PATHFINDER<sup className="text-lg">&reg;</sup></h1>
+                                            <p className="text-xs font-bold tracking-widest text-gray-800 m-0">Where Aspiration Meets Success</p>
                                         </div>
                                     </div>
-                                    <h2 className="text-xl font-bold mt-4 uppercase">
-                                        PATHFINDER NATIONAL TALENT SEARCH<br/>EXAMINATION (PNTSE)
+                                    <h2 className="text-lg font-extrabold mt-3 uppercase tracking-wide">
+                                        PATHFINDER NATIONAL TALENT SEARCH EXAMINATION (PNTSE)
                                     </h2>
                                 </div>
 
-                                <div className="flex mt-8 gap-4">
-                                    <div className="flex-1 flex flex-col gap-6">
+                                {/* Upper Section: Form Fields on Left, Photo Box on Right */}
+                                <div className="flex justify-between items-start gap-4">
+                                    <div className="flex-1 flex flex-col gap-4">
                                         
                                         {/* Row 1: Reg No and Centre */}
-                                        <div className="flex items-end justify-between">
+                                        <div className="flex items-start justify-between gap-2">
                                             <div>
-                                                <div className="flex gap-4 items-center">
-                                                    <span className="font-bold text-sm w-32 leading-tight">
-                                                        Registration Number<br/><span className="font-normal italic text-xs">(for Office Use Only)</span>
+                                                <div className="flex gap-2 items-center">
+                                                    <span className="font-bold text-xs w-28 leading-tight">
+                                                        Registration Number<br/><span className="font-normal italic text-[10px] text-gray-600">(for Office Use Only)</span>
                                                     </span>
                                                     <div className="flex">
                                                         {rollBoxes.map((char, i) => (
-                                                            <div key={i} className={`w-8 h-8 border border-black flex items-center justify-center font-bold text-lg ${i===1 ? 'border-r-0' : ''}`}>
+                                                            <div key={i} className={`w-7 h-8 border border-black flex items-center justify-center font-bold text-base ${i > 0 ? 'border-l-0' : ''}`}>
                                                                 {char}
                                                             </div>
                                                         ))}
                                                     </div>
                                                 </div>
-                                                <div className="flex ml-[144px]">
-                                                    <div className="bg-black text-white text-[10px] px-1 font-bold w-16 text-center mt-0.5">Centre Code</div>
+                                                <div className="flex ml-[120px]">
+                                                    <div className="bg-black text-white text-[9px] px-1 font-bold w-14 text-center mt-0.5">Centre Code</div>
                                                 </div>
                                             </div>
                                             
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold text-sm">Name of Centre:</span>
-                                                <div className="border border-black px-3 py-1 min-w-[150px] font-bold text-sm">
-                                                    {centreName}
+                                            <div className="flex items-center gap-1.5 pt-1">
+                                                <span className="font-bold text-xs whitespace-nowrap">Name of Centre:</span>
+                                                <div className="border border-black px-2 py-0.5 font-bold text-xs max-w-[160px] truncate" title={centreName}>
+                                                    {centreName || '-'}
                                                 </div>
                                             </div>
                                         </div>
 
-                                         {/* Row 2: Exam Date */}
-                                         <div className="flex gap-4 items-center">
-                                             <span className="font-bold text-sm w-32">Examination Date:</span>
-                                             <div className="flex gap-1">
-                                                 <div className="flex">
-                                                     <div className={`w-8 h-8 border border-black text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
-                                                         {examDay[0]}
-                                                     </div>
-                                                     <div className={`w-8 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
-                                                         {examDay[1]}
-                                                     </div>
-                                                 </div>
-                                                 <div className="flex">
-                                                     <div className={`w-8 h-8 border border-black text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
-                                                         {examMonth[0]}
-                                                     </div>
-                                                     <div className={`w-8 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
-                                                         {examMonth[1]}
-                                                     </div>
-                                                 </div>
-                                                 <div className="flex">
-                                                     <div className={`w-8 h-8 border border-black text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
-                                                         {examYear[0]}
-                                                     </div>
-                                                     <div className={`w-8 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
-                                                         {examYear[1]}
-                                                     </div>
-                                                     <div className={`w-8 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
-                                                         {examYear[2]}
-                                                     </div>
-                                                     <div className={`w-8 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
-                                                         {examYear[3]}
-                                                     </div>
-                                                 </div>
-                                             </div>
-                                         </div>
+                                        {/* Row 2: Exam Date */}
+                                        <div className="flex gap-2 items-center">
+                                            <span className="font-bold text-xs w-28">Examination Date:</span>
+                                            <div className="flex gap-1.5">
+                                                <div className="flex">
+                                                    <div className={`w-7 h-8 border border-black text-center flex items-center justify-center font-bold text-sm ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                        {examDay[0]}
+                                                    </div>
+                                                    <div className={`w-7 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold text-sm ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                        {examDay[1]}
+                                                    </div>
+                                                </div>
+                                                <div className="flex">
+                                                    <div className={`w-7 h-8 border border-black text-center flex items-center justify-center font-bold text-sm ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                        {examMonth[0]}
+                                                    </div>
+                                                    <div className={`w-7 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold text-sm ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                        {examMonth[1]}
+                                                    </div>
+                                                </div>
+                                                <div className="flex">
+                                                    <div className={`w-7 h-8 border border-black text-center flex items-center justify-center font-bold text-sm ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                        {examYear[0]}
+                                                    </div>
+                                                    <div className={`w-7 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold text-sm ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                        {examYear[1]}
+                                                    </div>
+                                                    <div className={`w-7 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold text-sm ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                        {examYear[2]}
+                                                    </div>
+                                                    <div className={`w-7 h-8 border border-black border-l-0 text-center flex items-center justify-center font-bold text-sm ${isExamDatePopulated ? 'text-black' : 'text-gray-400'}`}>
+                                                        {examYear[3]}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
 
                                         {/* Row 3: Class */}
-                                        <div className="flex gap-4 items-center">
-                                            <span className="font-bold text-sm w-32">Class (<span className="font-serif italic font-bold text-lg">✓</span>)  :</span>
+                                        <div className="flex gap-2 items-center">
+                                            <span className="font-bold text-xs w-28">Class (<span className="font-serif italic font-bold text-sm">✓</span>)  :</span>
                                             <div className="flex border border-black">
                                                 {['V', 'VI', 'VII', 'VIII', 'IX', 'X'].map((cls, i) => (
-                                                    <div key={cls} className={`px-2 py-1 flex items-center justify-center font-bold ${i > 0 ? 'border-l border-black' : ''}`}>
+                                                    <div key={cls} className={`w-9 h-7 flex items-center justify-center font-bold text-xs relative ${i > 0 ? 'border-l border-black' : ''}`}>
                                                         {cls}
-                                                        {romanClass === cls && <span className="absolute ml-4 font-bold text-xl">✓</span>}
+                                                        {romanClass === cls && <span className="absolute -top-1 font-bold text-base text-black">✓</span>}
                                                     </div>
                                                 ))}
-                                            </div>
-                                        </div>
-
-                                        {/* Details block */}
-                                        <div className="flex flex-col gap-4 mt-4 w-full">
-                                            <div className="flex items-end gap-2">
-                                                <span className="font-bold text-sm whitespace-nowrap">Name of the Student:</span>
-                                                <div className="border-b border-black flex-1 font-bold text-lg px-2 pb-0.5">{student.name.toUpperCase()}</div>
-                                            </div>
-                                            
-                                            <div className="flex gap-4">
-                                                <div className="flex items-end gap-2 flex-1">
-                                                    <span className="font-bold text-sm whitespace-nowrap">Reporting Time:</span>
-                                                    <div className="border-b border-black flex-1 font-bold text-lg px-2 pb-0.5 min-w-[100px]">{formatReportingTime(student.reportingTime)}</div>
-                                                </div>
-                                                <div className="flex items-end gap-2 flex-1">
-                                                    <span className="font-bold text-sm whitespace-nowrap">Time Slot:</span>
-                                                    <div className="border-b border-black flex-1 font-bold text-lg px-2 pb-0.5 min-w-[100px]">{student.timeSlot || ''}</div>
-                                                </div>
-                                            </div>
-
-                                            <div className="flex gap-4">
-                                                <div className="flex items-end gap-2 flex-[1.5]">
-                                                    <span className="font-bold text-sm whitespace-nowrap">Exam Venue:</span>
-                                                    <div className="border-b border-black flex-1 font-bold text-lg px-2 pb-0.5 min-w-[100px]">{student.examVenue || ''}</div>
-                                                </div>
-                                                <div className="flex items-end gap-2 flex-1">
-                                                    <span className="font-bold text-sm whitespace-nowrap">Signature of PEC Official:</span>
-                                                    <div className="border-b border-black flex-1 px-2 pb-0.5 min-w-[80px]"></div>
-                                                </div>
                                             </div>
                                         </div>
                                     </div>
                                     
                                     {/* Photo box */}
-                                    <div className="w-[140px] shrink-0 mt-8">
-                                        <div className="w-[140px] h-[180px] border border-black flex items-center justify-center text-center p-4">
-                                            <span className="text-sm font-semibold text-gray-700">Paste your recent passport size colour photograph here</span>
+                                    <div className="w-[125px] h-[155px] border-2 border-black flex items-center justify-center text-center p-2 shrink-0 bg-white">
+                                        <span className="text-[11px] font-semibold text-gray-700 leading-tight">
+                                            Paste your recent passport size colour photograph here
+                                        </span>
+                                    </div>
+                                </div>
+
+                                {/* Lower Section: Full Width Student Details */}
+                                <div className="flex flex-col gap-3.5 mt-1 w-full">
+                                    <div className="flex items-end gap-2">
+                                        <span className="font-bold text-xs whitespace-nowrap">Name of the Student:</span>
+                                        <div className="border-b-2 border-black flex-1 font-bold text-base px-2 pb-0.5 tracking-wide">
+                                            {student.name?.toUpperCase()}
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="flex gap-8">
+                                        <div className="flex items-end gap-2 flex-1">
+                                            <span className="font-bold text-xs whitespace-nowrap">Reporting Time:</span>
+                                            <div className="border-b-2 border-black flex-1 font-bold text-sm px-2 pb-0.5">
+                                                {formatReportingTime(student.reportingTime) || '-'}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-end gap-2 flex-1">
+                                            <span className="font-bold text-xs whitespace-nowrap">Time Slot:</span>
+                                            <div className="border-b-2 border-black flex-1 font-bold text-sm px-2 pb-0.5">
+                                                {student.timeSlot || '-'}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex gap-8">
+                                        <div className="flex items-end gap-2 flex-[1.4]">
+                                            <span className="font-bold text-xs whitespace-nowrap">Exam Venue:</span>
+                                            <div className="border-b-2 border-black flex-1 font-bold text-xs px-2 pb-0.5 truncate">
+                                                {student.examVenue || centreName || '-'}
+                                            </div>
+                                        </div>
+                                        <div className="flex items-end gap-2 flex-1">
+                                            <span className="font-bold text-xs whitespace-nowrap">Signature of PEC Official:</span>
+                                            <div className="border-b-2 border-black flex-1 px-2 pb-0.5 min-h-[22px]"></div>
                                         </div>
                                     </div>
                                 </div>
 
-                                <div className="mt-8 border-t border-black pt-2 text-center">
-                                    <p className="font-bold text-sm">Without Admit Card Entry not permitted inside the Examination Hall.</p>
+                                {/* Disclaimer Footer */}
+                                <div className="mt-4 border-t-2 border-black pt-2 text-center">
+                                    <p className="font-bold text-xs uppercase tracking-wide">
+                                        Without Admit Card Entry not permitted inside the Examination Hall.
+                                    </p>
                                 </div>
                             </div>
                         </div>
