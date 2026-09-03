@@ -874,7 +874,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 let rangeSum = 0;
                 daysInRange.forEach(dNum => {
                     const res = calculateDayTargetForCentre(c, dNum);
-                    rangeSum += res.finalTarget;
+                    rangeSum += res.baseTarget;
                 });
                 centreTargets[name] = rangeSum;
                 centreTargetMeta[name] = { baseTarget: rangeSum, shortfallAdded: 0, isWeekend: false, isRange: true };
