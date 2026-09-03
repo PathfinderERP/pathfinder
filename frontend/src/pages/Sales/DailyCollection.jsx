@@ -1549,14 +1549,14 @@ const DailyCollection = () => {
                                 <thead className={`${tableHeaderBgClass} ${tableHeaderTextClass} uppercase text-[11px] tracking-wider`}>
                                     <tr>
                                         <th className="px-4 py-3">Centre Name</th>
-                                        <th className="px-4 py-3 text-right font-bold text-amber-500">
-                                            <div className="flex items-center justify-end gap-2">
-                                                <span>Daily Target (Adjusted - Excl. GST)</span>
+                                        <th className="px-4 py-3 text-right font-bold text-amber-500 whitespace-nowrap min-w-[270px]">
+                                            <div className="flex items-center justify-end gap-2 flex-nowrap whitespace-nowrap">
+                                                <span className="whitespace-nowrap">Daily Target (Adjusted - Excl. GST)</span>
                                                 {canEditTarget && (
                                                     <button
                                                         type="button"
                                                         onClick={() => openBulkTargetModal(activeCentres.map(c => c.centreName).filter(Boolean))}
-                                                        className="px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30 rounded flex items-center gap-1 transition-all shadow-sm"
+                                                        className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30 rounded whitespace-nowrap transition-all shadow-sm cursor-pointer"
                                                         title="Bulk Update Daily Targets for Current Date"
                                                     >
                                                         <FaEdit size={10} /> Bulk
