@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import EmployeeAttendance from "../../models/Attendance/EmployeeAttendance.js";
 import LeaveRequest from "../../models/Attendance/LeaveRequest.js";
 import Employee from "../../models/HR/Employee.js";
@@ -419,31 +420,76 @@ export const markWeekOff = async (req, res) => {
 // Get Employee's Attendance History (Full Year)
 export const getMyAttendance = async (req, res) => {
     try {
-        const { year = new Date().getFullYear() } = req.query;
-        const userId = req.user.id;
+        const { year = new Date().getFullYear(), employeeId } = req.query;
+        const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        let userId = req.user.id;
+        let employee = null;
+
+        if ((userRole === "superadmin" || userRole === "hr") && employeeId) {
+            if (mongoose.Types.ObjectId.isValid(employeeId)) {
+                employee = await Employee.findById(employeeId)
+                    .populate("primaryCentre", "centreName latitude longitude")
+                    .populate("centres", "centreName latitude longitude");
+            }
+            if (!employee) {
+                employee = await Employee.findOne({
+                    $or: [{ employeeId }, { employeeCode: employeeId }]
+                })
+                    .populate("primaryCentre", "centreName latitude longitude")
+                    .populate("centres", "centreName latitude longitude");
+            }
+            if (employee && employee.user) {
+                userId = employee.user;
+            }
+        }
+
+        if (!employee) {
+            employee = await Employee.findOne({ user: userId })
+                .populate("primaryCentre", "centreName latitude longitude")
+                .populate("centres", "centreName latitude longitude");
+        }
+
+        if (!employee) {
+            return res.status(404).json({ message: "Employee profile not found" });
+        }
+
+        const user = await User.findById(userId).populate("centres", "centreName latitude longitude");
 
         const start = startOfYear(new Date(year, 0, 1));
         const end = endOfYear(new Date(year, 0, 1));
 
         const attendances = await EmployeeAttendance.find({
-            user: userId,
+            $or: [
+                { user: userId },
+                { employeeId: employee._id }
+            ],
             date: { $gte: start, $lte: end }
         }).populate("centreId", "centreName").populate("checkIn.centreId", "centreName").populate("checkOut.centreId", "centreName").sort({ date: 1 });
+
+        // Deduplicate / merge multiple records on the same day (e.g. leave placeholder + physical punch)
+        const dayMap = new Map();
+        attendances.forEach(rec => {
+            const dayKey = format(new Date(rec.date), "yyyy-MM-dd");
+            if (!dayMap.has(dayKey)) {
+                dayMap.set(dayKey, rec);
+            } else {
+                const existing = dayMap.get(dayKey);
+                const recHasPunches = Boolean(rec.checkIn?.time || rec.checkOut?.time || (rec.workingHours && rec.workingHours > 0));
+                const existingHasPunches = Boolean(existing.checkIn?.time || existing.checkOut?.time || (existing.workingHours && existing.workingHours > 0));
+
+                if (recHasPunches && !existingHasPunches) {
+                    if (existing.remarks && !rec.remarks) rec.remarks = existing.remarks;
+                    dayMap.set(dayKey, rec);
+                } else if (!recHasPunches && existingHasPunches) {
+                    if (rec.remarks && !existing.remarks) existing.remarks = rec.remarks;
+                }
+            }
+        });
+        const finalAttendances = Array.from(dayMap.values());
 
         const holidays = await Holiday.find({
             date: { $gte: start, $lte: end }
         });
-
-        const [employee, user] = await Promise.all([
-            Employee.findOne({ user: userId })
-                .populate("primaryCentre", "centreName latitude longitude")
-                .populate("centres", "centreName latitude longitude"),
-            User.findById(userId).populate("centres", "centreName latitude longitude")
-        ]);
-
-        if (!employee) {
-            return res.status(404).json({ message: "Employee profile not found" });
-        }
 
         const regularizations = await Regularization.find({
             employeeId: employee._id,
@@ -466,12 +512,12 @@ export const getMyAttendance = async (req, res) => {
         const endOfMarkWeek = endOfWeek(today, { weekStartsOn: 1 });
         const targetHours = getTargetWorkingHours(employee.workingHours);
 
-        const thisWeekRecords = attendances.filter(rec => 
+        const thisWeekRecords = finalAttendances.filter(rec => 
             rec.date >= startOfMarkWeek && rec.date <= today && rec.status !== "Week Off"
         );
 
         // Recalculate status for records according to configured employee working hours
-        attendances.forEach(rec => {
+        finalAttendances.forEach(rec => {
             if (rec.workingHours > 0 && rec.status !== "Week Off" && rec.status !== "Leave" && rec.status !== "Holiday") {
                 const target = getTargetWorkingHours(employee.workingHours);
                 rec.status = determineAttendanceStatus(rec.workingHours, target);
@@ -528,7 +574,7 @@ export const getMyAttendance = async (req, res) => {
                 employeeId: employee.employeeId,
                 ...employee.toObject() // Include full details if needed
             },
-            attendances,
+            attendances: finalAttendances,
             leaveRequests,
             regularizations,
             holidays,
@@ -1110,73 +1156,138 @@ export const manualMarkAttendance = async (req, res) => {
             return res.status(400).json({ message: "Employee and Date are required" });
         }
 
-        const markDate = startOfDay(new Date(date));
-        const now = startOfDay(new Date());
+        const targetStatus = status || "Present";
+        const isFullDayOff = ["Week Off", "Holiday", "Leave", "Absent"].includes(targetStatus);
 
-        if (markDate > now) {
+        const dateStr = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+            ? date
+            : new Date(date).toISOString().split('T')[0];
+
+        const dayUtcStart = new Date(dateStr + 'T00:00:00.000Z');
+        const dayUtcEnd = new Date(dateStr + 'T23:59:59.999Z');
+        const localStart = startOfDay(new Date(date));
+        const localEnd = endOfDay(new Date(date));
+        const searchStart = dayUtcStart < localStart ? dayUtcStart : localStart;
+        const searchEnd = dayUtcEnd > localEnd ? dayUtcEnd : localEnd;
+
+        const now = startOfDay(new Date());
+        if (!isFullDayOff && localStart > now) {
             return res.status(400).json({ message: "Cannot mark attendance for future dates" });
         }
 
-        const employee = await Employee.findById(employeeId).populate('primaryCentre');
+        let employee = null;
+        if (mongoose.Types.ObjectId.isValid(employeeId)) {
+            employee = await Employee.findById(employeeId).populate('primaryCentre').populate('centres');
+        }
+        if (!employee) {
+            employee = await Employee.findOne({
+                $or: [{ employeeId: employeeId }, { employeeCode: employeeId }]
+            }).populate('primaryCentre').populate('centres');
+        }
         if (!employee) return res.status(404).json({ message: "Employee not found" });
-
-        let attendance = await EmployeeAttendance.findOne({ employeeId, date: markDate });
 
         if (!employee.user) {
             return res.status(400).json({ message: "This employee does not have a linked user account. Please setup their portal access first." });
         }
-        if (!employee.primaryCentre) {
+
+        const centreId = employee.primaryCentre?._id || employee.centres?.[0]?._id;
+        if (!centreId) {
             return res.status(400).json({ message: "Employee profile is missing a Primary Centre. Please update their profile first." });
         }
 
-        const updateData = {
-            user: employee.user,
-            employeeId,
-            centreId: employee.primaryCentre._id,
-            date: markDate,
-            status: status || "Present",
-            remarks: (remarks || "Manually marked by HR").toUpperCase(),
-            manuallyMarkedBy: req.user._id
-        };
+        // Find existing attendance record for this day
+        let attendance = await EmployeeAttendance.findOne({
+            $or: [
+                { employeeId: employee._id },
+                { user: employee.user }
+            ],
+            date: { $gte: searchStart, $lte: searchEnd }
+        });
 
-        if (checkIn) {
-            // Check if it's an ISO date string (sent by frontend) or just HH:mm (legacy/other clients)
-            let checkInTime;
-            if (checkIn.includes('T')) {
-                checkInTime = new Date(checkIn);
+        const markDate = attendance ? attendance.date : dayUtcStart;
+
+        if (isFullDayOff) {
+            if (attendance) {
+                attendance.status = targetStatus;
+                attendance.remarks = (remarks || `Manually marked as ${targetStatus} by ${req.user.role || 'HR'}`).toUpperCase();
+                attendance.manuallyMarkedBy = req.user._id;
+                attendance.checkIn = undefined;
+                attendance.checkOut = undefined;
+                attendance.workingHours = 0;
+                if (targetStatus === "Holiday") {
+                    attendance.isHoliday = true;
+                    attendance.holidayName = remarks || "Holiday";
+                } else {
+                    attendance.isHoliday = false;
+                    attendance.holidayName = undefined;
+                }
+                await attendance.save();
             } else {
-                const [hours, minutes] = checkIn.split(':');
-                checkInTime = new Date(markDate);
-                checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                attendance = new EmployeeAttendance({
+                    user: employee.user,
+                    employeeId: employee._id,
+                    centreId,
+                    date: markDate,
+                    status: targetStatus,
+                    remarks: (remarks || `Manually marked as ${targetStatus} by ${req.user.role || 'HR'}`).toUpperCase(),
+                    manuallyMarkedBy: req.user._id,
+                    isHoliday: targetStatus === "Holiday",
+                    holidayName: targetStatus === "Holiday" ? (remarks || "Holiday") : undefined,
+                    workingHours: 0
+                });
+                await attendance.save();
             }
-            updateData.checkIn = { time: checkInTime, address: "HR Manual Entry" };
-        }
-
-        if (checkOut) {
-            let checkOutTime;
-            if (checkOut.includes('T')) {
-                checkOutTime = new Date(checkOut);
-            } else {
-                const [hours, minutes] = checkOut.split(':');
-                checkOutTime = new Date(markDate);
-                checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
-            }
-            updateData.checkOut = { time: checkOutTime, address: "HR Manual Entry" };
-
-            if (updateData.checkIn) {
-                const diffMs = updateData.checkOut.time - updateData.checkIn.time;
-                updateData.workingHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
-            }
-        }
-
-        if (attendance) {
-            attendance = await EmployeeAttendance.findByIdAndUpdate(attendance._id, updateData, { new: true });
         } else {
-            attendance = new EmployeeAttendance(updateData);
-            await attendance.save();
+            const updateData = {
+                user: employee.user,
+                employeeId: employee._id,
+                centreId,
+                date: markDate,
+                status: targetStatus,
+                remarks: (remarks || "Manually marked by HR").toUpperCase(),
+                manuallyMarkedBy: req.user._id,
+                isHoliday: false
+            };
+
+            if (checkIn) {
+                let checkInTime;
+                if (checkIn.includes('T')) {
+                    checkInTime = new Date(checkIn);
+                } else {
+                    const [hours, minutes] = checkIn.split(':');
+                    checkInTime = new Date(markDate);
+                    checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                }
+                updateData.checkIn = { time: checkInTime, address: "HR Manual Entry" };
+            }
+
+            if (checkOut) {
+                let checkOutTime;
+                if (checkOut.includes('T')) {
+                    checkOutTime = new Date(checkOut);
+                } else {
+                    const [hours, minutes] = checkOut.split(':');
+                    checkOutTime = new Date(markDate);
+                    checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
+                }
+                updateData.checkOut = { time: checkOutTime, address: "HR Manual Entry" };
+
+                if (updateData.checkIn) {
+                    const diffMs = updateData.checkOut.time - updateData.checkIn.time;
+                    updateData.workingHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
+                }
+            }
+
+            if (attendance) {
+                Object.assign(attendance, updateData);
+                await attendance.save();
+            } else {
+                attendance = new EmployeeAttendance(updateData);
+                await attendance.save();
+            }
         }
 
-        res.status(200).json({ message: "Attendance marked successfully", attendance });
+        res.status(200).json({ message: `Attendance marked as ${targetStatus} successfully`, attendance });
     } catch (error) {
         console.error("Manual Mark Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });

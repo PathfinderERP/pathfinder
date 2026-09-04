@@ -166,7 +166,7 @@ const PersonnelModal = ({ isOpen, onClose, employees, title, color = "cyan", isD
     );
 };
 
-const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designations, onSuccess, isDarkMode }) => {
+const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designations, onSuccess, isDarkMode, initialData }) => {
     const [formData, setFormData] = useState({
         centreId: "",
         department: "",
@@ -175,12 +175,40 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
         date: format(new Date(), 'yyyy-MM-dd'),
         checkIn: "09:00",
         checkOut: "18:00",
-        status: "Present",
-        remarks: ""
+        status: "Week Off",
+        remarks: "Week Off marked upon employee request"
     });
     const [searchTerm, setSearchTerm] = useState("");
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
+
+    useEffect(() => {
+        if (!isOpen) return;
+        if (initialData) {
+            setFormData({
+                centreId: initialData.centreId || "",
+                department: initialData.department || "",
+                designation: initialData.designation || "",
+                employeeId: initialData.employeeId || "",
+                date: initialData.date || format(new Date(), 'yyyy-MM-dd'),
+                checkIn: initialData.checkIn || "09:00",
+                checkOut: initialData.checkOut || "18:00",
+                status: initialData.status || "Week Off",
+                remarks: initialData.remarks || (initialData.status === "Week Off" ? "Week Off marked upon employee request" : "")
+            });
+            if (initialData.employeeName) {
+                setSearchTerm(initialData.employeeName);
+            }
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                date: format(new Date(), 'yyyy-MM-dd'),
+                status: "Week Off",
+                remarks: "Week Off marked upon employee request"
+            }));
+            setSearchTerm("");
+        }
+    }, [isOpen, initialData]);
 
     useEffect(() => {
         if (!isOpen) return;
@@ -201,6 +229,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                 if (formData.department) queryParams.append("department", formData.department);
                 if (formData.designation) queryParams.append("designation", formData.designation);
                 if (searchTerm) queryParams.append("search", searchTerm);
+                else if (formData.employeeId) queryParams.append("search", formData.employeeId);
                 queryParams.append("limit", "100");
 
                 const res = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee?${queryParams.toString()}`, {
@@ -218,6 +247,8 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
         return () => clearTimeout(timeoutId);
     }, [formData.centreId, formData.department, formData.designation, searchTerm, isOpen]);
 
+    const isFullDayOff = ["Week Off", "Holiday", "Leave", "Absent"].includes(formData.status);
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.employeeId || !formData.date) return toast.error("Employee and Date are required");
@@ -228,8 +259,9 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
             // Construct full Date objects on frontend to preserve user's local timezone intent
             const payload = {
                 ...formData,
-                checkIn: formData.checkIn ? new Date(`${formData.date}T${formData.checkIn}:00`).toISOString() : null,
-                checkOut: formData.checkOut ? new Date(`${formData.date}T${formData.checkOut}:00`).toISOString() : null
+                checkIn: (!isFullDayOff && formData.checkIn) ? new Date(`${formData.date}T${formData.checkIn}:00`).toISOString() : null,
+                checkOut: (!isFullDayOff && formData.checkOut) ? new Date(`${formData.date}T${formData.checkOut}:00`).toISOString() : null,
+                remarks: formData.remarks || (formData.status === "Week Off" ? "Week Off marked upon employee request" : "Manual override by HR/Admin")
             };
 
             const res = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee-attendance/manual-mark`, {
@@ -242,7 +274,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
             });
             const data = await res.json();
             if (res.ok) {
-                toast.success(data.message);
+                toast.success(data.message || `Attendance updated to ${formData.status}`);
                 onSuccess();
                 onClose();
             } else {
@@ -266,7 +298,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                             <span className="p-2 bg-cyan-500/10 text-cyan-500 rounded-[2px]">
                                 <FaUserClock />
                             </span>
-                            Attendance Override (24 hour format)
+                            Attendance Override (Superadmin & HR)
                         </h2>
                     </div>
                     <button onClick={onClose} className={`p-2 rounded-[2px] transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-gray-500 hover:text-white' : 'hover:bg-gray-200 text-gray-400 hover:text-gray-900'}`}>
@@ -350,28 +382,33 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                             <input
                                 type="date"
                                 required
-                                max={format(new Date(), 'yyyy-MM-dd')}
                                 value={formData.date}
                                 onChange={(e) => setFormData({ ...formData, date: e.target.value })}
                                 className={`w-full border rounded-[2px] p-3 text-xs outline-none focus:border-cyan-500/50 font-mono ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                             />
                         </div>
                         <div className="space-y-1">
-                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Check In Time</label>
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                Check In Time {isFullDayOff && <span className="text-gray-500 lowercase">(not required for {formData.status})</span>}
+                            </label>
                             <input
                                 type="time"
-                                value={formData.checkIn}
+                                disabled={isFullDayOff}
+                                value={isFullDayOff ? "" : formData.checkIn}
                                 onChange={(e) => setFormData({ ...formData, checkIn: e.target.value })}
-                                className={`w-full border rounded-[2px] p-3 text-xs font-mono ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                                className={`w-full border rounded-[2px] p-3 text-xs font-mono disabled:opacity-30 disabled:cursor-not-allowed ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                             />
                         </div>
                         <div className="space-y-1">
-                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Check Out Time</label>
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                Check Out Time {isFullDayOff && <span className="text-gray-500 lowercase">(not required for {formData.status})</span>}
+                            </label>
                             <input
                                 type="time"
-                                value={formData.checkOut}
+                                disabled={isFullDayOff}
+                                value={isFullDayOff ? "" : formData.checkOut}
                                 onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
-                                className={`w-full border rounded-[2px] p-3 text-xs font-mono ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
+                                className={`w-full border rounded-[2px] p-3 text-xs font-mono disabled:opacity-30 disabled:cursor-not-allowed ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                             />
                         </div>
                     </div>
@@ -381,13 +418,24 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Assigned Status</label>
                             <select
                                 value={formData.status}
-                                onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                onChange={(e) => {
+                                    const newStatus = e.target.value;
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        status: newStatus,
+                                        remarks: prev.remarks || (newStatus === "Week Off" ? "Week Off marked upon employee request" : "")
+                                    }));
+                                }}
                                 className={`w-full border rounded-[2px] p-3 text-xs uppercase font-black tracking-widest font-mono ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                             >
+                                <option value="Week Off">Week Off (Off Day)</option>
                                 <option value="Present">Present (9h)</option>
                                 <option value="Late">Late Arrival</option>
                                 <option value="Early Leave">Early Exit</option>
                                 <option value="Half Day">Half Day (4h)</option>
+                                <option value="Absent">Absent</option>
+                                <option value="Holiday">Holiday</option>
+                                <option value="Leave">Leave</option>
                                 <option value="Forgot to Checkout">Forgot Checkout</option>
                             </select>
                         </div>
@@ -395,7 +443,7 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Audit Reason</label>
                             <input
                                 type="text"
-                                placeholder="E.G. TECHNICAL GLITCH / MISSED LOG"
+                                placeholder="E.G. WEEK OFF REQUESTED BY EMPLOYEE"
                                 value={formData.remarks}
                                 onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
                                 className={`w-full border rounded-[2px] p-3 text-xs uppercase font-black tracking-widest outline-none focus:border-cyan-500/50 ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
@@ -545,6 +593,7 @@ const EmployeesAttendance = () => {
     const [showPresentModal, setShowPresentModal] = useState(false);
     const [showCautionModal, setShowCautionModal] = useState(false);
     const [showManualMarkModal, setShowManualMarkModal] = useState(false);
+    const [manualOverrideInitial, setManualOverrideInitial] = useState(null);
     const [activeCaution, setActiveCaution] = useState(null); // 'Overtime', 'Early Leave', 'Half Day', 'Short Leave'
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
@@ -1015,12 +1064,19 @@ const EmployeesAttendance = () => {
             />
             <ManualAttendanceModal
                 isOpen={showManualMarkModal}
-                onClose={() => setShowManualMarkModal(false)}
+                onClose={() => {
+                    setShowManualMarkModal(false);
+                    setManualOverrideInitial(null);
+                }}
                 centres={centres}
                 departments={departments || []}
                 designations={designations || []}
-                onSuccess={() => fetchAttendanceData()}
+                onSuccess={() => {
+                    fetchAttendanceData();
+                    if (selectedUser) fetchUserAnalysis(selectedUser);
+                }}
                 isDarkMode={isDarkMode}
+                initialData={manualOverrideInitial}
             />
             <div className={`min-h-screen transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
                 <div className="p-6 md:p-8 max-w-[1800px] mx-auto space-y-8">
@@ -1047,6 +1103,15 @@ const EmployeesAttendance = () => {
                                 onClick={() => {
                                     const userRole = (currentUser?.role || "").toLowerCase().replace(/\s+/g, "");
                                     if (userRole === "superadmin" || userRole === "hr") {
+                                        setManualOverrideInitial(selectedUser ? {
+                                            employeeId: selectedUser.employeeId?._id,
+                                            employeeName: selectedUser.employeeId?.name,
+                                            centreId: selectedUser.employeeId?.primaryCentre?._id,
+                                            department: selectedUser.employeeId?.department?._id,
+                                            designation: selectedUser.employeeId?.designation?._id,
+                                            date: format(new Date(), 'yyyy-MM-dd'),
+                                            status: 'Week Off'
+                                        } : null);
                                         setShowManualMarkModal(true);
                                     } else {
                                         navigate("/dashboard");
@@ -1592,6 +1657,24 @@ const EmployeesAttendance = () => {
                                             >
                                                 <FaChartBar size={10} /> Download Analysis Report
                                             </button>
+                                            <button
+                                                onClick={() => {
+                                                    setManualOverrideInitial({
+                                                        employeeId: selectedUser.employeeId?._id,
+                                                        employeeName: selectedUser.employeeId?.name,
+                                                        centreId: selectedUser.employeeId?.primaryCentre?._id,
+                                                        department: selectedUser.employeeId?.department?._id,
+                                                        designation: selectedUser.employeeId?.designation?._id,
+                                                        date: format(new Date(), 'yyyy-MM-dd'),
+                                                        status: 'Week Off',
+                                                        remarks: 'Week Off marked upon employee request'
+                                                    });
+                                                    setShowManualMarkModal(true);
+                                                }}
+                                                className="px-4 py-2 bg-amber-500/10 text-amber-500 hover:bg-amber-500 hover:text-black border border-amber-500/30 rounded-[2px] text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                                            >
+                                                <FaUserClock size={10} /> Override / Week Off
+                                            </button>
                                         </div>
                                     </div>
 
@@ -1658,7 +1741,7 @@ const EmployeesAttendance = () => {
                                                         let label = s || 'Present';
 
                                                         if (s === 'Absent' || (isPastDate && r.checkIn?.time && !r.checkOut?.time)) {
-                                                            badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
+                                                             badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
                                                         } else if (hours < 4 && r.checkOut) {
                                                             badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
                                                         } else if (s === 'Half Day' || (hours < (target / 2) && r.checkOut)) {
@@ -1678,10 +1761,24 @@ const EmployeesAttendance = () => {
                                                         return (
                                                             <div
                                                                 key={r._id}
-                                                                className={`grid grid-cols-5 gap-1 items-center px-3 py-2.5 rounded-[2px] border transition-all ${
+                                                                onClick={() => {
+                                                                    setManualOverrideInitial({
+                                                                        employeeId: selectedUser.employeeId?._id,
+                                                                        employeeName: selectedUser.employeeId?.name,
+                                                                        centreId: selectedUser.employeeId?.primaryCentre?._id,
+                                                                        department: selectedUser.employeeId?.department?._id,
+                                                                        designation: selectedUser.employeeId?.designation?._id,
+                                                                        date: format(new Date(r.date), 'yyyy-MM-dd'),
+                                                                        status: 'Week Off',
+                                                                        remarks: 'Week Off marked upon employee request'
+                                                                    });
+                                                                    setShowManualMarkModal(true);
+                                                                }}
+                                                                title="Click to override / mark week off for this date"
+                                                                className={`grid grid-cols-5 gap-1 items-center px-3 py-2.5 rounded-[2px] border transition-all cursor-pointer ${
                                                                     isDarkMode
-                                                                        ? 'bg-[#0e1012] border-gray-800/60 hover:border-cyan-500/20'
-                                                                        : 'bg-white border-gray-100 hover:border-cyan-300/40 hover:shadow-sm'
+                                                                        ? 'bg-[#0e1012] border-gray-800/60 hover:border-cyan-500/40 hover:bg-cyan-500/5'
+                                                                        : 'bg-white border-gray-100 hover:border-cyan-400 hover:bg-cyan-50/50 hover:shadow-sm'
                                                                 }`}
                                                             >
                                                                 <span className={`text-[8px] font-black uppercase tracking-wide text-center ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
