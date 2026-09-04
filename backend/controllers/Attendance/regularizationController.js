@@ -177,7 +177,9 @@ export const updateRegularizationStatus = async (req, res) => {
 
                 // 2. Calculate physical checkin-checkout hours if existing and NOT identical to regularization times
                 let existingWh = 0;
-                if (attendance) {
+                const isOngoingShift = Boolean(attendance && attendance.checkIn?.time && !attendance.checkOut?.time);
+
+                if (attendance && !isOngoingShift) {
                     const isSameCheckIn = checkInDate && attendance.checkIn?.time && Math.abs(new Date(attendance.checkIn.time).getTime() - checkInDate.getTime()) < 60000;
                     const isSameCheckOut = checkOutDate && attendance.checkOut?.time && Math.abs(new Date(attendance.checkOut.time).getTime() - checkOutDate.getTime()) < 60000;
 
@@ -201,32 +203,43 @@ export const updateRegularizationStatus = async (req, res) => {
                 const finalStatus = determineAttendanceStatus(calculatedWorkingHours, targetHours);
 
                 if (attendance) {
-                    attendance.status = finalStatus;
-                    attendance.workingHours = calculatedWorkingHours;
+                    if (isOngoingShift) {
+                        // Employee is actively on shift! Do NOT prematurely set checkOut and do NOT mark Absent.
+                        // Their hours will be combined when they clock out at end of shift.
+                        const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
+                        attendance.remarks = attendance.remarks
+                            ? `${attendance.remarks} | ${newRemark}`
+                            : newRemark;
 
-                    // Preserve or set check-in/check-out
-                    if (checkInDate && !attendance.checkIn?.time) {
-                        attendance.checkIn = { 
-                            time: checkInDate, 
-                            address: regularization.locationAddress || 'Regularized',
-                            latitude: regularization.latitude,
-                            longitude: regularization.longitude
-                        };
+                        await attendance.save();
+                    } else {
+                        attendance.status = finalStatus;
+                        attendance.workingHours = calculatedWorkingHours;
+
+                        // Preserve or set check-in/check-out
+                        if (checkInDate && !attendance.checkIn?.time) {
+                            attendance.checkIn = { 
+                                time: checkInDate, 
+                                address: regularization.locationAddress || 'Regularized',
+                                latitude: regularization.latitude,
+                                longitude: regularization.longitude
+                            };
+                        }
+                        if (checkOutDate && !attendance.checkOut?.time) {
+                            attendance.checkOut = { 
+                                time: checkOutDate, 
+                                address: regularization.locationAddress || 'Regularized'
+                            };
+                        }
+
+                        // Append remark
+                        const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
+                        attendance.remarks = attendance.remarks
+                            ? `${attendance.remarks} | ${newRemark}`
+                            : newRemark;
+
+                        await attendance.save();
                     }
-                    if (checkOutDate && !attendance.checkOut?.time) {
-                        attendance.checkOut = { 
-                            time: checkOutDate, 
-                            address: regularization.locationAddress || 'Regularized'
-                        };
-                    }
-
-                    // Append remark
-                    const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
-                    attendance.remarks = attendance.remarks
-                        ? `${attendance.remarks} | ${newRemark}`
-                        : newRemark;
-
-                    await attendance.save();
                 } else {
                     // Find employee to get User and Primary Centre
                     if (employee) {
@@ -381,7 +394,9 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
 
                 // 2. Calculate physical checkin-checkout hours if existing and NOT identical to regularization times
                 let existingWh = 0;
-                if (attendance) {
+                const isOngoingShift = Boolean(attendance && attendance.checkIn?.time && !attendance.checkOut?.time);
+
+                if (attendance && !isOngoingShift) {
                     const isSameCheckIn = checkInDate && attendance.checkIn?.time && Math.abs(new Date(attendance.checkIn.time).getTime() - checkInDate.getTime()) < 60000;
                     const isSameCheckOut = checkOutDate && attendance.checkOut?.time && Math.abs(new Date(attendance.checkOut.time).getTime() - checkOutDate.getTime()) < 60000;
 
@@ -405,31 +420,42 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
                 const finalStatus = determineAttendanceStatus(calculatedWorkingHours, targetHours);
 
                 if (attendance) {
-                    attendance.status = finalStatus;
-                    attendance.workingHours = calculatedWorkingHours;
+                    if (isOngoingShift) {
+                        // Employee is actively on shift! Do NOT prematurely set checkOut and do NOT mark Absent.
+                        // Their hours will be combined when they clock out at end of shift.
+                        const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
+                        attendance.remarks = attendance.remarks
+                            ? `${attendance.remarks} | ${newRemark}`
+                            : newRemark;
 
-                    // Preserve or set check-in/check-out
-                    if (checkInDate && !attendance.checkIn?.time) {
-                        attendance.checkIn = { 
-                            time: checkInDate, 
-                            address: regularization.locationAddress || 'Regularized',
-                            latitude: regularization.latitude,
-                            longitude: regularization.longitude
-                        };
+                        await attendance.save();
+                    } else {
+                        attendance.status = finalStatus;
+                        attendance.workingHours = calculatedWorkingHours;
+
+                        // Preserve or set check-in/check-out
+                        if (checkInDate && !attendance.checkIn?.time) {
+                            attendance.checkIn = { 
+                                time: checkInDate, 
+                                address: regularization.locationAddress || 'Regularized',
+                                latitude: regularization.latitude,
+                                longitude: regularization.longitude
+                            };
+                        }
+                        if (checkOutDate && !attendance.checkOut?.time) {
+                            attendance.checkOut = { 
+                                time: checkOutDate, 
+                                address: regularization.locationAddress || 'Regularized'
+                            };
+                        }
+
+                        const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
+                        attendance.remarks = attendance.remarks
+                            ? `${attendance.remarks} | ${newRemark}`
+                            : newRemark;
+
+                        await attendance.save();
                     }
-                    if (checkOutDate && !attendance.checkOut?.time) {
-                        attendance.checkOut = { 
-                            time: checkOutDate, 
-                            address: regularization.locationAddress || 'Regularized'
-                        };
-                    }
-
-                    const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
-                    attendance.remarks = attendance.remarks
-                        ? `${attendance.remarks} | ${newRemark}`
-                        : newRemark;
-
-                    await attendance.save();
                 } else {
                     if (employee) {
                         const newAttendance = new EmployeeAttendance({

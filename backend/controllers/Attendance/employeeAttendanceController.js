@@ -244,7 +244,32 @@ export const markAttendance = async (req, res) => {
             }
 
             // NEW RULE-BASED STATUS ASSIGNMENT
-            const workedHours = diffMs / (1000 * 60 * 60);
+            const rawWorkedHours = diffMs / (1000 * 60 * 60);
+
+            // Add any approved regularizations for today
+            let regularizedHours = 0;
+            try {
+                const todayStart = startOfDay(today);
+                const todayEnd = endOfDay(today);
+                const approvedRegs = await Regularization.find({
+                    employeeId: employee._id,
+                    date: { $gte: todayStart, $lte: todayEnd },
+                    status: 'Approved'
+                }).lean();
+
+                approvedRegs.forEach(reg => {
+                    if (reg.fromTime && reg.toTime) {
+                        const [fh, fm] = reg.fromTime.split(':').map(Number);
+                        const [th, tm] = reg.toTime.split(':').map(Number);
+                        const durHours = ((th * 60 + tm) - (fh * 60 + fm)) / 60;
+                        if (durHours > 0) regularizedHours += durHours;
+                    }
+                });
+            } catch (err) {
+                console.error("Error fetching approved regularizations for checkout:", err);
+            }
+
+            const workedHours = rawWorkedHours + regularizedHours;
 
             const targetHours = getShiftTargetHours(employee, userRole, workedHours);
 

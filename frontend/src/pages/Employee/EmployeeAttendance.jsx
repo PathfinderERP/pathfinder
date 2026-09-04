@@ -257,7 +257,6 @@ const EmployeeAttendance = () => {
     const isWithinOneHour = Boolean(
         todayRecord &&
         todayRecord.checkIn?.time &&
-        todayRecord.status !== 'Absent' &&
         !todayRecord.checkOut?.time &&
         elapsedSinceCheckIn < oneHourMs
     );
@@ -897,7 +896,7 @@ const EmployeeAttendance = () => {
                             </div>
 
                             <div className="flex gap-4 w-full md:w-auto">
-                                {!todayRecord || !todayRecord.checkIn?.time || todayRecord.status === 'Absent' ? (
+                                {!todayRecord || !todayRecord.checkIn?.time ? (
                                     <button
                                         onClick={() => handleMarkAttendance('checkIn')}
                                         disabled={marking || loading}
@@ -906,7 +905,7 @@ const EmployeeAttendance = () => {
                                         <FaMapMarkerAlt size={20} className="animate-bounce" />
                                         <span className="uppercase tracking-widest text-sm">Clock In Now</span>
                                     </button>
-                                ) : !todayRecord.checkOut ? (
+                                ) : !todayRecord.checkOut?.time ? (
                                     <button
                                         onClick={() => handleMarkAttendance('checkOut')}
                                         disabled={marking || loading || isWithinOneHour}
