@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable, FaEdit, FaGraduationCap, FaTag, FaBuilding, FaLayerGroup, FaSave, FaSearch, FaTimes } from "react-icons/fa";
+import { FaPlus, FaDownload, FaSun, FaMoon, FaFilter, FaSync, FaChevronDown, FaChevronUp, FaChartBar, FaTable, FaEdit, FaGraduationCap, FaTag, FaBuilding, FaLayerGroup, FaSave, FaSearch, FaTimes, FaKey } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import axios from "axios";
@@ -130,6 +130,9 @@ const CourseTarget = () => {
     });
     const [availableCourses, setAvailableCourses] = useState([]);
     const [activeCardModal, setActiveCardModal] = useState(null);
+    const [ktsStats, setKtsStats] = useState({ totalCount: 0, totalRevenue: 0, students: [] });
+    const [ktsTab, setKtsTab] = useState("centres");
+    const [ktsSearch, setKtsSearch] = useState("");
     const [stagedTargets, setStagedTargets] = useState([]);
     const [bulkSaving, setBulkSaving] = useState(false);
 
@@ -726,6 +729,10 @@ const CourseTarget = () => {
             fetchedData.sort((a, b) => (a.centreName || "").localeCompare((b.centreName || ""), undefined, { sensitivity: 'base' }));
             setData(fetchedData);
 
+            if (res.data.ktsStats) {
+                setKtsStats(res.data.ktsStats);
+            }
+
             if (selectedCourses.length === 0) {
                 setAvailableCourses(res.data.admissionCourses || []);
             }
@@ -953,6 +960,77 @@ const CourseTarget = () => {
 
     admissionsBreakdownList.sort((a, b) => b.count - a.count);
 
+    // Dynamic Key to Success (KTS) stats
+    const visibleKtsCount = visibleData.reduce((sum, centre) => sum + (centre.ktsCount || 0), 0);
+    const visibleKtsRevenue = visibleData.reduce((sum, centre) => sum + (centre.ktsRevenue || 0), 0);
+
+    const ktsCentresList = visibleData
+        .filter(c => (c.ktsCount || 0) > 0)
+        .map(c => ({
+            name: c.centreName,
+            count: c.ktsCount || 0,
+            revenue: c.ktsRevenue || 0
+        }))
+        .sort((a, b) => b.count - a.count);
+
+    const visibleCentreNamesSet = new Set(visibleData.map(c => (c.centreName || "").toLowerCase().trim()));
+
+    const filteredKtsStudents = (ktsStats.students || [])
+        .filter(s => visibleCentreNamesSet.has((s.centreName || "").toLowerCase().trim()))
+        .filter(s => {
+            if (!ktsSearch.trim()) return true;
+            const q = ktsSearch.trim().toLowerCase();
+            return (s.studentName || "").toLowerCase().includes(q) ||
+                (s.admissionNumber || "").toLowerCase().includes(q) ||
+                (s.centreName || "").toLowerCase().includes(q) ||
+                (s.phone || "").toLowerCase().includes(q) ||
+                (s.examTag || "").toLowerCase().includes(q);
+        });
+
+    const exportKtsToExcel = () => {
+        const headers = ["#", "Student Name", "Admission No.", "Centre", "Course", "Admission Date", "Exam Tag", "Phone", "Amount Paid (₹)"];
+        const rows = filteredKtsStudents.map((s, idx) => [
+            idx + 1,
+            s.studentName || "-",
+            s.admissionNumber || "-",
+            s.centreName || "-",
+            s.courseName || "-",
+            s.admissionDate ? new Date(s.admissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : "-",
+            s.examTag || "-",
+            s.phone || "-",
+            s.amount || 0
+        ]);
+        const totalAmt = filteredKtsStudents.reduce((sum, s) => sum + (s.amount || 0), 0);
+        const totalsRow = ["", "TOTAL", "", "", "", "", "", "", totalAmt];
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows, totalsRow]);
+        ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 18 }, { wch: 20 }, { wch: 30 }, { wch: 16 }, { wch: 15 }, { wch: 15 }, { wch: 18 }];
+        XLSX.utils.book_append_sheet(wb, ws, "Key to Success");
+        const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        saveAs(new Blob([buf], { type: "application/octet-stream" }),
+            `Key_To_Success_Admissions_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
+
+    const exportKtsCentresToExcel = () => {
+        const headers = ["#", "Centre Name", "Admissions", "Revenue (₹)"];
+        const rows = ktsCentresList.map((item, idx) => [
+            idx + 1,
+            item.name || "-",
+            item.count || 0,
+            item.revenue || 0
+        ]);
+        const totalCount = ktsCentresList.reduce((sum, item) => sum + (item.count || 0), 0);
+        const totalRev = ktsCentresList.reduce((sum, item) => sum + (item.revenue || 0), 0);
+        const totalsRow = ["", "TOTAL", totalCount, totalRev];
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...rows, totalsRow]);
+        ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 15 }, { wch: 18 }];
+        XLSX.utils.book_append_sheet(wb, ws, "KTS_Centres");
+        const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        saveAs(new Blob([buf], { type: "application/octet-stream" }),
+            `Key_To_Success_Centres_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
+
     const isBoardMatchingDept = (boardCourse, deptName) => {
         const bName = (boardCourse || "").toUpperCase();
         const dName = (deptName || "").toUpperCase();
@@ -1044,7 +1122,7 @@ const CourseTarget = () => {
                 </div>
 
                 {/* Summary Cards */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                     <div 
                         onClick={() => setActiveCardModal("admissions")}
                         className={`rounded-2xl border p-5 flex items-center gap-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-blue-500/50 active:scale-95 transition-all duration-200 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}
@@ -1086,6 +1164,28 @@ const CourseTarget = () => {
                         <div className="min-w-0">
                             <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Departments</p>
                             <p className={`text-2xl font-black mt-0.5 ${isDarkMode ? "text-white" : "text-gray-900"}`}>{totalUniqueDepts}</p>
+                        </div>
+                    </div>
+
+                    <div 
+                        onClick={() => {
+                            setKtsTab("centres");
+                            setKtsSearch("");
+                            setActiveCardModal("kts");
+                        }}
+                        className={`rounded-2xl border p-5 flex items-center gap-4 cursor-pointer hover:shadow-md hover:-translate-y-0.5 hover:border-yellow-500/50 active:scale-95 transition-all duration-200 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}
+                    >
+                        <div className="w-12 h-12 rounded-xl flex items-center justify-center text-xl flex-shrink-0 bg-yellow-500/15 text-yellow-500 border border-yellow-500/20">
+                            <FaKey />
+                        </div>
+                        <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                                <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? "text-gray-500" : "text-gray-400"}`}>Key to Success</p>
+                                <span className="px-1.5 py-0.2 bg-yellow-500/20 text-yellow-500 text-[9px] font-black rounded tracking-wider">KTS</span>
+                            </div>
+                            <p className={`text-2xl font-black mt-0.5 ${isDarkMode ? "text-yellow-400" : "text-yellow-600"}`}>
+                                {visibleKtsCount.toLocaleString("en-IN")}
+                            </p>
                         </div>
                     </div>
                 </div>
@@ -1840,7 +1940,202 @@ const CourseTarget = () => {
                     </div>
                 )}
 
-                {activeCardModal && (
+                {activeCardModal === 'kts' && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+                        <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} border w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh]`}>
+                            {/* Modal Header */}
+                            <div className="p-6 border-b border-inherit flex justify-between items-center flex-shrink-0">
+                                <div>
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="p-2 rounded-xl bg-yellow-500/15 text-yellow-500 text-lg">
+                                            <FaKey />
+                                        </div>
+                                        <div>
+                                            <h3 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase tracking-tight`}>
+                                                Key to Success (KTS) Overview
+                                            </h3>
+                                            <p className="text-[10px] font-bold text-yellow-500 uppercase tracking-widest mt-0.5">
+                                                Admissions & Revenue Breakdown
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                                <button onClick={() => setActiveCardModal(null)} className="p-2 hover:bg-red-500/10 text-gray-500 hover:text-red-500 rounded-full transition-colors">
+                                    <FaPlus className="rotate-45" />
+                                </button>
+                            </div>
+
+                            {/* Summary Metric Chips */}
+                            <div className={`px-6 py-3 border-b border-inherit grid grid-cols-3 gap-3 ${isDarkMode ? 'bg-black/20' : 'bg-gray-50'}`}>
+                                <div className="text-center">
+                                    <p className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Admissions</p>
+                                    <p className={`text-xl font-black ${isDarkMode ? 'text-yellow-400' : 'text-yellow-600'}`}>{visibleKtsCount}</p>
+                                </div>
+                                <div className="text-center border-x border-inherit">
+                                    <p className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Total Revenue</p>
+                                    <p className="text-xl font-black text-emerald-500">₹{visibleKtsRevenue.toLocaleString("en-IN")}</p>
+                                </div>
+                                <div className="text-center">
+                                    <p className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Active Centres</p>
+                                    <p className={`text-xl font-black ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>{ktsCentresList.length}</p>
+                                </div>
+                            </div>
+
+                            {/* Navigation Tabs & Search */}
+                            <div className="px-6 pt-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-inherit pb-3 flex-shrink-0">
+                                <div className={`flex p-1 rounded-xl border ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+                                    <button
+                                        onClick={() => setKtsTab("centres")}
+                                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${ktsTab === 'centres' ? 'bg-yellow-500 text-black shadow-md' : isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                                    >
+                                        Centre Breakdown ({ktsCentresList.length})
+                                    </button>
+                                    <button
+                                        onClick={() => setKtsTab("students")}
+                                        className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${ktsTab === 'students' ? 'bg-yellow-500 text-black shadow-md' : isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                                    >
+                                        Student Enrollments ({filteredKtsStudents.length})
+                                    </button>
+                                </div>
+
+                                {ktsTab === 'centres' && ktsCentresList.length > 0 && (
+                                    <button
+                                        onClick={exportKtsCentresToExcel}
+                                        className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${isDarkMode ? 'border-green-600 text-green-400 hover:bg-green-500/10' : 'border-green-500 text-green-600 hover:bg-green-50'}`}
+                                    >
+                                        <FaDownload size={10} /> Export
+                                    </button>
+                                )}
+
+                                {ktsTab === 'students' && (
+                                    <div className="flex items-center gap-2">
+                                        <div className="relative">
+                                            <FaSearch className={`absolute left-3 top-1/2 -translate-y-1/2 text-xs ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} />
+                                            <input
+                                                type="text"
+                                                placeholder="Search student, adm no, centre..."
+                                                value={ktsSearch}
+                                                onChange={(e) => setKtsSearch(e.target.value)}
+                                                className={`pl-8 pr-3 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-yellow-500 ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white placeholder-gray-500' : 'bg-white border-gray-200 text-gray-800 placeholder-gray-400'}`}
+                                            />
+                                        </div>
+                                        {filteredKtsStudents.length > 0 && (
+                                            <button
+                                                onClick={exportKtsToExcel}
+                                                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${isDarkMode ? 'border-green-600 text-green-400 hover:bg-green-500/10' : 'border-green-500 text-green-600 hover:bg-green-50'}`}
+                                            >
+                                                <FaDownload size={10} /> Export
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Modal Content */}
+                            <div className="p-6 overflow-y-auto flex-1">
+                                {ktsTab === 'centres' ? (
+                                    <table className="w-full border-collapse text-left">
+                                        <thead>
+                                            <tr className={`border-b text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'border-gray-800 text-gray-500' : 'border-gray-200 text-gray-400'}`}>
+                                                <th className="pb-3">#</th>
+                                                <th className="pb-3">Centre Name</th>
+                                                <th className="pb-3 text-right">Admissions</th>
+                                                <th className="pb-3 text-right">Revenue (₹)</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className={`divide-y text-sm ${isDarkMode ? 'divide-gray-800 text-gray-300' : 'divide-gray-100 text-gray-700'}`}>
+                                            {ktsCentresList.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={4} className="py-8 text-center text-xs text-gray-500">
+                                                        No Key to Success admissions recorded for the selected filter period.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                ktsCentresList.map((item, idx) => (
+                                                    <tr key={idx} className="hover:bg-yellow-500/5 transition-colors">
+                                                        <td className="py-3 text-xs text-gray-500">{idx + 1}</td>
+                                                        <td className="py-3 font-semibold">{item.name}</td>
+                                                        <td className="py-3 text-right font-black text-yellow-500">{item.count}</td>
+                                                        <td className="py-3 text-right font-bold text-emerald-500">₹{item.revenue.toLocaleString("en-IN")}</td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                        {ktsCentresList.length > 0 && (
+                                            <tfoot>
+                                                <tr className={`border-t-2 font-black ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                    <td colSpan={2} className="py-4 text-xs uppercase tracking-widest">Total</td>
+                                                    <td className="py-4 text-right text-lg font-black text-yellow-500">{visibleKtsCount}</td>
+                                                    <td className="py-4 text-right text-base font-black text-emerald-500">₹{visibleKtsRevenue.toLocaleString("en-IN")}</td>
+                                                </tr>
+                                            </tfoot>
+                                        )}
+                                    </table>
+                                ) : (
+                                    <table className="w-full border-collapse text-left">
+                                        <thead>
+                                            <tr className={`border-b text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'border-gray-800 text-gray-500' : 'border-gray-200 text-gray-400'}`}>
+                                                <th className="pb-3">#</th>
+                                                <th className="pb-3">Student Name</th>
+                                                <th className="pb-3">Admission No</th>
+                                                <th className="pb-3">Centre</th>
+                                                <th className="pb-3">Date</th>
+                                                <th className="pb-3 text-right">Paid (₹)</th>
+                                                <th className="pb-3 text-right">Phone</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className={`divide-y text-xs ${isDarkMode ? 'divide-gray-800 text-gray-300' : 'divide-gray-100 text-gray-700'}`}>
+                                            {filteredKtsStudents.length === 0 ? (
+                                                <tr>
+                                                    <td colSpan={7} className="py-8 text-center text-xs text-gray-500">
+                                                        No students found matching your criteria.
+                                                    </td>
+                                                </tr>
+                                            ) : (
+                                                filteredKtsStudents.map((s, idx) => (
+                                                    <tr key={idx} className="hover:bg-yellow-500/5 transition-colors">
+                                                        <td className="py-2.5 text-gray-500">{idx + 1}</td>
+                                                        <td className="py-2.5 font-bold">{s.studentName}</td>
+                                                        <td className="py-2.5 font-mono text-cyan-400">{s.admissionNumber}</td>
+                                                        <td className="py-2.5 font-medium">{s.centreName}</td>
+                                                        <td className="py-2.5 text-gray-400">
+                                                            {s.admissionDate ? new Date(s.admissionDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : "-"}
+                                                        </td>
+                                                        <td className="py-2.5 text-right font-bold text-emerald-500">₹{(s.amount || 0).toLocaleString("en-IN")}</td>
+                                                        <td className="py-2.5 text-right text-gray-400">{s.phone}</td>
+                                                    </tr>
+                                                ))
+                                            )}
+                                        </tbody>
+                                        {filteredKtsStudents.length > 0 && (
+                                            <tfoot>
+                                                <tr className={`border-t-2 font-black ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                    <td colSpan={5} className="py-4 text-xs uppercase tracking-widest">Total</td>
+                                                    <td className="py-4 text-right text-base font-black text-emerald-500">
+                                                        ₹{filteredKtsStudents.reduce((sum, s) => sum + (s.amount || 0), 0).toLocaleString("en-IN")}
+                                                    </td>
+                                                    <td></td>
+                                                </tr>
+                                            </tfoot>
+                                        )}
+                                    </table>
+                                )}
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className={`p-4 ${isDarkMode ? 'bg-black/20' : 'bg-gray-50'} border-t border-inherit flex justify-end flex-shrink-0`}>
+                                <button
+                                    onClick={() => setActiveCardModal(null)}
+                                    className="px-6 py-2 bg-yellow-500 hover:bg-yellow-400 text-black rounded-lg text-xs font-bold uppercase tracking-widest transition-all shadow-md"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeCardModal && activeCardModal !== 'kts' && (
                     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
                         <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'} border w-full max-w-lg rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[80vh]`}>
                             <div className="p-6 border-b border-inherit flex justify-between items-center flex-shrink-0">

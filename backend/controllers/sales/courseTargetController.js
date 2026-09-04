@@ -418,6 +418,7 @@ export const getCourseTargetAnalysis = async (req, res) => {
         }
 
         const uniqueAdmissionCoursesMap = new Map();
+        const ktsStudentsList = [];
 
         for (const centreId of centreIds) {
             const centreDoc = centreMap[centreId];
@@ -597,17 +598,21 @@ export const getCourseTargetAnalysis = async (req, res) => {
             const masterDeptIds = new Set(masterDepartments.map(d => d._id.toString()));
             const defaultDeptId = masterDepartments.length > 0 ? masterDepartments[0]._id.toString() : null;
 
+            let centreKtsCount = 0;
+            let centreKtsRevenue = 0;
+
             uniqueAdmissions.forEach(item => {
                 let dId = item.departmentId;
                 if (!dId || !masterDeptIds.has(dId)) {
                     dId = defaultDeptId;
                 }
+
+                const amount = item.type === "normal"
+                    ? (item.raw?.downPayment || 0)
+                    : (item.raw?.totalPaidAmount || item.raw?.admissionFee || 0);
+
                 if (dId) {
                     deptAdmissionMap[dId] = (deptAdmissionMap[dId] || 0) + 1;
-                    
-                    const amount = item.type === "normal"
-                        ? (item.raw?.downPayment || 0)
-                        : (item.raw?.totalPaidAmount || item.raw?.admissionFee || 0);
                     deptAmountMap[dId] = (deptAmountMap[dId] || 0) + amount;
 
                     if (!deptExamTagBreakdown[dId]) deptExamTagBreakdown[dId] = [];
@@ -622,6 +627,39 @@ export const getCourseTargetAnalysis = async (req, res) => {
                             count: 1
                         });
                     }
+                }
+
+                // Check for Key to Success (KTS) course
+                const courseName = item.type === "normal"
+                    ? (item.raw?.course?.courseName || "")
+                    : (item.raw?.boardCourseName || item.raw?.boardId?.boardCourse || "");
+
+                const isKts = /key\s*to\s*success/i.test(courseName) || /(^|\b)kts(\b|$)/i.test(courseName);
+                if (isKts) {
+                    centreKtsCount += 1;
+                    centreKtsRevenue += amount;
+
+                    const studentName = item.type === "normal"
+                        ? (item.raw?.student?.studentsDetails?.[0]?.studentName || item.raw?.student?.name || item.raw?.studentName || "N/A")
+                        : (item.raw?.studentName || item.raw?.studentId?.studentsDetails?.[0]?.studentName || "N/A");
+                    
+                    const admissionNumber = item.raw?.admissionNumber || item.raw?.admissionNo || item.raw?.student?.admissionNo || item.raw?.studentId?.admissionNo || "N/A";
+                    const phone = item.type === "normal"
+                        ? (item.raw?.student?.studentsDetails?.[0]?.mobileNum || item.raw?.student?.mobileNum || "-")
+                        : (item.raw?.mobileNum || item.raw?.studentId?.studentsDetails?.[0]?.mobileNum || item.raw?.studentId?.mobileNum || "-");
+                    const admissionDate = item.admissionDate || item.raw?.admissionDate || item.raw?.createdAt;
+
+                    ktsStudentsList.push({
+                        _id: item.raw?._id?.toString(),
+                        studentName,
+                        admissionNumber,
+                        centreName,
+                        courseName,
+                        amount,
+                        phone,
+                        admissionDate,
+                        examTag: item.originalTagName || item.baseTagName || "NORMAL"
+                    });
                 }
             });
 
@@ -644,14 +682,30 @@ export const getCourseTargetAnalysis = async (req, res) => {
             results.push({
                 centreId,
                 centreName,
-                departments: finalDeptStats
+                departments: finalDeptStats,
+                ktsCount: centreKtsCount,
+                ktsRevenue: centreKtsRevenue
             });
         }
 
         const admissionCourses = Array.from(uniqueAdmissionCoursesMap.values())
             .sort((a, b) => (a.courseName || "").localeCompare(b.courseName || ""));
 
-        res.status(200).json({ success: true, year: parsedYear, targetType, data: results, admissionCourses });
+        const globalKtsCount = ktsStudentsList.length;
+        const globalKtsRevenue = ktsStudentsList.reduce((sum, s) => sum + (s.amount || 0), 0);
+
+        res.status(200).json({
+            success: true,
+            year: parsedYear,
+            targetType,
+            data: results,
+            admissionCourses,
+            ktsStats: {
+                totalCount: globalKtsCount,
+                totalRevenue: globalKtsRevenue,
+                students: ktsStudentsList
+            }
+        });
 
     } catch (error) {
         console.error("getCourseTargetAnalysis error:", error);

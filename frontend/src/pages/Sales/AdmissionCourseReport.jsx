@@ -3,7 +3,7 @@ import Layout from "../../components/Layout";
 import {
     FaDownload, FaChevronDown, FaFilter, FaSyncAlt, FaBuilding,
     FaTag, FaGraduationCap, FaRupeeSign, FaCalendarAlt, FaTable,
-    FaChartBar, FaSearch, FaLayerGroup, FaTimes
+    FaChartBar, FaSearch, FaLayerGroup, FaTimes, FaKey
 } from "react-icons/fa";
 import { MdFilterListOff } from "react-icons/md";
 import * as XLSX from "xlsx";
@@ -225,12 +225,14 @@ const AdmissionCourseReport = () => {
     const [availableCourses, setAvailableCourses] = useState([]);
     const [targetsMap, setTargetsMap] = useState({});
     const [centreNameToIdMap, setCentreNameToIdMap] = useState({});
-    const [summary, setSummary] = useState({ total: 0, departments: 0, centres: 0, courses: 0 });
+    const [summary, setSummary] = useState({ total: 0, departments: 0, centres: 0, courses: 0, kts: 0, ktsRevenue: 0 });
     const [loading, setLoading] = useState(false);
+    const [ktsTab, setKtsTab] = useState("centres");
+    const [ktsSearch, setKtsSearch] = useState("");
 
     // Modal State
     const [selectedCell, setSelectedCell] = useState(null); // { centreName, examTagName, details: [] }
-    const [activeCardModal, setActiveCardModal] = useState(null); // null | 'admissions' | 'tags' | 'centres' | 'courses'
+    const [activeCardModal, setActiveCardModal] = useState(null); // null | 'admissions' | 'tags' | 'centres' | 'courses' | 'kts'
 
     // ── fetch master ──────────────────────────────────────────────────────────
     useEffect(() => { fetchMaster(); }, []);
@@ -388,11 +390,19 @@ const AdmissionCourseReport = () => {
             setTargetsMap(data.targetsMap || {});
             setCentreNameToIdMap(data.centreNameToIdMap || {});
 
+            const isKtsRow = r => {
+                const name = r.courseName || "";
+                return /key\s*to\s*success/i.test(name) || /(^|\b)kts(\b|$)/i.test(name);
+            };
+            const ktsRows = mapped.filter(isKtsRow);
+            const ktsCount = ktsRows.reduce((a, r) => a + r.count, 0);
+            const ktsRevenue = ktsRows.reduce((a, r) => a + (r.downPayment || 0), 0);
+
             const total   = mapped.reduce((a, r) => a + r.count, 0);
             const depts   = new Set(mapped.map(r => r.departmentName).filter(d => DEPARTMENTS_LIST.includes((d || "").trim().toUpperCase()))).size;
             const cntrs   = new Set(mapped.map(r => r.centreName)).size;
             const courses = new Set(mapped.map(r => r.courseName)).size;
-            setSummary({ total, departments: depts, centres: cntrs, courses });
+            setSummary({ total, departments: depts, centres: cntrs, courses, kts: ktsCount, ktsRevenue });
 
             // Update available admission courses for the active period & filters (only when selCourses is empty)
             if (selCourses.length === 0) {
@@ -689,6 +699,77 @@ const AdmissionCourseReport = () => {
         }, {})
     ).sort((a, b) => b.count - a.count);
 
+    // KTS Breakdown for Drilldown Modal
+    const isKts = r => {
+        const name = r.courseName || "";
+        return /key\s*to\s*success/i.test(name) || /(^|\b)kts(\b|$)/i.test(name);
+    };
+    const ktsRows = rows.filter(isKts);
+    const ktsCentresBreakdown = Object.values(
+        ktsRows.reduce((acc, r) => {
+            const key = r.centreName || "—";
+            if (!acc[key]) acc[key] = { name: key, count: 0, revenue: 0 };
+            acc[key].count += r.count;
+            acc[key].revenue += (r.downPayment || 0);
+            return acc;
+        }, {})
+    ).sort((a, b) => b.count - a.count);
+
+    const sortedKtsAdmissions = [...ktsRows].sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+
+    const filteredKtsStudents = sortedKtsAdmissions.filter(s => {
+        if (!ktsSearch.trim()) return true;
+        const q = ktsSearch.trim().toLowerCase();
+        return (s.studentName || "").toLowerCase().includes(q) ||
+            (s.admissionNumber || "").toLowerCase().includes(q) ||
+            (s.centreName || "").toLowerCase().includes(q) ||
+            (s.courseName || "").toLowerCase().includes(q);
+    });
+
+    const exportKtsToExcel = () => {
+        const headers = ["#", "Date", "Admission No.", "Student Name", "Centre", "Course", "Class", "Exam Tag", "Down Payment (₹)"];
+        const exportRows = filteredKtsStudents.map((s, idx) => [
+            idx + 1,
+            s.date || "-",
+            s.admissionNumber || "-",
+            s.studentName || "-",
+            s.centreName || "-",
+            s.courseName || "-",
+            s.className || "-",
+            s.examTagName || "-",
+            s.downPayment || 0
+        ]);
+        const totalAmt = filteredKtsStudents.reduce((sum, s) => sum + (s.downPayment || 0), 0);
+        const totalsRow = ["", "", "", "TOTAL", "", "", "", "", totalAmt];
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...exportRows, totalsRow]);
+        ws['!cols'] = [{ wch: 5 }, { wch: 14 }, { wch: 18 }, { wch: 25 }, { wch: 20 }, { wch: 30 }, { wch: 12 }, { wch: 15 }, { wch: 18 }];
+        XLSX.utils.book_append_sheet(wb, ws, "Key to Success");
+        const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        saveAs(new Blob([buf], { type: "application/octet-stream" }),
+            `Key_To_Success_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
+
+    const exportKtsCentresToExcel = () => {
+        const headers = ["#", "Centre Name", "Admissions", "Revenue (₹)"];
+        const exportRows = ktsCentresBreakdown.map((item, idx) => [
+            idx + 1,
+            item.name || "-",
+            item.count || 0,
+            item.revenue || 0
+        ]);
+        const totalCount = ktsCentresBreakdown.reduce((sum, item) => sum + (item.count || 0), 0);
+        const totalRev = ktsCentresBreakdown.reduce((sum, item) => sum + (item.revenue || 0), 0);
+        const totalsRow = ["", "TOTAL", totalCount, totalRev];
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.aoa_to_sheet([headers, ...exportRows, totalsRow]);
+        ws['!cols'] = [{ wch: 5 }, { wch: 25 }, { wch: 15 }, { wch: 18 }];
+        XLSX.utils.book_append_sheet(wb, ws, "KTS_Centres");
+        const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        saveAs(new Blob([buf], { type: "application/octet-stream" }),
+            `Key_To_Success_Centres_${new Date().toISOString().slice(0, 10)}.xlsx`);
+    };
+
     // ─────────────────────────────────────────────────────────────────────────
     return (
         <Layout activePage="Sales">
@@ -714,7 +795,7 @@ const AdmissionCourseReport = () => {
                 </div>
 
                 {/* ── Summary Cards ────────────────────────────────────────── */}
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                     <SummaryCard 
                         icon={<FaGraduationCap />} 
                         label="Total Admissions" 
@@ -742,6 +823,17 @@ const AdmissionCourseReport = () => {
                         value={summary.courses}                       
                         grad="bg-emerald-500/15 text-emerald-500"
                         onClick={() => setActiveCardModal("courses")}
+                    />
+                    <SummaryCard 
+                        icon={<FaKey />}    
+                        label="Key to Success"          
+                        value={(summary.kts || 0).toLocaleString("en-IN")}                       
+                        grad="bg-yellow-500/15 text-yellow-500"
+                        onClick={() => {
+                            setKtsTab("centres");
+                            setKtsSearch("");
+                            setActiveCardModal("kts");
+                        }}
                     />
                 </div>
 
@@ -1382,6 +1474,204 @@ const AdmissionCourseReport = () => {
                             </tr>
                         </tfoot>
                     </table>
+                </div>
+            </Modal>
+
+            {/* ── Key to Success Card Modal ─────────────────────────────────────── */}
+            <Modal
+                isOpen={activeCardModal === "kts"}
+                onClose={() => setActiveCardModal(null)}
+                title="Key to Success (KTS) Breakdown"
+                isDarkMode={isDark}
+            >
+                <div className="space-y-4">
+                    {/* Summary chips */}
+                    <div className={`p-4 rounded-xl border grid grid-cols-3 gap-3 ${isDark ? "bg-black/20 border-gray-800" : "bg-gray-50 border-gray-200"}`}>
+                        <div className="text-center">
+                            <p className={`text-[10px] font-black uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Total Admissions</p>
+                            <p className={`text-xl font-black ${isDark ? "text-yellow-400" : "text-yellow-600"}`}>{(summary.kts || 0).toLocaleString("en-IN")}</p>
+                        </div>
+                        <div className="text-center border-x border-inherit">
+                            <p className={`text-[10px] font-black uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Total Revenue</p>
+                            <p className="text-xl font-black text-emerald-500">₹{(summary.ktsRevenue || 0).toLocaleString("en-IN")}</p>
+                        </div>
+                        <div className="text-center">
+                            <p className={`text-[10px] font-black uppercase tracking-wider ${isDark ? "text-gray-400" : "text-gray-500"}`}>Active Centres</p>
+                            <p className={`text-xl font-black ${isDark ? "text-blue-400" : "text-blue-600"}`}>{ktsCentresBreakdown.length}</p>
+                        </div>
+                    </div>
+
+                    {/* Tabs and Search */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-inherit pb-3">
+                        <div className={`flex p-1 rounded-xl border ${isDark ? "bg-black/20 border-gray-800" : "bg-gray-100 border-gray-200"}`}>
+                            <button
+                                onClick={() => setKtsTab("centres")}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${ktsTab === 'centres' ? 'bg-yellow-500 text-black shadow-md' : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                            >
+                                Centre Breakdown ({ktsCentresBreakdown.length})
+                            </button>
+                            <button
+                                onClick={() => setKtsTab("students")}
+                                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${ktsTab === 'students' ? 'bg-yellow-500 text-black shadow-md' : isDark ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-gray-900'}`}
+                            >
+                                Student Enrollments ({filteredKtsStudents.length})
+                            </button>
+                        </div>
+
+                        {ktsTab === 'centres' && ktsCentresBreakdown.length > 0 && (
+                            <button
+                                onClick={exportKtsCentresToExcel}
+                                className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${isDark ? "border-green-600 text-green-400 hover:bg-green-500/10" : "border-green-500 text-green-600 hover:bg-green-50"}`}
+                            >
+                                <FaDownload size={10} /> Export
+                            </button>
+                        )}
+
+                        {ktsTab === 'students' && (
+                            <div className="flex items-center gap-2">
+                                <div className="relative">
+                                    <FaSearch className={`absolute left-3 top-1/2 -translate-y-1/2 text-xs ${isDark ? "text-gray-500" : "text-gray-400"}`} />
+                                    <input
+                                        type="text"
+                                        placeholder="Search student, adm no, centre..."
+                                        value={ktsSearch}
+                                        onChange={(e) => setKtsSearch(e.target.value)}
+                                        className={`pl-8 pr-3 py-1.5 text-xs rounded-lg border focus:outline-none focus:ring-1 focus:ring-yellow-500 ${isDark ? "bg-[#131619] border-gray-800 text-white placeholder-gray-500" : "bg-white border-gray-200 text-gray-800 placeholder-gray-400"}`}
+                                    />
+                                </div>
+                                {filteredKtsStudents.length > 0 && (
+                                    <button
+                                        onClick={exportKtsToExcel}
+                                        className={`flex items-center gap-1.5 text-xs font-bold px-3 py-1.5 rounded-lg border transition-all ${isDark ? "border-green-600 text-green-400 hover:bg-green-500/10" : "border-green-500 text-green-600 hover:bg-green-50"}`}
+                                    >
+                                        <FaDownload size={10} /> Export
+                                    </button>
+                                )}
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Tab 1: Centre Breakdown */}
+                    {ktsTab === "centres" ? (
+                        <div className="overflow-x-auto max-h-[50vh]">
+                            <table className="w-full border-collapse">
+                                <thead>
+                                    <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                        <th className={thCls}>#</th>
+                                        <th className={thCls}>Centre Name</th>
+                                        <th className={`${thCls} text-right`}>Admissions</th>
+                                        <th className={`${thCls} text-right`}>Revenue (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
+                                    {ktsCentresBreakdown.length > 0 ? (
+                                        ktsCentresBreakdown.map((item, idx) => (
+                                            <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
+                                                <td className={`${tdCls} text-xs text-gray-500`}>{idx + 1}</td>
+                                                <td className={tdCls}>
+                                                    <span className={`font-semibold block ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                        {item.name}
+                                                    </span>
+                                                </td>
+                                                <td className={`${tdCls} text-right font-black ${isDark ? "text-yellow-400" : "text-yellow-600"}`}>
+                                                    {item.count.toLocaleString("en-IN")}
+                                                </td>
+                                                <td className={`${tdCls} text-right font-bold text-emerald-500`}>
+                                                    ₹{item.revenue.toLocaleString("en-IN")}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={4} className={`${tdCls} text-center text-gray-500 py-8`}>
+                                                No Key to Success admissions recorded for the selected filter period.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                                {ktsCentresBreakdown.length > 0 && (
+                                    <tfoot>
+                                        <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                            <td colSpan={2} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                            <td className={`${tdCls} text-right text-lg font-black ${isDark ? "text-yellow-400" : "text-yellow-600"}`}>
+                                                {(summary.kts || 0).toLocaleString("en-IN")}
+                                            </td>
+                                            <td className={`${tdCls} text-right text-base font-black text-emerald-500`}>
+                                                ₹{(summary.ktsRevenue || 0).toLocaleString("en-IN")}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+                        </div>
+                    ) : (
+                        <div className="overflow-x-auto max-h-[50vh]">
+                            <table className="w-full border-collapse">
+                                <thead>
+                                    <tr className={`border-b ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                        <th className={thCls}>#</th>
+                                        <th className={thCls}>Date</th>
+                                        <th className={thCls}>Adm. No.</th>
+                                        <th className={thCls}>Student Name</th>
+                                        <th className={thCls}>Centre</th>
+                                        <th className={thCls}>Class</th>
+                                        <th className={`${thCls} text-right`}>Paid (₹)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={`divide-y ${isDark ? "divide-gray-800/50" : "divide-gray-100"}`}>
+                                    {filteredKtsStudents.length > 0 ? (
+                                        filteredKtsStudents.map((detail, idx) => (
+                                            <tr key={idx} className={`transition-colors ${isDark ? "hover:bg-gray-800/50" : "hover:bg-blue-50/30"}`}>
+                                                <td className={`${tdCls} text-xs text-gray-500`}>{idx + 1}</td>
+                                                <td className={tdCls}>
+                                                    <span className={`text-xs ${isDark ? "text-gray-400" : "text-gray-600"}`}>{detail.date}</span>
+                                                </td>
+                                                <td className={tdCls}>
+                                                    <span className={`text-xs px-2 py-0.5 rounded-md font-mono font-bold ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
+                                                        {detail.admissionNumber}
+                                                    </span>
+                                                </td>
+                                                <td className={tdCls}>
+                                                    <span className={`text-xs font-bold uppercase ${isDark ? "text-gray-200" : "text-gray-800"}`}>
+                                                        {detail.studentName || "—"}
+                                                    </span>
+                                                </td>
+                                                <td className={tdCls}>
+                                                    <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
+                                                        {detail.centreName}
+                                                    </span>
+                                                </td>
+                                                <td className={tdCls}>
+                                                    <span className={`text-xs px-2 py-0.5 rounded-md font-bold ${isDark ? "bg-gray-800 text-gray-400" : "bg-gray-100 text-gray-600"}`}>
+                                                        {detail.className}
+                                                    </span>
+                                                </td>
+                                                <td className={`${tdCls} text-right font-black text-emerald-500`}>
+                                                    ₹{(detail.downPayment || 0).toLocaleString("en-IN")}
+                                                </td>
+                                            </tr>
+                                        ))
+                                    ) : (
+                                        <tr>
+                                            <td colSpan={7} className={`${tdCls} text-center text-gray-500 py-8`}>
+                                                No students found matching your criteria.
+                                            </td>
+                                        </tr>
+                                    )}
+                                </tbody>
+                                {filteredKtsStudents.length > 0 && (
+                                    <tfoot>
+                                        <tr className={`border-t-2 font-black ${isDark ? "border-gray-700 bg-[#131619]" : "border-gray-200 bg-gray-50"}`}>
+                                            <td colSpan={6} className={`${tdCls} font-black uppercase tracking-widest text-xs text-right`}>Total</td>
+                                            <td className={`${tdCls} text-right text-base font-black text-emerald-500`}>
+                                                ₹{filteredKtsStudents.reduce((a, d) => a + (d.downPayment || 0), 0).toLocaleString("en-IN")}
+                                            </td>
+                                        </tr>
+                                    </tfoot>
+                                )}
+                            </table>
+                        </div>
+                    )}
                 </div>
             </Modal>
         </Layout>
