@@ -694,9 +694,6 @@ const DailyCollection = () => {
                     return acc;
                 }, (() => {
                     const initialAcc = {};
-                    const targetCentres = selectedCentres.length > 0
-                        ? centres.filter(c => selectedCentres.includes(c._id))
-                        : centres;
                     targetCentres.forEach(c => {
                         if (c.centreName) {
                             initialAcc[c.centreName] = { total: 0, totalWithoutGst: 0 };
@@ -931,6 +928,12 @@ const DailyCollection = () => {
         ? centres.filter(c => c._id && zoneCentreIds.has(c._id.toString().toLowerCase().trim()))
         : centres;
 
+    const targetCentres = React.useMemo(() => {
+        if (!selectedCentres || selectedCentres.length === 0) return activeCentres;
+        const selectedSet = new Set(selectedCentres.map(id => String(id).trim()));
+        return activeCentres.filter(c => c._id && selectedSet.has(String(c._id).trim()));
+    }, [activeCentres, selectedCentres]);
+
     const activeDetails = selectedZones.length > 0
         ? dailyDetails.filter(d => d.centre && zoneCentreNames.has(d.centre.toLowerCase().trim()))
         : dailyDetails;
@@ -1151,11 +1154,11 @@ const DailyCollection = () => {
                                         const str = centre.toLowerCase();
                                         return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
                                     };
-                                    const computedTargetWithoutGst = activeCentres.reduce((sum, c) => {
+                                    const computedTargetWithoutGst = targetCentres.reduce((sum, c) => {
                                         if (isPhspsMidnapore(c.centreName)) return sum;
                                         return sum + (centreTargets[c.centreName] || 0);
                                     }, 0);
-                                    const computedTargetWithGst = activeCentres.reduce((sum, c) => {
+                                    const computedTargetWithGst = targetCentres.reduce((sum, c) => {
                                         if (isPhspsMidnapore(c.centreName)) return sum;
                                         const target = centreTargets[c.centreName] || 0;
                                         const isPhsps = c.centreName && /phsps/i.test(c.centreName);
@@ -1180,7 +1183,7 @@ const DailyCollection = () => {
                         <div className={`${secondaryTextClass} text-xs mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center`}>
                             <span>Active Centres</span>
                             <span className="font-bold text-gray-700 dark:text-gray-300">
-                                {selectedCentres.length > 0 ? selectedCentres.length : activeCentres.length}
+                                {targetCentres.length}
                             </span>
                         </div>
                         {selectedZones.length > 0 && (
@@ -1711,7 +1714,7 @@ const DailyCollection = () => {
                                                 {canEditTarget && (
                                                     <button
                                                         type="button"
-                                                        onClick={() => openBulkTargetModal(activeCentres.map(c => c.centreName).filter(Boolean))}
+                                                        onClick={() => openBulkTargetModal(targetCentres.map(c => c.centreName).filter(Boolean))}
                                                         className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-bold bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 border border-amber-500/30 rounded whitespace-nowrap transition-all shadow-sm cursor-pointer"
                                                         title="Bulk Update Daily Targets for Current Date"
                                                     >
@@ -1748,9 +1751,6 @@ const DailyCollection = () => {
                                         return acc;
                                     }, (() => {
                                         const initialAcc = {};
-                                        const targetCentres = selectedCentres.length > 0
-                                            ? activeCentres.filter(c => selectedCentres.includes(c._id))
-                                            : activeCentres;
                                         targetCentres.forEach(c => {
                                             if (c.centreName) {
                                                 initialAcc[c.centreName] = { total: 0, totalWithoutGst: 0 };

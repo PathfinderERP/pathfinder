@@ -261,13 +261,10 @@ const EmployeeAttendance = () => {
         !todayRecord.checkOut?.time &&
         elapsedSinceCheckIn < oneHourMs
     );
-    const remainingToUnlockMs = isWithinOneHour ? (oneHourMs - elapsedSinceCheckIn) : 0;
-    const remainingUnlockMins = Math.floor(remainingToUnlockMs / (1000 * 60));
-    const remainingUnlockSecs = Math.floor((remainingToUnlockMs % (1000 * 60)) / 1000);
 
     const handleMarkAttendance = async (type) => {
         if (type === 'checkOut' && isWithinOneHour) {
-            toast.warning(`You can only clock out after 1 hour of clocking in. Please wait ${remainingUnlockMins}m ${remainingUnlockSecs}s.`);
+            toast.warning("You can only clock out after 1 hour of clocking in.");
             return;
         }
 
@@ -913,26 +910,15 @@ const EmployeeAttendance = () => {
                                     <button
                                         onClick={() => handleMarkAttendance('checkOut')}
                                         disabled={marking || loading || isWithinOneHour}
-                                        title={isWithinOneHour ? `Clock out available after 1 hour (${remainingUnlockMins}m ${remainingUnlockSecs}s remaining)` : ""}
+                                        title={isWithinOneHour ? "Clock out is disabled for 1 hour after clocking in" : ""}
                                         className={`flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 font-black rounded-2xl transition-all shadow-2xl ${
                                             isWithinOneHour
                                                 ? 'bg-red-500/40 text-white/70 cursor-not-allowed shadow-red-500/10'
                                                 : 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/20 active:scale-95'
                                         } disabled:opacity-50`}
                                     >
-                                        {isWithinOneHour ? (
-                                            <>
-                                                <FaClock size={20} className="animate-pulse" />
-                                                <span className="uppercase tracking-widest text-sm">
-                                                    Clock Out In {remainingUnlockMins}m {remainingUnlockSecs < 10 ? `0${remainingUnlockSecs}` : remainingUnlockSecs}s
-                                                </span>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <FaBolt size={20} className="animate-pulse" />
-                                                <span className="uppercase tracking-widest text-sm">Clock Out Now</span>
-                                            </>
-                                        )}
+                                        <FaBolt size={20} className={isWithinOneHour ? "opacity-50" : "animate-pulse"} />
+                                        <span className="uppercase tracking-widest text-sm">Clock Out Now</span>
                                     </button>
                                 ) : (
                                     <div className={`flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 font-black rounded-2xl cursor-not-allowed ${isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
