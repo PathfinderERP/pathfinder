@@ -49,7 +49,7 @@ const attachZonesToRecords = async (records) => {
 //  Build filter query with User Centre Restriction & Zone
 // ─────────────────────────────────────────────
 const buildFilterQuery = async (filters = {}, user = null) => {
-    const { search, schoolName, tier, schoolAccess, status, board, centerName, zone } = filters;
+    const { search, schoolName, tier, schoolAccess, status, board, centerName, zone, remarks } = filters;
     const query = {};
 
     if (search) {
@@ -73,6 +73,7 @@ const buildFilterQuery = async (filters = {}, user = null) => {
     addStringFilter("tier", tier);
     addStringFilter("schoolAccess", schoolAccess);
     addStringFilter("status", status);
+    addStringFilter("remarks", remarks);
 
     // ObjectId filters (comma-separated IDs)
     const addIdFilter = (field, val) => {
@@ -492,7 +493,17 @@ export const bulkImportSchoolsForTask = async (req, res) => {
             let rawTier = cleanField(row.tier || row["Tier"]).toUpperCase();
             let rawSchoolAccess = cleanField(row.schoolAccess || row["SchoolAccess"] || row["SCHOOLACCESS"] || row["School Access"]).toUpperCase();
             let rawStatus = cleanField(row.status || row["Status"] || row["STATUS"]);
-            const remarks = cleanField(row.remarks || row["Remarks"] || row["REMARKS"]);
+            const remarks = cleanField(
+                row["MOCK / CRP TIE-UP STATUS"] ||
+                row["Mock / CRP Tie-Up Status"] ||
+                row["MOCK/CRP TIE-UP STATUS"] ||
+                row["Mock/CRP Tie-Up Status"] ||
+                row["MOCK / CRP TIE UP STATUS"] ||
+                row["Tie-Up Status"] ||
+                row.remarks ||
+                row["Remarks"] ||
+                row["REMARKS"]
+            );
 
             // Normalize Tier (Default to "A")
             const tier = ["A", "B", "C", "D", "E"].includes(rawTier) ? rawTier : "A";

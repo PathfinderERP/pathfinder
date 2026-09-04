@@ -10,6 +10,13 @@ import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { hasPermission } from "../../../config/permissions";
 
+export const MOCK_CRP_TIE_UP_STATUSES = [
+    "NEED HELP FROM HO",
+    "ON GOING",
+    "APPROACH FOR TEST CENTRE",
+    "APPROACH FOR CENTRE"
+];
+
 const EMPTY_FORM = {
     centerName: "",
     schoolName: "",
@@ -154,6 +161,7 @@ export default function MasterDataSchoolForTaskContent() {
     const [selectedTiers, setSelectedTiers] = useState([]);
     const [selectedAccessLevels, setSelectedAccessLevels] = useState([]);
     const [selectedStatuses, setSelectedStatuses] = useState([]);
+    const [selectedTieUpStatuses, setSelectedTieUpStatuses] = useState([]);
 
     // Sorting
     const [sortBy, setSortBy] = useState("createdAt");
@@ -246,6 +254,7 @@ export default function MasterDataSchoolForTaskContent() {
                 tier: selectedTiers.join(","),
                 schoolAccess: selectedAccessLevels.join(","),
                 status: selectedStatuses.join(","),
+                remarks: selectedTieUpStatuses.join(","),
                 sortBy,
                 sortOrder
             });
@@ -268,7 +277,7 @@ export default function MasterDataSchoolForTaskContent() {
 
     useEffect(() => {
         fetchSchools();
-    }, [page, search, selectedZones, selectedSchoolNames, selectedCentres, selectedBoards, selectedTiers, selectedAccessLevels, selectedStatuses, sortBy, sortOrder, token]);
+    }, [page, search, selectedZones, selectedSchoolNames, selectedCentres, selectedBoards, selectedTiers, selectedAccessLevels, selectedStatuses, selectedTieUpStatuses, sortBy, sortOrder, token]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -415,7 +424,7 @@ export default function MasterDataSchoolForTaskContent() {
                 "Tier": "A",
                 "SCHOOLACCESS": "YES",
                 "Status": "MOCK TEST TIE-UP",
-                "Remarks": "Annual tie-up finalized"
+                "MOCK / CRP TIE-UP STATUS": "APPROACH FOR TEST CENTRE"
             },
             {
                 "CenterName*": sampleCentre,
@@ -424,7 +433,7 @@ export default function MasterDataSchoolForTaskContent() {
                 "Tier": "B",
                 "SCHOOLACCESS": "NO",
                 "Status": "ONLY INFORMATION GIVEN TO STUDENTS",
-                "Remarks": "Pamphlets distributed"
+                "MOCK / CRP TIE-UP STATUS": "ON GOING"
             }
         ];
 
@@ -460,7 +469,8 @@ export default function MasterDataSchoolForTaskContent() {
                 board: selectedBoards.join(","),
                 tier: selectedTiers.join(","),
                 schoolAccess: selectedAccessLevels.join(","),
-                status: selectedStatuses.join(",")
+                status: selectedStatuses.join(","),
+                remarks: selectedTieUpStatuses.join(",")
             });
             const res = await fetch(`${import.meta.env.VITE_API_URL}/school-for-task/export-all?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -477,7 +487,7 @@ export default function MasterDataSchoolForTaskContent() {
                 "Tier": s.tier || "",
                 "School Access": s.schoolAccess || "",
                 "Status": s.status || "",
-                "Remarks": s.remarks || ""
+                "MOCK / CRP TIE-UP STATUS": s.remarks || ""
             }));
 
             const ws = XLSX.utils.json_to_sheet(exportData);
@@ -526,7 +536,7 @@ export default function MasterDataSchoolForTaskContent() {
                         tier: row["Tier"] || row["tier"] || "A",
                         schoolAccess: row["SCHOOLACCESS"] || row["SchoolAccess"] || row["School Access"] || row["schoolAccess"] || "YES",
                         status: row["Status"] || row["status"] || row["STATUS"] || "ONLY INFORMATION GIVEN TO STUDENTS",
-                        remarks: row["Remarks"] || row["remarks"] || row["REMARKS"] || ""
+                        remarks: row["MOCK / CRP TIE-UP STATUS"] || row["Mock / CRP Tie-Up Status"] || row["MOCK/CRP TIE-UP STATUS"] || row["Tie-Up Status"] || row["Remarks"] || row["remarks"] || row["REMARKS"] || ""
                     };
                 });
 
@@ -750,7 +760,7 @@ export default function MasterDataSchoolForTaskContent() {
                     </div>
 
                     {/* Status MultiSelect */}
-                    <div className="sm:col-span-2 md:col-span-4 lg:col-span-7">
+                    <div className="sm:col-span-1 md:col-span-2 lg:col-span-4">
                         <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">Status</label>
                         <MultiSelect
                             options={[
@@ -763,6 +773,17 @@ export default function MasterDataSchoolForTaskContent() {
                             selected={selectedStatuses}
                             onChange={setSelectedStatuses}
                             placeholder="All Statuses"
+                        />
+                    </div>
+
+                    {/* Mock / CRP Tie-Up Status MultiSelect */}
+                    <div className="sm:col-span-1 md:col-span-2 lg:col-span-3">
+                        <label className="block text-[10px] font-black uppercase text-gray-500 mb-1">MOCK / CRP TIE-UP STATUS</label>
+                        <MultiSelect
+                            options={MOCK_CRP_TIE_UP_STATUSES}
+                            selected={selectedTieUpStatuses}
+                            onChange={setSelectedTieUpStatuses}
+                            placeholder="All Tie-Up Statuses"
                         />
                     </div>
                 </div>
@@ -790,7 +811,7 @@ export default function MasterDataSchoolForTaskContent() {
                                 <th className="p-4">Tier</th>
                                 <th className="p-4">School Access</th>
                                 <th className="p-4">Status</th>
-                                <th className="p-4">Remarks</th>
+                                <th className="p-4 whitespace-nowrap">MOCK / CRP TIE-UP STATUS</th>
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
                         </thead>
@@ -894,8 +915,24 @@ export default function MasterDataSchoolForTaskContent() {
                                                 {row.status || "—"}
                                             </span>
                                         </td>
-                                        <td className="p-4 text-gray-400 text-xs max-w-[200px] truncate" title={row.remarks || ""}>
-                                            {row.remarks || "—"}
+                                        <td className="p-4">
+                                            {row.remarks ? (
+                                                <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider inline-block whitespace-nowrap ${
+                                                    row.remarks === "NEED HELP FROM HO"
+                                                        ? "bg-purple-900/40 text-purple-300 border border-purple-500/40"
+                                                        : row.remarks === "ON GOING"
+                                                        ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30"
+                                                        : row.remarks === "APPROACH FOR TEST CENTRE"
+                                                        ? "bg-rose-500/20 text-rose-300 border border-rose-500/30"
+                                                        : row.remarks === "APPROACH FOR CENTRE"
+                                                        ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                                        : "bg-gray-500/10 text-gray-300 border border-gray-500/20"
+                                                }`}>
+                                                    {row.remarks}
+                                                </span>
+                                            ) : (
+                                                <span className="text-gray-500 font-mono">—</span>
+                                            )}
                                         </td>
                                         <td className="p-4 text-right">
                                             <div className="flex justify-end gap-2">
@@ -1053,16 +1090,22 @@ export default function MasterDataSchoolForTaskContent() {
                                 </select>
                             </div>
 
-                            {/* Remarks */}
+                            {/* MOCK / CRP TIE-UP STATUS Dropdown */}
                             <div>
-                                <label className="block text-gray-400 uppercase text-[10px] font-black mb-1">Remarks</label>
-                                <textarea
-                                    rows="2"
-                                    placeholder="Enter remarks..."
+                                <label className="block text-gray-400 uppercase text-[10px] font-black mb-1">MOCK / CRP TIE-UP STATUS</label>
+                                <select
                                     value={formData.remarks}
                                     onChange={(e) => setFormData({ ...formData, remarks: e.target.value })}
-                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 font-bold resize-none"
-                                />
+                                    className="w-full bg-[#131619] border border-gray-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 font-bold"
+                                >
+                                    <option value="">Select Status...</option>
+                                    {MOCK_CRP_TIE_UP_STATUSES.map((statusVal) => (
+                                        <option key={statusVal} value={statusVal}>{statusVal}</option>
+                                    ))}
+                                    {formData.remarks && !MOCK_CRP_TIE_UP_STATUSES.includes(formData.remarks) && (
+                                        <option value={formData.remarks}>{formData.remarks}</option>
+                                    )}
+                                </select>
                             </div>
 
                             {/* Modal Buttons */}
