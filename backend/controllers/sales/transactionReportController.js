@@ -262,7 +262,18 @@ export const getTransactionReport = async (req, res) => {
             { $match: baseAttributesMatch },
             {
                 $addFields: {
-                    reportDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$chequeDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
+                    reportDate: {
+                        $cond: {
+                            if: { $eq: ["$paymentMethod", "CHEQUE"] },
+                            then: {
+                                $ifNull: [
+                                    { $toDate: "$clearedOrRejectedDate" },
+                                    { $toDate: "$paidDate" }
+                                ]
+                            },
+                            else: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
+                        }
+                    }
                 }
             },
         ];
@@ -331,7 +342,6 @@ export const getTransactionReport = async (req, res) => {
                             $or: [
                                 { clearedOrRejectedDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } },
                                 { paidDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } },
-                                { chequeDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } },
                                 { receivedDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } },
                                 { createdAt: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } }
                             ]
@@ -347,10 +357,7 @@ export const getTransactionReport = async (req, res) => {
                             then: {
                                 $ifNull: [
                                     { $toDate: "$clearedOrRejectedDate" },
-                                    { $toDate: "$paidDate" },
-                                    { $toDate: "$chequeDate" },
-                                    { $toDate: "$receivedDate" },
-                                    "$createdAt"
+                                    { $toDate: "$paidDate" }
                                 ]
                             },
                             else: {
@@ -532,8 +539,8 @@ export const getTransactionReport = async (req, res) => {
             {
                 $project: {
                     transactionId: "$transactionId",
-                    // For CHEQUE payments: show the cheque cleared date (clearedOrRejectedDate),
-                    // fallback to paidDate -> chequeDate -> receivedDate -> createdAt.
+                    // For CHEQUE payments: show ONLY the cheque cleared date (clearedOrRejectedDate / paidDate).
+                    // If uncleared/pending, it stays null so no false MR Date is displayed.
                     // For all other methods: use paidDate -> receivedDate -> createdAt.
                     paymentDate: {
                         $cond: {
@@ -541,10 +548,7 @@ export const getTransactionReport = async (req, res) => {
                             then: {
                                 $ifNull: [
                                     { $toDate: "$clearedOrRejectedDate" },
-                                    { $toDate: "$paidDate" },
-                                    { $toDate: "$chequeDate" },
-                                    { $toDate: "$receivedDate" },
-                                    "$createdAt"
+                                    { $toDate: "$paidDate" }
                                 ]
                             },
                             else: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
@@ -623,7 +627,13 @@ export const getTransactionReport = async (req, res) => {
                     },
                     admissionNumber: { $ifNull: ["$admissionInfo.admissionNumber", "$admissionInfo.rollNo"] },
                     receivedDate: "$receivedDate",
-                    receiptNo: "$billId",
+                    receiptNo: {
+                        $cond: {
+                            if: { $and: [{ $eq: ["$paymentMethod", "CHEQUE"] }, { $eq: ["$status", "PENDING_CLEARANCE"] }] },
+                            then: null,
+                            else: "$billId"
+                        }
+                    },
                     installmentNumber: "$installmentNumber",
                     revenueWithoutGst: amountWithoutGstExpr,
                     gstAmount: {

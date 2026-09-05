@@ -1140,7 +1140,7 @@ const EmployeeAttendance = () => {
                                         ) : marking ? (
                                             <>
                                                 <FaSpinner size={20} className="animate-spin" />
-                                                <span className="uppercase tracking-widest text-sm">Verifying Range (50m)...</span>
+                                                <span className="uppercase tracking-widest text-sm">Verifying Range (100m)...</span>
                                             </>
                                         ) : (
                                             <>
@@ -1168,7 +1168,7 @@ const EmployeeAttendance = () => {
                                         ) : marking ? (
                                             <>
                                                 <FaSpinner size={20} className="animate-spin" />
-                                                <span className="uppercase tracking-widest text-sm">Verifying Range (50m)...</span>
+                                                <span className="uppercase tracking-widest text-sm">Verifying Range (100m)...</span>
                                             </>
                                         ) : (
                                             <>

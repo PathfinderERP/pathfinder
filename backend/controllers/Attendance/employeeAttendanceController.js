@@ -139,7 +139,7 @@ export const markAttendance = async (req, res) => {
         // 2. Geolocation Check against all assigned centres
         let matchingCentre = null;
         let minDistance = Infinity;
-        const radius = 50; // Maximum allowed distance from authorized centre in meters
+        const radius = 100; // Maximum allowed distance from authorized centre in meters
 
         for (const centre of allCentres) {
             // Check Legacy Single Location

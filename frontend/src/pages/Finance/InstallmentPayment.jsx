@@ -3932,7 +3932,7 @@ const InstallmentPayment = () => {
                                                                                         paidAmount: actualPayment ? actualPayment.paidAmount : history.totalAmount,
                                                                                         paidDate: actualPayment ? actualPayment.createdAt : new Date(),
                                                                                         paymentMethod: actualPayment ? actualPayment.paymentMethod : "Monthly Fee",
-                                                                                        status: actualPayment ? actualPayment.status : "PAID"
+                                                                                        status: actualPayment ? actualPayment.status : (history.status || "PAID")
                                                                                     }
                                                                                 });
                                                                             }}
@@ -4026,7 +4026,7 @@ const InstallmentPayment = () => {
                                                                                         installment: {
                                                                                             installmentNumber: installment.installmentNumber,
                                                                                             amount: installment.amount,
-                                                                                            paidAmount: installment.paidAmount,
+                                                                                            paidAmount: installment.paidAmount || installment.amount,
                                                                                             paidDate: installment.paidDate || new Date(),
                                                                                             paymentMethod: installment.paymentMethod,
                                                                                             status: installment.status
@@ -4037,6 +4037,11 @@ const InstallmentPayment = () => {
                                                                                 >
                                                                                     <FaFileInvoice className="group-hover/btn:scale-110 transition-transform" />
                                                                                 </button>
+                                                                            )}
+                                                                            {installment.status === "PENDING_CLEARANCE" && (
+                                                                                <span className="px-2 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-black uppercase rounded-lg tracking-wider">
+                                                                                    Cheque In Process
+                                                                                </span>
                                                                             )}
                                                                         </td>
                                                                     </tr>

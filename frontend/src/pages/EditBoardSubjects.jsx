@@ -615,7 +615,7 @@ const EditBoardSubjects = () => {
                                             </div>
                                         )}
 
-                                        {month.isPaid && (
+                                        {(month.isPaid || month.paymentStatus === 'PENDING_CLEARANCE') && (
                                             <div className="pt-1 flex justify-center">
                                                 <button
                                                     onClick={(e) => {

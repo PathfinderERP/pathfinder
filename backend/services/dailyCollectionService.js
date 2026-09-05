@@ -44,7 +44,18 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
             },
             {
                 $addFields: {
-                    effectiveDate: { $ifNull: ["$receivedDate", "$paidDate", "$createdAt"] },
+                    effectiveDate: {
+                        $cond: {
+                            if: { $eq: ["$paymentMethod", "CHEQUE"] },
+                            then: {
+                                $ifNull: [
+                                    { $toDate: "$clearedOrRejectedDate" },
+                                    { $toDate: "$paidDate" }
+                                ]
+                            },
+                            else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
+                        }
+                    },
                     revenueBase: {
                         $cond: [
                             { $gt: ["$courseFee", 0] },
@@ -309,9 +320,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                         then: {
                             $ifNull: [
                                 { $toDate: "$clearedOrRejectedDate" },
-                                { $toDate: "$paidDate" },
-                                { $toDate: "$chequeDate" },
-                                "$createdAt"
+                                { $toDate: "$paidDate" }
                             ]
                         },
                         else: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
@@ -472,12 +481,18 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 mrDate: {
                     $cond: {
                         if: { $eq: ["$paymentMethod", "CHEQUE"] },
-                        then: { $ifNull: ["$updatedAt", "$paidDate", "$createdAt"] },
+                        then: { $ifNull: ["$clearedOrRejectedDate", "$paidDate"] },
                         else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
                     }
                 },
-                actualReceivedDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
-                effectiveDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
+                actualReceivedDate: { $ifNull: ["$receivedDate", "$createdAt"] },
+                effectiveDate: {
+                    $cond: {
+                        if: { $eq: ["$paymentMethod", "CHEQUE"] },
+                        then: { $ifNull: ["$clearedOrRejectedDate", "$paidDate"] },
+                        else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
+                    }
+                },
                 recordedByName: {
                     $ifNull: [
                         { $arrayElemAt: ["$userInfo.name", 0] },

@@ -194,7 +194,15 @@ export const generateBill = async (req, res) => {
                 }
             }
 
-            if (!existingPaymentRecord && installment.status !== "PAID" && installment.status !== "PENDING_CLEARANCE" && installment.status !== "PARTIAL") {
+            // Block bill generation for uncleared CHEQUE payments
+            const isChequePending = (existingPaymentRecord && existingPaymentRecord.paymentMethod === "CHEQUE" && existingPaymentRecord.status === "PENDING_CLEARANCE") ||
+                (!existingPaymentRecord && installment.paymentMethod === "CHEQUE" && (installment.status === "PENDING_CLEARANCE" || admission.downPaymentStatus === "PENDING_CLEARANCE"));
+            if (isChequePending) {
+                console.error(`❌ Installment #${installmentNum} is a CHEQUE pending clearance. Bill cannot be generated until cleared in Cheque Management.`);
+                return { status: 400, data: { message: "Cheque payment is pending clearance. Bill can only be generated after cheque clearance in Cheque Management." } };
+            }
+
+            if (!existingPaymentRecord && installment.status !== "PAID" && installment.status !== "PARTIAL") {
                 // Special check: If any amount is paid for installment 0/1, allow bill generation
                 if (!( (installmentNum === 0 || installmentNum === 1) && (installment.paidAmount > 0 || (isBoardType && (admission.examFeePaid > 0 || admission.totalPaidAmount > 0))))) {
                     console.error(`❌ Installment #${installmentNum} is not PAID. Status: ${installment.status}`);
@@ -300,7 +308,8 @@ export const generateBill = async (req, res) => {
             }
 
             // If payment exists but doesn't have a bill ID (or has an old MIG- ID), generate/fix it
-            if (!payment.billId || payment.billId.startsWith('MIG-')) {
+            // NEVER generate bill ID for uncleared CHEQUE payments (they get their bill ID on clearance in Cheque Management)
+            if ((!payment.billId || payment.billId.startsWith('MIG-')) && !(payment.paymentMethod === 'CHEQUE' && payment.status === 'PENDING_CLEARANCE')) {
                 payment.billId = await generateBillId(centre.enterCode || 'GEN', payment.receivedDate);
                 await payment.save();
             }

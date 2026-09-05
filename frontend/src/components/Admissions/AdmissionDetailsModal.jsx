@@ -523,10 +523,10 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                     </div>
 
                                                     <div className="grid grid-cols-2 gap-2">
-                                                        {item.isPaid ? (
+                                                        {(item.isPaid || item.paymentStatus === 'PENDING_CLEARANCE') ? (
                                                             <button
                                                                 className={`col-span-2 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isDarkMode ? 'bg-white/5 text-cyan-400 hover:bg-white/10 border border-cyan-500/20' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 border border-cyan-500/20'}`}
-                                                                onClick={() => setBillModal({ show: true, admission: admission, installment: { installmentNumber: 0, billingMonth: item.month } })}
+                                                                onClick={() => setBillModal({ show: true, admission: admission, installment: { installmentNumber: 0, billingMonth: item.month, status: item.paymentStatus || "PAID" } })}
                                                             >
                                                                 <FaFileInvoice /> DOWNLOAD RECEIPT
                                                             </button>
@@ -609,7 +609,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                                         SETTLE NOW
                                                                     </button>
                                                                 ) : (
-                                                                    isPaid && payment.paidAmount > 0 && (
+                                                                    ((isPaid || payment.status === "PENDING_CLEARANCE") && (payment.paidAmount > 0 || payment.amount > 0)) && (
                                                                         <button
                                                                             onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
                                                                             disabled={admission.student?.status === 'Deactivated'}
@@ -620,7 +620,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                                     )
                                                                 )
                                                             ) : (
-                                                                isPaid && payment.paidAmount > 0 && (
+                                                                ((isPaid || payment.status === "PENDING_CLEARANCE") && (payment.paidAmount > 0 || payment.amount > 0)) && (
                                                                     <button
                                                                         onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
                                                                         disabled={admission.student?.status === 'Deactivated'}

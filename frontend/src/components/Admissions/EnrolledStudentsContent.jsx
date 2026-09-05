@@ -3670,7 +3670,7 @@ const EnrolledStudentsContent = () => {
                                                                                         <span className="text-gray-500 text-[9px] font-black uppercase tracking-widest">Aggregate</span>
                                                                                         <span className="text-cyan-500 font-black text-[11px] tracking-widest italic">₹{fmt(history.totalAmount)}</span>
                                                                                     </div>
-                                                                                    {displayPaid && (
+                                                                                    {(displayPaid || history.status === "PENDING_CLEARANCE") && (
                                                                                         <button
                                                                                             onClick={() => setBillModal({
                                                                                                 show: true,
@@ -3678,7 +3678,7 @@ const EnrolledStudentsContent = () => {
                                                                                                 installment: {
                                                                                                     installmentNumber: 0,
                                                                                                     billingMonth: history.month,
-                                                                                                    status: "PAID"
+                                                                                                    status: history.status || "PAID"
                                                                                                 }
                                                                                             })}
                                                                                             className={`mt-4 w-full py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm'}`}
@@ -3722,7 +3722,7 @@ const EnrolledStudentsContent = () => {
                                                                                 const isPaid = ["PAID", "COMPLETED"].includes(payment.status);
                                                                                 const previousPaid = paymentIndex === 0 || admission.paymentBreakdown
                                                                                     .slice(0, paymentIndex)
-                                                                                    .every(p => ["PAID", "COMPLETED"].includes(p.status));
+                                                                                    .every(p => ["PAID", "COMPLETED", "PENDING_CLEARANCE"].includes(p.status));
 
                                                                                 const baseInstallmentAmount = admission.installmentAmount || Math.ceil((admission.totalFees - admission.downPayment) / (admission.numberOfInstallments || 1));
                                                                                 const remarks = payment.remarks || "";
@@ -3789,7 +3789,7 @@ const EnrolledStudentsContent = () => {
                                                                                                         Pay Now
                                                                                                     </button>
                                                                                                 ) : (
-                                                                                                    isPaid && payment.paidAmount > 0 && (
+                                                                                                    ((isPaid || payment.status === "PENDING_CLEARANCE") && (payment.paidAmount > 0 || payment.amount > 0)) && (
                                                                                                         <button
                                                                                                             onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
                                                                                                             disabled={selectedStudent.status === 'Deactivated'}

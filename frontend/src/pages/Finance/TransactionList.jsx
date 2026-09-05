@@ -1082,7 +1082,7 @@ const TransactionList = () => {
                                         <tr key={item.transactionId || index} className={`${tRowHover} transition-colors ${tRowBg}`}>
                                             <td className={`p-4 text-sm font-bold ${tTxt}`}>{startIndex + index + 1}</td>
                                             <td className={`p-4 text-sm ${tTxtSub} font-medium`}>
-                                                {new Date(item.paymentDate).toLocaleDateString('en-GB')}
+                                                {item.paymentDate ? new Date(item.paymentDate).toLocaleDateString('en-GB') : '-'}
                                             </td>
                                             <td className={`p-4 text-sm ${tTxtSub} font-medium`}>
                                                 {item.receivedDate ? new Date(item.receivedDate).toLocaleDateString('en-GB') : '-'}
