@@ -790,14 +790,14 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     };
                 }
 
-                // On Saturday: adjust with total weekday shortfall
+                // On Saturday: adjust with total weekday shortfall or surplus (target met during weekdays)
                 if (dayName === "Sat") {
-                    const shortfallToAdd = weekdayShortfall > 0 ? weekdayShortfall : 0;
-                    const finalTarget = Math.round(baseTarget + shortfallToAdd);
+                    const finalTarget = Math.round(Math.max(0, baseTarget + weekdayShortfall));
+                    const adjDiff = finalTarget - baseTarget;
                     return {
                         finalTarget,
                         baseTarget: Math.round(baseTarget),
-                        shortfallAdded: Math.round(shortfallToAdd),
+                        shortfallAdded: Math.round(adjDiff),
                         isWeekend: true,
                         dayName
                     };
@@ -812,14 +812,14 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                         const satBaseTarget = getBaseTargetForDay(satDayObj.day);
                         const satAchieved = dayMap[satDayObj.day] || 0;
                         if (satBaseTarget > 0) {
-                            const satAdjustedTarget = satBaseTarget + (weekdayShortfall > 0 ? weekdayShortfall : 0);
+                            const satAdjustedTarget = satBaseTarget + weekdayShortfall;
                             shortfallAfterSat = satAdjustedTarget - satAchieved;
                         } else {
                             shortfallAfterSat = weekdayShortfall - satAchieved;
                         }
                     }
 
-                    // If shortfallAfterSat is positive, target increases; if negative (surplus on Sat), target decreases
+                    // If shortfallAfterSat is positive, target increases; if negative (surplus on Sat/weekdays), target decreases
                     const finalTarget = Math.round(Math.max(0, baseTarget + shortfallAfterSat));
                     const adjDiff = finalTarget - baseTarget;
 

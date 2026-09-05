@@ -1858,7 +1858,7 @@ const DailyCollection = () => {
                                                                                 {centreTargetMeta[centre]?.shortfallAdded < 0 && (
                                                                                     <span
                                                                                         className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1 py-0.5 rounded mt-0.5"
-                                                                                        title={`Base target: ${formatAmount(centreTargetMeta[centre]?.baseTarget || 0)} - Saturday surplus adjusted: ${formatAmount(Math.abs(centreTargetMeta[centre]?.shortfallAdded))}`}
+                                                                                        title={`Base target: ${formatAmount(centreTargetMeta[centre]?.baseTarget || 0)} - Surplus adjusted: ${formatAmount(Math.abs(centreTargetMeta[centre]?.shortfallAdded))}`}
                                                                                     >
                                                                                         -{formatAmount(Math.abs(centreTargetMeta[centre]?.shortfallAdded))} adj
                                                                                     </span>
@@ -1881,7 +1881,7 @@ const DailyCollection = () => {
                                                                         {centreTargetMeta[centre]?.shortfallAdded < 0 && (
                                                                             <span
                                                                                 className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1 py-0.5 rounded mt-0.5"
-                                                                                title={`Base target: ${formatAmount(centreTargetMeta[centre]?.baseTarget || 0)} - Saturday surplus adjusted: ${formatAmount(Math.abs(centreTargetMeta[centre]?.shortfallAdded))}`}
+                                                                                title={`Base target: ${formatAmount(centreTargetMeta[centre]?.baseTarget || 0)} - Surplus adjusted: ${formatAmount(Math.abs(centreTargetMeta[centre]?.shortfallAdded))}`}
                                                                             >
                                                                                 -{formatAmount(Math.abs(centreTargetMeta[centre]?.shortfallAdded))} adj
                                                                             </span>
@@ -2255,7 +2255,7 @@ const DailyCollection = () => {
                                                                 </span>
                                                             )}
                                                             {centreTargetMeta[cName]?.shortfallAdded < 0 && (
-                                                                <span className="ml-1.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1 py-0.2 rounded" title={`Base target: ₹${formatAmount(centreTargetMeta[cName]?.baseTarget || 0)} (-₹${formatAmount(Math.abs(centreTargetMeta[cName]?.shortfallAdded))} Saturday surplus adjusted)`}>
+                                                                <span className="ml-1.5 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1 py-0.2 rounded" title={`Base target: ₹${formatAmount(centreTargetMeta[cName]?.baseTarget || 0)} (-₹${formatAmount(Math.abs(centreTargetMeta[cName]?.shortfallAdded))} surplus adjusted)`}>
                                                                     -{formatAmount(Math.abs(centreTargetMeta[cName]?.shortfallAdded))} adj
                                                                 </span>
                                                             )}
