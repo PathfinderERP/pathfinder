@@ -4,7 +4,7 @@ import Layout from "../../components/Layout";
 import {
     FaClock, FaTimes,
     FaBuilding, FaStopwatch,
-    FaMapMarkerAlt, FaCalendarCheck, FaBolt, FaCheckCircle, FaCheck
+    FaMapMarkerAlt, FaCalendarCheck, FaBolt, FaCheckCircle, FaCheck, FaSpinner
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import {
@@ -178,6 +178,7 @@ const EmployeeAttendance = () => {
     const [employeeDetails, setEmployeeDetails] = useState(null);
     const [loading, setLoading] = useState(true);
     const [marking, setMarking] = useState(false);
+    const [gpsAcquiring, setGpsAcquiring] = useState(false);
     const [year] = useState(new Date().getFullYear());
     const [location, setLocation] = useState(null);
     const [selectedDay, setSelectedDay] = useState(null);
@@ -237,27 +238,38 @@ const EmployeeAttendance = () => {
         }
     };
 
-    const getCurrentLocation = () => {
-        if ("geolocation" in navigator) {
+    const getFreshCoordinates = () => {
+        return new Promise((resolve, reject) => {
+            if (!("geolocation" in navigator)) {
+                return reject(new Error("Geolocation is not supported by your browser."));
+            }
             const options = {
                 enableHighAccuracy: true,
-                timeout: 5000,
-                maximumAge: 0
+                timeout: 10000,
+                maximumAge: 0 // strictly force fresh GPS fix, no cached coordinates
             };
             navigator.geolocation.getCurrentPosition(
                 (position) => {
-                    setLocation({
+                    const coords = {
                         latitude: position.coords.latitude,
-                        longitude: position.coords.longitude
-                    });
+                        longitude: position.coords.longitude,
+                        accuracy: position.coords.accuracy
+                    };
+                    setLocation(coords);
+                    resolve(coords);
                 },
                 (error) => {
-                    console.error("Location error:", error);
-                    toast.warn("Please enable high-accuracy location access to mark attendance.");
+                    reject(error);
                 },
                 options
             );
-        }
+        });
+    };
+
+    const getCurrentLocation = () => {
+        getFreshCoordinates().catch((err) => {
+            console.warn("Initial GPS warm-up:", err?.message || err);
+        });
     };
 
     const todayStrKey = format(new Date(), "yyyy-MM-dd");
@@ -279,13 +291,36 @@ const EmployeeAttendance = () => {
             return;
         }
 
-        if (!location) {
-            toast.error("Location data not available. Please allow location access.");
-            getCurrentLocation();
-            return;
+        setMarking(true);
+        setGpsAcquiring(true);
+
+        let freshCoords = null;
+        try {
+            // Live real-time GPS refresh on tap
+            freshCoords = await getFreshCoordinates();
+        } catch (geoErr) {
+            console.warn("Real-time GPS acquisition error, checking fallback:", geoErr);
+            if (location?.latitude && location?.longitude) {
+                freshCoords = location;
+                toast.info("Using latest known GPS fix. If rejected, stand near an open area/window and retry.");
+            } else {
+                setMarking(false);
+                setGpsAcquiring(false);
+                if (geoErr.code === 1) {
+                    toast.error("Location access denied. Please enable location permissions in your browser to clock in.");
+                } else if (geoErr.code === 2) {
+                    toast.error("GPS location unavailable. Please ensure GPS/Location is enabled on your phone.");
+                } else if (geoErr.code === 3) {
+                    toast.error("GPS signal acquisition timed out. Please ensure high-accuracy location is enabled.");
+                } else {
+                    toast.error(geoErr.message || "Failed to acquire GPS location.");
+                }
+                return;
+            }
+        } finally {
+            setGpsAcquiring(false);
         }
 
-        setMarking(true);
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee-attendance/mark`, {
@@ -294,7 +329,7 @@ const EmployeeAttendance = () => {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ ...location, type })
+                body: JSON.stringify({ ...freshCoords, type })
             });
 
             const data = await response.json();
@@ -430,7 +465,9 @@ const EmployeeAttendance = () => {
         // Find all attendance records belonging to this date (matching by record date or punch timestamps)
         const dayRecords = (attendanceData || []).filter(a => {
             if (!a) return false;
-            if (a.date && (format(new Date(a.date), "yyyy-MM-dd") === dateStrKey || isSameDay(new Date(a.date), date))) return true;
+            if (a.date) {
+                return format(new Date(a.date), "yyyy-MM-dd") === dateStrKey || isSameDay(new Date(a.date), date);
+            }
             if (a.checkIn?.time && (format(new Date(a.checkIn.time), "yyyy-MM-dd") === dateStrKey || isSameDay(new Date(a.checkIn.time), date))) return true;
             if (a.checkOut?.time && (format(new Date(a.checkOut.time), "yyyy-MM-dd") === dateStrKey || isSameDay(new Date(a.checkOut.time), date))) return true;
             return false;
@@ -1095,8 +1132,22 @@ const EmployeeAttendance = () => {
                                         disabled={marking || loading}
                                         className={`flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 font-black rounded-2xl transition-all shadow-2xl active:scale-95 disabled:opacity-50 ${isDarkMode ? 'bg-cyan-500 hover:bg-cyan-400 text-[#1a1f24] shadow-cyan-500/20' : 'bg-cyan-600 hover:bg-cyan-700 text-white shadow-cyan-600/20'}`}
                                     >
-                                        <FaMapMarkerAlt size={20} className="animate-bounce" />
-                                        <span className="uppercase tracking-widest text-sm">Clock In Now</span>
+                                        {gpsAcquiring ? (
+                                            <>
+                                                <FaSpinner size={20} className="animate-spin" />
+                                                <span className="uppercase tracking-widest text-sm">Acquiring Live GPS...</span>
+                                            </>
+                                        ) : marking ? (
+                                            <>
+                                                <FaSpinner size={20} className="animate-spin" />
+                                                <span className="uppercase tracking-widest text-sm">Verifying Range (50m)...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FaMapMarkerAlt size={20} className="animate-bounce" />
+                                                <span className="uppercase tracking-widest text-sm">Clock In Now</span>
+                                            </>
+                                        )}
                                     </button>
                                 ) : !todayRecord.checkOut?.time ? (
                                     <button
@@ -1109,8 +1160,22 @@ const EmployeeAttendance = () => {
                                                 : 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/20 active:scale-95'
                                         } disabled:opacity-50`}
                                     >
-                                        <FaBolt size={20} className={isWithinOneHour ? "opacity-50" : "animate-pulse"} />
-                                        <span className="uppercase tracking-widest text-sm">Clock Out Now</span>
+                                        {gpsAcquiring ? (
+                                            <>
+                                                <FaSpinner size={20} className="animate-spin" />
+                                                <span className="uppercase tracking-widest text-sm">Acquiring Live GPS...</span>
+                                            </>
+                                        ) : marking ? (
+                                            <>
+                                                <FaSpinner size={20} className="animate-spin" />
+                                                <span className="uppercase tracking-widest text-sm">Verifying Range (50m)...</span>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <FaBolt size={20} className={isWithinOneHour ? "opacity-50" : "animate-pulse"} />
+                                                <span className="uppercase tracking-widest text-sm">Clock Out Now</span>
+                                            </>
+                                        )}
                                     </button>
                                 ) : (
                                     <div className={`flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 font-black rounded-2xl cursor-not-allowed ${isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>

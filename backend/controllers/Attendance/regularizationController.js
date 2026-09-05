@@ -178,6 +178,8 @@ export const updateRegularizationStatus = async (req, res) => {
                 // 2. Calculate physical checkin-checkout hours if existing and NOT identical to regularization times
                 let existingWh = 0;
                 const isOngoingShift = Boolean(attendance && attendance.checkIn?.time && !attendance.checkOut?.time);
+                const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
+                const isAlreadyApplied = Boolean(attendance?.remarks && attendance.remarks.includes(newRemark));
 
                 if (attendance && !isOngoingShift) {
                     const isSameCheckIn = checkInDate && attendance.checkIn?.time && Math.abs(new Date(attendance.checkIn.time).getTime() - checkInDate.getTime()) < 60000;
@@ -188,7 +190,7 @@ export const updateRegularizationStatus = async (req, res) => {
                             const dur = (new Date(attendance.checkOut.time) - new Date(attendance.checkIn.time)) / (1000 * 60 * 60);
                             if (!isNaN(dur) && dur > 0) existingWh = Number(dur.toFixed(2));
                         }
-                        if (existingWh === 0 && typeof attendance.workingHours === 'number' && attendance.workingHours > 0) {
+                        if (existingWh === 0 && typeof attendance.workingHours === 'number' && attendance.workingHours > 0 && !attendance.remarks?.includes('Regulariz')) {
                             existingWh = attendance.workingHours;
                         }
                     }
@@ -196,8 +198,10 @@ export const updateRegularizationStatus = async (req, res) => {
 
                 // 3. Combined hours: Add regularized duration to existing separate logged attendance hours
                 let calculatedWorkingHours = regHours;
-                if (existingWh > 0) {
+                if (!isAlreadyApplied && existingWh > 0) {
                     calculatedWorkingHours = Number((existingWh + regHours).toFixed(2));
+                } else if (isAlreadyApplied) {
+                    calculatedWorkingHours = existingWh > 0 ? Number((existingWh + regHours).toFixed(2)) : regHours;
                 }
 
                 const finalStatus = determineAttendanceStatus(calculatedWorkingHours, targetHours);
@@ -206,10 +210,11 @@ export const updateRegularizationStatus = async (req, res) => {
                     if (isOngoingShift) {
                         // Employee is actively on shift! Do NOT prematurely set checkOut and do NOT mark Absent.
                         // Their hours will be combined when they clock out at end of shift.
-                        const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
-                        attendance.remarks = attendance.remarks
-                            ? `${attendance.remarks} | ${newRemark}`
-                            : newRemark;
+                        if (!attendance.remarks) {
+                            attendance.remarks = newRemark;
+                        } else if (!attendance.remarks.includes(newRemark)) {
+                            attendance.remarks = `${attendance.remarks} | ${newRemark}`;
+                        }
 
                         await attendance.save();
                     } else {
@@ -232,11 +237,12 @@ export const updateRegularizationStatus = async (req, res) => {
                             };
                         }
 
-                        // Append remark
-                        const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
-                        attendance.remarks = attendance.remarks
-                            ? `${attendance.remarks} | ${newRemark}`
-                            : newRemark;
+                        // Append remark safely
+                        if (!attendance.remarks) {
+                            attendance.remarks = newRemark;
+                        } else if (!attendance.remarks.includes(newRemark)) {
+                            attendance.remarks = `${attendance.remarks} | ${newRemark}`;
+                        }
 
                         await attendance.save();
                     }
@@ -395,6 +401,8 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
                 // 2. Calculate physical checkin-checkout hours if existing and NOT identical to regularization times
                 let existingWh = 0;
                 const isOngoingShift = Boolean(attendance && attendance.checkIn?.time && !attendance.checkOut?.time);
+                const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
+                const isAlreadyApplied = Boolean(attendance?.remarks && attendance.remarks.includes(newRemark));
 
                 if (attendance && !isOngoingShift) {
                     const isSameCheckIn = checkInDate && attendance.checkIn?.time && Math.abs(new Date(attendance.checkIn.time).getTime() - checkInDate.getTime()) < 60000;
@@ -405,7 +413,7 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
                             const dur = (new Date(attendance.checkOut.time) - new Date(attendance.checkIn.time)) / (1000 * 60 * 60);
                             if (!isNaN(dur) && dur > 0) existingWh = Number(dur.toFixed(2));
                         }
-                        if (existingWh === 0 && typeof attendance.workingHours === 'number' && attendance.workingHours > 0) {
+                        if (existingWh === 0 && typeof attendance.workingHours === 'number' && attendance.workingHours > 0 && !attendance.remarks?.includes('Regulariz')) {
                             existingWh = attendance.workingHours;
                         }
                     }
@@ -413,8 +421,10 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
 
                 // 3. Combined hours: Add regularized duration to existing separate logged attendance hours
                 let calculatedWorkingHours = regHours;
-                if (existingWh > 0) {
+                if (!isAlreadyApplied && existingWh > 0) {
                     calculatedWorkingHours = Number((existingWh + regHours).toFixed(2));
+                } else if (isAlreadyApplied) {
+                    calculatedWorkingHours = existingWh > 0 ? Number((existingWh + regHours).toFixed(2)) : regHours;
                 }
 
                 const finalStatus = determineAttendanceStatus(calculatedWorkingHours, targetHours);
@@ -423,10 +433,11 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
                     if (isOngoingShift) {
                         // Employee is actively on shift! Do NOT prematurely set checkOut and do NOT mark Absent.
                         // Their hours will be combined when they clock out at end of shift.
-                        const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
-                        attendance.remarks = attendance.remarks
-                            ? `${attendance.remarks} | ${newRemark}`
-                            : newRemark;
+                        if (!attendance.remarks) {
+                            attendance.remarks = newRemark;
+                        } else if (!attendance.remarks.includes(newRemark)) {
+                            attendance.remarks = `${attendance.remarks} | ${newRemark}`;
+                        }
 
                         await attendance.save();
                     } else {
@@ -449,10 +460,12 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
                             };
                         }
 
-                        const newRemark = `Regularized ${regHours}h (${regularization.type}): ${regularization.reason}`;
-                        attendance.remarks = attendance.remarks
-                            ? `${attendance.remarks} | ${newRemark}`
-                            : newRemark;
+                        // Append remark safely
+                        if (!attendance.remarks) {
+                            attendance.remarks = newRemark;
+                        } else if (!attendance.remarks.includes(newRemark)) {
+                            attendance.remarks = `${attendance.remarks} | ${newRemark}`;
+                        }
 
                         await attendance.save();
                     }
