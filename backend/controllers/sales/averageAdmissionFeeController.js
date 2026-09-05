@@ -93,7 +93,7 @@ export const getAverageAdmissionFee = async (req, res) => {
             admissionQuery.centre = { $in: finalNames.length > 0 ? finalNames : ["__NO_MATCH__"] };
         } else {
             const allowedNames = (req.user.role !== 'superAdmin' ? allowedCentreNames : activeCentreNames)
-                .filter(name => name && !/phsps/i.test(name) && !/franchise/i.test(name) && !/rkm/i.test(name));
+                .filter(name => name && !/phsps/i.test(name) && !/franchise/i.test(name));
             admissionQuery.centre = { $in: allowedNames.length > 0 ? allowedNames : ["__NO_MATCH__"] };
         }
 

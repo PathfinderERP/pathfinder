@@ -132,8 +132,8 @@ export const updateBoardSubjects = async (req, res) => {
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
 
-            // Generate bill ID for all payment methods (including Cheque) to allow receipt download
-            let newBillId = await generateBillId(centreCode);
+            // Generate bill ID only for non-CHEQUE payments (CHEQUE bill is generated on clearance)
+            let newBillId = (paymentMethod === "CHEQUE") ? null : await generateBillId(centreCode);
 
             // Find the index of the billing month in history to use as installment number
             const monthIdx = admission.monthlySubjectHistory.findIndex(h => h.month === billingMonth);

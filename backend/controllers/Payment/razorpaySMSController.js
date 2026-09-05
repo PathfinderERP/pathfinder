@@ -254,7 +254,7 @@ export const razorpayWebhookHandler = async (req, res) => {
                 await admission.save();
 
                 // Generate Bill ID for the Payment record
-                let billId = null;
+                let billId = undefined;
                 try {
                     let centreObj = await Centre.findOne({ centreName: admission.centre });
                     if (!centreObj) centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });

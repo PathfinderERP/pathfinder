@@ -1042,13 +1042,7 @@ export const getDailyTracking = async (req, res) => {
                 admission: { $in: admissionIds },
                 paidAmount: { $gt: 0 },
                 billId: { $regex: /^PATH/i },
-                $or: [
-                    { status: { $in: ["PAID", "PARTIAL"] } },
-                    {
-                        paymentMethod: "CHEQUE",
-                        status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-                    }
-                ],
+                status: { $in: ["PAID", "PARTIAL"] },
                 $expr: {
                     $and: [
                         {
@@ -3026,13 +3020,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                 const queryPaymentsMatch = {
                     paidAmount: { $gt: 0 },
                     billId: { $regex: /^PATH/i },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL"] } },
-                        {
-                            paymentMethod: "CHEQUE",
-                            status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-                        }
-                    ],
+                    // Only include cleared/paid transactions (PENDING_CLEARANCE excluded until cheque clearance)
+                    status: { $in: ["PAID", "PARTIAL"] },
                     $expr: {
                         $and: [
                             { $gte: [{ $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }, start] },

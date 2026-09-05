@@ -123,8 +123,8 @@ export const getFinancialAnalytics = async (req, res) => {
         };
 
         const [periodPayments, fiscalPayments] = await Promise.all([
-            Payment.find({ ...paymentFilter, ...dateFilter }),
-            Payment.find({ ...paymentFilter, ...fiscalDateFilter })
+            Payment.find({ ...paymentFilter, ...dateFilter, status: { $in: ["PAID", "PARTIAL"] } }),
+            Payment.find({ ...paymentFilter, ...fiscalDateFilter, status: { $in: ["PAID", "PARTIAL"] } })
         ]);
 
         const totalAmountCame = periodPayments.reduce((sum, p) => sum + (p.paidAmount || 0), 0);
@@ -152,7 +152,7 @@ export const getFinancialAnalytics = async (req, res) => {
         consolidatedAdmissions.forEach(a => {
             if (a.paymentBreakdown) {
                 a.paymentBreakdown.forEach(p => {
-                    const isUnpaid = ["PENDING", "OVERDUE", "PENDING_CLEARANCE"].includes(p.status);
+                    const isUnpaid = ["PENDING", "OVERDUE"].includes(p.status);
                     const dueDate = new Date(p.dueDate);
 
                     // Amount Will Come logic (Period-based)
@@ -178,17 +178,13 @@ export const getFinancialAnalytics = async (req, res) => {
 
         // 4. Payment Breakdown (for the money that actually 'Came' in this period)
         const paymentBreakdown = {
-            CASH: 0, UPI: 0, CARD: 0, BANK_TRANSFER: 0, CHEQUE: 0, CHEQUE_PENDING: 0
+            CASH: 0, UPI: 0, CARD: 0, BANK_TRANSFER: 0, CHEQUE: 0
         };
 
         periodPayments.forEach(p => {
-            if (p.status === "PENDING_CLEARANCE") {
-                paymentBreakdown.CHEQUE_PENDING += (p.paidAmount || 0);
-            } else {
-                const method = p.paymentMethod || 'CASH';
-                if (paymentBreakdown.hasOwnProperty(method)) {
-                    paymentBreakdown[method] += (p.paidAmount || 0);
-                }
+            const method = p.paymentMethod || 'CASH';
+            if (paymentBreakdown.hasOwnProperty(method)) {
+                paymentBreakdown[method] += (p.paidAmount || 0);
             }
         });
 

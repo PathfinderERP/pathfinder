@@ -262,6 +262,15 @@ export const clearCheque = async (req, res) => {
             return res.status(404).json({ message: "Payment record not found" });
         }
 
+        if (payment.status === "PAID") {
+            // Already cleared previously
+            return res.status(200).json({
+                message: "Cheque cleared successfully",
+                paymentId: payment._id,
+                billId: payment.billId
+            });
+        }
+
         if (payment.status !== "PENDING_CLEARANCE") {
             return res.status(400).json({ message: "Only pending cheques can be cleared" });
         }
@@ -281,13 +290,25 @@ export const clearCheque = async (req, res) => {
 
         // 1. Update Payment record
         payment.status = "PAID";
-        // NOTE: Do NOT overwrite paidDate here. paidDate holds the original date when
-        // the cheque was received/submitted, which is what the Transaction List must show.
-        // clearedOrRejectedDate captures the bank clearance date separately.
-        payment.clearedOrRejectedDate = new Date(clearedDate);
-        payment.processedBy = req.user.id || req.user._id;
+        // Set paidDate to the actual clearance time so it sorts correctly in Daily Collection.
+        // clearedOrRejectedDate stays as midnight IST of the cleared date for date attribution.
+        // For paidDate: if clearing for today, use current time. For past dates, use 23:30 IST
+        // so it appears at the end of that day's list (not at the very bottom due to midnight UTC).
+        const clearedDateIST = new Date(clearedDate + "T00:00:00+05:30");
+        const nowIST = new Date();
+        const todayISTStr = nowIST.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        const clearedDateStr = typeof clearedDate === "string" ? (clearedDate.includes("T") ? clearedDate.split("T")[0] : clearedDate) : clearedDate;
+        if (clearedDateStr === todayISTStr) {
+            // Clearing for today — use actual current timestamp so it appears at top of today's list
+            payment.paidDate = nowIST;
+        } else {
+            // Clearing for a past date — use 23:30 IST of that date so it appears at end of that day
+            payment.paidDate = new Date(clearedDate + "T23:30:00+05:30");
+        }
+        payment.clearedOrRejectedDate = clearedDateIST;
+        payment.processedBy = req.user?.id || req.user?._id;
 
-        // Generate Bill ID only if it doesn't already have one (from the reception stage)
+        // Generate Bill ID on clearance (it was intentionally skipped at submission for CHEQUE payments)
         if (!payment.billId) {
             let centre = await CentreSchema.findOne({ centreName: admission.centre });
             const centreCode = centre?.enterCode || "GEN";
@@ -298,7 +319,7 @@ export const clearCheque = async (req, res) => {
 
         if (isBoardAdmission) {
             // 2. Update Board Admission installments
-            const inst = admission.installments.find(i => i.monthNumber === payment.installmentNumber);
+            const inst = admission.installments.find(i => i.monthNumber === payment.installmentNumber || i.monthNumber === (payment.installmentNumber + 1));
             if (inst) {
                 // If paidAmount (already recorded) >= payableAmount, mark as PAID
                 if (inst.paidAmount >= (inst.payableAmount || 0) - 0.5) {
@@ -357,7 +378,7 @@ export const clearCheque = async (req, res) => {
             }
         }
 
-        await admission.save();
+        await admission.save({ validateBeforeSave: false });
 
         res.status(200).json({
             message: "Cheque cleared successfully",
@@ -544,7 +565,7 @@ export const rejectCheque = async (req, res) => {
             }
         }
 
-        await admission.save();
+        await admission.save({ validateBeforeSave: false });
 
         res.status(200).json({ message: "Cheque rejected successfully" });
     } catch (error) {

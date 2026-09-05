@@ -1642,18 +1642,21 @@ const EnrolledStudentsContent = () => {
                 }
                 setShowPaymentModal(false);
 
-                // Show bill generator after payment
-                setBillModal({
-                    show: true,
-                    admission: data.admission || selectedAdmission,
-                    installment: {
-                        ...selectedInstallment,
-                        paidAmount: paymentData.paidAmount,
-                        paymentMethod: paymentData.paymentMethod,
-                        receivedDate: paymentData.receivedDate,
-                        status: paymentData.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID"
-                    }
-                });
+                // Show bill generator only for non-CHEQUE payments.
+                // For CHEQUE: no bill until cleared in Cheque Management.
+                if (paymentData.paymentMethod !== "CHEQUE") {
+                    setBillModal({
+                        show: true,
+                        admission: data.admission || selectedAdmission,
+                        installment: {
+                            ...selectedInstallment,
+                            paidAmount: paymentData.paidAmount,
+                            paymentMethod: paymentData.paymentMethod,
+                            receivedDate: paymentData.receivedDate,
+                            status: "PAID"
+                        }
+                    });
+                }
 
                 // Update local state for immediate reflection
                 setStudentAdmissions(prev => prev.map(adm => {
@@ -3786,13 +3789,13 @@ const EnrolledStudentsContent = () => {
                                                                                                         Pay Now
                                                                                                     </button>
                                                                                                 ) : (
-                                                                                                    (isPaid || payment.status === "PENDING_CLEARANCE") && payment.paidAmount > 0 && (
+                                                                                                    isPaid && payment.paidAmount > 0 && (
                                                                                                         <button
                                                                                                             onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
                                                                                                             disabled={selectedStudent.status === 'Deactivated'}
                                                                                                             className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${selectedStudent.status === 'Deactivated' ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed') : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')}`}
                                                                                                         >
-                                                                                                            <FaFileInvoice size={10} /> {payment.status === "PENDING_CLEARANCE" ? "REC" : "BILL"}
+                                                                                                            <FaFileInvoice size={10} /> BILL
                                                                                                         </button>
                                                                                                     )
                                                                                                 )}

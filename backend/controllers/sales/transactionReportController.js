@@ -73,14 +73,9 @@ export const getTransactionReport = async (req, res) => {
             const statuses = req.query.status.split(',');
             baseAttributesMatch.status = { $in: statuses };
         } else {
-            // Default: Match Daily Collection logic for successful/pending payments
-            baseAttributesMatch.$or = [
-                { status: { $in: ["PAID", "PARTIAL"] } },
-                {
-                    paymentMethod: "CHEQUE",
-                    status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-                }
-            ];
+            // Default: Only show cleared/completed payments (PENDING_CLEARANCE cheques excluded
+            // until cleared in Cheque Management — at which point they become PAID)
+            baseAttributesMatch.status = { $in: ["PAID", "PARTIAL"] };
         }
 
         if (transactionType) {
@@ -195,8 +190,8 @@ export const getTransactionReport = async (req, res) => {
             }
             admissionMatch["effectiveCentre"] = { $in: filteredByZone.length > 0 ? buildCentreRegexes(filteredByZone) : ["__NO_MATCH__"] };
         } else {
-            // Default: Exclude franchise and RKM
-            const defaultCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/rkm/i.test(name));
+            // Default: Exclude franchise
+            const defaultCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name));
             admissionMatch["effectiveCentre"] = { $in: defaultCentreNames.length > 0 ? buildCentreRegexes(defaultCentreNames) : ["__NO_MATCH__"] };
         }
 
@@ -334,6 +329,7 @@ export const getTransactionReport = async (req, res) => {
                         baseAttributesMatch,
                         {
                             $or: [
+                                { clearedOrRejectedDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } },
                                 { paidDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } },
                                 { chequeDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } },
                                 { receivedDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd } },
@@ -343,7 +339,31 @@ export const getTransactionReport = async (req, res) => {
                     ]
                 } : baseAttributesMatch
             },
-            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$chequeDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } },
+            {
+                $addFields: {
+                    effectiveDate: {
+                        $cond: {
+                            if: { $eq: ["$paymentMethod", "CHEQUE"] },
+                            then: {
+                                $ifNull: [
+                                    { $toDate: "$clearedOrRejectedDate" },
+                                    { $toDate: "$paidDate" },
+                                    { $toDate: "$chequeDate" },
+                                    { $toDate: "$receivedDate" },
+                                    "$createdAt"
+                                ]
+                            },
+                            else: {
+                                $ifNull: [
+                                    { $toDate: "$paidDate" },
+                                    { $toDate: "$receivedDate" },
+                                    "$createdAt"
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
         ];
 
         if (paymentMatch.isDateFiltered) {
@@ -512,14 +532,22 @@ export const getTransactionReport = async (req, res) => {
             {
                 $project: {
                     transactionId: "$transactionId",
-                    // For CHEQUE payments: always show the original cheque submission date (chequeDate),
-                    // NOT the paidDate (which reflected the clearance date historically).
-                    // For all other methods: use paidDate → receivedDate → createdAt.
+                    // For CHEQUE payments: show the cheque cleared date (clearedOrRejectedDate),
+                    // fallback to paidDate -> chequeDate -> receivedDate -> createdAt.
+                    // For all other methods: use paidDate -> receivedDate -> createdAt.
                     paymentDate: {
                         $cond: {
                             if: { $eq: ["$paymentMethod", "CHEQUE"] },
-                            then: { $ifNull: ["$chequeDate", "$paidDate", "$receivedDate", "$createdAt"] },
-                            else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
+                            then: {
+                                $ifNull: [
+                                    { $toDate: "$clearedOrRejectedDate" },
+                                    { $toDate: "$paidDate" },
+                                    { $toDate: "$chequeDate" },
+                                    { $toDate: "$receivedDate" },
+                                    "$createdAt"
+                                ]
+                            },
+                            else: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
                         }
                     },
                     amount: "$paidAmount",

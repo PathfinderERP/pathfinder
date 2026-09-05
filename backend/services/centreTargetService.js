@@ -158,13 +158,7 @@ export const calculateCentreTargetAchieved = async (centreName, month, year, cus
             {
                 $match: {
                     billId: { $regex: /^PATH/i },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL"] } },
-                        {
-                            paymentMethod: "CHEQUE",
-                            status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-                        }
-                    ],
+                    status: { $in: ["PAID", "PARTIAL"] },
                     effectiveCentre: { $regex: new RegExp(`^${(centreName || "").trim()}$`, 'i') },
                     effectiveDate: { $gte: startOfMonth, $lte: endOfTargetMonth }
                 }
@@ -308,13 +302,7 @@ export const calculateCentreTargetAchievedYearly = async (centreName, financialY
             {
                 $match: {
                     billId: { $regex: /^PATH/i },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL"] } },
-                        {
-                            paymentMethod: "CHEQUE",
-                            status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-                        }
-                    ],
+                    status: { $in: ["PAID", "PARTIAL"] },
                     effectiveCentre: { $regex: new RegExp(`^${(centreName || "").trim()}$`, 'i') },
                     effectiveDate: { $gte: startOfFY, $lte: endOfTarget }
                 }
@@ -473,13 +461,7 @@ export const calculateCentreTargetAchievedMultiMonth = async (centreName, monthS
             {
                 $match: {
                     billId: { $regex: /^PATH/i },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL"] } },
-                        {
-                            paymentMethod: "CHEQUE",
-                            status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-                        }
-                    ],
+                    status: { $in: ["PAID", "PARTIAL"] },
                     effectiveCentre: { $regex: new RegExp(`^${(centreName || "").trim()}$`, 'i') },
                     $or: dateMatches
                 }
@@ -643,13 +625,7 @@ export const getBatchAchievedForCentres = async (centreNames, startDate, endDate
             {
                 $match: {
                     billId: { $regex: /^PATH/i },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL"] } },
-                        {
-                            paymentMethod: "CHEQUE",
-                            status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-                        }
-                    ],
+                    status: { $in: ["PAID", "PARTIAL"] },
                     effectiveCentre: { $in: regexes },
                     effectiveDate: { $gte: startDate, $lte: endDate }
                 }

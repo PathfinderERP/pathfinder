@@ -97,7 +97,9 @@ const paymentSchema = new mongoose.Schema({
     billId: {
         type: String,
         unique: true,
-        sparse: true // Allows null/undefined values to not conflict
+        sparse: true, // Allows null/undefined values to not conflict
+        default: undefined,
+        set: v => (!v ? undefined : v)
     },
     centre: {
         type: String,

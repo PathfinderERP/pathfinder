@@ -131,13 +131,8 @@ export const getCentreRankings = async (req, res) => {
         const paymentMatch = {
             billId: { $regex: /^PATH/i },
             paidAmount: { $gt: 0 },
-            $or: [
-                { status: { $in: ["PAID", "PARTIAL"] } },
-                {
-                    paymentMethod: "CHEQUE",
-                    status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-                }
-            ]
+            // Only include cleared/paid transactions (PENDING_CLEARANCE excluded until cheque clearance)
+            status: { $in: ["PAID", "PARTIAL"] }
         };
 
         // Build pipeline dynamically: add effectiveDate then filter by date range

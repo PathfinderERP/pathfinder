@@ -565,8 +565,8 @@ export const createAdmission = async (req, res) => {
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
 
-            // Generate bill ID for all payment methods (including Cheque) to allow receipt download
-            let newBillId = await generateBillId(centreCode, admission.downPaymentReceivedDate);
+            // Generate bill ID only for non-CHEQUE payments (CHEQUE bill is generated on clearance)
+            let newBillId = (paymentMethod === "CHEQUE") ? null : await generateBillId(centreCode, admission.downPaymentReceivedDate);
 
             const paymentData = {
                 admission: admission._id,

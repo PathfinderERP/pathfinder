@@ -268,8 +268,6 @@ export const updatePaymentInstallment = async (req, res) => {
             }
         });
 
-        await admission.save();
-
         // Create or update Payment record with bill details if status is PAID or PARTIAL (since we accepted money)
         // We log the payment for the amount that WAS paid.
         if (installment.paidAmount > 0) {
@@ -300,9 +298,9 @@ export const updatePaymentInstallment = async (req, res) => {
                 status: { $nin: ["REJECTED", "CANCELLED"] }
             });
 
-            // Generate bill ID only if PAID (unless it's a CHEQUE which needs an ID for clearance)
+            // Generate bill ID only for non-CHEQUE payments (CHEQUE bill is generated on clearance)
             let newBillId = null;
-            if (!payment || !payment.billId) {
+            if ((!payment || !payment.billId) && paymentMethod !== "CHEQUE") {
                 newBillId = await generateBillId(centreCode, installment.receivedDate);
                 console.log(`Generated new bill ID: ${newBillId} for transaction: ${finalTransactionId}`);
             }
@@ -332,7 +330,7 @@ export const updatePaymentInstallment = async (req, res) => {
                     courseFee: parseFloat(courseFee.toFixed(2)),
                     totalAmount: parseFloat(totalAmount.toFixed(2)),
                     isCarryForward: carryForward || false,
-                    billId: newBillId
+                    billId: newBillId || undefined
                 });
                 await payment.save();
             } else {
@@ -364,6 +362,9 @@ export const updatePaymentInstallment = async (req, res) => {
             }
         }
 
+        // Save admission after payment record is successfully created/updated
+        await admission.save();
+
         const updatedAdmission = await Admission.findById(admissionId)
             .populate('student')
             .populate('course')
@@ -384,6 +385,7 @@ export const updatePaymentInstallment = async (req, res) => {
             admission: updatedAdmission
         });
     } catch (err) {
+        console.error("updatePaymentInstallment Error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };

@@ -404,7 +404,7 @@ export const createBoardAdmission = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-            const billId = await generateBillId(centreCode, receivedDate || new Date());
+            const billId = (paymentMethod === "CHEQUE") ? null : await generateBillId(centreCode, receivedDate || new Date());
             const exempt = isGstExempt({
                 centreName: centre,
                 boardName: boardCourseName,
@@ -1003,7 +1003,7 @@ export const collectBoardExamFee = async (req, res) => {
             const paidAmountForBill = Number(amount);
             if (paidAmountForBill <= 0) return;
 
-            const billId = await generateBillId(centreCode, receivedDate || new Date());
+            const billId = (paymentMethod === "CHEQUE") ? null : await generateBillId(centreCode, receivedDate || new Date());
 
             const exempt = isGstExempt({ centreName: admission.centre, boardName: admission.boardCourseName, student: admission.studentId });
             const taxableAmount = exempt ? paidAmount : paidAmount / 1.18;
@@ -1219,7 +1219,7 @@ export const collectBoardInstallment = async (req, res) => {
             if (totalPaidToday <= 0) return; // Nothing to record
 
 
-            const billId = await generateBillId(centreCode, receivedDate || new Date());
+            const billId = (paymentMethod === "CHEQUE") ? null : await generateBillId(centreCode, receivedDate || new Date());
 
             const exempt = isGstExempt({ centreName: admission.centre, boardName: admission.boardCourseName, student: admission.studentId });
             const taxableAmount = exempt ? totalPaidToday : totalPaidToday / 1.18;
@@ -1324,7 +1324,7 @@ export const collectBoardAdditionalFee = async (req, res) => {
             const paidAmountForBill = Number(amount);
             if (paidAmountForBill <= 0) return;
 
-            const billId = await generateBillId(centreCode, new Date());
+            const billId = (paymentMethod === "CHEQUE") ? null : await generateBillId(centreCode, receivedDate || new Date());
 
             const exempt = isGstExempt({ centreName: admission.centre, boardName: admission.boardCourseName, student: admission.studentId });
             const taxableAmount = exempt ? paidAmount : paidAmount / 1.18;
@@ -1441,7 +1441,7 @@ export const collectNcrpFees = async (req, res) => {
                 centreObj = await Centre.findOne({ centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') } });
             }
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
-            const billId = await generateBillId(centreCode, new Date());
+            const billId = (paymentMethod === "CHEQUE") ? null : await generateBillId(centreCode, receivedDate || new Date());
 
             const exempt = isGstExempt({ centreName: admission.centre, boardName: admission.boardCourseName, student: admission.studentId });
             const taxableAmount = exempt ? totalPaidToday : totalPaidToday / 1.18;

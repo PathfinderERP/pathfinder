@@ -133,18 +133,21 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                 }
                 setShowPaymentModal(false);
 
-                // Show bill generator after payment
-                setBillModal({
-                    show: true,
-                    admission: admission,
-                    installment: {
-                        ...selectedInstallment,
-                        paidAmount: paymentData.paidAmount,
-                        paymentMethod: paymentData.paymentMethod,
-                        receivedDate: paymentData.receivedDate,
-                        status: paymentData.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID"
-                    }
-                });
+                // Show bill generator only for non-CHEQUE payments.
+                // For CHEQUE: no bill until the cheque is cleared in Cheque Management.
+                if (paymentData.paymentMethod !== "CHEQUE") {
+                    setBillModal({
+                        show: true,
+                        admission: admission,
+                        installment: {
+                            ...selectedInstallment,
+                            paidAmount: paymentData.paidAmount,
+                            paymentMethod: paymentData.paymentMethod,
+                            receivedDate: paymentData.receivedDate,
+                            status: "PAID"
+                        }
+                    });
+                }
 
                 setSelectedInstallment(null);
                 onUpdate();
@@ -606,24 +609,24 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                                         SETTLE NOW
                                                                     </button>
                                                                 ) : (
-                                                                    (isPaid || payment.status === "PENDING_CLEARANCE") && payment.paidAmount > 0 && (
+                                                                    isPaid && payment.paidAmount > 0 && (
                                                                         <button
                                                                             onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
                                                                             disabled={admission.student?.status === 'Deactivated'}
                                                                             className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center gap-2 ml-auto ${admission.student?.status === 'Deactivated' ? 'bg-gray-800/10 dark:bg-white/5 text-gray-500 cursor-not-allowed opacity-30 shadow-none' : 'bg-gray-100 dark:bg-white/5 text-cyan-500 hover:bg-cyan-500 hover:text-white border border-cyan-500/20'}`}
                                                                         >
-                                                                            <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? "RECEIPT" : "DOCKET"}
+                                                                            <FaFileInvoice /> DOCKET
                                                                         </button>
                                                                     )
                                                                 )
                                                             ) : (
-                                                                (isPaid || payment.status === "PENDING_CLEARANCE") && payment.paidAmount > 0 && (
+                                                                isPaid && payment.paidAmount > 0 && (
                                                                     <button
                                                                         onClick={() => admission.student?.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
                                                                         disabled={admission.student?.status === 'Deactivated'}
                                                                         className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center gap-2 ml-auto ${admission.student?.status === 'Deactivated' ? 'bg-gray-800/10 dark:bg-white/5 text-gray-500 cursor-not-allowed opacity-30 shadow-none' : 'bg-gray-100 dark:bg-white/5 text-cyan-500 hover:bg-cyan-500 hover:text-white border border-cyan-500/20'}`}
                                                                     >
-                                                                        <FaFileInvoice /> {payment.status === "PENDING_CLEARANCE" ? "RECEIPT" : "DOCKET"}
+                                                                        <FaFileInvoice /> DOCKET
                                                                     </button>
                                                                 )
                                                             )}

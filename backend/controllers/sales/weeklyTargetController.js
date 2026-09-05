@@ -45,11 +45,7 @@ const getDailyAchievedForCentre = async (centreName, startDate, endDate) => {
                 $match: {
                     "admissionDetails.centre": centreName,
                     billId: { $exists: true, $nin: [null, "", "-"] },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
-                        { paymentMethod: { $exists: true } },
-                        { paidAmount: { $gt: 0 } }
-                    ]
+                    status: { $in: ["PAID", "PARTIAL"] }
                 }
             },
             {
@@ -192,13 +188,7 @@ const getDailyAchievedForAllCentres = async (centreNames, startDate, endDate) =>
             {
                 $match: {
                     billId: { $regex: /^PATH/i },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL"] } },
-                        {
-                            paymentMethod: "CHEQUE",
-                            status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-                        }
-                    ],
+                    status: { $in: ["PAID", "PARTIAL"] },
                     effectiveCentre: { $in: regexes },
                     effectiveDate: { $gte: startDate, $lte: endDate }
                 }

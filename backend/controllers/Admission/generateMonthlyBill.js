@@ -320,15 +320,15 @@ export const generateMonthlyBill = async (req, res) => {
                 existingPayment.courseFee = baseFees;
                 existingPayment.totalAmount = totalAmount;
 
-                // Generate bill ID for all methods if missing
-                if (!existingPayment.billId) {
+                // Generate bill ID only for non-CHEQUE payments (CHEQUE bill is generated on clearance)
+                if (!existingPayment.billId && paymentMethod !== "CHEQUE") {
                     existingPayment.billId = await generateBillId(centreCode, existingPayment.receivedDate);
                 }
 
                 await existingPayment.save();
             } else {
-                // Generate bill ID for all methods to allow receipts
-                let newBillId = await generateBillId(centreCode, receivedDate ? new Date(receivedDate) : new Date());
+                // Generate bill ID only for non-CHEQUE payments to allow receipts
+                let newBillId = (paymentMethod === "CHEQUE") ? null : await generateBillId(centreCode, receivedDate ? new Date(receivedDate) : new Date());
 
                 const paymentData = {
                     admission: admission._id,

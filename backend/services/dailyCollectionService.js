@@ -39,11 +39,7 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
             {
                 $match: {
                     billId: { $exists: true, $nin: [null, "", "-"] },
-                    $or: [
-                        { status: { $in: ["PAID", "PARTIAL", "PENDING_CLEARANCE", "REJECTED"] } },
-                        { paymentMethod: { $exists: true } },
-                        { paidAmount: { $gt: 0 } }
-                    ]
+                    status: { $in: ["PAID", "PARTIAL"] }
                 }
             },
             {
@@ -184,13 +180,9 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const paymentMatch = {
         paidAmount: { $gte: 0 },
         billId: { $regex: /^PATH/i },
-        $or: [
-            { status: { $in: ["PAID", "PARTIAL"] } },
-            {
-                paymentMethod: "CHEQUE",
-                status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-            }
-        ]
+        // Only include cleared/paid transactions. PENDING_CLEARANCE cheques are excluded
+        // until the cheque is cleared in Cheque Management (at which point status becomes PAID)
+        status: { $in: ["PAID", "PARTIAL"] }
     };
 
     if (paymentMode) {
@@ -241,8 +233,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             }
         }
     } else {
-        const defaultAllCentreNames = allCentreNames.filter(name => name && !/franchise/i.test(name) && !/rkm/i.test(name));
-        const defaultAllowedCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name) && !/rkm/i.test(name));
+        const defaultAllCentreNames = allCentreNames.filter(name => name && !/franchise/i.test(name));
+        const defaultAllowedCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name));
         if (user.role !== 'superAdmin') {
             admissionMatch["effectiveCentre"] = { $in: defaultAllowedCentreNames.length > 0 ? buildCentreRegexes(defaultAllowedCentreNames) : ["__NO_MATCH__"] };
         } else {
@@ -311,7 +303,20 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         { $match: paymentMatch },
         {
             $addFields: {
-                effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$chequeDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
+                effectiveDate: {
+                    $cond: {
+                        if: { $eq: ["$paymentMethod", "CHEQUE"] },
+                        then: {
+                            $ifNull: [
+                                { $toDate: "$clearedOrRejectedDate" },
+                                { $toDate: "$paidDate" },
+                                { $toDate: "$chequeDate" },
+                                "$createdAt"
+                            ]
+                        },
+                        else: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
+                    }
+                }
             }
         },
         {
@@ -464,7 +469,13 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 courseName: {
                     $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName", "$admissionInfo.course"]
                 },
-                mrDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
+                mrDate: {
+                    $cond: {
+                        if: { $eq: ["$paymentMethod", "CHEQUE"] },
+                        then: { $ifNull: ["$updatedAt", "$paidDate", "$createdAt"] },
+                        else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
+                    }
+                },
                 actualReceivedDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
                 effectiveDate: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] },
                 recordedByName: {

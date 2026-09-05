@@ -56,7 +56,7 @@ export const getBoardReport = async (req, res) => {
                 const activeCentres = await Centre.find({ status: { $ne: "deactive" } }).select("centreName");
                 allowedCentreNames = activeCentres.map(c => c.centreName);
             }
-            const defaultCentreNames = allowedCentreNames.filter(name => name && !/phsps/i.test(name) && !/franchise/i.test(name) && !/rkm/i.test(name));
+            const defaultCentreNames = allowedCentreNames.filter(name => name && !/phsps/i.test(name) && !/franchise/i.test(name));
             matchStage.centre = { $in: defaultCentreNames.length > 0 ? defaultCentreNames : ["__NO_MATCH__"] };
         }
 

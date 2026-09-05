@@ -1568,7 +1568,13 @@ const StudentAdmissionPage = () => {
                         </p>
 
                         <div className="space-y-3">
-                            {createdAdmission.downPayment > 0 && (
+                            {formData.paymentMethod === "CHEQUE" && (
+                                <div className={`p-3 rounded-lg border text-left ${isDarkMode ? 'bg-yellow-900/20 border-yellow-700/40 text-yellow-300' : 'bg-yellow-50 border-yellow-300 text-yellow-800'}`}>
+                                    <p className="text-xs font-bold uppercase tracking-wide mb-1">⚠ Cheque — Pending Clearance</p>
+                                    <p className="text-[11px]">Payment recorded. The bill will be generated only after the cheque is approved in <strong>Cheque Management</strong>. No transaction will appear in Finance reports until then.</p>
+                                </div>
+                            )}
+                            {createdAdmission.downPayment > 0 && formData.paymentMethod !== "CHEQUE" && (
                                 <button
                                     onClick={() => setBillModal({
                                         show: true,
@@ -1579,12 +1585,12 @@ const StudentAdmissionPage = () => {
                                             paidAmount: createdAdmission.downPayment,
                                             paidDate: new Date(),
                                             paymentMethod: formData.paymentMethod,
-                                            status: formData.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID"
+                                            status: "PAID"
                                         }
                                     })}
                                     className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center justify-center gap-2 shadow-md"
                                 >
-                                    <FaFileInvoice /> {formData.paymentMethod === "CHEQUE" ? "Generate Acknowledgement (Cheque)" : "Generate Bill (Down Payment)"}
+                                    <FaFileInvoice /> Generate Bill (Down Payment)
                                 </button>
                             )}
 

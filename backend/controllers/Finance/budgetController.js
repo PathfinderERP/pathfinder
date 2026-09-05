@@ -40,7 +40,7 @@ export const getBudgetCentres = async (req, res) => {
         const endDate = new Date(currentYear, now.getMonth() + 1, 0, 23, 59, 59, 999);
 
         const allMonthPayments = await Payment.find({
-            status: { $in: ["PAID", "paid", "PARTIAL", "partial", "COMPLETED", "completed", "PENDING_CLEARANCE", "pending_clearance"] },
+            status: { $in: ["PAID", "paid", "PARTIAL", "partial", "COMPLETED", "completed"] },
             $or: [
                 { receivedDate: { $gte: startDate, $lte: endDate } },
                 { paidDate: { $gte: startDate, $lte: endDate } },
@@ -143,7 +143,7 @@ export const getBudgetsByCentre = async (req, res) => {
             // Calculate Actual Income
             const payments = await Payment.find({
                 admission: { $in: admissionIds },
-                status: { $in: ["PAID", "paid", "PARTIAL", "partial", "COMPLETED", "completed", "PENDING_CLEARANCE", "pending_clearance"] },
+                status: { $in: ["PAID", "paid", "PARTIAL", "partial", "COMPLETED", "completed"] },
                 $or: [
                     { receivedDate: { $gte: startDate, $lte: endDate } },
                     { paidDate: { $gte: startDate, $lte: endDate } },

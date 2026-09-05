@@ -71,7 +71,7 @@ export const getCourseReport = async (req, res) => {
             }
         } else {
             const defaultNames = (req.user.role !== 'superAdmin' ? allowedCentreNames : activeCentreNames)
-                .filter(name => name && !/phsps/i.test(name) && !/franchise/i.test(name) && !/rkm/i.test(name));
+                .filter(name => name && !/phsps/i.test(name) && !/franchise/i.test(name));
             matchStage.centre = { $in: defaultNames.length > 0 ? defaultNames : ["__NO_MATCH__"] };
         }
 

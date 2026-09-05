@@ -136,13 +136,8 @@ export const getManpowerTargets = async (req, res) => {
                         billId: { $regex: /^PATH/i },
                         paidAmount: { $gt: 0 },
                         recordedBy: { $in: userIds },
-                        $or: [
-                            { status: { $in: ["PAID", "PARTIAL"] } },
-                            {
-                                paymentMethod: "CHEQUE",
-                                status: { $in: ["PAID", "PARTIAL", "PENDING", "PENDING_CLEARANCE", "REJECTED"] }
-                            }
-                        ]
+                        // Only include cleared/paid transactions (PENDING_CLEARANCE excluded until cheque clearance)
+                        status: { $in: ["PAID", "PARTIAL"] }
                     }
                 },
                 {

@@ -1713,21 +1713,24 @@ const InstallmentPayment = () => {
                 toast.success(dataToSubmit.paymentMethod === "CHEQUE" ? "Cheque recorded! Pending clearance." : "Payment successful!");
                 setShowPayModal(false);
 
-                // Show bill generator (Acknowledgement for cheques, Bill for others)
-                setBillModal({
-                    show: true,
-                    admission: data.admission,
-                    installment: {
-                        installmentNumber: activeInstallment.installmentNumber,
-                        amount: activeInstallment.amount,
-                        paidAmount: dataToSubmit.paidAmount,
-                        paidDate: new Date(),
-                        receivedDate: dataToSubmit.receivedDate,
-                        paymentMethod: dataToSubmit.paymentMethod,
-                        transactionId: dataToSubmit.transactionId,
-                        status: dataToSubmit.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID"
-                    }
-                });
+                // Show bill generator only for non-CHEQUE payments.
+                // For CHEQUE: no bill is generated until cleared in Cheque Management.
+                if (dataToSubmit.paymentMethod !== "CHEQUE") {
+                    setBillModal({
+                        show: true,
+                        admission: data.admission,
+                        installment: {
+                            installmentNumber: activeInstallment.installmentNumber,
+                            amount: activeInstallment.amount,
+                            paidAmount: dataToSubmit.paidAmount,
+                            paidDate: new Date(),
+                            receivedDate: dataToSubmit.receivedDate,
+                            paymentMethod: dataToSubmit.paymentMethod,
+                            transactionId: dataToSubmit.transactionId,
+                            status: "PAID"
+                        }
+                    });
+                }
 
                 // Refresh financial details
                 handleSelectStudent(selectedStudent.studentId);
@@ -4015,7 +4018,7 @@ const InstallmentPayment = () => {
                                                                                     Pay Now
                                                                                 </button>
                                                                             )}
-                                                                            {(installment.status === "PAID" || installment.status === "COMPLETED" || installment.status === "PENDING_CLEARANCE" || (installment.paidAmount > 0)) && (
+                                                                            {(installment.status === "PAID" || installment.status === "COMPLETED") && (
                                                                                 <button
                                                                                     onClick={() => setBillModal({
                                                                                         show: true,

@@ -31,7 +31,7 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
     department: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "Department",
-        required: true
+        required: false
     },
     programme: {
         type: String,
