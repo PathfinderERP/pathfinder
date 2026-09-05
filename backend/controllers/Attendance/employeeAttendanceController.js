@@ -1150,7 +1150,7 @@ export const manualMarkAttendance = async (req, res) => {
             return res.status(403).json({ message: "Forbidden: Manual Attendance Override is restricted to Superadmin and HR roles only." });
         }
 
-        const { employeeId, date, checkIn, checkOut, status, remarks } = req.body;
+        const { employeeId, date, checkIn, checkOut, status, remarks, centreId: reqCentreId } = req.body;
 
         if (!employeeId || !date) {
             return res.status(400).json({ message: "Employee and Date are required" });
@@ -1190,7 +1190,10 @@ export const manualMarkAttendance = async (req, res) => {
             return res.status(400).json({ message: "This employee does not have a linked user account. Please setup their portal access first." });
         }
 
-        const centreId = employee.primaryCentre?._id || employee.centres?.[0]?._id;
+        const centreId = (reqCentreId && mongoose.Types.ObjectId.isValid(reqCentreId))
+            ? reqCentreId
+            : (employee.primaryCentre?._id || employee.centres?.[0]?._id);
+
         if (!centreId) {
             return res.status(400).json({ message: "Employee profile is missing a Primary Centre. Please update their profile first." });
         }
@@ -1208,6 +1211,7 @@ export const manualMarkAttendance = async (req, res) => {
 
         if (isFullDayOff) {
             if (attendance) {
+                attendance.centreId = centreId;
                 attendance.status = targetStatus;
                 attendance.remarks = (remarks || `Manually marked as ${targetStatus} by ${req.user.role || 'HR'}`).toUpperCase();
                 attendance.manuallyMarkedBy = req.user._id;
@@ -1258,7 +1262,12 @@ export const manualMarkAttendance = async (req, res) => {
                     checkInTime = new Date(markDate);
                     checkInTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
                 }
-                updateData.checkIn = { time: checkInTime, address: "HR Manual Entry" };
+                updateData.checkIn = { time: checkInTime, address: "HR Manual Entry", centreId };
+            } else if (attendance && attendance.checkIn) {
+                updateData.checkIn = {
+                    ...attendance.checkIn,
+                    centreId
+                };
             }
 
             if (checkOut) {
@@ -1270,12 +1279,18 @@ export const manualMarkAttendance = async (req, res) => {
                     checkOutTime = new Date(markDate);
                     checkOutTime.setHours(parseInt(hours), parseInt(minutes), 0, 0);
                 }
-                updateData.checkOut = { time: checkOutTime, address: "HR Manual Entry" };
+                updateData.checkOut = { time: checkOutTime, address: "HR Manual Entry", centreId };
 
-                if (updateData.checkIn) {
-                    const diffMs = updateData.checkOut.time - updateData.checkIn.time;
+                const effectiveCheckIn = updateData.checkIn?.time || attendance?.checkIn?.time;
+                if (effectiveCheckIn) {
+                    const diffMs = updateData.checkOut.time - new Date(effectiveCheckIn).getTime();
                     updateData.workingHours = parseFloat((diffMs / (1000 * 60 * 60)).toFixed(2));
                 }
+            } else if (attendance && attendance.checkOut) {
+                updateData.checkOut = {
+                    ...attendance.checkOut,
+                    centreId
+                };
             }
 
             if (attendance) {

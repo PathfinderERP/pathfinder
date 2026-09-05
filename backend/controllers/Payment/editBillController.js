@@ -515,6 +515,7 @@ export const updateBill = async (req, res) => {
                 {
                     $set: {
                         billId: payment.billId,
+                        amountPaid: billTotal,
                         ...(paymentMethod ? { paymentMethod } : {})
                     }
                 }
@@ -525,6 +526,7 @@ export const updateBill = async (req, res) => {
                 {
                     $set: {
                         billId: payment.billId,
+                        amountPaid: billTotal,
                         ...(paymentMethod ? { paymentMethod } : {})
                     }
                 }

@@ -173,11 +173,12 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
         designation: "",
         employeeId: "",
         date: format(new Date(), 'yyyy-MM-dd'),
-        checkIn: "09:00",
-        checkOut: "18:00",
-        status: "Week Off",
-        remarks: "Week Off marked upon employee request"
+        checkIn: "",
+        checkOut: "",
+        status: "Present",
+        remarks: ""
     });
+    const [filterCentreId, setFilterCentreId] = useState("");
     const [searchTerm, setSearchTerm] = useState("");
     const [employees, setEmployees] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -191,21 +192,28 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                 designation: initialData.designation || "",
                 employeeId: initialData.employeeId || "",
                 date: initialData.date || format(new Date(), 'yyyy-MM-dd'),
-                checkIn: initialData.checkIn || "09:00",
-                checkOut: initialData.checkOut || "18:00",
-                status: initialData.status || "Week Off",
-                remarks: initialData.remarks || (initialData.status === "Week Off" ? "Week Off marked upon employee request" : "")
+                checkIn: initialData.checkIn !== undefined ? initialData.checkIn : "",
+                checkOut: initialData.checkOut !== undefined ? initialData.checkOut : "",
+                status: initialData.status || "Present",
+                remarks: initialData.remarks || ""
             });
+            setFilterCentreId(initialData.centreId || "");
             if (initialData.employeeName) {
                 setSearchTerm(initialData.employeeName);
             }
         } else {
-            setFormData(prev => ({
-                ...prev,
+            setFormData({
+                centreId: "",
+                department: "",
+                designation: "",
+                employeeId: "",
                 date: format(new Date(), 'yyyy-MM-dd'),
-                status: "Week Off",
-                remarks: "Week Off marked upon employee request"
-            }));
+                checkIn: "",
+                checkOut: "",
+                status: "Present",
+                remarks: ""
+            });
+            setFilterCentreId("");
             setSearchTerm("");
         }
     }, [isOpen, initialData]);
@@ -220,8 +228,8 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                 const userCentres = currentUser?.centres?.map(c => c._id || c) || [];
 
                 const queryParams = new URLSearchParams();
-                if (formData.centreId) {
-                    queryParams.append("centre", formData.centreId);
+                if (filterCentreId) {
+                    queryParams.append("centre", filterCentreId);
                 } else if (!isSuperAdmin && userCentres.length > 0) {
                     queryParams.append("centre", userCentres.join(','));
                 }
@@ -245,13 +253,14 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
         };
         const timeoutId = setTimeout(fetchEmployees, 300);
         return () => clearTimeout(timeoutId);
-    }, [formData.centreId, formData.department, formData.designation, searchTerm, isOpen]);
+    }, [filterCentreId, formData.department, formData.designation, searchTerm, isOpen]);
 
     const isFullDayOff = ["Week Off", "Holiday", "Leave", "Absent"].includes(formData.status);
 
     const handleSubmit = async (e) => {
         e.preventDefault();
         if (!formData.employeeId || !formData.date) return toast.error("Employee and Date are required");
+        if (!formData.centreId) return toast.error("Please select an Attendance Centre");
 
         setLoading(true);
         try {
@@ -307,16 +316,17 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-8 space-y-6 overflow-y-auto max-h-[70vh] custom-scrollbar">
+                    {/* Filter Bar */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <div className="space-y-1">
-                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Target Centre</label>
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Filter Centre</label>
                             <select
-                                value={formData.centreId}
-                                onChange={(e) => setFormData({ ...formData, centreId: e.target.value, employeeId: "" })}
+                                value={filterCentreId}
+                                onChange={(e) => setFilterCentreId(e.target.value)}
                                 className={`w-full border rounded-[2px] p-3 text-xs uppercase font-black tracking-widest outline-none focus:border-cyan-500/50 transition-all font-mono ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                             >
                                 <option value="">ALL CENTRES</option>
-                                {centres.map(c => <option key={c._id} value={c._id}>{c.centreName}</option>)}
+                                {centres.map(c => <option key={c._id} value={c._id}>{c.centreName || c.name}</option>)}
                             </select>
                         </div>
                         <div className="space-y-1">
@@ -363,7 +373,15 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                             <select
                                 required
                                 value={formData.employeeId}
-                                onChange={(e) => setFormData({ ...formData, employeeId: e.target.value })}
+                                onChange={(e) => {
+                                    const empId = e.target.value;
+                                    const selectedEmp = employees.find(emp => emp._id === empId);
+                                    setFormData(prev => ({
+                                        ...prev,
+                                        employeeId: empId,
+                                        centreId: prev.centreId || selectedEmp?.primaryCentre?._id || selectedEmp?.primaryCentre || selectedEmp?.centres?.[0]?._id || selectedEmp?.centres?.[0] || ""
+                                    }));
+                                }}
                                 className={`w-full border rounded-[2px] p-4 text-xs uppercase font-black tracking-widest outline-none focus:border-cyan-500 transition-all shadow-lg font-mono ${isDarkMode ? 'bg-[#1a1c1e] border-cyan-500/30 text-white' : 'bg-white border-cyan-500/20 text-gray-900'}`}
                             >
                                 <option value="">{employees.length > 0 ? `SELECT FROM ${employees.length} RESULTS` : 'NO EMPLOYEES FOUND'}</option>
@@ -376,9 +394,30 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Attendance Centre & Effective Date */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1">
-                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Effective Date</label>
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                Attendance Centre / Location <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                                required
+                                value={formData.centreId}
+                                onChange={(e) => setFormData({ ...formData, centreId: e.target.value })}
+                                className={`w-full border rounded-[2px] p-3 text-xs uppercase font-black tracking-widest outline-none focus:border-cyan-500 transition-all font-mono ${isDarkMode ? 'bg-[#1a1c1e] border-cyan-500/40 text-white' : 'bg-white border-cyan-500/30 text-gray-900'}`}
+                            >
+                                <option value="">SELECT ATTENDANCE CENTRE</option>
+                                {centres.map(c => (
+                                    <option key={c._id} value={c._id}>
+                                        {c.centreName || c.name}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                        <div className="space-y-1">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                Effective Date <span className="text-red-500">*</span>
+                            </label>
                             <input
                                 type="date"
                                 required
@@ -387,6 +426,9 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                                 className={`w-full border rounded-[2px] p-3 text-xs outline-none focus:border-cyan-500/50 font-mono ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
                             />
                         </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-1">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                                 Check In Time {isFullDayOff && <span className="text-gray-500 lowercase">(not required for {formData.status})</span>}
@@ -400,16 +442,38 @@ const ManualAttendanceModal = ({ isOpen, onClose, centres, departments, designat
                             />
                         </div>
                         <div className="space-y-1">
-                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                Check Out Time {isFullDayOff && <span className="text-gray-500 lowercase">(not required for {formData.status})</span>}
-                            </label>
-                            <input
-                                type="time"
-                                disabled={isFullDayOff}
-                                value={isFullDayOff ? "" : formData.checkOut}
-                                onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
-                                className={`w-full border rounded-[2px] p-3 text-xs font-mono disabled:opacity-30 disabled:cursor-not-allowed ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}
-                            />
+                            <div className="flex items-center justify-between">
+                                <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                    Check Out Time {isFullDayOff ? <span className="text-gray-500 lowercase">(not required for {formData.status})</span> : <span className="text-cyan-500 lowercase font-normal">(leave blank if not checked out)</span>}
+                                </label>
+                                {formData.checkOut && !isFullDayOff && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, checkOut: "" }))}
+                                        className="text-[10px] text-rose-400 hover:text-rose-300 font-bold uppercase tracking-wider transition-colors cursor-pointer"
+                                    >
+                                        Clear / Blank
+                                    </button>
+                                )}
+                            </div>
+                            <div className="relative flex items-center">
+                                <input
+                                    type="time"
+                                    disabled={isFullDayOff}
+                                    value={isFullDayOff ? "" : (formData.checkOut || "")}
+                                    onChange={(e) => setFormData({ ...formData, checkOut: e.target.value })}
+                                    className={`w-full border rounded-[2px] p-3 text-xs font-mono disabled:opacity-30 disabled:cursor-not-allowed ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'} ${formData.checkOut && !isFullDayOff ? 'pr-20' : ''}`}
+                                />
+                                {formData.checkOut && !isFullDayOff && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setFormData(prev => ({ ...prev, checkOut: "" }))}
+                                        className="absolute right-2 px-2 py-1 text-[10px] bg-rose-500/20 hover:bg-rose-500/30 text-rose-400 border border-rose-500/30 rounded font-semibold transition-all cursor-pointer"
+                                    >
+                                        ✕ Clear
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
 
@@ -1659,15 +1723,20 @@ const EmployeesAttendance = () => {
                                             </button>
                                             <button
                                                 onClick={() => {
+                                                    const todayRec = userAnalysisData?.summary?.todayRecord;
+                                                    const cIn = todayRec?.checkIn?.time || todayRec?.checkIn;
+                                                    const cOut = todayRec?.checkOut?.time || todayRec?.checkOut;
                                                     setManualOverrideInitial({
                                                         employeeId: selectedUser.employeeId?._id,
                                                         employeeName: selectedUser.employeeId?.name,
-                                                        centreId: selectedUser.employeeId?.primaryCentre?._id,
+                                                        centreId: todayRec?.checkIn?.centreId?._id || todayRec?.checkIn?.centreId || todayRec?.centreId?._id || todayRec?.centreId || selectedUser.employeeId?.primaryCentre?._id,
                                                         department: selectedUser.employeeId?.department?._id,
                                                         designation: selectedUser.employeeId?.designation?._id,
                                                         date: format(new Date(), 'yyyy-MM-dd'),
-                                                        status: 'Week Off',
-                                                        remarks: 'Week Off marked upon employee request'
+                                                        checkIn: cIn ? format(new Date(cIn), 'HH:mm') : "",
+                                                        checkOut: cOut ? format(new Date(cOut), 'HH:mm') : "",
+                                                        status: todayRec?.status || 'Present',
+                                                        remarks: todayRec?.remarks || ''
                                                     });
                                                     setShowManualMarkModal(true);
                                                 }}
@@ -1765,16 +1834,18 @@ const EmployeesAttendance = () => {
                                                                     setManualOverrideInitial({
                                                                         employeeId: selectedUser.employeeId?._id,
                                                                         employeeName: selectedUser.employeeId?.name,
-                                                                        centreId: selectedUser.employeeId?.primaryCentre?._id,
+                                                                        centreId: r.checkIn?.centreId?._id || r.checkIn?.centreId || r.centreId?._id || r.centreId || selectedUser.employeeId?.primaryCentre?._id,
                                                                         department: selectedUser.employeeId?.department?._id,
                                                                         designation: selectedUser.employeeId?.designation?._id,
                                                                         date: format(new Date(r.date), 'yyyy-MM-dd'),
-                                                                        status: 'Week Off',
-                                                                        remarks: 'Week Off marked upon employee request'
+                                                                        checkIn: r.checkIn?.time ? format(new Date(r.checkIn.time), 'HH:mm') : "09:00",
+                                                                        checkOut: r.checkOut?.time ? format(new Date(r.checkOut.time), 'HH:mm') : "",
+                                                                        status: r.status || 'Present',
+                                                                        remarks: r.remarks || (r.status === 'Week Off' ? 'Week Off marked upon employee request' : 'Manual override by HR')
                                                                     });
                                                                     setShowManualMarkModal(true);
                                                                 }}
-                                                                title="Click to override / mark week off for this date"
+                                                                title="Click to override centre, timings, or status for this date"
                                                                 className={`grid grid-cols-5 gap-1 items-center px-3 py-2.5 rounded-[2px] border transition-all cursor-pointer ${
                                                                     isDarkMode
                                                                         ? 'bg-[#0e1012] border-gray-800/60 hover:border-cyan-500/40 hover:bg-cyan-500/5'

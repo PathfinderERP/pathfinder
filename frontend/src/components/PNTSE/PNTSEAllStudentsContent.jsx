@@ -477,7 +477,7 @@ const PNTSEAllStudentsContent = () => {
                 "Course": student.course || '',
                 "Fee Status": isPaid ? 'PAID' : 'FREE',
                 "Bill No.": billNumber,
-                "Amount Paid (Rs)": student.amountPaid ?? 0,
+                "Amount Paid (Rs)": (student.amountPaid && student.amountPaid > 0) ? student.amountPaid : (student.paymentId?.paidAmount ?? student.amountPaid ?? 0),
                 "Waiver (Rs)": student.waiver ?? 0,
                 "Exam Tag": student.examTag?.name || '',
                 "Session": student.session?.sessionName || student.session?.name || '',
@@ -862,7 +862,7 @@ const PNTSEAllStudentsContent = () => {
                                                 className="px-2 py-0.5 rounded text-xs font-semibold uppercase bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 transition-colors flex items-center gap-1.5 cursor-pointer border border-emerald-500/30"
                                             >
                                                 <FaFileInvoice className="text-[10px]" />
-                                                PAID (Rs. {student.amountPaid})
+                                                PAID (Rs. {(student.amountPaid && student.amountPaid > 0) ? student.amountPaid : (student.paymentId?.paidAmount ?? student.amountPaid ?? 0)})
                                             </button>
                                         ) : (
                                             <span className="px-2 py-0.5 rounded text-xs font-semibold uppercase bg-gray-500/20 text-gray-400">
@@ -1322,7 +1322,7 @@ const PNTSEAllStudentsContent = () => {
                                     </div>
                                     <div>
                                         <p className="text-[10px] text-gray-400 uppercase font-semibold">Amount Paid</p>
-                                        <p className="text-sm text-gray-200 mt-0.5 font-semibold">₹ {viewStudent.amountPaid ?? 0}</p>
+                                        <p className="text-sm text-gray-200 mt-0.5 font-semibold">₹ {(viewStudent.amountPaid && viewStudent.amountPaid > 0) ? viewStudent.amountPaid : (viewStudent.paymentId?.paidAmount ?? viewStudent.amountPaid ?? 0)}</p>
                                     </div>
                                     <div>
                                         <p className="text-[10px] text-gray-400 uppercase font-semibold">Waiver Applied</p>
