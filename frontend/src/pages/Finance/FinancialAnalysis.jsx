@@ -628,7 +628,7 @@ const FinancialAnalysis = () => {
                                 </div>
                                 <div className="flex gap-4 items-center">
                                     <div className="flex gap-2">
-                                        {['CASH', 'UPI', 'BANK_TRANSFER', 'CHEQUE', 'CHEQUE_PENDING'].map((method, idx) => (
+                                        {['CASH', 'UPI', 'CARD', 'BANK_TRANSFER', 'CHEQUE', 'CHEQUE_PENDING'].map((method, idx) => (
                                             <div key={method} className="flex items-center gap-1.5 bg-gray-900/50 px-3 py-1.5 rounded-[5px] border border-gray-800">
                                                 <div className="w-2 h-2 rounded-[5px]" style={{ backgroundColor: COLORS[idx % COLORS.length] }}></div>
                                                 <span className="text-[8px] font-black text-gray-400 uppercase tracking-widest">{method.replace('_', ' ')}</span>
@@ -674,13 +674,16 @@ const FinancialAnalysis = () => {
                                             <Bar dataKey="UPI" stackId="a" fill={COLORS[1]}>
                                                 <LabelList dataKey="UPI" position="inside" fill="#fff" fontSize={8} fontWeight="bold" formatter={(v) => v > 5000 ? `₹${(v / 1000).toFixed(0)}k` : ''} />
                                             </Bar>
-                                            <Bar dataKey="BANK_TRANSFER" stackId="a" fill={COLORS[2]}>
+                                            <Bar dataKey="CARD" stackId="a" fill={COLORS[2]}>
+                                                <LabelList dataKey="CARD" position="inside" fill="#fff" fontSize={8} fontWeight="bold" formatter={(v) => v > 5000 ? `₹${(v / 1000).toFixed(0)}k` : ''} />
+                                            </Bar>
+                                            <Bar dataKey="BANK_TRANSFER" stackId="a" fill={COLORS[3]}>
                                                 <LabelList dataKey="BANK_TRANSFER" position="inside" fill="#fff" fontSize={8} fontWeight="bold" formatter={(v) => v > 5000 ? `₹${(v / 1000).toFixed(0)}k` : ''} />
                                             </Bar>
-                                            <Bar dataKey="CHEQUE" stackId="a" fill={COLORS[3]}>
+                                            <Bar dataKey="CHEQUE" stackId="a" fill={COLORS[4]}>
                                                 <LabelList dataKey="CHEQUE" position="inside" fill="#fff" fontSize={8} fontWeight="bold" formatter={(v) => v > 5000 ? `₹${(v / 1000).toFixed(0)}k` : ''} />
                                             </Bar>
-                                            <Bar dataKey="CHEQUE_PENDING" stackId="a" fill={COLORS[4]} radius={5}>
+                                            <Bar dataKey="CHEQUE_PENDING" stackId="a" fill={COLORS[5]} radius={5}>
                                                 <LabelList dataKey="CHEQUE_PENDING" position="inside" fill="#fff" fontSize={8} fontWeight="bold" formatter={(v) => v > 5000 ? `₹${(v / 1000).toFixed(0)}k` : ''} />
                                             </Bar>
                                         </BarChart>

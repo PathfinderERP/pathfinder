@@ -45,7 +45,7 @@ const progressGrad = (pct) => {
 // Column headers for the 7-column calendar grid (Mon-Sun)
 const COL_HEADERS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const WEEKEND_COLS = new Set(["Sat", "Sun"]);
-const PAYMENT_METHODS = ["CASH", "CHEQUE", "ONLINE", "UPI", "NEFT", "RTGS", "OTHER"];
+const PAYMENT_METHODS = ["CASH", "CARD", "CHEQUE", "ONLINE", "UPI", "NEFT", "RTGS", "OTHER"];
 
 // ── Difference Indicator ──────────────────────────────────────────────────────
 const DiffIndicator = ({ target, achieved, fontSize = "text-[9px]", isDarkMode }) => {

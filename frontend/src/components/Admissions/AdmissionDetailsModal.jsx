@@ -746,17 +746,18 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
 
                             <div>
                                 <label className={labelClass}>PAYMENT PROTOCOL *</label>
-                                <div className={`grid grid-cols-3 gap-2 p-1.5 rounded-[4px] border ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+                                <div className={`grid grid-cols-4 gap-2 p-1.5 rounded-[4px] border ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                                     {[
                                         { id: 'CASH', label: 'CASH', icon: <FaMoneyBillWave /> },
-                                        { id: 'UPI', label: 'DIGITAL', icon: <FaCreditCard /> },
+                                        { id: 'UPI', label: 'UPI', icon: <FaCreditCard /> },
+                                        { id: 'CARD', label: 'CARD', icon: <FaCreditCard /> },
                                         { id: 'CHEQUE', label: 'BANK', icon: <FaUniversity /> }
                                     ].map((opt) => (
                                         <button
                                             key={opt.id}
                                             type="button"
                                             onClick={() => setPaymentData({ ...paymentData, paymentMethod: opt.id, transactionId: "", accountHolderName: "" })}
-                                            className={`flex flex-col items-center gap-1.5 py-3 rounded-[4px] transition-all border ${paymentData.paymentMethod === opt.id || (opt.id === 'UPI' && ["UPI", "CARD"].includes(paymentData.paymentMethod)) || (opt.id === 'CHEQUE' && ["CHEQUE", "BANK_TRANSFER"].includes(paymentData.paymentMethod))
+                                            className={`flex flex-col items-center gap-1.5 py-3 rounded-[4px] transition-all border ${paymentData.paymentMethod === opt.id || (opt.id === 'CHEQUE' && ["CHEQUE", "BANK_TRANSFER"].includes(paymentData.paymentMethod))
                                                 ? 'bg-cyan-600 border-cyan-500 text-white shadow-lg shadow-cyan-500/20'
                                                 : isDarkMode ? 'bg-white/5 border-transparent text-gray-500 hover:text-gray-300' : 'bg-white border-transparent text-gray-500 hover:text-gray-900 border-gray-200 shadow-sm'
                                                 }`}

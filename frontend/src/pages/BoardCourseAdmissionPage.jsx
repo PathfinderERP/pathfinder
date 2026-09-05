@@ -469,8 +469,8 @@ const BoardCourseAdmissionPage = () => {
             }
         }
 
-        if ((paymentMethod === "ONLINE" || paymentMethod === "UPI") && !transactionId) {
-            return toast.error(`Please provide Transaction ID for ${paymentMethod === "ONLINE" ? "Online" : "UPI"} payment`);
+        if ((paymentMethod === "ONLINE" || paymentMethod === "UPI" || paymentMethod === "CARD") && !transactionId) {
+            return toast.error(`Please provide Transaction ID for ${paymentMethod === "ONLINE" ? "Online" : paymentMethod === "CARD" ? "Card" : "UPI"} payment`);
         }
 
         if (paymentMethod === "BANK_TRANSFER" && !transactionId) {
@@ -869,7 +869,7 @@ const BoardCourseAdmissionPage = () => {
                                         >
                                             <option value="">Select Method</option>
                                             <option value="CASH">CASH</option>
-                                            <option value="ONLINE">ONLINE / CARD</option>
+                                            <option value="CARD">CARD</option>
                                             <option value="UPI">UPI</option>
                                             <option value="BANK_TRANSFER">BANK TRANSFER</option>
                                             <option value="CHEQUE">CHEQUE</option>
@@ -878,17 +878,17 @@ const BoardCourseAdmissionPage = () => {
                                 </div>
 
                                 {/* Conditional Payment Fields */}
-                                {(paymentMethod === "ONLINE" || paymentMethod === "UPI" || paymentMethod === "BANK_TRANSFER") && (
+                                {(paymentMethod === "ONLINE" || paymentMethod === "UPI" || paymentMethod === "CARD" || paymentMethod === "BANK_TRANSFER") && (
                                     <div className="mt-6 animate-fadeIn">
                                         <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">
-                                            {paymentMethod === "ONLINE" ? "Transaction ID" : paymentMethod === "UPI" ? "Transaction ID" : "Bank Reference Number"}
+                                            {paymentMethod === "CARD" ? "Card Transaction / Auth ID" : paymentMethod === "ONLINE" ? "Transaction ID" : paymentMethod === "UPI" ? "Transaction ID" : "Bank Reference Number"}
                                         </label>
                                         <input
                                             type="text"
                                             value={transactionId}
                                             onChange={(e) => setTransactionId(e.target.value)}
                                             className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                            placeholder={paymentMethod === "ONLINE" ? "Enter Online/Card Transaction ID" : paymentMethod === "UPI" ? "Enter UPI Transaction Reference" : "Enter Bank Transfer Reference"}
+                                            placeholder={paymentMethod === "CARD" ? "Enter Card Transaction / Auth ID" : paymentMethod === "ONLINE" ? "Enter Online Transaction ID" : paymentMethod === "UPI" ? "Enter UPI Transaction Reference" : "Enter Bank Transfer Reference"}
                                             required
                                         />
                                     </div>
@@ -1075,13 +1075,14 @@ const BoardCourseAdmissionPage = () => {
                                                     className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
                                                 >
                                                     <option value="CASH">CASH</option>
-                                                    {/* <option value="ONLINE">ONLINE / CARD</option> */}
+                                                    <option value="CARD">CARD</option>
+                                                    {/* <option value="ONLINE">ONLINE</option> */}
                                                     <option value="UPI">UPI</option>
                                                     <option value="BANK_TRANSFER">BANK_TRANSFER</option>
                                                     <option value="CHEQUE">CHEQUE</option>
                                                 </select>
                                             </div>
-                                            {(paymentMethod === "ONLINE" || paymentMethod === "UPI" || paymentMethod === "BANK_TRANSFER") && (
+                                            {(paymentMethod === "ONLINE" || paymentMethod === "UPI" || paymentMethod === "CARD" || paymentMethod === "BANK_TRANSFER") && (
                                                 <div>
                                                     <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Txn ID</label>
                                                     <input
