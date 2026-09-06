@@ -47,10 +47,10 @@ const PreviousClass = () => {
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const ALL_ROLES_FOR_CLASS = [
-        'teacher', 'admin', 'superAdmin', 'superadmin', 'telecaller', 'centralizedTelecaller', 
-        'counsellor', 'RM', 'Class_Coordinator', 'classcoordinator', 'class_coordinator', 
-        'HOD', 'hod', 'marketing', 'centerIncharge', 'centreincharge', 'zonalManager', 
-        'areaManager', 'zonalHead', 'hr', 'accounts', 'coordinator', 'digital', 
+        'teacher', 'admin', 'superAdmin', 'superadmin', 'telecaller', 'centralizedTelecaller',
+        'counsellor', 'RM', 'Class_Coordinator', 'classcoordinator', 'class_coordinator',
+        'HOD', 'hod', 'marketing', 'centerIncharge', 'centreincharge', 'zonalManager',
+        'areaManager', 'zonalHead', 'hr', 'accounts', 'coordinator', 'digital',
         'assistantZonalManager', 'assistantCenterIncharge', 'supportStaff'
     ];
     const isAcademicAdmin = !!user.role || ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase());
@@ -374,7 +374,6 @@ const PreviousClass = () => {
                                     options={[
                                         { value: "Online", label: "Online" },
                                         { value: "Offline", label: "Offline" },
-                                        { value: "Hybrid", label: "Hybrid" }
                                     ]}
                                     value={filters.classMode}
                                     onChange={(val) => handleFilterChange("classMode", val)}
@@ -581,7 +580,7 @@ const PreviousClass = () => {
                                             </td>
                                             <td className="p-4 text-center">
                                                 <div className="flex flex-col gap-2 scale-90">
-                                                     {(isAcademicAdmin || isTeacher || isHod) ? (
+                                                    {(isAcademicAdmin || isTeacher || isHod) ? (
                                                         <button
                                                             onClick={() => {
                                                                 setSelectedClassId(cls._id);

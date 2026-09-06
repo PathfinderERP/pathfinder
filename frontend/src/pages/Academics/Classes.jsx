@@ -1557,10 +1557,10 @@ const Classes = () => {
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const ALL_ROLES_FOR_CLASS = [
-        'teacher', 'admin', 'superAdmin', 'superadmin', 'telecaller', 'centralizedTelecaller', 
-        'counsellor', 'RM', 'Class_Coordinator', 'classcoordinator', 'class_coordinator', 
-        'HOD', 'hod', 'marketing', 'centerIncharge', 'centreincharge', 'zonalManager', 
-        'areaManager', 'zonalHead', 'hr', 'accounts', 'coordinator', 'digital', 
+        'teacher', 'admin', 'superAdmin', 'superadmin', 'telecaller', 'centralizedTelecaller',
+        'counsellor', 'RM', 'Class_Coordinator', 'classcoordinator', 'class_coordinator',
+        'HOD', 'hod', 'marketing', 'centerIncharge', 'centreincharge', 'zonalManager',
+        'areaManager', 'zonalHead', 'hr', 'accounts', 'coordinator', 'digital',
         'assistantZonalManager', 'assistantCenterIncharge', 'supportStaff'
     ];
     const isAcademicAdmin = !!user.role || ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase());
@@ -1576,6 +1576,7 @@ const Classes = () => {
         subjectId: "",
         teacherId: isTeacher ? user._id : "",
         coordinatorId: isCoordinator ? user._id : "",
+        classMode: "",
         fromDate: "",
         toDate: "",
         startTime: "",
@@ -1889,6 +1890,7 @@ const Classes = () => {
             subjectId: "",
             teacherId: isTeacher ? user._id : "",
             coordinatorId: isCoordinator ? user._id : "",
+            classMode: "",
             fromDate: "",
             toDate: "",
             startTime: "",
@@ -2004,9 +2006,9 @@ const Classes = () => {
         const acadClassId = (cls.acadClassId?._id || cls.acadClassId || "").toString();
         const acadSubjectId = (cls.acadSubjectId?._id || cls.acadSubjectId || "").toString();
         const chapterId = (cls.chapterId?._id || cls.chapterId || "").toString();
-        const chapterIds = (cls.chapterIds?.map(c => (c._id || c).toString()) || 
-                          (cls.chapterId?._id ? [cls.chapterId._id.toString()] : 
-                          (cls.chapterId ? [cls.chapterId.toString()] : [])));
+        const chapterIds = (cls.chapterIds?.map(c => (c._id || c).toString()) ||
+            (cls.chapterId?._id ? [cls.chapterId._id.toString()] :
+                (cls.chapterId ? [cls.chapterId.toString()] : [])));
         const topicIds = (cls.topicIds?.map(t => (t._id || t).toString()) ||
             (cls.topicId?._id ? [cls.topicId._id.toString()] :
                 (cls.topicId ? [cls.topicId.toString()] : [])));
@@ -2017,9 +2019,9 @@ const Classes = () => {
             (cls.batchId?._id ? [cls.batchId._id.toString()] :
                 (cls.batchId ? [cls.batchId.toString()] : [])));
 
-        const coordinatorIds = (cls.coordinatorIds?.map(c => (c._id || c).toString()) || 
-                                (cls.coordinatorId?._id ? [cls.coordinatorId._id.toString()] : 
-                                (cls.coordinatorId ? [cls.coordinatorId.toString()] : [])));
+        const coordinatorIds = (cls.coordinatorIds?.map(c => (c._id || c).toString()) ||
+            (cls.coordinatorId?._id ? [cls.coordinatorId._id.toString()] :
+                (cls.coordinatorId ? [cls.coordinatorId.toString()] : [])));
 
         setEditingClassData({
             ...cls,
@@ -2239,6 +2241,27 @@ const Classes = () => {
                                 value={dropdownData.coordinators?.filter(c => filters.coordinatorId.split(',').includes(c._id)).map(c => ({ value: c._id, label: c.name }))}
                                 onChange={(selected) => handleMultiSelectChange(selected, "coordinatorId")}
                                 placeholder="Select Coordinator"
+                                styles={customSelectStyles}
+                                className="text-sm"
+                            />
+                        </div>
+
+                        {/* Class Mode */}
+                        <div className="flex flex-col">
+                            <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">Mode</label>
+                            <Select
+                                options={[
+                                    { value: "Online", label: "Online" },
+                                    { value: "Offline", label: "Offline" },
+
+                                ]}
+                                value={filters.classMode ? { value: filters.classMode, label: filters.classMode } : null}
+                                onChange={(selected) => {
+                                    setFilters(prev => ({ ...prev, classMode: selected ? selected.value : "" }));
+                                    setPage(1);
+                                }}
+                                isClearable
+                                placeholder="All Modes"
                                 styles={customSelectStyles}
                                 className="text-sm"
                             />

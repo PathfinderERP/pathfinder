@@ -258,13 +258,13 @@ const OngoingClass = () => {
 
     const handleBulkEnd = async () => {
         if (selectedIds.size === 0 && !selectAllMatching) return;
-        
+
         const count = selectAllMatching ? totalRecords : selectedIds.size;
         if (!window.confirm(`Are you sure you want to end all ${count} ongoing classes matching the selection?`)) return;
-        
+
         try {
             const token = localStorage.getItem("token");
-            
+
             const serializedFilters = {};
             if (filters.teacherId?.length > 0) serializedFilters.teacherId = filters.teacherId.map(v => v.value).join(",");
             if (filters.centreId?.length > 0) serializedFilters.centreId = filters.centreId.map(v => v.value).join(",");
@@ -283,7 +283,7 @@ const OngoingClass = () => {
                     Authorization: `Bearer ${token}`,
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     allMatching: selectAllMatching,
                     filters: selectAllMatching ? serializedFilters : undefined,
                     ids: selectAllMatching ? undefined : Array.from(selectedIds)
@@ -477,7 +477,7 @@ const OngoingClass = () => {
                                     options={[
                                         { value: "Online", label: "Online" },
                                         { value: "Offline", label: "Offline" },
-                                        { value: "Hybrid", label: "Hybrid" }
+                                        // { value: "Hybrid", label: "Hybrid" }
                                     ]}
                                     value={filters.classMode}
                                     onChange={(val) => handleFilterChange("classMode", val)}
@@ -613,37 +613,36 @@ const OngoingClass = () => {
                     </div>
 
                     {canEdit && classes.length > 0 && classes.every(cls => selectedIds.has(cls._id)) && totalRecords > classes.length && (
-                    <div className={`p-3 text-center text-sm mb-4 rounded-lg font-medium transition-colors ${
-                        isDarkMode ? 'bg-[#2a3038] text-cyan-400 border border-gray-700' : 'bg-blue-50 text-blue-700 border border-blue-200'
-                    }`}>
-                        {!selectAllMatching ? (
-                            <span>
-                                All {classes.length} classes on this page are selected.{" "}
-                                <button 
-                                    onClick={() => setSelectAllMatching(true)} 
-                                    className="underline font-black hover:text-blue-500 hover:no-underline"
-                                >
-                                    Select all {totalRecords} ongoing classes matching these filters
-                                </button>
-                            </span>
-                        ) : (
-                            <span>
-                                All {totalRecords} ongoing classes matching these filters are selected.{" "}
-                                <button 
-                                    onClick={() => {
-                                        setSelectAllMatching(false);
-                                        setSelectedIds(new Set());
-                                    }} 
-                                    className="underline font-black hover:text-blue-500 hover:no-underline"
-                                >
-                                    Clear selection
-                                </button>
-                            </span>
-                        )}
-                    </div>
-                )}
+                        <div className={`p-3 text-center text-sm mb-4 rounded-lg font-medium transition-colors ${isDarkMode ? 'bg-[#2a3038] text-cyan-400 border border-gray-700' : 'bg-blue-50 text-blue-700 border border-blue-200'
+                            }`}>
+                            {!selectAllMatching ? (
+                                <span>
+                                    All {classes.length} classes on this page are selected.{" "}
+                                    <button
+                                        onClick={() => setSelectAllMatching(true)}
+                                        className="underline font-black hover:text-blue-500 hover:no-underline"
+                                    >
+                                        Select all {totalRecords} ongoing classes matching these filters
+                                    </button>
+                                </span>
+                            ) : (
+                                <span>
+                                    All {totalRecords} ongoing classes matching these filters are selected.{" "}
+                                    <button
+                                        onClick={() => {
+                                            setSelectAllMatching(false);
+                                            setSelectedIds(new Set());
+                                        }}
+                                        className="underline font-black hover:text-blue-500 hover:no-underline"
+                                    >
+                                        Clear selection
+                                    </button>
+                                </span>
+                            )}
+                        </div>
+                    )}
 
-                <div className="overflow-x-auto">
+                    <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead>
                                 <tr className={`border-b ${isDarkMode ? 'bg-[#2a3038] text-gray-300 border-gray-700' : 'bg-gray-50 text-gray-600 border-gray-200'} text-xs uppercase font-bold tracking-wider`}>
