@@ -4,8 +4,29 @@ import {
     FaSchool, FaSave, FaTimes, FaCheckCircle, FaSpinner,
     FaMoneyBillWave, FaCreditCard, FaUniversity, FaFileInvoice, FaTag, FaIdCard
 } from 'react-icons/fa';
+
+// ─── Exam Time Slot suggestions ───────────────────────────────────────────────
+const EXAM_TIME_SLOTS = [
+    '9:00 AM - 10:00 AM', '9:00 AM - 10:30 AM', '9:00 AM - 11:00 AM',
+    '9:30 AM - 10:30 AM', '9:30 AM - 11:00 AM', '9:30 AM - 11:30 AM',
+    '10:00 AM - 11:00 AM', '10:00 AM - 11:30 AM', '10:00 AM - 12:00 PM',
+    '10:00 AM - 12:30 PM', '10:00 AM - 01:00 PM',
+    '10:30 AM - 11:30 AM', '10:30 AM - 12:00 PM', '10:30 AM - 12:30 PM',
+    '11:00 AM - 12:00 PM', '11:00 AM - 12:30 PM', '11:00 AM - 01:00 PM',
+    '11:00 AM - 01:30 PM', '11:00 AM - 02:00 PM',
+    '11:30 AM - 12:30 PM', '11:30 AM - 01:00 PM', '11:30 AM - 01:30 PM',
+    '12:00 PM - 01:00 PM', '12:00 PM - 01:30 PM', '12:00 PM - 02:00 PM',
+    '12:00 PM - 03:00 PM',
+    '12:30 PM - 01:30 PM', '12:30 PM - 02:00 PM',
+    '01:00 PM - 02:00 PM', '01:00 PM - 03:00 PM', '01:00 PM - 04:00 PM',
+    '02:00 PM - 03:00 PM', '02:00 PM - 04:00 PM', '02:00 PM - 05:00 PM',
+    '03:00 PM - 04:00 PM', '03:00 PM - 05:00 PM',
+    '04:00 PM - 05:00 PM', '04:00 PM - 06:00 PM',
+];
+// ─────────────────────────────────────────────────────────────────────────────
 import BillGenerator from '../Finance/BillGenerator';
 import { useLocation, useNavigate } from 'react-router-dom';
+
 
 const INITIAL_FORM = {
     name: '',
@@ -962,11 +983,16 @@ const PMOAddStudentContent = () => {
                             <input
                                 type="text"
                                 name="timeSlot"
+                                list="pmo-time-slots"
                                 value={form.timeSlot}
                                 onChange={handleChange}
                                 placeholder="e.g. 10:00 AM - 11:30 AM"
+                                autoComplete="off"
                                 className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-2.5 text-gray-200 placeholder-gray-600 focus:outline-none focus:border-purple-500 transition"
                             />
+                            <datalist id="pmo-time-slots">
+                                {EXAM_TIME_SLOTS.map(s => <option key={s} value={s} />)}
+                            </datalist>
                         </div>
 
                         <div className="md:col-span-4">

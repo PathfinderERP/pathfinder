@@ -4,6 +4,28 @@ import {
     FaSchool, FaSave, FaTimes, FaCheckCircle, FaSpinner,
     FaMoneyBillWave, FaCreditCard, FaUniversity, FaFileInvoice, FaTag
 } from 'react-icons/fa';
+
+
+// ─── Time Slot Datalist ──────────────────────────────────────────────────────
+const EXAM_TIME_SLOTS = [
+    '9:00 AM - 10:00 AM', '9:00 AM - 10:30 AM', '9:00 AM - 11:00 AM',
+    '9:30 AM - 10:30 AM', '9:30 AM - 11:00 AM', '9:30 AM - 11:30 AM',
+    '10:00 AM - 11:00 AM', '10:00 AM - 11:30 AM', '10:00 AM - 12:00 PM',
+    '10:00 AM - 12:30 PM', '10:00 AM - 01:00 PM',
+    '10:30 AM - 11:30 AM', '10:30 AM - 12:00 PM', '10:30 AM - 12:30 PM',
+    '11:00 AM - 12:00 PM', '11:00 AM - 12:30 PM', '11:00 AM - 01:00 PM',
+    '11:00 AM - 01:30 PM', '11:00 AM - 02:00 PM',
+    '11:30 AM - 12:30 PM', '11:30 AM - 01:00 PM', '11:30 AM - 01:30 PM',
+    '12:00 PM - 01:00 PM', '12:00 PM - 01:30 PM', '12:00 PM - 02:00 PM',
+    '12:00 PM - 03:00 PM',
+    '12:30 PM - 01:30 PM', '12:30 PM - 02:00 PM',
+    '01:00 PM - 02:00 PM', '01:00 PM - 03:00 PM', '01:00 PM - 04:00 PM',
+    '02:00 PM - 03:00 PM', '02:00 PM - 04:00 PM', '02:00 PM - 05:00 PM',
+    '03:00 PM - 04:00 PM', '03:00 PM - 05:00 PM',
+    '04:00 PM - 05:00 PM', '04:00 PM - 06:00 PM',
+];
+// ─────────────────────────────────────────────────────────────────────────────
+
 import BillGenerator from '../Finance/BillGenerator';
 import { useLocation } from 'react-router-dom';
 
@@ -682,8 +704,19 @@ const PNTSEAddStudentContent = () => {
 
                                 <div className="flex flex-col gap-1.5">
                                     <label className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Time Slot</label>
-                                    <input type="text" name="timeSlot" value={form.timeSlot} onChange={handleChange} placeholder="e.g. 10:00 AM - 01:00 PM"
-                                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all" />
+                                    <input
+                                        type="text"
+                                        name="timeSlot"
+                                        list="pntse-time-slots"
+                                        value={form.timeSlot}
+                                        onChange={handleChange}
+                                        placeholder="e.g. 10:00 AM - 01:00 PM"
+                                        autoComplete="off"
+                                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                                    />
+                                    <datalist id="pntse-time-slots">
+                                        {EXAM_TIME_SLOTS.map(s => <option key={s} value={s} />)}
+                                    </datalist>
                                 </div>
 
                                 <div className="flex flex-col gap-1.5">
