@@ -26,16 +26,60 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
                 }
             },
             {
+                $lookup: {
+                    from: "pntsestudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPntse"
+                }
+            },
+            {
+                $lookup: {
+                    from: "pmostudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admissionInfoPmo"
+                }
+            },
+            {
                 $addFields: {
                     admissionDetails: {
                         $ifNull: [
                             { $arrayElemAt: ["$admissionInfoNormal", 0] },
-                            { $arrayElemAt: ["$admissionInfoBoard", 0] }
+                            { $arrayElemAt: ["$admissionInfoBoard", 0] },
+                            { $arrayElemAt: ["$admissionInfoPntse", 0] },
+                            { $arrayElemAt: ["$admissionInfoPmo", 0] }
                         ]
                     }
                 }
             },
             { $unwind: "$admissionDetails" },
+            {
+                $lookup: {
+                    from: "centreschemas",
+                    localField: "admissionDetails.centre",
+                    foreignField: "_id",
+                    as: "pntseCentreInfo"
+                }
+            },
+            {
+                $addFields: {
+                    "admissionDetails.centre": {
+                        $cond: {
+                            if: { $gt: [{ $size: "$pntseCentreInfo" }, 0] },
+                            then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] },
+                            else: "$admissionDetails.centre"
+                        }
+                    }
+                }
+            },
+            {
+                $addFields: {
+                    effectiveCentre: {
+                        $ifNull: ["$centre", "$admissionDetails.centre"]
+                    }
+                }
+            },
             {
                 $match: {
                     billId: { $exists: true, $nin: [null, "", "-"] },
@@ -73,7 +117,7 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
             {
                 $group: {
                     _id: {
-                        centre: "$admissionDetails.centre",
+                        centre: "$effectiveCentre",
                         day: { $dayOfMonth: { date: "$effectiveDate", timezone: "+05:30" } }
                     },
                     totalExclGST: { $sum: "$revenueBase" }
@@ -760,115 +804,128 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
 
     const fixedWeeks = buildFixedWeeks(year, monthIndex);
 
-    // Helper to calculate target for a single day of the month for a centre based exclusively on user-entered targets
-    const calculateDayTargetForCentre = (centreDoc, dayNum) => {
+    // Current IST date to check which weeks are completed
+    const now = new Date();
+    const nowISTStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const [curYear, curMonth, curDay] = nowISTStr.split('-').map(Number);
+
+    const isMonthInPast = year < curYear || (year === curYear && monthNum < curMonth);
+    const isCurrentMonth = year === curYear && monthNum === curMonth;
+
+    const isWeekFinished = (week) => {
+        if (isMonthInPast) return true;
+        if (isCurrentMonth) {
+            return week.endDay < curDay;
+        }
+        return false;
+    };
+
+    // Computes full month's daily targets for a centre, rolling weekly shortfall into the next week's daily targets
+    const computeCentreTargetsForMonth = (centreDoc) => {
         const cId = centreDoc._id?.toString();
         const cName = centreDoc.centreName?.trim() || "";
         const cNameUpper = cName.toUpperCase();
         const dayMap = achievementMap[cNameUpper] || {};
 
-        // Base target is strictly what user added in DailyTarget (0 if not set)
-        const getBaseTargetForDay = (d) => {
+        const getManualBaseTarget = (d) => {
             return customTargetsByCentre[cId]?.[d] ?? customTargetsByCentre[cNameUpper]?.[d] ?? 0;
         };
 
+        const daysResult = {};
+        let carryoverAdjustment = 0;
+
         for (const week of fixedWeeks) {
-            // Check if dayNum belongs to this week
-            const isDayInWeek = dayNum >= week.startDay && dayNum <= week.endDay;
-            if (isDayInWeek) {
-                const weekdayList = week.days.filter(d => !d.isWeekend);
-                const hasSat = week.days.some(d => d.dayName === "Sat");
-                const hasSun = week.days.some(d => d.dayName === "Sun");
+            const daysCount = week.actualDays;
+            const dailyAdjustment = (daysCount > 0 && carryoverAdjustment !== 0)
+                ? (carryoverAdjustment / daysCount)
+                : 0;
 
-                // Calculate weekday shortfall across all weekdays in this week based on user-entered targets
-                let weekdayShortfall = 0;
-                weekdayList.forEach(wDay => {
-                    const wTarget = getBaseTargetForDay(wDay.day);
-                    const wAchieved = dayMap[wDay.day] || 0;
-                    weekdayShortfall += (wTarget - wAchieved);
-                });
+            const weekDaysData = week.days.map(dObj => {
+                const manualBase = getManualBaseTarget(dObj.day);
+                // Adjust base target: adds shortfall or deducts overachievement surplus (min 0)
+                const effectiveBase = Math.max(0, manualBase + dailyAdjustment);
+                const achieved = dayMap[dObj.day] || 0;
+                return {
+                    day: dObj.day,
+                    dayName: dObj.dayName,
+                    isWeekend: dObj.isWeekend,
+                    manualBase,
+                    effectiveBase,
+                    achieved
+                };
+            });
 
-                const targetDayObj = week.days.find(d => d.day === dayNum);
-                const dayName = targetDayObj?.dayName || "";
-                const isWeekend = targetDayObj?.isWeekend || false;
-                const baseTarget = getBaseTargetForDay(dayNum);
+            // Calculate weekday shortfall across all weekdays in this week based on effectiveBase targets
+            const weekdayList = weekDaysData.filter(d => !d.isWeekend);
+            let weekdayShortfall = 0;
+            weekdayList.forEach(wDay => {
+                weekdayShortfall += (wDay.effectiveBase - wDay.achieved);
+            });
 
-                // If weekday: strictly the manual base target (no shortfall adjustment)
-                if (!isWeekend) {
-                    const finalTarget = Math.round(Math.max(0, baseTarget));
-                    return {
-                        finalTarget,
-                        baseTarget: finalTarget,
-                        shortfallAdded: 0,
-                        isWeekend: false,
-                        dayName
-                    };
-                }
+            // Compute finalTarget for each day in this week
+            for (const d of weekDaysData) {
+                let finalTarget = 0;
+                let shortfallAdded = 0;
 
-                // If no manual target is set for this weekend day, keep it at 0
-                if (baseTarget <= 0) {
-                    return {
-                        finalTarget: 0,
-                        baseTarget: 0,
-                        shortfallAdded: 0,
-                        isWeekend: true,
-                        dayName
-                    };
-                }
-
-                // On Saturday: adjust with total weekday shortfall or surplus (target met during weekdays)
-                if (dayName === "Sat") {
-                    const finalTarget = Math.round(Math.max(0, baseTarget + weekdayShortfall));
-                    const adjDiff = finalTarget - baseTarget;
-                    return {
-                        finalTarget,
-                        baseTarget: Math.round(baseTarget),
-                        shortfallAdded: Math.round(adjDiff),
-                        isWeekend: true,
-                        dayName
-                    };
-                }
-
-                // On Sunday: adjust with remaining shortfall or surplus after Saturday collection
-                if (dayName === "Sun") {
-                    const satDayObj = week.days.find(d => d.dayName === "Sat");
+                if (!d.isWeekend) {
+                    finalTarget = Math.round(Math.max(0, d.effectiveBase));
+                    shortfallAdded = Math.round(finalTarget - d.manualBase);
+                } else if (d.dayName === "Sat") {
+                    if (d.effectiveBase <= 0 && d.manualBase <= 0) {
+                        finalTarget = 0;
+                        shortfallAdded = 0;
+                    } else {
+                        finalTarget = Math.round(Math.max(0, d.effectiveBase + weekdayShortfall));
+                        shortfallAdded = Math.round(finalTarget - d.manualBase);
+                    }
+                } else if (d.dayName === "Sun") {
+                    const satObj = weekDaysData.find(x => x.dayName === "Sat");
                     let shortfallAfterSat = weekdayShortfall;
 
-                    if (satDayObj) {
-                        const satBaseTarget = getBaseTargetForDay(satDayObj.day);
-                        const satAchieved = dayMap[satDayObj.day] || 0;
-                        if (satBaseTarget > 0) {
-                            const satAdjustedTarget = satBaseTarget + weekdayShortfall;
-                            shortfallAfterSat = satAdjustedTarget - satAchieved;
+                    if (satObj) {
+                        if (satObj.effectiveBase > 0 || satObj.manualBase > 0) {
+                            const satAdjustedTarget = satObj.effectiveBase + weekdayShortfall;
+                            shortfallAfterSat = satAdjustedTarget - satObj.achieved;
                         } else {
-                            shortfallAfterSat = weekdayShortfall - satAchieved;
+                            shortfallAfterSat = weekdayShortfall - satObj.achieved;
                         }
                     }
 
-                    // If shortfallAfterSat is positive, target increases; if negative (surplus on Sat/weekdays), target decreases
-                    const finalTarget = Math.round(Math.max(0, baseTarget + shortfallAfterSat));
-                    const adjDiff = finalTarget - baseTarget;
-
-                    return {
-                        finalTarget,
-                        baseTarget: Math.round(baseTarget),
-                        shortfallAdded: Math.round(adjDiff),
-                        isWeekend: true,
-                        dayName
-                    };
+                    if (d.effectiveBase <= 0 && d.manualBase <= 0) {
+                        finalTarget = 0;
+                        shortfallAdded = 0;
+                    } else {
+                        finalTarget = Math.round(Math.max(0, d.effectiveBase + shortfallAfterSat));
+                        shortfallAdded = Math.round(finalTarget - d.manualBase);
+                    }
+                } else {
+                    finalTarget = Math.round(Math.max(0, d.effectiveBase));
+                    shortfallAdded = Math.round(finalTarget - d.manualBase);
                 }
+
+                daysResult[d.day] = {
+                    finalTarget,
+                    baseTarget: Math.round(d.manualBase),
+                    effectiveBaseTarget: Math.round(d.effectiveBase),
+                    shortfallAdded,
+                    isWeekend: d.isWeekend,
+                    dayName: d.dayName
+                };
+            }
+
+            // Total target and total achieved for this week to determine adjustment (shortfall or surplus) for next week
+            const weekTotalTarget = weekDaysData.reduce((sum, d) => sum + d.effectiveBase, 0);
+            const weekTotalAchieved = weekDaysData.reduce((sum, d) => sum + d.achieved, 0);
+
+            if (isWeekFinished(week)) {
+                // Positive means shortfall (increases next week), negative means overachievement/surplus (reduces next week)
+                carryoverAdjustment = weekTotalTarget - weekTotalAchieved;
+            } else {
+                carryoverAdjustment = 0;
             }
         }
 
-        // Fallback if day not matched
-        const baseTarget = getBaseTargetForDay(dayNum);
-        return {
-            finalTarget: Math.round(baseTarget),
-            baseTarget: Math.round(baseTarget),
-            shortfallAdded: 0,
-            isWeekend: false,
-            dayName: ""
-        };
+        return daysResult;
     };
 
     const centreTargets = {};
@@ -897,10 +954,13 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             if (!c.centreName) return;
             const name = c.centreName;
             if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name))) {
+                const daysMap = computeCentreTargetsForMonth(c);
                 let rangeSum = 0;
                 daysInRange.forEach(dNum => {
-                    const res = calculateDayTargetForCentre(c, dNum);
-                    rangeSum += res.baseTarget;
+                    const res = daysMap[dNum];
+                    if (res) {
+                        rangeSum += res.baseTarget;
+                    }
                 });
                 centreTargets[name] = rangeSum;
                 centreTargetMeta[name] = { baseTarget: rangeSum, shortfallAdded: 0, isWeekend: false, isRange: true };
@@ -912,7 +972,15 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             if (!c.centreName) return;
             const name = c.centreName;
             if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name))) {
-                const res = calculateDayTargetForCentre(c, selectedDayNum);
+                const daysMap = computeCentreTargetsForMonth(c);
+                const res = daysMap[selectedDayNum] || {
+                    finalTarget: 0,
+                    baseTarget: 0,
+                    effectiveBaseTarget: 0,
+                    shortfallAdded: 0,
+                    isWeekend: false,
+                    dayName: ""
+                };
                 centreTargets[name] = res.finalTarget;
                 centreTargetMeta[name] = res;
             }

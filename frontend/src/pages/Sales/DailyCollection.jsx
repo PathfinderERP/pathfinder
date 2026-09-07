@@ -1841,7 +1841,7 @@ const DailyCollection = () => {
                                                                             className="flex items-center justify-end gap-2 group/target cursor-pointer select-none"
                                                                             onClick={() => {
                                                                                 setEditingCentre(centre);
-                                                                                setEditTargetValue(centreTargets[centre] || 0);
+                                                                                setEditTargetValue(centreTargetMeta[centre]?.baseTarget !== undefined ? centreTargetMeta[centre].baseTarget : (centreTargets[centre] || 0));
                                                                             }}
                                                                             title="Click to edit daily target"
                                                                         >
