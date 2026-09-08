@@ -4,7 +4,7 @@ import {
     FaSearch, FaDownload, FaFileImport, FaFileExcel,
     FaGraduationCap, FaUsers, FaTrophy, FaChartLine, FaSortUp, FaSortDown,
     FaSpinner, FaTimes, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaFileInvoice,
-    FaEdit, FaTrash, FaEye, FaPlus, FaMoneyBillWave, FaTag, FaChevronDown, FaCheck
+    FaEdit, FaTrash, FaEye, FaPlus, FaMoneyBillWave, FaTag, FaChevronDown, FaCheck, FaCalendarAlt
 } from 'react-icons/fa';
 import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
@@ -203,6 +203,46 @@ const formatReportingTime = (timeStr) => {
     return timeStr;
 };
 
+const getDateRangeFromPreset = (preset) => {
+    const now = new Date();
+    const formatDate = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    const todayStr = formatDate(now);
+
+    switch (preset) {
+        case 'today':
+            return { startDate: todayStr, endDate: todayStr };
+        case 'yesterday': {
+            const y = new Date(now);
+            y.setDate(y.getDate() - 1);
+            const yStr = formatDate(y);
+            return { startDate: yStr, endDate: yStr };
+        }
+        case 'last7': {
+            const d = new Date(now);
+            d.setDate(d.getDate() - 6);
+            return { startDate: formatDate(d), endDate: todayStr };
+        }
+        case 'thisMonth': {
+            const first = new Date(now.getFullYear(), now.getMonth(), 1);
+            return { startDate: formatDate(first), endDate: todayStr };
+        }
+        case 'lastMonth': {
+            const first = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const last = new Date(now.getFullYear(), now.getMonth(), 0);
+            return { startDate: formatDate(first), endDate: formatDate(last) };
+        }
+        case 'all':
+        default:
+            return { startDate: '', endDate: '' };
+    }
+};
+
 const PMOAllStudentsContent = () => {
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -220,7 +260,28 @@ const PMOAllStudentsContent = () => {
         status: [],
         session: [],
         course: [],
+        datePreset: 'all',
+        dateType: 'registration',
+        startDate: '',
+        endDate: ''
     });
+
+    const handleDatePresetChange = (preset) => {
+        if (preset === 'custom') {
+            setFilters(prev => ({ ...prev, datePreset: 'custom' }));
+        } else {
+            const { startDate, endDate } = getDateRangeFromPreset(preset);
+            setFilters(prev => ({ ...prev, datePreset: preset, startDate, endDate }));
+        }
+    };
+
+    const handleCustomDateChange = (field, val) => {
+        setFilters(prev => ({
+            ...prev,
+            datePreset: 'custom',
+            [field]: val
+        }));
+    };
     const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -436,6 +497,9 @@ const PMOAllStudentsContent = () => {
             if (filters.status?.length > 0) params.append('status', filters.status.join(','));
             if (filters.session?.length > 0) params.append('session', filters.session.join(','));
             if (filters.course?.length > 0) params.append('course', filters.course.join(','));
+            if (filters.startDate) params.append('startDate', filters.startDate);
+            if (filters.endDate) params.append('endDate', filters.endDate);
+            if (filters.dateType) params.append('dateType', filters.dateType);
 
             const res = await fetch(`${import.meta.env.VITE_API_URL}/pmo/list?${params.toString()}`, {
                 headers: getHeaders()
@@ -478,7 +542,10 @@ const PMOAllStudentsContent = () => {
         filters.class?.length > 0 ||
         filters.status?.length > 0 ||
         filters.session?.length > 0 ||
-        filters.course?.length > 0
+        filters.course?.length > 0 ||
+        filters.startDate ||
+        filters.endDate ||
+        filters.datePreset !== 'all'
     );
 
     const handleResetFilters = () => {
@@ -490,6 +557,10 @@ const PMOAllStudentsContent = () => {
             status: [],
             session: [],
             course: [],
+            datePreset: 'all',
+            dateType: 'registration',
+            startDate: '',
+            endDate: ''
         });
     };
 
@@ -877,6 +948,52 @@ const PMOAllStudentsContent = () => {
                             onChange={(vals) => setFilters(prev => ({ ...prev, session: vals }))}
                         />
                     )}
+
+                    {/* Date Type */}
+                    <select
+                        value={filters.dateType}
+                        onChange={e => setFilters(p => ({ ...p, dateType: e.target.value }))}
+                        className="h-9 px-3 py-1.5 bg-gray-950/80 border border-gray-800 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-purple-500 transition-all cursor-pointer"
+                        title="Filter by Date Type"
+                    >
+                        <option value="registration">Reg. Date</option>
+                        <option value="examDate">Exam Date</option>
+                    </select>
+
+                    {/* Date Preset */}
+                    <select
+                        value={filters.datePreset}
+                        onChange={e => handleDatePresetChange(e.target.value)}
+                        className="h-9 px-3 py-1.5 bg-gray-950/80 border border-gray-800 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-purple-500 transition-all cursor-pointer"
+                    >
+                        <option value="all">All Dates</option>
+                        <option value="today">Today</option>
+                        <option value="yesterday">Yesterday</option>
+                        <option value="last7">Last 7 Days</option>
+                        <option value="thisMonth">This Month</option>
+                        <option value="lastMonth">Last Month</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+
+                    {/* Date Pickers */}
+                    <div className="flex items-center gap-1.5 h-9 bg-gray-950/80 border border-gray-800 rounded-xl px-2.5 text-xs text-gray-300">
+                        <FaCalendarAlt className="text-purple-400 text-xs shrink-0" />
+                        <input
+                            type="date"
+                            value={filters.startDate}
+                            onChange={e => handleCustomDateChange('startDate', e.target.value)}
+                            className="bg-transparent border-none text-xs text-gray-200 outline-none cursor-pointer [color-scheme:dark]"
+                            title="Start Date"
+                        />
+                        <span className="text-gray-500 text-xs font-semibold">to</span>
+                        <input
+                            type="date"
+                            value={filters.endDate}
+                            onChange={e => handleCustomDateChange('endDate', e.target.value)}
+                            className="bg-transparent border-none text-xs text-gray-200 outline-none cursor-pointer [color-scheme:dark]"
+                            title="End Date"
+                        />
+                    </div>
 
                     {/* Clear Filters Button */}
                     {hasActiveFilters && (

@@ -339,7 +339,7 @@ export const createPMOStudent = async (req, res) => {
 // Get all PMO Students with filtering and search
 export const getPMOStudents = async (req, res) => {
     try {
-        const { search, centre, class: classId, session, examTag, status, zone, course, board } = req.query;
+        const { search, centre, class: classId, session, examTag, status, zone, course, board, startDate, endDate, dateType } = req.query;
         const query = {};
 
         const parseList = (val) => {
@@ -423,6 +423,25 @@ export const getPMOStudents = async (req, res) => {
             });
             query.$and = query.$and || [];
             query.$and.push({ $or: courseRegexes.map(rx => ({ course: { $regex: rx } })) });
+        }
+
+        if (startDate || endDate) {
+            const cleanDateStr = (d) => {
+                if (!d) return null;
+                return typeof d === "string" ? (d.includes("T") ? d.split("T")[0] : d) : new Date(d).toISOString().split("T")[0];
+            };
+            const sStr = startDate ? cleanDateStr(startDate) : null;
+            const eStr = endDate ? cleanDateStr(endDate) : null;
+
+            if (dateType === 'examDate') {
+                query.examDate = {};
+                if (sStr) query.examDate.$gte = sStr;
+                if (eStr) query.examDate.$lte = eStr;
+            } else {
+                query.createdAt = {};
+                if (sStr) query.createdAt.$gte = new Date(`${sStr}T00:00:00+05:30`);
+                if (eStr) query.createdAt.$lte = new Date(`${eStr}T23:59:59.999+05:30`);
+            }
         }
 
         const students = await PMOStudent.find(query)
