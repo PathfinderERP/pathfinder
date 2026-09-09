@@ -1057,6 +1057,7 @@ export const collectBoardInstallment = async (req, res) => {
         const { id } = req.params;
         const {
             installmentId,
+            monthNumber: requestedMonthNumber,
             amount,
             paidExamFee = 0,
             paidAdditionalThings = 0,
@@ -1096,12 +1097,25 @@ export const collectBoardInstallment = async (req, res) => {
             }
         }
 
-        if (!mongoose.Types.ObjectId.isValid(installmentId)) {
-            return res.status(400).json({ message: "Invalid installment ID format" });
+        // Try primary lookup by _id
+        let inst = null;
+        if (installmentId && mongoose.Types.ObjectId.isValid(installmentId)) {
+            inst = admission.installments.id(installmentId);
         }
 
-        const inst = admission.installments.id(installmentId);
-        if (!inst) return res.status(404).json({ message: "Installment not found" });
+        // Fallback: if _id lookup failed (can happen with migrated/repaired data),
+        // try looking up by monthNumber sent from the frontend
+        if (!inst && requestedMonthNumber != null) {
+            inst = admission.installments.find(i => i.monthNumber === Number(requestedMonthNumber));
+            if (inst) {
+                console.warn(`[collectBoardInstallment] _id lookup failed for installmentId=${installmentId} on admission=${id}. Fell back to monthNumber=${requestedMonthNumber}`);
+            }
+        }
+
+        if (!inst) {
+            console.error(`[collectBoardInstallment] Installment not found. admissionId=${id}, installmentId=${installmentId}, monthNumber=${requestedMonthNumber}, available _ids=${admission.installments.map(i => i._id).join(',')}`);
+            return res.status(404).json({ message: "Installment not found" });
+        }
 
         inst.paidAmount += Number(amount);
         inst.paymentTransactions.push({

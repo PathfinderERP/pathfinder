@@ -237,6 +237,7 @@ const ManageBoardAdmission = () => {
                 },
                 body: JSON.stringify({
                     installmentId: paymentModal.installment._id,
+                    monthNumber: paymentModal.installment.monthNumber,
                     amount: paymentForm.amount,
                     paidExamFee: paymentForm.paidExamFee,
                     paidAdditionalThings: paymentForm.paidAdditionalThings,
