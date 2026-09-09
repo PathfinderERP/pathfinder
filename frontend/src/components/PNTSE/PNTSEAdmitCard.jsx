@@ -45,15 +45,17 @@ const PNTSEAdmitCard = ({ student, onClose }) => {
                         const pdfWidth = pdf.internal.pageSize.getWidth();
                         const pdfHeight = (img.height * pdfWidth) / img.width;
                         
+                        const yOffset = 8;
+                        const maxAllowedHeight = pdf.internal.pageSize.getHeight() - (yOffset * 2);
+                        
                         let finalWidth = pdfWidth;
                         let finalHeight = pdfHeight;
-                        if (pdfHeight > pdf.internal.pageSize.getHeight()) {
-                            finalHeight = pdf.internal.pageSize.getHeight();
+                        if (pdfHeight > maxAllowedHeight) {
+                            finalHeight = maxAllowedHeight;
                             finalWidth = (img.width * finalHeight) / img.height;
                         }
             
                         const xOffset = (pdfWidth - finalWidth) / 2;
-                        const yOffset = 10; // small top margin
             
                         pdf.addImage(dataUrl, 'PNG', xOffset, yOffset, finalWidth, finalHeight);
                         const fileName = getAdmitCardFileName(student, 'PNTSE');

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { FaDownload, FaTimes, FaSpinner, FaCheckCircle, FaExclamationTriangle, FaFileArchive, FaFilePdf, FaUsers } from 'react-icons/fa';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
@@ -15,13 +15,28 @@ const BulkAdmitCardModal = ({
     allFilteredStudents = [],
     selectedStudents = []
 }) => {
-    const [scope, setScope] = useState(selectedStudents.length > 0 ? 'selected' : 'filtered');
+    const [scope, setScope] = useState(selectedStudents && selectedStudents.length > 0 ? 'selected' : 'filtered');
     const [format, setFormat] = useState('zip'); // 'zip' | 'combined'
     const [isGenerating, setIsGenerating] = useState(false);
     const [progress, setProgress] = useState(0);
     const [currentStatus, setCurrentStatus] = useState('');
     const [isCompleted, setIsCompleted] = useState(false);
     const [resultSummary, setResultSummary] = useState(null);
+
+    // Default to 'selected' whenever the modal opens if there are selected students
+    useEffect(() => {
+        if (isOpen) {
+            if (selectedStudents && selectedStudents.length > 0) {
+                setScope('selected');
+            } else {
+                setScope('filtered');
+            }
+            setIsCompleted(false);
+            setProgress(0);
+            setCurrentStatus('');
+            setResultSummary(null);
+        }
+    }, [isOpen, selectedStudents?.length]);
 
     // Active student being rendered into offscreen container
     const [activeStudent, setActiveStudent] = useState(null);
@@ -119,15 +134,16 @@ const BulkAdmitCardModal = ({
                                     const pdfWidth = singlePdf.internal.pageSize.getWidth();
                                     const pdfHeight = (img.height * pdfWidth) / img.width;
 
+                                    const yOffset = 8;
+                                    const maxAllowedHeight = singlePdf.internal.pageSize.getHeight() - (yOffset * 2);
                                     let finalWidth = pdfWidth;
                                     let finalHeight = pdfHeight;
-                                    if (pdfHeight > singlePdf.internal.pageSize.getHeight()) {
-                                        finalHeight = singlePdf.internal.pageSize.getHeight();
+                                    if (pdfHeight > maxAllowedHeight) {
+                                        finalHeight = maxAllowedHeight;
                                         finalWidth = (img.width * finalHeight) / img.height;
                                     }
 
                                     const xOffset = (pdfWidth - finalWidth) / 2;
-                                    const yOffset = 8;
                                     singlePdf.addImage(dataUrl, 'PNG', xOffset, yOffset, finalWidth, finalHeight);
 
                                     // Unique file name according to student name with class
@@ -151,15 +167,16 @@ const BulkAdmitCardModal = ({
                                     const pdfWidth = combinedPdf.internal.pageSize.getWidth();
                                     const pdfHeight = (img.height * pdfWidth) / img.width;
 
+                                    const yOffset = 8;
+                                    const maxAllowedHeight = combinedPdf.internal.pageSize.getHeight() - (yOffset * 2);
                                     let finalWidth = pdfWidth;
                                     let finalHeight = pdfHeight;
-                                    if (pdfHeight > combinedPdf.internal.pageSize.getHeight()) {
-                                        finalHeight = combinedPdf.internal.pageSize.getHeight();
+                                    if (pdfHeight > maxAllowedHeight) {
+                                        finalHeight = maxAllowedHeight;
                                         finalWidth = (img.width * finalHeight) / img.height;
                                     }
 
                                     const xOffset = (pdfWidth - finalWidth) / 2;
-                                    const yOffset = 8;
                                     combinedPdf.addImage(dataUrl, 'PNG', xOffset, yOffset, finalWidth, finalHeight);
                                 }
                                 successCount++;
