@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
     FaExclamationTriangle, FaCalendarAlt, FaHistory, FaChartLine,
-    FaStar, FaSearch, FaTimes, FaRedo, FaMoon, FaSun, FaChevronDown
+    FaStar, FaSearch, FaTimes, FaRedo, FaMoon, FaSun, FaChevronDown,
+    FaBuilding, FaUserTie
 } from "react-icons/fa";
 import { CardSkeleton } from "../common/Skeleton";
 import { useTheme } from "../../context/ThemeContext";
+import CustomMultiSelect from "../common/CustomMultiSelect";
 import FollowUpActivityModal from "./FollowUpActivityModal";
 import AddFollowUpModal from "./AddFollowUpModal";
 
@@ -86,6 +88,113 @@ const AllFollowUpsContent = () => {
     const [selectedLead, setSelectedLead] = useState(null);
     const [showFollowUpModal, setShowFollowUpModal] = useState(false);
 
+    // ── Active Centre & Agent Filter State ─────────────────────────────────────
+    const [centres, setCentres] = useState([]);
+    const [telecallers, setTelecallers] = useState([]);
+    const [selectedCentres, setSelectedCentres] = useState([]);
+    const [selectedAgents, setSelectedAgents] = useState([]);
+
+    // ── Fetch Active Centres & Agents ──────────────────────────────────────────
+    useEffect(() => {
+        const fetchCentresAndAgents = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+                const headers = { Authorization: `Bearer ${token}` };
+                const apiUrl = import.meta.env.VITE_API_URL;
+
+                // 1. Fetch Centres (only active centres)
+                let activeCentres = [];
+                const roleLower = (currentUser.role || "").toLowerCase().replace(/\s+/g, "");
+                if (['superadmin', 'super admin', 'digital'].includes(roleLower)) {
+                    const cRes = await fetch(`${apiUrl}/centre`, { headers });
+                    if (cRes.ok) {
+                        const allC = await cRes.json();
+                        activeCentres = (Array.isArray(allC) ? allC : []).filter(c => !c.status || c.status.toLowerCase() === "active");
+                    }
+                } else {
+                    const profRes = await fetch(`${apiUrl}/profile/me`, { headers });
+                    if (profRes.ok) {
+                        const profData = await profRes.json();
+                        const rawCentres = profData.user?.centres || [];
+                        activeCentres = rawCentres.filter(c => !c.status || c.status.toLowerCase() === "active");
+                    }
+                }
+                activeCentres.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
+                setCentres(activeCentres);
+
+                // 2. Fetch Agents (active telecallers & lead handlers)
+                const userRes = await fetch(`${apiUrl}/superAdmin/getAllUsers`, { headers });
+                if (userRes.ok) {
+                    const data = await userRes.json();
+                    const allowedRoles = [
+                        'telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm',
+                        'centerincharge', 'centreincharge', 'zonalmanager', 'hod',
+                        'assistantzonalmanager', 'assistantcenterincharge'
+                    ];
+                    const activeUsers = (data.users || []).filter(u => {
+                        const r = (u.role || "").toLowerCase().replace(/[\s_-]+/g, '');
+                        const isActive = u.isActive !== false;
+                        const isSuperAdmin = r === 'superadmin';
+                        const isDigital = r === 'digital';
+                        return isActive && allowedRoles.includes(r) && !isSuperAdmin && !isDigital;
+                    });
+
+                    // Check for duplicate names to disambiguate
+                    const nameCounts = {};
+                    activeUsers.forEach(u => {
+                        const name = u.name?.trim();
+                        if (name) nameCounts[name] = (nameCounts[name] || 0) + 1;
+                    });
+
+                    const formattedUsers = activeUsers.map(u => {
+                        const name = u.name?.trim();
+                        const isDuplicate = nameCounts[name] > 1;
+                        let displayName = u.name;
+                        if (isDuplicate) {
+                            const centreNames = (u.centres || []).map(c => c.centreName || c.name).filter(Boolean).join(', ');
+                            displayName = `${u.name} (${centreNames || 'No Centre'})`;
+                        }
+                        return {
+                            ...u,
+                            displayName,
+                            value: isDuplicate ? displayName : u.name
+                        };
+                    });
+
+                    formattedUsers.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
+                    setTelecallers(formattedUsers);
+                }
+            } catch (err) {
+                console.error("Error fetching centres/agents for followups:", err);
+            }
+        };
+
+        fetchCentresAndAgents();
+    }, []);
+
+    const centreOptions = useMemo(() => {
+        return centres.map(c => ({
+            value: c._id,
+            label: c.centreName || c.name || "Unnamed Centre"
+        }));
+    }, [centres]);
+
+    const agentOptions = useMemo(() => {
+        // If centres are selected, filter agents assigned to those centres
+        if (selectedCentres.length > 0) {
+            const selectedCentreIds = selectedCentres.map(c => (c.value || c).toString());
+            const matched = telecallers.filter(u => {
+                const uCentreIds = (u.centres || []).map(c => (c._id || c).toString());
+                return uCentreIds.some(cid => selectedCentreIds.includes(cid));
+            });
+            if (matched.length > 0) {
+                return matched.map(u => ({ value: u.value, label: u.displayName || u.name }));
+            }
+        }
+        return telecallers.map(u => ({ value: u.value, label: u.displayName || u.name }));
+    }, [telecallers, selectedCentres]);
+
     // ── Fetch stats ───────────────────────────────────────────────────────────
     const fetchFollowUpStats = useCallback(async () => {
         setStatsLoading(true);
@@ -101,6 +210,18 @@ const AllFollowUpsContent = () => {
             if (fromDate) params.append("fromDate", fromDate);
             if (toDate) params.append("toDate", toDate);
 
+            // Active Centre filter
+            selectedCentres.forEach(c => {
+                const val = typeof c === "object" && "value" in c ? c.value : c;
+                if (val) params.append("centre", val);
+            });
+
+            // Agent filter
+            selectedAgents.forEach(a => {
+                const val = typeof a === "object" && "value" in a ? a.value : a;
+                if (val) params.append("leadResponsibility", val);
+            });
+
             const response = await fetch(
                 `${import.meta.env.VITE_API_URL}/lead-management/stats/today-followups?${params.toString()}`,
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -111,7 +232,7 @@ const AllFollowUpsContent = () => {
         } finally {
             setStatsLoading(false);
         }
-    }, [leadTypeFilter, fromDate, toDate]);
+    }, [leadTypeFilter, fromDate, toDate, selectedCentres, selectedAgents]);
 
     useEffect(() => { fetchFollowUpStats(); }, [fetchFollowUpStats]);
 
@@ -135,6 +256,8 @@ const AllFollowUpsContent = () => {
         setToDate("");
         setShowCustom(false);
         setLeadTypeFilter([]);
+        setSelectedCentres([]);
+        setSelectedAgents([]);
     };
 
     // ── Card click ─────────────────────────────────────────────────────────
@@ -272,6 +395,87 @@ const AllFollowUpsContent = () => {
                             )}
                         </div>
                     )}
+                </div>
+
+                {/* ── Active Centre & Agent Multi-Selection Filters ── */}
+                <div className={`rounded-[2px] border p-4 transition-all ${isDarkMode ? "bg-[#0a0a0b] border-gray-800" : "bg-white border-gray-200 shadow-sm"}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                        {/* Active Centre Multi-Select */}
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    <FaBuilding className="text-cyan-500" size={11} />
+                                    Active Centre
+                                </label>
+                                {selectedCentres.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedCentres([])}
+                                        className="text-[9px] font-bold text-red-400 hover:underline cursor-pointer"
+                                    >
+                                        Clear ({selectedCentres.length})
+                                    </button>
+                                )}
+                            </div>
+                            <CustomMultiSelect
+                                options={centreOptions}
+                                value={selectedCentres}
+                                onChange={(val) => setSelectedCentres(val || [])}
+                                placeholder="ALL ACTIVE CENTRES"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        {/* Agent / Telecaller Multi-Select */}
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    <FaUserTie className="text-purple-400" size={11} />
+                                    Agent / Telecaller
+                                </label>
+                                {selectedAgents.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedAgents([])}
+                                        className="text-[9px] font-bold text-red-400 hover:underline cursor-pointer"
+                                    >
+                                        Clear ({selectedAgents.length})
+                                    </button>
+                                )}
+                            </div>
+                            <CustomMultiSelect
+                                options={agentOptions}
+                                value={selectedAgents}
+                                onChange={(val) => setSelectedAgents(val || [])}
+                                placeholder="ALL AGENTS"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        {/* Active Filter Indicators */}
+                        <div className="flex items-center gap-2 pb-0.5">
+                            {(selectedCentres.length > 0 || selectedAgents.length > 0) ? (
+                                <div className={`text-[9px] font-bold px-3 py-2 rounded-[2px] border flex items-center gap-2 ${isDarkMode ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" : "bg-cyan-50 text-cyan-700 border-cyan-200"}`}>
+                                    <span>FILTERED BY:</span>
+                                    {selectedCentres.length > 0 && (
+                                        <span className="font-black">
+                                            {selectedCentres.length} CENTRE{selectedCentres.length > 1 ? 'S' : ''}
+                                        </span>
+                                    )}
+                                    {selectedCentres.length > 0 && selectedAgents.length > 0 && <span>•</span>}
+                                    {selectedAgents.length > 0 && (
+                                        <span className="font-black">
+                                            {selectedAgents.length} AGENT{selectedAgents.length > 1 ? 'S' : ''}
+                                        </span>
+                                    )}
+                                </div>
+                            ) : (
+                                <span className={`text-[9px] font-bold uppercase tracking-widest italic ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>
+                                    Showing all centres &amp; agents
+                                </span>
+                            )}
+                        </div>
+                    </div>
                 </div>
 
                 {/* ── Analytics Cards ── */}

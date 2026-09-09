@@ -11,6 +11,7 @@ import BillGenerator from '../Finance/BillGenerator';
 import PNTSEAdmitCard from './PNTSEAdmitCard';
 import PNTSEBulkImportModal from './PNTSEBulkImportModal';
 import Pagination from '../common/Pagination';
+import BulkAdmitCardModal from '../common/BulkAdmitCardModal';
 import * as XLSX from 'xlsx';
 
 const formatReportingTime = (timeStr) => {
@@ -144,6 +145,30 @@ const PNTSEAllStudentsContent = () => {
     // Admit Card State
     const [showAdmitCard, setShowAdmitCard] = useState(false);
     const [admitCardStudent, setAdmitCardStudent] = useState(null);
+    const [showBulkAdmitCardModal, setShowBulkAdmitCardModal] = useState(false);
+    const [selectedStudentIds, setSelectedStudentIds] = useState(new Set());
+
+    const toggleSelectStudent = (id) => {
+        setSelectedStudentIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const toggleSelectAllCurrentPage = () => {
+        setSelectedStudentIds(prev => {
+            const next = new Set(prev);
+            const allPageSelected = paginatedStudents.length > 0 && paginatedStudents.every(s => next.has(s._id));
+            if (allPageSelected) {
+                paginatedStudents.forEach(s => next.delete(s._id));
+            } else {
+                paginatedStudents.forEach(s => next.add(s._id));
+            }
+            return next;
+        });
+    };
 
     const handleGenerateAdmitCard = (student) => {
         setAdmitCardStudent(student);
@@ -807,6 +832,20 @@ const PNTSEAllStudentsContent = () => {
                         <FaFileExcel className="text-base" />
                         Export Excel
                     </button>
+                    <button
+                        onClick={() => {
+                            if (!sortedStudents || sortedStudents.length === 0) {
+                                alert("No students found matching current filters.");
+                                return;
+                            }
+                            setShowBulkAdmitCardModal(true);
+                        }}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-blue-500/25 cursor-pointer"
+                        title="Bulk Download Admit Cards according to filter"
+                    >
+                        <FaDownload className="text-base" />
+                        Bulk Admit Cards
+                    </button>
                 </div>
             </div>
 
@@ -934,6 +973,31 @@ const PNTSEAllStudentsContent = () => {
                 </div>
             </div>
 
+            {/* Selection Banner */}
+            {selectedStudentIds.size > 0 && (
+                <div className="bg-blue-950/50 border border-blue-500/40 rounded-2xl px-5 py-3 mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-blue-200">
+                        <span className="font-bold text-white text-base">{selectedStudentIds.size}</span>
+                        <span>{selectedStudentIds.size === 1 ? 'student' : 'students'} selected</span>
+                        <span className="text-xs text-blue-400">({sortedStudents.length} total filtered)</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setShowBulkAdmitCardModal(true)}
+                            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                        >
+                            <FaDownload className="text-xs" /> Download Selected Admit Cards
+                        </button>
+                        <button
+                            onClick={() => setSelectedStudentIds(new Set())}
+                            className="text-xs text-gray-400 hover:text-white transition-colors cursor-pointer px-2 py-1"
+                        >
+                            Clear Selection
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Table */}
             <div className="bg-gray-900 border border-gray-800 rounded-2xl overflow-hidden relative">
                 {studentsLoading && (
@@ -959,6 +1023,15 @@ const PNTSEAllStudentsContent = () => {
                     <table className="w-full text-sm">
                         <thead>
                             <tr className="bg-gray-800/60">
+                                <th className="px-4 py-3.5 text-center w-10">
+                                    <input
+                                        type="checkbox"
+                                        checked={paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.has(s._id))}
+                                        onChange={toggleSelectAllCurrentPage}
+                                        className="rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        title="Select all on current page"
+                                    />
+                                </th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Sl.</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cyan-400 transition-colors" onClick={() => handleSort('name')}>
                                     <div className="flex items-center gap-1.5">Student Name <SortIcon field="name" /></div>
@@ -984,7 +1057,7 @@ const PNTSEAllStudentsContent = () => {
                         <tbody className="divide-y divide-gray-800/50">
                             {paginatedStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={14} className="text-center py-16 text-gray-500">
+                                    <td colSpan={15} className="text-center py-16 text-gray-500">
                                         <FaGraduationCap className="text-4xl mx-auto mb-3 opacity-30" />
                                         <p>No students found</p>
                                     </td>
@@ -993,6 +1066,14 @@ const PNTSEAllStudentsContent = () => {
                                 const slNo = (currentPage - 1) * itemsPerPage + idx + 1;
                                 return (
                                 <tr key={student._id} className="hover:bg-gray-800/40 transition-colors duration-150">
+                                    <td className="px-4 py-4 text-center">
+                                        <input
+                                            type="checkbox"
+                                            checked={selectedStudentIds.has(student._id)}
+                                            onChange={() => toggleSelectStudent(student._id)}
+                                            className="rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        />
+                                    </td>
                                     <td className="px-5 py-4 text-gray-400">{slNo}</td>
                                     <td className="px-5 py-4">
                                         <div className="flex items-center gap-3">
@@ -1150,6 +1231,15 @@ const PNTSEAllStudentsContent = () => {
                     onClose={() => { setShowAdmitCard(false); setAdmitCardStudent(null); }} 
                 />
             )}
+
+            {/* ==================== BULK ADMIT CARD MODAL ==================== */}
+            <BulkAdmitCardModal
+                isOpen={showBulkAdmitCardModal}
+                onClose={() => setShowBulkAdmitCardModal(false)}
+                type="PNTSE"
+                allFilteredStudents={sortedStudents}
+                selectedStudents={sortedStudents.filter(s => selectedStudentIds.has(s._id))}
+            />
 
             {/* ==================== PAY CHECKOUT MODAL ==================== */}
             {showPayModal && checkoutStudent && (

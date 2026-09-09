@@ -11,6 +11,7 @@ import BillGenerator from '../Finance/BillGenerator';
 import PMOAdmitCard from './PMOAdmitCard';
 import PMOBulkImportModal from './PMOBulkImportModal';
 import Pagination from '../common/Pagination';
+import BulkAdmitCardModal from '../common/BulkAdmitCardModal';
 import * as XLSX from 'xlsx';
 
 // Custom Anchored MultiSelect Dropdown for PMO
@@ -294,6 +295,30 @@ const PMOAllStudentsContent = () => {
     // Admit Card State
     const [showAdmitCard, setShowAdmitCard] = useState(false);
     const [admitCardStudent, setAdmitCardStudent] = useState(null);
+    const [showBulkAdmitCardModal, setShowBulkAdmitCardModal] = useState(false);
+    const [selectedStudentIds, setSelectedStudentIds] = useState(new Set());
+
+    const toggleSelectStudent = (id) => {
+        setSelectedStudentIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    };
+
+    const toggleSelectAllCurrentPage = () => {
+        setSelectedStudentIds(prev => {
+            const next = new Set(prev);
+            const allPageSelected = paginatedStudents.length > 0 && paginatedStudents.every(s => next.has(s._id));
+            if (allPageSelected) {
+                paginatedStudents.forEach(s => next.delete(s._id));
+            } else {
+                paginatedStudents.forEach(s => next.add(s._id));
+            }
+            return next;
+        });
+    };
 
     const handleGenerateAdmitCard = (student) => {
         setAdmitCardStudent(student);
@@ -785,9 +810,22 @@ const PMOAllStudentsContent = () => {
                     )}
                     <button
                         onClick={handleExport}
-                        className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-4 py-2 rounded-xl text-xs font-semibold transition"
+                        className="flex items-center gap-2 bg-gray-800 hover:bg-gray-700 text-gray-200 border border-gray-700 px-4 py-2 rounded-xl text-xs font-semibold transition cursor-pointer"
                     >
                         <FaDownload className="text-emerald-400" /> Export Excel
+                    </button>
+                    <button
+                        onClick={() => {
+                            if (!sortedStudents || sortedStudents.length === 0) {
+                                alert("No students found matching current filters.");
+                                return;
+                            }
+                            setShowBulkAdmitCardModal(true);
+                        }}
+                        className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white border border-blue-500/30 px-4 py-2 rounded-xl text-xs font-semibold shadow-lg shadow-blue-500/20 transition cursor-pointer"
+                        title="Bulk Download Admit Cards according to filter"
+                    >
+                        <FaDownload /> Bulk Admit Cards
                     </button>
                     {canCreate && (
                         <button
@@ -1008,12 +1046,46 @@ const PMOAllStudentsContent = () => {
                 </div>
             </div>
 
+            {/* Selection Banner */}
+            {selectedStudentIds.size > 0 && (
+                <div className="bg-blue-950/50 border border-blue-500/40 rounded-2xl px-5 py-3 flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-blue-200">
+                        <span className="font-bold text-white text-base">{selectedStudentIds.size}</span>
+                        <span>{selectedStudentIds.size === 1 ? 'student' : 'students'} selected</span>
+                        <span className="text-xs text-blue-400">({sortedStudents.length} total filtered)</span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={() => setShowBulkAdmitCardModal(true)}
+                            className="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-semibold rounded-xl transition-all cursor-pointer flex items-center gap-2 shadow-sm"
+                        >
+                            <FaDownload className="text-xs" /> Download Selected Admit Cards
+                        </button>
+                        <button
+                            onClick={() => setSelectedStudentIds(new Set())}
+                            className="text-xs text-gray-400 hover:text-white transition-colors cursor-pointer px-2 py-1"
+                        >
+                            Clear Selection
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Students Table */}
             <div className="bg-gray-900/60 border border-gray-800 rounded-2xl overflow-hidden backdrop-blur-sm shadow-xl">
                 <div className="overflow-x-auto">
                     <table className="w-full text-left text-xs text-gray-300">
                         <thead className="bg-gray-950/80 text-gray-400 uppercase text-[10px] font-bold border-b border-gray-800">
                             <tr>
+                                <th className="p-3.5 text-center w-10">
+                                    <input
+                                        type="checkbox"
+                                        checked={paginatedStudents.length > 0 && paginatedStudents.every(s => selectedStudentIds.has(s._id))}
+                                        onChange={toggleSelectAllCurrentPage}
+                                        className="rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                        title="Select all on current page"
+                                    />
+                                </th>
                                 <th className="p-3.5">#</th>
                                 <th className="p-3.5 cursor-pointer hover:text-white" onClick={() => handleSort('rollNo')}>
                                     <div className="flex items-center gap-1">
@@ -1048,14 +1120,14 @@ const PMOAllStudentsContent = () => {
                         <tbody className="divide-y divide-gray-800/60">
                             {studentsLoading ? (
                                 <tr>
-                                    <td colSpan={9} className="p-12 text-center text-gray-500">
+                                    <td colSpan={10} className="p-12 text-center text-gray-500">
                                         <FaSpinner className="animate-spin text-2xl text-purple-400 mx-auto mb-2" />
                                         Loading PMO students...
                                     </td>
                                 </tr>
                             ) : paginatedStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={9} className="p-12 text-center text-gray-500">
+                                    <td colSpan={10} className="p-12 text-center text-gray-500">
                                         No PMO students found. Click "Add Student" or adjust search/filters.
                                     </td>
                                 </tr>
@@ -1066,6 +1138,14 @@ const PMOAllStudentsContent = () => {
 
                                     return (
                                         <tr key={s._id} className="hover:bg-gray-800/40 transition">
+                                            <td className="p-3.5 text-center">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedStudentIds.has(s._id)}
+                                                    onChange={() => toggleSelectStudent(s._id)}
+                                                    className="rounded border-gray-600 bg-gray-700 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                />
+                                            </td>
                                             <td className="p-3.5 font-mono text-gray-500">
                                                 {(currentPage - 1) * itemsPerPage + idx + 1}
                                             </td>
@@ -1290,6 +1370,15 @@ const PMOAllStudentsContent = () => {
                     }}
                 />
             )}
+
+            {/* Bulk Admit Card Modal */}
+            <BulkAdmitCardModal
+                isOpen={showBulkAdmitCardModal}
+                onClose={() => setShowBulkAdmitCardModal(false)}
+                type="PMO"
+                allFilteredStudents={sortedStudents}
+                selectedStudents={sortedStudents.filter(s => selectedStudentIds.has(s._id))}
+            />
 
             {/* Bulk Import Modal */}
             {showBulkImportModal && (

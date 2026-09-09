@@ -286,7 +286,8 @@ export const buildLeadQuery = async (queryParams, user) => {
 
     let centreFilterIds = [];
     if (centre && (!Array.isArray(centre) || centre.length > 0)) {
-        centreFilterIds = Array.isArray(centre) ? normalizeValue(centre) : [normalizeValue(centre)];
+        const raw = Array.isArray(centre) ? centre : (typeof centre === 'string' && centre.includes(',') ? centre.split(',') : [centre]);
+        centreFilterIds = raw.map(c => normalizeValue(c)).filter(Boolean);
     }
 
     if (zoneQueryCentres.length > 0) {
@@ -343,7 +344,8 @@ export const buildLeadQuery = async (queryParams, user) => {
 
     // Responsibility filter (Telecaller names / IDs / unique display names)
     if (leadResponsibility && (!Array.isArray(leadResponsibility) || leadResponsibility.length > 0)) {
-        const values = Array.isArray(leadResponsibility) ? normalizeValue(leadResponsibility) : [normalizeValue(leadResponsibility)];
+        const raw = Array.isArray(leadResponsibility) ? leadResponsibility : (typeof leadResponsibility === 'string' && leadResponsibility.includes(',') ? leadResponsibility.split(',') : [leadResponsibility]);
+        const values = raw.map(v => normalizeValue(v)).filter(Boolean);
         const cleanValues = values.filter(v => v);
         if (cleanValues.length > 0) {
             const orConditions = [];

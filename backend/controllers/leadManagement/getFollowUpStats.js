@@ -12,12 +12,14 @@ export const getFollowUpStats = async (req, res) => {
         const followUpUserQuery = { $or: [] };
 
         if (leadResponsibility) {
-            const identifiers = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
+            const rawIdentifiers = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
+            const identifiers = rawIdentifiers.flatMap(val => typeof val === 'string' && val.includes(',') ? val.split(',') : [val]).filter(Boolean);
             for (const val of identifiers) {
                 const resolved = await resolveAgentIdentifier(val, req.user);
                 if (resolved) {
                     if (resolved.leadMatch) {
                         leadResponsibilityQuery.$or.push(resolved.leadMatch);
+                        followUpUserQuery.$or.push(resolved.leadMatch);
                     }
                     if (resolved.followUpMatch) {
                         const fMatch = { ...resolved.followUpMatch };
@@ -35,7 +37,8 @@ export const getFollowUpStats = async (req, res) => {
         let centreIds = [];
         if (centre) {
             const cRaw = Array.isArray(centre) ? centre : [centre];
-            centreIds = cRaw.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id);
+            const flatCentres = cRaw.flatMap(val => typeof val === 'string' && val.includes(',') ? val.split(',') : [val]).filter(Boolean);
+            centreIds = flatCentres.map(id => mongoose.isValidObjectId(id) ? new mongoose.Types.ObjectId(id) : id);
         }
 
         // 3. Date filters
@@ -99,6 +102,7 @@ export const getFollowUpStats = async (req, res) => {
         delete queryParams.toDate;
         delete queryParams.scheduledDate;
         delete queryParams.followUpStatus;
+        delete queryParams.leadResponsibility;
         queryParams.includeInvalid = true;
         
         const baseMatch = await buildLeadQuery(queryParams, req.user);
