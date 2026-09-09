@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import Student from "../../models/Students.js";
 import User from "../../models/User.js";
+import { getActiveCarryForwardBalance } from "../../utils/carryForwardHelper.js";
 
 export const getStudentById = async (req, res) => {
   try {
@@ -49,6 +50,11 @@ export const getStudentById = async (req, res) => {
 
     if (!student) {
       return res.status(404).json({ message: "Student not found" });
+    }
+
+    // Exclude remaining balance of deactivated courses from carry forward
+    if (student.carryForwardBalance && student.carryForwardBalance > 0) {
+      student.carryForwardBalance = await getActiveCarryForwardBalance(studentId);
     }
 
     // Resolve counselledBy if it's an ObjectID

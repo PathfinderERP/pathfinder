@@ -16,6 +16,7 @@ import Batch from "../../models/Master_data/Batch.js";
 import Class from "../../models/Master_data/Class.js";
 import Department from "../../models/Master_data/Department.js";
 import Account from "../../models/Master_data/Account.js";
+import { getActiveCarryForwardBalance } from "../../utils/carryForwardHelper.js";
 
 export const createAdmission = async (req, res) => {
     try {
@@ -129,7 +130,7 @@ export const createAdmission = async (req, res) => {
             return res.status(400).json({ message: "Batch selection is mandatory for CRP programme." });
         }
 
-        const previousBalance = student.carryForwardBalance || 0;
+        const previousBalance = await getActiveCarryForwardBalance(studentId);
 
         if (student.status === 'Deactivated') {
             const deactivationDate = student.deactivationDate;

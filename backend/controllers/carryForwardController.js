@@ -9,6 +9,7 @@ import Centre from '../models/Master_data/Centre.js';
 import ClassModel from '../models/Master_data/Class.js';
 import Course from '../models/Master_data/Courses.js';
 import Session from '../models/Master_data/Session.js';
+import { getActiveCarryForwardBalance } from '../utils/carryForwardHelper.js';
 
 /**
  * Helper to build centre-to-zone and centre-to-zoneId map
@@ -384,6 +385,10 @@ export const getCarryForwardStudentDetails = async (req, res) => {
                 admissionDate: a.createdAt
             }))
         ];
+
+        if (student && student.carryForwardBalance > 0 && !student.isVirtualStudent) {
+            student.carryForwardBalance = await getActiveCarryForwardBalance(studentId);
+        }
 
         res.status(200).json({
             success: true,

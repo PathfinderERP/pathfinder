@@ -1,5 +1,7 @@
 import Admission from "../../models/Admission/Admission.js";
+import Student from "../../models/Students.js";
 import { deleteCache } from "../../utils/redisCache.js";
+import { getActiveCarryForwardBalance } from "../../utils/carryForwardHelper.js";
 
 export const deleteAdmission = async (req, res) => {
     try {
@@ -39,8 +41,9 @@ export const deleteAdmission = async (req, res) => {
 
         await admission.save();
 
-        // Invalidate specific student report cache
+        // Update student's carry forward balance so deactivated course's remaining balance is not carried forward
         if (admission.student) {
+            await getActiveCarryForwardBalance(admission.student);
             await deleteCache(`student:report:${admission.student}`);
         }
 
@@ -93,8 +96,23 @@ export const reactivateAdmission = async (req, res) => {
 
         await admission.save();
 
-        // Invalidate specific student report cache
+        // If this admission had carried forward arrears, restore them to student
         if (admission.student) {
+            let restoredCf = 0;
+            (admission.paymentBreakdown || []).forEach(inst => {
+                if (inst.remarks) {
+                    const match = inst.remarks.match(/Carried Forward Arrears:\s*₹?\s*([0-9.]+)/i);
+                    if (match && match[1]) {
+                        restoredCf += parseFloat(match[1]);
+                    }
+                }
+            });
+            if (restoredCf > 0) {
+                await Student.findByIdAndUpdate(admission.student, {
+                    $inc: { carryForwardBalance: restoredCf },
+                    $set: { markedForCarryForward: true }
+                });
+            }
             await deleteCache(`student:report:${admission.student}`);
         }
 
