@@ -4,7 +4,7 @@ import { FaSearch, FaDownload, FaFileImport, FaFileExcel,
     FaGraduationCap, FaUsers, FaTrophy, FaChartLine, FaSortUp, FaSortDown,
     FaSpinner, FaTimes, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaFileInvoice,
     FaEdit, FaTrash, FaEye, FaBookOpen, FaChalkboardTeacher, FaSchool, FaPlus, FaMoneyBillWave,
-    FaCalendarAlt
+    FaCalendarAlt, FaPhone
 } from 'react-icons/fa';
 import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
@@ -12,6 +12,7 @@ import PNTSEAdmitCard from './PNTSEAdmitCard';
 import PNTSEBulkImportModal from './PNTSEBulkImportModal';
 import Pagination from '../common/Pagination';
 import BulkAdmitCardModal from '../common/BulkAdmitCardModal';
+import StudentFollowUpModal from '../common/StudentFollowUpModal';
 import * as XLSX from 'xlsx';
 
 const formatReportingTime = (timeStr) => {
@@ -434,6 +435,10 @@ const PNTSEAllStudentsContent = () => {
     const [importing, setImporting] = useState(false);
     const [importResult, setImportResult] = useState(null);
     const fileInputRef = useRef(null);
+
+    // Follow-Up Modal State
+    const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+    const [followUpStudent, setFollowUpStudent] = useState(null);
 
     const statuses = ['Qualified', 'Appeared', 'Not Qualified'];
 
@@ -1154,6 +1159,14 @@ const PNTSEAllStudentsContent = () => {
                                             )}
                                             
                                             {/* Icon actions */}
+                                            {/* Call / Follow-Up button */}
+                                            <button
+                                                onClick={() => { setFollowUpStudent(student); setShowFollowUpModal(true); }}
+                                                className="p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
+                                                title="Call & Follow-Up"
+                                            >
+                                                <FaPhone size={14} />
+                                            </button>
                                             <button
                                                 onClick={() => handleViewStudent(student)}
                                                 className="p-1.5 text-gray-400 hover:text-cyan-400 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
@@ -1240,6 +1253,15 @@ const PNTSEAllStudentsContent = () => {
                 allFilteredStudents={sortedStudents}
                 selectedStudents={sortedStudents.filter(s => selectedStudentIds.has(s._id))}
             />
+
+            {/* ==================== FOLLOW-UP CALL MODAL ==================== */}
+            {showFollowUpModal && followUpStudent && (
+                <StudentFollowUpModal
+                    student={followUpStudent}
+                    studentType="PNTSE"
+                    onClose={() => { setShowFollowUpModal(false); setFollowUpStudent(null); }}
+                />
+            )}
 
             {/* ==================== PAY CHECKOUT MODAL ==================== */}
             {showPayModal && checkoutStudent && (

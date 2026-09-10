@@ -87,6 +87,7 @@ import categoryRoutes from "./routes/masterData/category.route.js";
 import pntseRoutes from "./routes/pntse/pntse.routes.js";
 import pmoRoutes from "./routes/pmo/pmo.routes.js";
 import carryForwardRoutes from "./routes/carryForward.routes.js";
+import followUpRoutes from "./routes/followUp/followUp.routes.js";
 
 
 import allocationRoutes from "./routes/Inventory/allocation.routes.js";
@@ -238,6 +239,7 @@ app.use("/api/category",categoryRoutes);
 app.use("/api/pntse", pntseRoutes);
 app.use("/api/pmo", pmoRoutes);
 app.use("/api/carry-forward", carryForwardRoutes);
+app.use("/api/follow-up", protect, followUpRoutes);
 app.use("/api/task-workflow", taskWorkflowRoutes);
 app.use("/api/school-for-task", schoolForTaskRoutes);
 app.use("/api/assigned-tasks", assignedTaskRoutes);

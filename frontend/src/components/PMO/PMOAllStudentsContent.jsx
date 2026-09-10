@@ -4,7 +4,8 @@ import {
     FaSearch, FaDownload, FaFileImport, FaFileExcel,
     FaGraduationCap, FaUsers, FaTrophy, FaChartLine, FaSortUp, FaSortDown,
     FaSpinner, FaTimes, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaFileInvoice,
-    FaEdit, FaTrash, FaEye, FaPlus, FaMoneyBillWave, FaTag, FaChevronDown, FaCheck, FaCalendarAlt
+    FaEdit, FaTrash, FaEye, FaPlus, FaMoneyBillWave, FaTag, FaChevronDown, FaCheck, FaCalendarAlt,
+    FaPhone
 } from 'react-icons/fa';
 import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
@@ -12,6 +13,7 @@ import PMOAdmitCard from './PMOAdmitCard';
 import PMOBulkImportModal from './PMOBulkImportModal';
 import Pagination from '../common/Pagination';
 import BulkAdmitCardModal from '../common/BulkAdmitCardModal';
+import StudentFollowUpModal from '../common/StudentFollowUpModal';
 import * as XLSX from 'xlsx';
 
 // Custom Anchored MultiSelect Dropdown for PMO
@@ -457,6 +459,10 @@ const PMOAllStudentsContent = () => {
 
     // Bulk Import Modal State
     const [showBulkImportModal, setShowBulkImportModal] = useState(false);
+
+    // Follow-Up Modal State
+    const [showFollowUpModal, setShowFollowUpModal] = useState(false);
+    const [followUpStudent, setFollowUpStudent] = useState(null);
 
     const getHeaders = () => {
         const token = localStorage.getItem("token");
@@ -1295,6 +1301,14 @@ const PMOAllStudentsContent = () => {
 
                                             <td className="p-3.5 text-right">
                                                 <div className="flex items-center justify-end gap-1.5">
+                                                    {/* Call / Follow-Up */}
+                                                    <button
+                                                        onClick={() => { setFollowUpStudent(s); setShowFollowUpModal(true); }}
+                                                        className="p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition"
+                                                        title="Call & Follow-Up"
+                                                    >
+                                                        <FaPhone size={13} />
+                                                    </button>
                                                     <button
                                                         onClick={() => handleGenerateAdmitCard(s)}
                                                         className="p-1.5 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition"
@@ -1390,6 +1404,15 @@ const PMOAllStudentsContent = () => {
                         setShowBulkImportModal(false);
                         fetchStudents();
                     }}
+                />
+            )}
+
+            {/* Follow-Up Call Modal */}
+            {showFollowUpModal && followUpStudent && (
+                <StudentFollowUpModal
+                    student={followUpStudent}
+                    studentType="PMO"
+                    onClose={() => { setShowFollowUpModal(false); setFollowUpStudent(null); }}
                 />
             )}
 
