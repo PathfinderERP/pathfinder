@@ -1120,7 +1120,7 @@ const PMOAllStudentsContent = () => {
                                 <th className="p-3.5">Fee & Payment</th>
                                 <th className="p-3.5">Exam Venue & Time</th>
                                 <th className="p-3.5">Result</th>
-                                <th className="p-3.5 text-right">Actions</th>
+                                <th className="p-3.5 text-right min-w-[150px]">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800/60">
@@ -1299,8 +1299,8 @@ const PMOAllStudentsContent = () => {
                                                 </span>
                                             </td>
 
-                                            <td className="p-3.5 text-right">
-                                                <div className="flex items-center justify-end gap-1.5">
+                                            <td className="p-3 text-right">
+                                                <div className="flex items-center justify-end gap-0.5">
                                                     {/* Call / Follow-Up */}
                                                     <button
                                                         onClick={() => { setFollowUpStudent(s); setShowFollowUpModal(true); }}
@@ -1309,20 +1309,23 @@ const PMOAllStudentsContent = () => {
                                                     >
                                                         <FaPhone size={13} />
                                                     </button>
+                                                    {/* Admit Card */}
                                                     <button
                                                         onClick={() => handleGenerateAdmitCard(s)}
                                                         className="p-1.5 text-indigo-400 hover:text-indigo-300 hover:bg-indigo-500/10 rounded-lg transition"
                                                         title="PMO Admit Card"
                                                     >
-                                                        <FaGraduationCap size={15} />
+                                                        <FaGraduationCap size={14} />
                                                     </button>
+                                                    {/* View */}
                                                     <button
                                                         onClick={() => handleOpenView(s)}
-                                                        className="p-1.5 text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition"
+                                                        className="p-1.5 text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition"
                                                         title="View Details"
                                                     >
                                                         <FaEye size={13} />
                                                     </button>
+                                                    {/* Edit */}
                                                     {canEdit && (
                                                         <button
                                                             onClick={() => handleOpenEdit(s)}
@@ -1332,6 +1335,7 @@ const PMOAllStudentsContent = () => {
                                                             <FaEdit size={13} />
                                                         </button>
                                                     )}
+                                                    {/* Delete */}
                                                     {canDelete && (
                                                         <button
                                                             onClick={() => handleDelete(s._id, s.name)}

@@ -1056,7 +1056,7 @@ const PNTSEAllStudentsContent = () => {
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Paid Status</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Exam Tag</th>
                                 <th className="px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Admit Card</th>
-                                <th className="px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Actions</th>
+                                <th className="px-3 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center min-w-[130px]">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800/50">
@@ -1125,10 +1125,12 @@ const PNTSEAllStudentsContent = () => {
                                             Admit Card
                                         </button>
                                     </td>
-                                    <td className="px-5 py-4 text-center">
-                                        <div className="flex items-center justify-center gap-2">
+                                    <td className="px-3 py-3">
+                                        <div className="flex flex-col items-center gap-1.5 min-w-[120px]">
+
+                                            {/* Pay / Free row — only shown when pending */}
                                             {student.paymentStatus !== 'Paid' && student.paymentStatus !== 'Free' && canEdit && (
-                                                <>
+                                                <div className="flex items-center gap-1.5">
                                                     <button
                                                         onClick={() => {
                                                             setCheckoutStudent(student);
@@ -1143,55 +1145,60 @@ const PNTSEAllStudentsContent = () => {
                                                             setCheckoutErrors({});
                                                             setShowPayModal(true);
                                                         }}
-                                                        className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-semibold shadow transition-all cursor-pointer font-bold"
-                                                        title="Pay Now"
+                                                        title="Process Payment"
+                                                        className="px-3 py-1 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-[11px] font-bold shadow transition-all cursor-pointer"
                                                     >
                                                         Pay
                                                     </button>
                                                     <button
                                                         onClick={() => handleSetFree(student)}
-                                                        className="px-2.5 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-xs font-semibold shadow transition-all border border-gray-700 cursor-pointer font-bold"
-                                                        title="Set as Free"
+                                                        title="Set as Free (100% waiver)"
+                                                        className="px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-[11px] font-bold shadow transition-all border border-gray-700 cursor-pointer"
                                                     >
                                                         Free
                                                     </button>
-                                                </>
+                                                </div>
                                             )}
-                                            
-                                            {/* Icon actions */}
-                                            {/* Call / Follow-Up button */}
-                                            <button
-                                                onClick={() => { setFollowUpStudent(student); setShowFollowUpModal(true); }}
-                                                className="p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
-                                                title="Call & Follow-Up"
-                                            >
-                                                <FaPhone size={14} />
-                                            </button>
-                                            <button
-                                                onClick={() => handleViewStudent(student)}
-                                                className="p-1.5 text-gray-400 hover:text-cyan-400 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-                                                title="View Details"
-                                            >
-                                                <FaEye size={14} />
-                                            </button>
-                                            {canEdit && (
+
+                                            {/* Icon actions row */}
+                                            <div className="flex items-center gap-0.5">
+                                                {/* Call / Follow-Up */}
                                                 <button
-                                                    onClick={() => handleEditStudent(student)}
-                                                    className="p-1.5 text-gray-400 hover:text-amber-400 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-                                                    title="Edit Student"
+                                                    onClick={() => { setFollowUpStudent(student); setShowFollowUpModal(true); }}
+                                                    title="Call & Follow-Up"
+                                                    className="p-1.5 text-emerald-400 hover:text-emerald-300 hover:bg-emerald-500/10 rounded-lg transition-colors cursor-pointer"
                                                 >
-                                                    <FaEdit size={14} />
+                                                    <FaPhone size={13} />
                                                 </button>
-                                            )}
-                                            {canDelete && (
+                                                {/* View */}
                                                 <button
-                                                    onClick={() => handleDeleteStudent(student)}
-                                                    className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-gray-800 rounded-lg transition-colors cursor-pointer"
-                                                    title="Delete Student"
+                                                    onClick={() => handleViewStudent(student)}
+                                                    title="View Details"
+                                                    className="p-1.5 text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 rounded-lg transition-colors cursor-pointer"
                                                 >
-                                                    <FaTrash size={14} />
+                                                    <FaEye size={13} />
                                                 </button>
-                                            )}
+                                                {/* Edit */}
+                                                {canEdit && (
+                                                    <button
+                                                        onClick={() => handleEditStudent(student)}
+                                                        title="Edit Student"
+                                                        className="p-1.5 text-gray-400 hover:text-amber-400 hover:bg-amber-500/10 rounded-lg transition-colors cursor-pointer"
+                                                    >
+                                                        <FaEdit size={13} />
+                                                    </button>
+                                                )}
+                                                {/* Delete */}
+                                                {canDelete && (
+                                                    <button
+                                                        onClick={() => handleDeleteStudent(student)}
+                                                        title="Delete Student"
+                                                        className="p-1.5 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors cursor-pointer"
+                                                    >
+                                                        <FaTrash size={13} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </td>
                                 </tr>
