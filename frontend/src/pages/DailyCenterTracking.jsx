@@ -458,6 +458,8 @@ const DailyCenterTracking = () => {
                     "Daily Calls (Unique)": center.uniqueCalls || 0,
                     "Daily Calls (Same No.)": center.sameNoCalls || 0,
                     "Daily Calls (Service)": center.serviceCalls || 0,
+                    "Daily Calls (PNTSE)": center.pntseCalls || 0,
+                    "Daily Calls (PMO)": center.pmoCalls || 0,
                     "Counselled (Normal)": center.counselledNormal || 0,
                     "Counselled (Board)": center.counselledBoard || 0,
                     "Counselled (Total)": cCouns,
@@ -793,7 +795,7 @@ const DailyCenterTracking = () => {
                             title: getCardLabel("Calls"),
                             category: "calls",
                             value: totalCallsSum,
-                            subtext: `Unique: ${filteredCenters.reduce((acc, curr) => acc + (curr.uniqueCalls || 0), 0)} | Same No.: ${filteredCenters.reduce((acc, curr) => acc + (curr.sameNoCalls || 0), 0)} | Service: ${filteredCenters.reduce((acc, curr) => acc + (curr.serviceCalls || 0), 0)}`,
+                            subtext: `Unique: ${filteredCenters.reduce((acc, curr) => acc + (curr.uniqueCalls || 0), 0)} | Same No.: ${filteredCenters.reduce((acc, curr) => acc + (curr.sameNoCalls || 0), 0)} | Service: ${filteredCenters.reduce((acc, curr) => acc + (curr.serviceCalls || 0), 0)} | PNTSE: ${filteredCenters.reduce((acc, curr) => acc + (curr.pntseCalls || 0), 0)} | PMO: ${filteredCenters.reduce((acc, curr) => acc + (curr.pmoCalls || 0), 0)}`,
                             icon: <FaPhoneAlt />,
                             color: "text-yellow-500",
                             bg: "bg-yellow-500/10"
@@ -1024,7 +1026,7 @@ const DailyCenterTracking = () => {
                                                 <td className="p-4 font-medium">
                                                     <div>{center.dailyCalls || 0}</div>
                                                     <div className={`text-[10px] font-semibold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                        Unique: {center.uniqueCalls || 0} | Same No.: {center.sameNoCalls || 0} | Service: {center.serviceCalls || 0}
+                                                        Unique: {center.uniqueCalls || 0} | Same No.: {center.sameNoCalls || 0} | Service: {center.serviceCalls || 0} | PNTSE: {center.pntseCalls || 0} | PMO: {center.pmoCalls || 0}
                                                     </div>
                                                 </td>
                                                 <td className="p-4 font-medium">
@@ -1094,7 +1096,7 @@ const DailyCenterTracking = () => {
                                                 <p className={`text-xs mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Daily Calls</p>
                                                 <span className="font-bold text-lg">{center.dailyCalls || 0}</span>
                                                 <p className={`text-xs font-medium mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                    Unique: {center.uniqueCalls || 0} | Same No.: {center.sameNoCalls || 0} | Service: {center.serviceCalls || 0}
+                                                    Unique: {center.uniqueCalls || 0} | Same No.: {center.sameNoCalls || 0} | Service: {center.serviceCalls || 0} | PNTSE: {center.pntseCalls || 0} | PMO: {center.pmoCalls || 0}
                                                 </p>
                                             </div>
                                             <div>

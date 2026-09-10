@@ -36,6 +36,7 @@ export const addFollowUp = async (req, res) => {
         const followUp = await StudentFollowUp.create({
             studentId,
             studentType,
+            centre: student.centre || null,
             calledBy,
             feedback,
             notes: notes || "",

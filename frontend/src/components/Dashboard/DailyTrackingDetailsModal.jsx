@@ -129,6 +129,12 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
         if (tagUpper.includes('SERVICE')) {
             return { bg: isDarkMode ? 'bg-teal-500/10' : 'bg-teal-50', text: 'text-teal-400', border: 'border-teal-500/20' };
         }
+        if (tagUpper.includes('PNTSE')) {
+            return { bg: isDarkMode ? 'bg-indigo-500/15' : 'bg-indigo-50', text: 'text-indigo-400 font-extrabold', border: 'border-indigo-500/30' };
+        }
+        if (tagUpper.includes('PMO')) {
+            return { bg: isDarkMode ? 'bg-amber-500/15' : 'bg-amber-50', text: 'text-amber-400 font-extrabold', border: 'border-amber-500/30' };
+        }
         if (tagUpper.includes('ADM')) {
             return { bg: isDarkMode ? 'bg-purple-500/10' : 'bg-purple-50', text: 'text-purple-500', border: 'border-purple-500/20' };
         }
@@ -523,6 +529,14 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                                                         <FaClock className="inline mr-1" />
                                                         {new Date(item.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} - {new Date(item.dateTime).toLocaleDateString()}
                                                     </span>
+                                                    {item.callDuration != null && item.callDuration > 0 && (
+                                                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded border flex items-center gap-1 ${
+                                                            isDarkMode ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30' : 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                                        }`}>
+                                                            <FaPhoneAlt size={8} />
+                                                            {Math.floor(item.callDuration / 60)}m {item.callDuration % 60}s
+                                                        </span>
+                                                    )}
                                                 </div>
 
                                                 <h3 className={`text-lg font-black italic tracking-tight uppercase ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900'}`}>

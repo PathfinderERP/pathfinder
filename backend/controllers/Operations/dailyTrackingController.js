@@ -11,6 +11,7 @@ import Student from "../../models/Students.js";
 import Employee from "../../models/HR/Employee.js";
 import PNTSEStudent from "../../models/PNTSEStudent.js";
 import PMOStudent from "../../models/PMOStudent.js";
+import StudentFollowUp from "../../models/StudentFollowUp.js";
 import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import mongoose from "mongoose";
 import XLSX from "xlsx";
@@ -168,6 +169,66 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
             existing.invalid += sc.invalid;
         } else {
             callsMap.set(key, { ...sc, serviceCalls: sc.totalCalls });
+        }
+    });
+
+    // Aggregate Student Follow-up calls (PNTSE & PMO)
+    const studentFollowUpMatchStage = {
+        centre: { $in: actualCenterIds },
+        callDate: dateFilter
+    };
+    if (isRestrictIndividual && reqUser) {
+        studentFollowUpMatchStage.calledBy = reqUser._id;
+    }
+
+    const aggregatedFollowUps = await StudentFollowUp.aggregate([
+        { $match: studentFollowUpMatchStage },
+        {
+            $lookup: {
+                from: "users",
+                localField: "calledBy",
+                foreignField: "_id",
+                as: "caller"
+            }
+        },
+        {
+            $addFields: {
+                callerName: { $ifNull: [{ $arrayElemAt: ["$caller.name", 0] }, "Unknown"] }
+            }
+        },
+        {
+            $addFields: {
+                callerNameLower: { $toLower: "$callerName" }
+            }
+        },
+        {
+            $group: {
+                _id: {
+                    centre: "$centre",
+                    userName: "$callerNameLower"
+                },
+                originalUserName: { $first: "$callerName" },
+                totalCalls: { $sum: 1 },
+                pntseCalls: { $sum: { $cond: [{ $eq: ["$studentType", "PNTSE"] }, 1, 0] } },
+                pmoCalls: { $sum: { $cond: [{ $eq: ["$studentType", "PMO"] }, 1, 0] } },
+                hot: { $sum: 0 },
+                warm: { $sum: 0 },
+                cold: { $sum: 0 },
+                neutral: { $sum: 0 },
+                invalid: { $sum: 0 }
+            }
+        }
+    ]);
+
+    aggregatedFollowUps.forEach(fu => {
+        const key = makeKey(fu._id?.centre, fu._id?.userName);
+        if (callsMap.has(key)) {
+            const existing = callsMap.get(key);
+            existing.totalCalls += fu.totalCalls;
+            existing.pntseCalls = (existing.pntseCalls || 0) + fu.pntseCalls;
+            existing.pmoCalls = (existing.pmoCalls || 0) + fu.pmoCalls;
+        } else {
+            callsMap.set(key, { ...fu, serviceCalls: 0 });
         }
     });
 
@@ -707,8 +768,66 @@ export const getDailyTracking = async (req, res) => {
             const serviceCallsTotal = serviceCallsResult.length > 0 ? serviceCallsResult[0].total : 0;
             const serviceCallsUnique = serviceCallsResult.length > 0 ? serviceCallsResult[0].unique.filter(Boolean).length : 0;
 
-            const dailyCallsCount = leadCallsCount + serviceCallsTotal;
-            const uniqueCallsCount = leadUniqueCallsCount + serviceCallsUnique;
+            // --- Student Follow-up Calls (PNTSE & PMO) ---
+            const studentFollowUpMatch = {
+                centre: centerId,
+                callDate: dateFilter
+            };
+            if (hasUserFilter) {
+                studentFollowUpMatch.calledBy = { $in: agentObjectIdList };
+            } else if (isRestricted) {
+                studentFollowUpMatch.calledBy = req.user._id;
+            }
+
+            const studentFollowUpsResult = await StudentFollowUp.aggregate([
+                { $match: studentFollowUpMatch },
+                {
+                    $lookup: {
+                        from: "pntsestudents",
+                        localField: "studentId",
+                        foreignField: "_id",
+                        as: "pntse"
+                    }
+                },
+                {
+                    $lookup: {
+                        from: "pmostudents",
+                        localField: "studentId",
+                        foreignField: "_id",
+                        as: "pmo"
+                    }
+                },
+                {
+                    $project: {
+                        studentType: 1,
+                        phone: {
+                            $ifNull: [
+                                { $arrayElemAt: ["$pntse.mobile", 0] },
+                                { $arrayElemAt: ["$pmo.mobile", 0] }
+                            ]
+                        }
+                    }
+                },
+                {
+                    $group: {
+                        _id: "$studentType",
+                        total: { $sum: 1 },
+                        unique: { $addToSet: "$phone" }
+                    }
+                }
+            ]);
+
+            const pntseResult = studentFollowUpsResult.find(r => r._id === 'PNTSE');
+            const pmoResult = studentFollowUpsResult.find(r => r._id === 'PMO');
+
+            const pntseCallsTotal = pntseResult ? pntseResult.total : 0;
+            const pntseCallsUnique = pntseResult ? (pntseResult.unique || []).filter(Boolean).length : 0;
+
+            const pmoCallsTotal = pmoResult ? pmoResult.total : 0;
+            const pmoCallsUnique = pmoResult ? (pmoResult.unique || []).filter(Boolean).length : 0;
+
+            const dailyCallsCount = leadCallsCount + serviceCallsTotal + pntseCallsTotal + pmoCallsTotal;
+            const uniqueCallsCount = leadUniqueCallsCount + serviceCallsUnique + pntseCallsUnique + pmoCallsUnique;
             const sameNoCallsCount = Math.max(0, dailyCallsCount - uniqueCallsCount);
 
             // --- Daily Walk-ins ---
@@ -1121,6 +1240,8 @@ export const getDailyTracking = async (req, res) => {
                 uniqueCalls: uniqueCallsCount,
                 sameNoCalls: sameNoCallsCount,
                 serviceCalls: serviceCallsTotal,
+                pntseCalls: pntseCallsTotal,
+                pmoCalls: pmoCallsTotal,
                 walkIns: walkInsCount,
                 walkInsCounselled: walkInsCounselledCount,
                 walkInsAdmission: walkInsAdmissionCount,
@@ -1286,6 +1407,11 @@ export const getDailyCenterDetails = async (req, res) => {
                 counselledDate: { $gte: historyStart, $lte: historyEnd }
             }).populate('studentId').lean();
 
+            const allStudentFollowUpsHistory = await StudentFollowUp.find({
+                calledBy: userId,
+                callDate: { $gte: historyStart, $lte: historyEnd }
+            }).lean();
+
             const getCallsCountForDay = (dStart, dEnd) => {
                 let callDetailsCount = 0;
                 const existingPhones = new Set();
@@ -1320,6 +1446,14 @@ export const getDailyCenterDetails = async (req, res) => {
                         if (sc.studentName) {
                             existingNames.add(sc.studentName.toLowerCase());
                         }
+                    }
+                });
+
+                // 3. Process PNTSE & PMO student follow-up calls for this day
+                allStudentFollowUpsHistory.forEach(fu => {
+                    const fuDate = new Date(fu.callDate || fu.createdAt);
+                    if (fuDate >= dStart && fuDate <= dEnd) {
+                        callDetailsCount++;
                     }
                 });
 
@@ -3015,6 +3149,72 @@ export const getDailyTrackingDetails = async (req, res) => {
                         feedback: sc.servicePurpose ? `${sc.servicePurpose}${sc.remarks ? ` - ${sc.remarks}` : ''}` : (sc.remarks || 'Student Service Call')
                     });
                 });
+
+                // Fetch PNTSE & PMO student follow-up calls
+                const studentFollowUpAnds = [{ callDate: dateFilter }];
+
+                if (centerObjectIdList.length > 0) {
+                    studentFollowUpAnds.push({ centre: { $in: centerObjectIdList } });
+                }
+
+                if (hasUserFilter) {
+                    if (agentObjectIdList.length > 0) {
+                        studentFollowUpAnds.push({ calledBy: { $in: agentObjectIdList } });
+                    }
+                } else if (isRestrictIndividual) {
+                    studentFollowUpAnds.push({ calledBy: req.user._id });
+                }
+
+                const studentFollowUpQuery = studentFollowUpAnds.length === 1 ? studentFollowUpAnds[0] : { $and: studentFollowUpAnds };
+
+                const studentFollowUps = await StudentFollowUp.find(studentFollowUpQuery)
+                    .populate('calledBy', 'name email')
+                    .populate('centre', 'centreName')
+                    .lean();
+
+                if (studentFollowUps.length > 0) {
+                    const pntseIds = studentFollowUps.filter(f => f.studentType === 'PNTSE').map(f => f.studentId);
+                    const pmoIds = studentFollowUps.filter(f => f.studentType === 'PMO').map(f => f.studentId);
+
+                    const [pntseStudents, pmoStudents] = await Promise.all([
+                        pntseIds.length > 0 ? PNTSEStudent.find({ _id: { $in: pntseIds } }).populate('centre').lean() : [],
+                        pmoIds.length > 0 ? PMOStudent.find({ _id: { $in: pmoIds } }).populate('centre').lean() : []
+                    ]);
+
+                    const studentMap = {};
+                    pntseStudents.forEach(s => { studentMap[s._id.toString()] = { ...s, type: 'PNTSE' }; });
+                    pmoStudents.forEach(s => { studentMap[s._id.toString()] = { ...s, type: 'PMO' }; });
+
+                    studentFollowUps.forEach(fu => {
+                        const student = studentMap[fu.studentId?.toString()] || {};
+                        const sType = fu.studentType || 'PNTSE';
+                        const tag = `${sType} CALL`;
+
+                        let durationStr = '';
+                        if (fu.callDuration != null && fu.callDuration > 0) {
+                            const m = Math.floor(fu.callDuration / 60);
+                            const s = fu.callDuration % 60;
+                            durationStr = ` | Duration: ${m > 0 ? `${m}m ` : ''}${s}s`;
+                        }
+
+                        const feedbackText = fu.feedback ? `${fu.feedback}${fu.notes ? ` - ${fu.notes}` : ''}${durationStr}` : (fu.notes || `${sType} Call Log`);
+
+                        list.push({
+                            id: fu._id.toString(),
+                            name: student.name || 'Unknown Student',
+                            phone: student.mobile || student.secondaryMobile || 'N/A',
+                            email: student.email || 'N/A',
+                            handledBy: fu.calledBy?.name || 'System',
+                            centreName: fu.centre?.centreName || student.centre?.centreName || 'N/A',
+                            dateTime: fu.callDate || fu.createdAt,
+                            tag: tag,
+                            feedback: feedbackText,
+                            callDuration: fu.callDuration || null,
+                            studentType: sType,
+                            studentId: fu.studentId?.toString()
+                        });
+                    });
+                }
 
             } else if (catName === "collection") {
                 const queryPaymentsMatch = {
