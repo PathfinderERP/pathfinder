@@ -1,13 +1,14 @@
 import express from "express";
 import multer from "multer";
 import { requireGranularPermission } from "../../middleware/permissionMiddleware.js";
-import { createPNTSEStudent, getPNTSEStudents, checkDuplicate, checkDuplicatesBulk, downloadTemplate, importExcel, setStudentFree, processStudentPayment, updatePNTSEStudent, deletePNTSEStudent } from "../../controllers/pntse/pntseController.js";
+import { createPNTSEStudent, getPNTSEStudents, getPNTSESchools, checkDuplicate, checkDuplicatesBulk, downloadTemplate, importExcel, setStudentFree, processStudentPayment, updatePNTSEStudent, deletePNTSEStudent } from "../../controllers/pntse/pntseController.js";
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/create", requireGranularPermission("pntse", "addStudent", "create"), createPNTSEStudent);
 router.get("/list", requireGranularPermission("pntse", "allStudents", "view"), getPNTSEStudents);
+router.get("/schools", requireGranularPermission("pntse", "allStudents", "view"), getPNTSESchools);
 router.get("/check-duplicate", requireGranularPermission("pntse", "allStudents", "view"), checkDuplicate);
 router.post("/check-duplicates-bulk", requireGranularPermission("pntse", "allStudents", "view"), checkDuplicatesBulk);
 router.get("/template", requireGranularPermission("pntse", "allStudents", "view"), downloadTemplate);

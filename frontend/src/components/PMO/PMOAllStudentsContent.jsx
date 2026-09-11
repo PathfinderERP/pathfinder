@@ -259,6 +259,7 @@ const PMOAllStudentsContent = () => {
     const [filters, setFilters] = useState({
         zone: [],
         centre: [],
+        school: [],
         class: [],
         status: [],
         session: [],
@@ -436,6 +437,7 @@ const PMOAllStudentsContent = () => {
     const [dbBoards, setDbBoards] = useState([]);
     const [dbSessions, setDbSessions] = useState([]);
     const [dbExamTags, setDbExamTags] = useState([]);
+    const [dbSchools, setDbSchools] = useState([]);
     const [loading, setLoading] = useState(true);
     const [studentsLoading, setStudentsLoading] = useState(false);
 
@@ -474,13 +476,14 @@ const PMOAllStudentsContent = () => {
         const fetchMasterData = async () => {
             try {
                 const headers = getHeaders();
-                const [centresRes, classesRes, sessionsRes, tagsRes, boardsRes, zonesRes] = await Promise.all([
+                const [centresRes, classesRes, sessionsRes, tagsRes, boardsRes, zonesRes, schoolsRes] = await Promise.all([
                     fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/class`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/examTag`, { headers }),
                     fetch(`${import.meta.env.VITE_API_URL}/board`, { headers }),
-                    fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
+                    fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers }),
+                    fetch(`${import.meta.env.VITE_API_URL}/pmo/schools`, { headers }).catch(() => null)
                 ]);
                 if (centresRes.ok) setDbCentres(await centresRes.json());
                 if (classesRes.ok) setDbClasses(await classesRes.json());
@@ -496,6 +499,10 @@ const PMOAllStudentsContent = () => {
                 if (zonesRes.ok) {
                     const zData = await zonesRes.json();
                     setDbZones(Array.isArray(zData) ? zData : (zData.zones || zData.data || []));
+                }
+                if (schoolsRes && schoolsRes.ok) {
+                    const sData = await schoolsRes.json();
+                    setDbSchools(Array.isArray(sData) ? sData : []);
                 }
             } catch (err) {
                 console.error("Failed to load master data", err);
@@ -524,6 +531,7 @@ const PMOAllStudentsContent = () => {
             if (searchQuery) params.append('search', searchQuery);
             if (filters.zone?.length > 0) params.append('zone', filters.zone.join(','));
             if (filters.centre?.length > 0) params.append('centre', filters.centre.join(','));
+            if (filters.school?.length > 0) params.append('school', filters.school.join(','));
             if (filters.class?.length > 0) params.append('class', filters.class.join(','));
             if (filters.status?.length > 0) params.append('status', filters.status.join(','));
             if (filters.session?.length > 0) params.append('session', filters.session.join(','));
@@ -566,10 +574,20 @@ const PMOAllStudentsContent = () => {
         })
         : dbCentres;
 
+    // Unique schools available for filter (from database and loaded students)
+    const availableSchools = React.useMemo(() => {
+        const set = new Set(dbSchools);
+        students.forEach(s => {
+            if (s.school && s.school.trim()) set.add(s.school.trim());
+        });
+        return Array.from(set).sort((a, b) => a.localeCompare(b));
+    }, [dbSchools, students]);
+
     const hasActiveFilters = Boolean(
         searchQuery.trim() ||
         filters.zone?.length > 0 ||
         filters.centre?.length > 0 ||
+        filters.school?.length > 0 ||
         filters.class?.length > 0 ||
         filters.status?.length > 0 ||
         filters.session?.length > 0 ||
@@ -584,6 +602,7 @@ const PMOAllStudentsContent = () => {
         setFilters({
             zone: [],
             centre: [],
+            school: [],
             class: [],
             status: [],
             session: [],
@@ -951,6 +970,15 @@ const PMOAllStudentsContent = () => {
                         onChange={(vals) => setFilters(prev => ({ ...prev, centre: vals }))}
                     />
 
+                    {/* School MultiSelect */}
+                    <PMOMultiSelect
+                        label="School"
+                        placeholder="All Schools"
+                        options={availableSchools.map(sch => ({ value: sch, label: sch }))}
+                        selectedValues={filters.school}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, school: vals }))}
+                    />
+
                     {/* Class MultiSelect */}
                     <PMOMultiSelect
                         label="Class"
@@ -1105,6 +1133,12 @@ const PMOAllStudentsContent = () => {
                                         {sortConfig.key === 'name' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                                     </div>
                                 </th>
+                                <th className="p-3.5 cursor-pointer hover:text-white" onClick={() => handleSort('school')}>
+                                    <div className="flex items-center gap-1">
+                                        School
+                                        {sortConfig.key === 'school' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                                    </div>
+                                </th>
                                 <th className="p-3.5 cursor-pointer hover:text-white" onClick={() => handleSort('centre')}>
                                     <div className="flex items-center gap-1">
                                         Centre / Zone
@@ -1126,14 +1160,14 @@ const PMOAllStudentsContent = () => {
                         <tbody className="divide-y divide-gray-800/60">
                             {studentsLoading ? (
                                 <tr>
-                                    <td colSpan={10} className="p-12 text-center text-gray-500">
+                                    <td colSpan={11} className="p-12 text-center text-gray-500">
                                         <FaSpinner className="animate-spin text-2xl text-purple-400 mx-auto mb-2" />
                                         Loading PMO students...
                                     </td>
                                 </tr>
                             ) : paginatedStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={10} className="p-12 text-center text-gray-500">
+                                    <td colSpan={11} className="p-12 text-center text-gray-500">
                                         No PMO students found. Click "Add Student" or adjust search/filters.
                                     </td>
                                 </tr>
@@ -1168,6 +1202,10 @@ const PMOAllStudentsContent = () => {
                                                     <span>{s.mobile}</span>
                                                     {s.email && <span className="text-gray-500 truncate max-w-[120px]">{s.email}</span>}
                                                 </div>
+                                            </td>
+
+                                            <td className="p-3.5">
+                                                <div className="text-gray-200 font-medium">{s.school || '—'}</div>
                                             </td>
 
                                             <td className="p-3.5">

@@ -396,7 +396,8 @@ export const getPMOStudents = async (req, res) => {
                 { mobile: { $regex: search, $options: 'i' } },
                 { secondaryMobile: { $regex: search, $options: 'i' } },
                 { rollNo: { $regex: search, $options: 'i' } },
-                { email: { $regex: search, $options: 'i' } }
+                { email: { $regex: search, $options: 'i' } },
+                { school: { $regex: search, $options: 'i' } }
             ];
         }
 
@@ -414,6 +415,11 @@ export const getPMOStudents = async (req, res) => {
 
         const statusList = parseList(status);
         if (statusList.length > 0) query.status = { $in: statusList };
+
+        const schoolList = parseList(req.query.school);
+        if (schoolList.length > 0) {
+            query.school = { $in: schoolList.map(s => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) };
+        }
 
         const courseList = parseList(course);
         if (courseList.length > 0) {
@@ -1224,5 +1230,17 @@ export const deletePMOStudent = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Get distinct schools for PMO
+export const getPMOSchools = async (req, res) => {
+    try {
+        const schools = await PMOStudent.distinct("school");
+        const cleanSchools = [...new Set(schools.map(s => (s || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+        res.status(200).json(cleanSchools);
+    } catch (err) {
+        console.error("Failed to fetch PMO schools", err);
+        res.status(500).json({ message: "Failed to fetch schools" });
     }
 };

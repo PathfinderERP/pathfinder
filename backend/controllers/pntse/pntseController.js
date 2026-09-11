@@ -343,7 +343,8 @@ export const getPNTSEStudents = async (req, res) => {
                 { name: { $regex: search, $options: 'i' } },
                 { mobile: { $regex: search, $options: 'i' } },
                 { secondaryMobile: { $regex: search, $options: 'i' } },
-                { rollNo: { $regex: search, $options: 'i' } }
+                { rollNo: { $regex: search, $options: 'i' } },
+                { school: { $regex: search, $options: 'i' } }
             ];
         }
 
@@ -352,6 +353,16 @@ export const getPNTSEStudents = async (req, res) => {
         if (examTag) query.examTag = examTag;
         if (req.query.board) query.board = req.query.board;
         if (status) query.status = status;
+
+        if (req.query.school) {
+            const raw = Array.isArray(req.query.school) ? req.query.school : String(req.query.school).split(',');
+            const list = raw.map(s => s.trim()).filter(Boolean);
+            if (list.length === 1) {
+                query.school = { $regex: new RegExp(`^${list[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
+            } else if (list.length > 1) {
+                query.school = { $in: list.map(s => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) };
+            }
+        }
 
         if (startDate || endDate) {
             const cleanDateStr = (d) => {
@@ -1182,5 +1193,17 @@ export const deletePNTSEStudent = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Get distinct schools for PNTSE
+export const getPNTSESchools = async (req, res) => {
+    try {
+        const schools = await PNTSEStudent.distinct("school");
+        const cleanSchools = [...new Set(schools.map(s => (s || "").trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+        res.status(200).json(cleanSchools);
+    } catch (err) {
+        console.error("Failed to fetch PNTSE schools", err);
+        res.status(500).json({ message: "Failed to fetch schools" });
     }
 };
