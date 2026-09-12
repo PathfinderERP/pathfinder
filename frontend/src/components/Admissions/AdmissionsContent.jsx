@@ -574,15 +574,15 @@ const AdmissionsContent = () => {
     };
 
     return (
-        <div className={`flex-1 p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
+        <div className={`flex-1 p-3 sm:p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
             {/* Header Section */}
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8">
-                <div className="flex items-center gap-8">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
+                <div className="flex items-center gap-4 sm:gap-8 flex-wrap">
                     <div>
-                        <h2 className={`text-4xl font-black tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <h2 className={`text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             Counselled Students
                         </h2>
-                        <p className={`text-[10px] font-bold uppercase tracking-[0.3em] flex items-center gap-2 mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em] flex items-center gap-2 mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                             Student Lifecycle Management
                         </p>
                     </div>
@@ -611,8 +611,8 @@ const AdmissionsContent = () => {
                     )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4">
-                    {/* Additional Analyis Metrics */}
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full xl:w-auto">
+                    {/* Additional Analysis Metrics */}
                     <div className="hidden md:flex gap-3">
                         <div className={`rounded-[4px] border px-4 py-1 h-[50px] flex flex-col justify-center min-w-[100px] ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                             <span className="text-[10px] text-gray-500 font-black uppercase tracking-wider">Conversion</span>
@@ -632,24 +632,15 @@ const AdmissionsContent = () => {
 
                     <button
                         onClick={toggleTheme}
-                        className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
+                        className={`p-2.5 sm:p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
                     >
                         {isDarkMode ? <><FaSun /> Day</> : <><FaMoon /> Night</>}
                     </button>
-
-                    {/* {canCreate && (
-                        <button
-                            onClick={() => navigate("/student-registration")}
-                            className="px-6 py-3 bg-cyan-500 text-black font-black text-[10px] uppercase tracking-widest rounded-[4px] hover:bg-cyan-400 shadow-[0_0_20px_rgba(6,182,212,0.2)] transition-all flex items-center gap-2"
-                        >
-                            <FaPlus /> New Registration
-                        </button>
-                    )} */}
                 </div>
             </div>
 
             {/* Tabs */}
-            <div className={`flex border-b mb-8 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+            <div className={`flex border-b mb-6 sm:mb-8 overflow-x-auto scrollbar-none whitespace-nowrap ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                 {["Counselled Students", "Admissions"].map((tab, index) => (
                     <button
                         key={index}
@@ -658,7 +649,7 @@ const AdmissionsContent = () => {
                                 navigate("/enrolled-students");
                             }
                         }}
-                        className={`px-8 py-4 text-[10px] font-black uppercase tracking-widest transition-all ${index === 0
+                        className={`px-5 sm:px-8 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${index === 0
                             ? "text-cyan-500 border-b-2 border-cyan-500"
                             : isDarkMode ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-gray-900"
                             }`}
@@ -669,33 +660,33 @@ const AdmissionsContent = () => {
             </div>
 
             {/* KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-cyan-500 hover:scale-[1.02] transition-all`}>
-                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Registrations</h3>
-                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{totalStudents}</p>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Active Filters</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6 mb-6 sm:mb-8">
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 sm:p-6 rounded-[4px] border-l-4 border-cyan-500 hover:scale-[1.02] transition-all`}>
+                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1 sm:mb-2">Total Registrations</h3>
+                    <p className={`text-3xl sm:text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{totalStudents}</p>
+                    <p className="text-gray-500 text-[9px] sm:text-[10px] font-bold uppercase mt-1 sm:mt-2">Active Filters</p>
                 </div>
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-green-500 hover:scale-[1.02] transition-all`}>
-                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Enrolled</h3>
-                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{enrolledCount}</p>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Students admitted</p>
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 sm:p-6 rounded-[4px] border-l-4 border-green-500 hover:scale-[1.02] transition-all`}>
+                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1 sm:mb-2">Enrolled</h3>
+                    <p className={`text-3xl sm:text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{enrolledCount}</p>
+                    <p className="text-gray-500 text-[9px] sm:text-[10px] font-bold uppercase mt-1 sm:mt-2">Students admitted</p>
                 </div>
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-yellow-500 hover:scale-[1.02] transition-all`}>
-                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Pending</h3>
-                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{pendingEnrolment}</p>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Awaiting action</p>
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 sm:p-6 rounded-[4px] border-l-4 border-yellow-500 hover:scale-[1.02] transition-all`}>
+                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1 sm:mb-2">Pending</h3>
+                    <p className={`text-3xl sm:text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{pendingEnrolment}</p>
+                    <p className="text-gray-500 text-[9px] sm:text-[10px] font-bold uppercase mt-1 sm:mt-2">Awaiting action</p>
                 </div>
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-purple-500 hover:scale-[1.02] transition-all`}>
-                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Courses</h3>
-                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{uniqueCoursesCount}</p>
-                    <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Live Programmes</p>
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 sm:p-6 rounded-[4px] border-l-4 border-purple-500 hover:scale-[1.02] transition-all`}>
+                    <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-1 sm:mb-2">Courses</h3>
+                    <p className={`text-3xl sm:text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{uniqueCoursesCount}</p>
+                    <p className="text-gray-500 text-[9px] sm:text-[10px] font-bold uppercase mt-1 sm:mt-2">Live Programmes</p>
                 </div>
             </div>
 
             {/* Search & Table Controls */}
-            <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border mb-8`}>
-                <div className="flex gap-4 flex-wrap items-center">
-                    <div className="flex-1 relative min-w-[300px]">
+            <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 sm:p-6 rounded-[4px] border mb-6 sm:mb-8`}>
+                <div className="flex gap-3 sm:gap-4 flex-wrap items-center">
+                    <div className="w-full sm:w-auto sm:flex-1 relative min-w-0 sm:min-w-[240px]">
                         <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                         <input
                             type="text"
@@ -742,47 +733,47 @@ const AdmissionsContent = () => {
                         theme={isDarkMode ? 'dark' : 'light'}
                     />
 
-                    <div className={`flex border rounded-[4px] overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
-                        <div className={`px-4 py-3 border-r text-[10px] font-black uppercase tracking-widest flex items-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-500' : 'bg-white border-gray-200 text-gray-400'}`}>
+                    <div className={`flex flex-wrap sm:flex-nowrap border rounded-[4px] overflow-hidden w-full sm:w-auto ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className={`px-3 sm:px-4 py-2 sm:py-3 border-r text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center shrink-0 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-500' : 'bg-white border-gray-200 text-gray-400'}`}>
                             Period
                         </div>
                         <input
                             type="date"
                             value={startDate}
                             onChange={(e) => setStartDate(e.target.value)}
-                            className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                            className={`px-2 sm:px-4 py-2 sm:py-3 focus:outline-none text-[9px] sm:text-[10px] font-bold flex-1 min-w-0 ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
                         />
-                        <div className={`px-2 py-3 flex items-center ${isDarkMode ? 'text-gray-700' : 'text-gray-300'}`}>-</div>
+                        <div className={`px-1 py-2 sm:py-3 flex items-center shrink-0 ${isDarkMode ? 'text-gray-700' : 'text-gray-300'}`}>-</div>
                         <input
                             type="date"
                             value={endDate}
                             onChange={(e) => setEndDate(e.target.value)}
-                            className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                            className={`px-2 sm:px-4 py-2 sm:py-3 focus:outline-none text-[9px] sm:text-[10px] font-bold flex-1 min-w-0 ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
                         />
                     </div>
 
-                    <div className={`flex border rounded-[4px] overflow-hidden ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
-                        <div className={`px-4 py-3 border-r text-[10px] font-black uppercase tracking-widest flex items-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-amber-400' : 'bg-amber-50 border-gray-200 text-amber-700'}`}>
+                    <div className={`flex flex-wrap sm:flex-nowrap border rounded-[4px] overflow-hidden w-full sm:w-auto ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className={`px-3 sm:px-4 py-2 sm:py-3 border-r text-[9px] sm:text-[10px] font-black uppercase tracking-widest flex items-center shrink-0 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-amber-400' : 'bg-amber-50 border-gray-200 text-amber-700'}`}>
                             Next Follow Up
                         </div>
                         <input
                             type="date"
                             value={followUpStartDate}
                             onChange={(e) => setFollowUpStartDate(e.target.value)}
-                            className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                            className={`px-2 sm:px-4 py-2 sm:py-3 focus:outline-none text-[9px] sm:text-[10px] font-bold flex-1 min-w-0 ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
                         />
-                        <div className={`px-2 py-3 flex items-center ${isDarkMode ? 'text-gray-700' : 'text-gray-300'}`}>-</div>
+                        <div className={`px-1 py-2 sm:py-3 flex items-center shrink-0 ${isDarkMode ? 'text-gray-700' : 'text-gray-300'}`}>-</div>
                         <input
                             type="date"
                             value={followUpEndDate}
                             onChange={(e) => setFollowUpEndDate(e.target.value)}
-                            className={`px-4 py-3 focus:outline-none text-[10px] font-bold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                            className={`px-2 sm:px-4 py-2 sm:py-3 focus:outline-none text-[9px] sm:text-[10px] font-bold flex-1 min-w-0 ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
                         />
                     </div>
 
                     <button
                         onClick={handleRefresh}
-                        className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 group ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-500 hover:text-cyan-400' : 'bg-white border-gray-200 text-gray-400 hover:text-gray-900'}`}
+                        className={`p-2.5 sm:p-3 rounded-[4px] border transition-all flex items-center gap-2 group ${isDarkMode ? 'bg-[#131619] border-gray-800 text-gray-500 hover:text-cyan-400' : 'bg-white border-gray-200 text-gray-400 hover:text-gray-900'}`}
                     >
                         <FaSync className={`text-[10px] ${loading ? "animate-spin" : ""}`} />
                         <span className="text-[10px] font-black uppercase tracking-widest">Reset</span>
@@ -798,8 +789,8 @@ const AdmissionsContent = () => {
 
             {/* Students List Table */}
             <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden transition-all`}>
-                <div className={`p-6 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
-                    <h3 className={`text-[10px] font-black uppercase tracking-[0.3em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Registered Students</h3>
+                <div className={`p-4 sm:p-6 border-b flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 sm:gap-4 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                    <h3 className={`text-[10px] font-black uppercase tracking-[0.2em] sm:tracking-[0.3em] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Registered Students</h3>
                     <span className={`text-[10px] font-black px-3 py-1 rounded-[4px] ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-100 text-cyan-600'}`}>{filteredStudents.length} Records</span>
                 </div>
                 <div className="overflow-x-auto custom-scrollbar">

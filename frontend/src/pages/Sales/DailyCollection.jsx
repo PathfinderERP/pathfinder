@@ -2053,7 +2053,7 @@ const DailyCollection = () => {
                             <div>
                                 <h3 className="text-lg font-bold">Bulk Set Daily Targets</h3>
                                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    Set targets across centres for multiple dates simultaneously. Weekday shortfalls automatically adjust into Saturday & Sunday.
+                                    Set targets across centres for multiple dates simultaneously. Daily shortfalls or overachievements automatically roll over on a day-to-day basis within each week, and across weeks.
                                 </p>
                             </div>
                             <button

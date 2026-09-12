@@ -26,7 +26,7 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
 
     const labelClass = "text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5 flex items-center gap-2";
     const valueClass = `text-[13px] font-bold tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase`;
-    const sectionClass = `p-6 rounded-[4px] border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`;
+    const sectionClass = `p-4 sm:p-6 rounded-[4px] border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`;
 
     const handleOpenServiceCallModal = async () => {
         setServiceCallForm({
@@ -110,58 +110,59 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-            <div className={`rounded-[4px] border border-gray-800 max-w-4xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-2 sm:p-4 backdrop-blur-sm">
+            <div className={`rounded-[4px] border border-gray-800 max-w-4xl w-full max-h-[96vh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
                 {/* Header */}
-                <div className={`p-6 border-b flex items-center justify-between sticky top-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
-                    <div className="flex flex-col">
-                        <div className="flex items-center gap-4">
-                            <div className="w-10 h-10 rounded-[4px] bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
-                                <FaUserGraduate className="text-cyan-500 text-xl" />
+                <div className={`p-4 sm:p-6 border-b flex items-center justify-between sticky top-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                    <div className="flex flex-col min-w-0">
+                        <div className="flex items-center gap-3 sm:gap-4">
+                            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-[4px] bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 shrink-0">
+                                <FaUserGraduate className="text-cyan-500 text-lg sm:text-xl" />
                             </div>
-                            <div>
-                                <h2 className={`text-2xl font-black italic tracking-tighter uppercase leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <div className="min-w-0">
+                                <h2 className={`text-lg sm:text-2xl font-black italic tracking-tighter uppercase leading-none truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                     Student Profile
                                 </h2>
-                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-2">
-                                    CORE DATA INTELLIGENCE <span className="mx-2 text-cyan-500">|</span> <span className="text-cyan-500">ID: {student.uid || student._id?.slice(-8).toUpperCase()}</span>
+                                <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-[0.15em] sm:tracking-[0.2em] mt-1 sm:mt-2 truncate">
+                                    CORE DATA <span className="mx-1 text-cyan-500">|</span> <span className="text-cyan-500">ID: {student.uid || student._id?.slice(-8).toUpperCase()}</span>
                                 </p>
                             </div>
                         </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                        <div className={`px-4 py-2 rounded-[4px] border hidden sm:flex items-center gap-3 ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                            <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">ENROLLMENT DATE</span>
+                    <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+                        <div className={`px-3 py-1.5 sm:px-4 sm:py-2 rounded-[4px] border hidden sm:flex items-center gap-2 sm:gap-3 ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                            <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">ENROLLED</span>
                             <span className="text-[10px] font-black text-cyan-500 italic uppercase">{registrationDate}</span>
                         </div>
                         <button
                             onClick={onClose}
-                            className={`p-3 rounded-[4px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10' : 'bg-gray-100 text-gray-400 hover:text-gray-900 hover:bg-gray-200'}`}
+                            className={`p-2 sm:p-3 rounded-[4px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10' : 'bg-gray-100 text-gray-400 hover:text-gray-900 hover:bg-gray-200'}`}
+                            title="Close"
                         >
-                            <FaTimes className="text-lg" />
+                            <FaTimes className="text-base sm:text-lg" />
                         </button>
                     </div>
                 </div>
 
                 {/* Content */}
-                <div className={`p-8 overflow-y-auto space-y-8 custom-scrollbar ${isDarkMode ? 'dark' : ''}`}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div className={`p-4 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8 custom-scrollbar ${isDarkMode ? 'dark' : ''}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8">
                         {/* Personal Information */}
                         <div className={sectionClass}>
-                            <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
+                            <h3 className="text-[11px] sm:text-[12px] font-black text-cyan-500 uppercase tracking-[0.15em] sm:tracking-[0.2em] mb-4 sm:mb-6 flex items-center justify-between">
+                                <div className="flex items-center gap-2 sm:gap-3">
                                     <FaUser size={14} /> PERSONAL IDENTIFICATION
                                 </div>
                                 {(student.updatedBy || student.updatedAt) && (
                                     <div className="flex flex-col items-end">
                                         <span className="text-[7px] font-black tracking-tighter text-gray-500">Audit Trace</span>
                                         <span className="text-[8px] font-black tracking-widest text-cyan-500">
-                                            {student.updatedBy || "SYSTEM"} <span className="mx-1 opacity-20">|</span> {new Date(student.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })} {new Date(student.updatedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                            {student.updatedBy || "SYSTEM"} <span className="mx-1 opacity-20">|</span> {new Date(student.updatedAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
                                         </span>
                                     </div>
                                 )}
                             </h3>
-                            <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 sm:gap-y-6 gap-x-4">
                                 <div>
                                     <p className={labelClass}>STUDENT NAME</p>
                                     <p className={valueClass}>{details.studentName || "NOT RECORDED"}</p>
@@ -185,13 +186,13 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
 
                         {/* Contact Information */}
                         <div className={sectionClass}>
-                            <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                            <h3 className="text-[11px] sm:text-[12px] font-black text-cyan-500 uppercase tracking-[0.15em] sm:tracking-[0.2em] mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
                                 <FaPhoneAlt size={14} /> COMMUNICATION CHANNELS
                             </h3>
-                            <div className="grid grid-cols-2 gap-y-6 gap-x-4">
-                                <div className="col-span-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 sm:gap-y-6 gap-x-4">
+                                <div className="col-span-1 sm:col-span-2">
                                     <p className={labelClass}><FaEnvelope className="text-cyan-500/50" /> DIGITAL MAILBOX</p>
-                                    <p className={`${valueClass} break-all normal-case font-mono italic text-cyan-500`}>{details.studentEmail || "NO EMAIL ASSIGNED"}</p>
+                                    <p className={`${valueClass} break-all normal-case font-mono italic text-cyan-500 text-xs sm:text-[13px]`}>{details.studentEmail || "NO EMAIL ASSIGNED"}</p>
                                 </div>
                                 <div>
                                     <p className={labelClass}>TELECOM LINE</p>
@@ -201,20 +202,20 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                                     <p className={labelClass}>ENCRYPTED WHATSAPP</p>
                                     <p className={valueClass}>{details.whatsappNumber || "INACTIVE"}</p>
                                 </div>
-                                <div className="col-span-2">
+                                <div className="col-span-1 sm:col-span-2">
                                     <p className={labelClass}><FaMapMarkerAlt className="text-cyan-500/50" /> GEO-ADDRESS</p>
-                                    <p className={`${valueClass} font-medium tracking-normal text-[12px] capitalize`}>{details.address || "LOCATION DATA UNAVAILABLE"}</p>
+                                    <p className={`${valueClass} font-medium tracking-normal text-[11px] sm:text-[12px] capitalize`}>{details.address || "LOCATION DATA UNAVAILABLE"}</p>
                                 </div>
                             </div>
                         </div>
 
                         {/* Academic Information */}
                         <div className={sectionClass}>
-                            <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                            <h3 className="text-[11px] sm:text-[12px] font-black text-cyan-500 uppercase tracking-[0.15em] sm:tracking-[0.2em] mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
                                 <FaSchool size={14} /> ACADEMIC RECORD
                             </h3>
-                            <div className="grid grid-cols-2 gap-y-6 gap-x-4">
-                                <div className="col-span-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 sm:gap-y-6 gap-x-4">
+                                <div className="col-span-1 sm:col-span-2">
                                     <p className={labelClass}>PRIMARY INSTITUTION</p>
                                     <p className={valueClass}>{details.schoolName || "NOT RECORDED"}</p>
                                 </div>
@@ -246,10 +247,10 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
 
                         {/* Exam & Course Information */}
                         <div className={sectionClass}>
-                            <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                            <h3 className="text-[11px] sm:text-[12px] font-black text-cyan-500 uppercase tracking-[0.15em] sm:tracking-[0.2em] mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
                                 <FaBook size={14} /> ENROLLED SCHEMAS
                             </h3>
-                            <div className="grid grid-cols-2 gap-y-6 gap-x-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-4 sm:gap-y-6 gap-x-4">
                                 <div>
                                     <p className={labelClass}>ACADEMIC PROGRAMME</p>
                                     <p className={valueClass}>{details.programme || "N/A"}</p>
@@ -262,7 +263,7 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                                     <p className={labelClass}>TARGET MATRIX</p>
                                     <p className={valueClass}>{sessionExam.targetExams || "UNSET"}</p>
                                 </div>
-                                <div className="col-span-2">
+                                <div className="col-span-1 sm:col-span-2">
                                     <p className={labelClass}>CORE TRACK COURSE</p>
                                     <p className={`${valueClass} text-cyan-500`}>{student.course?.courseName || "PENDING SELECTION"}</p>
                                 </div>
@@ -274,7 +275,7 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                                     <p className={labelClass}>ACTIVE SESSION</p>
                                     <p className={valueClass}>{sessionExam.session || "2024-25"}</p>
                                 </div>
-                                <div className="col-span-2">
+                                <div className="col-span-1 sm:col-span-2">
                                     <p className={labelClass}>BATCH ALLOCATIONS</p>
                                     <div className="flex flex-wrap gap-2 mt-1">
                                         {student.batches && student.batches.length > 0 ? (
@@ -293,10 +294,10 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
 
                         {/* Guardian Information */}
                         <div className={`${sectionClass} md:col-span-2`}>
-                            <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
+                            <h3 className="text-[11px] sm:text-[12px] font-black text-cyan-500 uppercase tracking-[0.15em] sm:tracking-[0.2em] mb-4 sm:mb-6 flex items-center gap-2 sm:gap-3">
                                 <FaUser size={14} /> GUARDIAN / SECONDARY IDENTIFICATION
                             </h3>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-6 gap-x-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-y-4 sm:gap-y-6 gap-x-4">
                                 <div>
                                     <p className={labelClass}>GUARDIAN NAME</p>
                                     <p className={valueClass}>{guardian.guardianName || "NOT RECORDED"}</p>
@@ -307,7 +308,7 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                                 </div>
                                 <div>
                                     <p className={labelClass}>GUARDIAN EMAIL</p>
-                                    <p className={`${valueClass} normal-case font-mono italic text-[11px]`}>{guardian.guardianEmail || "NO EMAIL"}</p>
+                                    <p className={`${valueClass} normal-case font-mono italic text-[11px] break-all`}>{guardian.guardianEmail || "NO EMAIL"}</p>
                                 </div>
                                 <div>
                                     <p className={labelClass}>PROFESSIONAL VECTOR</p>
@@ -327,29 +328,29 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
                 </div>
 
                 {/* Footer */}
-                <div className={`p-6 border-t flex justify-end gap-3 sticky bottom-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                <div className={`p-4 sm:p-6 border-t flex flex-wrap justify-end gap-2 sm:gap-3 sticky bottom-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                     <button
                         onClick={() => setShowJourneyModal(true)}
-                        className="px-6 py-3 bg-cyan-600 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] hover:bg-cyan-500 transition-all shadow-lg shadow-cyan-600/20 active:scale-95 flex items-center gap-2"
+                        className="w-full sm:w-auto justify-center px-4 sm:px-6 py-2.5 sm:py-3 bg-cyan-600 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] hover:bg-cyan-500 transition-all shadow-lg shadow-cyan-600/20 active:scale-95 flex items-center gap-2"
                     >
                         <FaRoute size={12} /> JOURNEY
                     </button>
                     <button
                         onClick={handleOpenServiceCallModal}
-                        className="px-6 py-3 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 flex items-center gap-2"
+                        className="w-full sm:w-auto justify-center px-4 sm:px-6 py-2.5 sm:py-3 bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] hover:bg-emerald-500 transition-all shadow-lg shadow-emerald-600/20 active:scale-95 flex items-center gap-2"
                     >
                         <FaPhoneAlt size={12} /> SERVICE CALL
                     </button>
                     <button
                         onClick={onClose}
-                        className={`px-8 py-3 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200 hover:border-gray-300 shadow-sm'}`}
+                        className={`w-full sm:w-auto justify-center px-6 sm:px-8 py-2.5 sm:py-3 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700' : 'bg-white text-gray-500 hover:text-gray-900 border border-gray-200 hover:border-gray-300 shadow-sm'}`}
                     >
                         HALT ENGINE (CLOSE)
                     </button>
                     {canEdit && (
                         <button
                             onClick={onEdit}
-                            className="px-8 py-3 bg-cyan-600 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] hover:bg-cyan-500 transition-all shadow-lg shadow-cyan-500/20 active:scale-95 flex items-center gap-3"
+                            className="w-full sm:w-auto justify-center px-6 sm:px-8 py-2.5 sm:py-3 bg-cyan-600 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] hover:bg-cyan-500 transition-all shadow-lg shadow-cyan-500/20 active:scale-95 flex items-center gap-2 sm:gap-3"
                         >
                             <FaEdit /> MODIFY CORE DATA
                         </button>

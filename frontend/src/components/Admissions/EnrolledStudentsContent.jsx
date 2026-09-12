@@ -80,16 +80,16 @@ const CentreWiseReport = ({ filteredStudents, isDarkMode, resolveClassName }) =>
     return (
         <div className="space-y-6">
             {/* Summary KPI */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} p-6 rounded-[4px] border`}>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-6 mb-6">
+                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} p-4 sm:p-6 rounded-[4px] border`}>
                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Filtered Enrolments</p>
                     <h3 className={`text-2xl font-black ${isDarkMode ? 'text-cyan-400' : 'text-[#0e7490]'}`}>{filteredStudents.length}</h3>
                 </div>
-                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} p-6 rounded-[4px] border`}>
+                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} p-4 sm:p-6 rounded-[4px] border`}>
                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Active Centres</p>
                     <h3 className={`text-2xl font-black ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>{reportData.length}</h3>
                 </div>
-                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} p-6 rounded-[4px] border`}>
+                <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} p-4 sm:p-6 rounded-[4px] border`}>
                     <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Average Students per Centre</p>
                     <h3 className={`text-2xl font-black ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
                         {reportData.length > 0 ? Math.round(filteredStudents.length / reportData.length) : 0}
@@ -99,17 +99,17 @@ const CentreWiseReport = ({ filteredStudents, isDarkMode, resolveClassName }) =>
 
             {/* Centre breakdown list */}
             <div className={`border rounded-[4px] overflow-hidden ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
-                <div className={`p-6 border-b ${isDarkMode ? 'border-gray-800 bg-[#131619]' : 'border-gray-100 bg-gray-50'}`}>
+                <div className={`p-4 sm:p-6 border-b ${isDarkMode ? 'border-gray-800 bg-[#131619]' : 'border-gray-100 bg-gray-50'}`}>
                     <h3 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Centre Wise Student Aggregation</h3>
                 </div>
                 {reportData.length === 0 ? (
-                    <div className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
+                    <div className="p-6 sm:p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
                         No records match the current filters.
                     </div>
                 ) : (
                     <div className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                         {reportData.map((centre) => (
-                            <div key={centre.centreName} className={`p-6 hover:bg-opacity-50 transition-colors ${isDarkMode ? 'bg-[#1a1f24] hover:bg-cyan-500/5' : 'bg-white hover:bg-gray-50'}`}>
+                            <div key={centre.centreName} className={`p-4 sm:p-6 hover:bg-opacity-50 transition-colors ${isDarkMode ? 'bg-[#1a1f24] hover:bg-cyan-500/5' : 'bg-white hover:bg-gray-50'}`}>
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
                                     <div className="flex items-center gap-3">
                                         <span className={`text-xs font-black uppercase tracking-wider px-3 py-1 rounded-[4px] ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-600'}`}>
@@ -124,7 +124,7 @@ const CentreWiseReport = ({ filteredStudents, isDarkMode, resolveClassName }) =>
                                     </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-6">
                                     {/* Board Column */}
                                     <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                         <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-3 border-b pb-1">Board</h4>
@@ -2005,30 +2005,30 @@ const EnrolledStudentsContent = () => {
     };
 
     return (
-        <div className={`flex-1 p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
+        <div className={`flex-1 p-3 sm:p-6 overflow-y-auto transition-colors duration-300 ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
             <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "light"} />
 
             {/* Header Section */}
-            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-6 mb-8">
+            <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
                 <div className="flex items-center gap-3">
-                    <div className={`p-3 rounded-[4px] ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-100 text-cyan-600'}`}>
-                        <FaUserGraduate size={24} />
+                    <div className={`p-2.5 sm:p-3 rounded-[4px] shrink-0 ${isDarkMode ? 'bg-cyan-500/10 text-cyan-500' : 'bg-cyan-100 text-cyan-600'}`}>
+                        <FaUserGraduate size={22} className="sm:w-6 sm:h-6" />
                     </div>
                     <div>
-                        <h2 className={`text-4xl font-black tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                        <h2 className={`text-2xl sm:text-3xl md:text-4xl font-black tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                             Students
                         </h2>
-                        <p className={`text-[10px] font-bold uppercase tracking-[0.3em] flex items-center gap-2 mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                        <p className={`text-[9px] sm:text-[10px] font-bold uppercase tracking-[0.2em] sm:tracking-[0.3em] flex items-center gap-2 mt-0.5 sm:mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
                             Enrolled Lifecycle Management
                         </p>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 w-full xl:w-auto">
                     {canEdit && selectedAdmissionIds.length > 0 && (
                         <button
                             onClick={() => setIsBulkUpdateModalOpen(true)}
-                            className="p-3 rounded-[4px] border border-blue-500/20 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(59,130,246,0.3)] animate-pulse"
+                            className="p-2.5 sm:p-3 rounded-[4px] border border-blue-500/20 bg-blue-500/10 text-blue-500 hover:bg-blue-500 hover:text-white transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(59,130,246,0.3)] animate-pulse"
                         >
                             <FaEdit /> Bulk Update ({selectedAdmissionIds.length})
                         </button>
@@ -2036,14 +2036,14 @@ const EnrolledStudentsContent = () => {
 
                     <button
                         onClick={toggleTheme}
-                        className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
+                        className={`p-2.5 sm:p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 hover:bg-yellow-500 hover:text-black' : 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20 hover:bg-indigo-500 hover:text-white'}`}
                     >
                         {isDarkMode ? <><FaSun /> Day</> : <><FaMoon /> Night</>}
                     </button>
 
                     <button
                         onClick={handleRefresh}
-                        className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest group ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-500 hover:text-cyan-400' : 'bg-white border-gray-200 text-gray-400 hover:text-gray-900 shadow-sm'}`}
+                        className={`p-2.5 sm:p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest group ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 text-gray-500 hover:text-cyan-400' : 'bg-white border-gray-200 text-gray-400 hover:text-gray-900 shadow-sm'}`}
                         title="Refresh Data & Reset Filters"
                     >
                         <FaSync className={`${loading ? "animate-spin" : ""}`} />
@@ -2052,7 +2052,7 @@ const EnrolledStudentsContent = () => {
 
                     <button
                         onClick={() => navigate('/admissions/batch-allocation')}
-                        className={`p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-purple-500/10 text-purple-500 border-purple-500/20 hover:bg-purple-500 hover:text-black' : 'bg-purple-500/10 text-purple-600 border-purple-200 hover:bg-purple-500 hover:text-white shadow-sm'}`}
+                        className={`p-2.5 sm:p-3 rounded-[4px] border transition-all flex items-center gap-2 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-purple-500/10 text-purple-500 border-purple-500/20 hover:bg-purple-500 hover:text-black' : 'bg-purple-500/10 text-purple-600 border-purple-200 hover:bg-purple-500 hover:text-white shadow-sm'}`}
                     >
                         <FaUsers />
                         <span>Batch Allocation</span>
@@ -2067,23 +2067,23 @@ const EnrolledStudentsContent = () => {
             </div>
 
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6 mb-8">
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-green-500 hover:scale-[1.02] transition-all`}>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-6 mb-6 sm:mb-8">
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 sm:p-6 rounded-[4px] border-l-4 border-green-500 hover:scale-[1.02] transition-all`}>
                     <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Students</h3>
-                    <p className={`text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{filteredStudents.length}</p>
+                    <p className={`text-3xl sm:text-4xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{filteredStudents.length}</p>
                     <p className="text-gray-500 text-[10px] font-bold uppercase mt-2">Active in view</p>
                 </div>
 
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-cyan-500 hover:scale-[1.02] transition-all flex flex-col justify-between`}>
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 sm:p-6 rounded-[4px] border-l-4 border-cyan-500 hover:scale-[1.02] transition-all flex flex-col justify-between`}>
                     <div>
                         <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Average Admission Fee</h3>
                         <div className="flex flex-col gap-1.5 mt-2">
                             <div>
-                                <span className={`text-3xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(averageAdmissionFee)}</span>
+                                <span className={`text-2xl sm:text-3xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(averageAdmissionFee)}</span>
                                 <span className={`text-[9px] font-black uppercase ml-1.5 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>With GST</span>
                             </div>
                             <div className="opacity-80">
-                                <span className={`text-xl font-bold tracking-tighter ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>₹{fmt(averageAdmissionFeeWithoutGst)}</span>
+                                <span className={`text-lg sm:text-xl font-bold tracking-tighter ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>₹{fmt(averageAdmissionFeeWithoutGst)}</span>
                                 <span className="text-gray-500 text-[8px] font-black uppercase ml-1.5">Excl. GST</span>
                             </div>
                         </div>
@@ -2091,16 +2091,16 @@ const EnrolledStudentsContent = () => {
                     <p className="text-gray-500 text-[10px] font-bold uppercase mt-3">Per Student</p>
                 </div>
 
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border-l-4 border-blue-500 hover:scale-[1.02] transition-all flex flex-col justify-between`}>
+                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 sm:p-6 rounded-[4px] border-l-4 border-blue-500 hover:scale-[1.02] transition-all flex flex-col justify-between`}>
                     <div>
                         <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest mb-2">Total Collected</h3>
                         <div className="flex flex-col gap-1.5 mt-2">
                             <div>
-                                <span className={`text-3xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{totalCollected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className={`text-2xl sm:text-3xl font-black tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{totalCollected.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 <span className={`text-[9px] font-black uppercase ml-1.5 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>With GST</span>
                             </div>
                             <div className="opacity-80">
-                                <span className={`text-xl font-bold tracking-tighter ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>₹{totalCollectedWithoutGst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                <span className={`text-lg sm:text-xl font-bold tracking-tighter ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>₹{totalCollectedWithoutGst.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 <span className="text-gray-500 text-[8px] font-black uppercase ml-1.5">Excl. GST</span>
                             </div>
                         </div>
@@ -2109,7 +2109,7 @@ const EnrolledStudentsContent = () => {
                 </div>
 
                 {/* Admission Trend Analysis */}
-                <div className={`md:col-span-2 lg:col-span-2 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 rounded-[4px] border border-dashed ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} flex flex-col`}>
+                <div className={`sm:col-span-2 md:col-span-3 lg:col-span-2 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 rounded-[4px] border border-dashed ${isDarkMode ? 'border-gray-700' : 'border-gray-300'} flex flex-col`}>
                     <div className="flex items-center justify-between mb-4">
                         <div className="flex flex-col">
                             <h3 className="text-gray-500 text-[10px] font-black uppercase tracking-widest">Daily Admission Analysis</h3>
@@ -2181,7 +2181,7 @@ const EnrolledStudentsContent = () => {
             </div>
 
             {/* View Mode Tabs */}
-            <div className={`flex border-b mb-8 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+            <div className={`flex border-b mb-6 sm:mb-8 overflow-x-auto scrollbar-none whitespace-nowrap ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                 {[
                     { label: 'Active Students', id: 'Active', color: 'cyan' },
                     { label: 'Deactivated', id: 'Deactivated', color: 'red' },
@@ -2190,7 +2190,7 @@ const EnrolledStudentsContent = () => {
                     <button
                         key={tab.id}
                         onClick={() => setViewMode(tab.id)}
-                        className={`px-8 py-4 text-[10px] font-black uppercase tracking-widest transition-all ${viewMode === tab.id
+                        className={`px-4 sm:px-8 py-3 sm:py-4 text-[10px] font-black uppercase tracking-widest transition-all shrink-0 ${viewMode === tab.id
                             ? `text-${tab.color}-500 border-b-2 border-${tab.color}-500`
                             : isDarkMode ? "text-gray-500 hover:text-white" : "text-gray-400 hover:text-gray-900"
                             }`}
@@ -2200,10 +2200,9 @@ const EnrolledStudentsContent = () => {
                 ))}
             </div>
 
-            {/* Search & Filter */}
             {/* Search & Filter Area */}
-            <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-6 rounded-[4px] border mb-8`}>
-                <div className="flex flex-col gap-6">
+            <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-4 sm:p-6 rounded-[4px] border mb-6 sm:mb-8`}>
+                <div className="flex flex-col gap-4 sm:gap-6">
                     {/* Search Row */}
                     <div className="relative group">
                         <FaSearch className={`absolute left-4 top-1/2 transform -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-400' : 'text-gray-400 group-focus-within:text-gray-900'}`} />
@@ -2212,12 +2211,12 @@ const EnrolledStudentsContent = () => {
                             placeholder="SEARCH BY NAME, ID, CENTRE, COURSE, MOBILE..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className={`w-full pl-12 pr-4 py-4 rounded-[4px] border transition-all font-bold text-[10px] uppercase tracking-widest focus:outline-none ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400 shadow-inner'}`}
+                            className={`w-full pl-11 sm:pl-12 pr-4 py-3 sm:py-4 rounded-[4px] border transition-all font-bold text-[10px] uppercase tracking-widest focus:outline-none min-w-0 ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400 shadow-inner'}`}
                         />
                     </div>
 
                     {/* Filters Grid */}
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 sm:gap-4">
                         <div className="w-full">
                             <MultiSelectFilter
                                 label="Status"
@@ -2420,63 +2419,67 @@ const EnrolledStudentsContent = () => {
                         </div>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-4 pt-4 border-t border-gray-800/20">
+                    <div className="flex flex-wrap items-center gap-3 sm:gap-4 pt-4 border-t border-gray-800/20">
                         {/* Admission Period Filter */}
-                        <div className={`flex items-center rounded-[4px] border overflow-hidden ${isDarkMode ? 'border-gray-800 bg-[#131619]' : 'border-gray-200 bg-gray-50'}`}>
-                            <div className={`px-4 py-2 border-r text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'border-gray-800 text-gray-500 bg-[#1a1f24]' : 'border-gray-200 text-gray-400 bg-gray-100'}`}>
+                        <div className={`flex flex-wrap sm:flex-nowrap items-stretch sm:items-center rounded-[4px] border overflow-hidden w-full sm:w-auto ${isDarkMode ? 'border-gray-800 bg-[#131619]' : 'border-gray-200 bg-gray-50'}`}>
+                            <div className={`px-3 sm:px-4 py-2 border-b sm:border-b-0 sm:border-r text-[10px] font-black uppercase tracking-widest w-full sm:w-auto text-center sm:text-left ${isDarkMode ? 'border-gray-800 text-gray-500 bg-[#1a1f24]' : 'border-gray-200 text-gray-400 bg-gray-100'}`}>
                                 Period
                             </div>
-                            <input
-                                type="date"
-                                value={startDate}
-                                onChange={(e) => setStartDate(e.target.value)}
-                                className={`px-4 py-2 text-[10px] font-bold uppercase focus:outline-none ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
-                            />
-                            <div className="px-2 text-gray-500 font-bold">-</div>
-                            <input
-                                type="date"
-                                value={endDate}
-                                onChange={(e) => setEndDate(e.target.value)}
-                                className={`px-4 py-2 text-[10px] font-bold uppercase focus:outline-none ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
-                            />
-                            {(startDate || endDate) && (
-                                <button
-                                    onClick={() => { setStartDate(''); setEndDate(''); }}
-                                    className={`px-3 py-2 text-[10px] font-bold uppercase transition-all ${isDarkMode ? 'text-gray-400 hover:text-white bg-gray-800' : 'text-gray-500 hover:text-gray-900 bg-gray-200'}`}
-                                    title="Clear Admission Period Filter"
-                                >
-                                    <FaTimes size={10} />
-                                </button>
-                            )}
+                            <div className="flex items-center flex-1 min-w-0">
+                                <input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => setStartDate(e.target.value)}
+                                    className={`flex-1 min-w-0 px-2 sm:px-4 py-2 text-[10px] font-bold uppercase focus:outline-none ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                                />
+                                <div className="px-1 sm:px-2 text-gray-500 font-bold">-</div>
+                                <input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => setEndDate(e.target.value)}
+                                    className={`flex-1 min-w-0 px-2 sm:px-4 py-2 text-[10px] font-bold uppercase focus:outline-none ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                                />
+                                {(startDate || endDate) && (
+                                    <button
+                                        onClick={() => { setStartDate(''); setEndDate(''); }}
+                                        className={`px-3 py-2 text-[10px] font-bold uppercase transition-all shrink-0 ${isDarkMode ? 'text-gray-400 hover:text-white bg-gray-800' : 'text-gray-500 hover:text-gray-900 bg-gray-200'}`}
+                                        title="Clear Admission Period Filter"
+                                    >
+                                        <FaTimes size={10} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
 
                         {/* Next Follow Up Date Range Filter */}
-                        <div className={`flex items-center rounded-[4px] border overflow-hidden ${isDarkMode ? 'border-gray-800 bg-[#131619]' : 'border-gray-200 bg-gray-50'}`}>
-                            <div className={`px-4 py-2 border-r text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${isDarkMode ? 'border-gray-800 text-amber-400 bg-[#1a1f24]' : 'border-gray-200 text-amber-700 bg-amber-50'}`}>
+                        <div className={`flex flex-wrap sm:flex-nowrap items-stretch sm:items-center rounded-[4px] border overflow-hidden w-full sm:w-auto ${isDarkMode ? 'border-gray-800 bg-[#131619]' : 'border-gray-200 bg-gray-50'}`}>
+                            <div className={`px-3 sm:px-4 py-2 border-b sm:border-b-0 sm:border-r text-[10px] font-black uppercase tracking-widest flex items-center justify-center sm:justify-start gap-1.5 w-full sm:w-auto ${isDarkMode ? 'border-gray-800 text-amber-400 bg-[#1a1f24]' : 'border-gray-200 text-amber-700 bg-amber-50'}`}>
                                 Next Follow Up
                             </div>
-                            <input
-                                type="date"
-                                value={followUpStartDate}
-                                onChange={(e) => setFollowUpStartDate(e.target.value)}
-                                className={`px-4 py-2 text-[10px] font-bold uppercase focus:outline-none ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
-                            />
-                            <div className="px-2 text-gray-500 font-bold">-</div>
-                            <input
-                                type="date"
-                                value={followUpEndDate}
-                                onChange={(e) => setFollowUpEndDate(e.target.value)}
-                                className={`px-4 py-2 text-[10px] font-bold uppercase focus:outline-none ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
-                            />
-                            {(followUpStartDate || followUpEndDate) && (
-                                <button
-                                    onClick={() => { setFollowUpStartDate(''); setFollowUpEndDate(''); }}
-                                    className={`px-3 py-2 text-[10px] font-bold uppercase transition-all ${isDarkMode ? 'text-gray-400 hover:text-white bg-gray-800' : 'text-gray-500 hover:text-gray-900 bg-gray-200'}`}
-                                    title="Clear Follow Up Date Filter"
-                                >
-                                    <FaTimes size={10} />
-                                </button>
-                            )}
+                            <div className="flex items-center flex-1 min-w-0">
+                                <input
+                                    type="date"
+                                    value={followUpStartDate}
+                                    onChange={(e) => setFollowUpStartDate(e.target.value)}
+                                    className={`flex-1 min-w-0 px-2 sm:px-4 py-2 text-[10px] font-bold uppercase focus:outline-none ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                                />
+                                <div className="px-1 sm:px-2 text-gray-500 font-bold">-</div>
+                                <input
+                                    type="date"
+                                    value={followUpEndDate}
+                                    onChange={(e) => setFollowUpEndDate(e.target.value)}
+                                    className={`flex-1 min-w-0 px-2 sm:px-4 py-2 text-[10px] font-bold uppercase focus:outline-none ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                                />
+                                {(followUpStartDate || followUpEndDate) && (
+                                    <button
+                                        onClick={() => { setFollowUpStartDate(''); setFollowUpEndDate(''); }}
+                                        className={`px-3 py-2 text-[10px] font-bold uppercase transition-all shrink-0 ${isDarkMode ? 'text-gray-400 hover:text-white bg-gray-800' : 'text-gray-500 hover:text-gray-900 bg-gray-200'}`}
+                                        title="Clear Follow Up Date Filter"
+                                    >
+                                        <FaTimes size={10} />
+                                    </button>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -2487,8 +2490,8 @@ const EnrolledStudentsContent = () => {
                 <CentreWiseReport filteredStudents={filteredStudents} isDarkMode={isDarkMode} resolveClassName={resolveClassName} />
             ) : (
                 <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} rounded-[4px] border overflow-hidden transition-all`}>
-                    <div className={`p-6 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
-                        <h3 className={`text-xl font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Student Records</h3>
+                    <div className={`p-4 sm:p-6 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                        <h3 className={`text-lg sm:text-xl font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Student Records</h3>
                         <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest mt-1">Manage lifecycle and financial status</p>
                     </div>
                     <div className={`overflow-x-auto custom-scrollbar ${isDarkMode ? 'custom-scrollbar-dark' : 'custom-scrollbar-light'}`}>
@@ -2906,34 +2909,42 @@ const EnrolledStudentsContent = () => {
             )}
 
             {/* Student Details Modal */}
-            {/* Student Details Modal */}
             {isModalOpen && selectedStudent && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-                    <div className={`${isDarkMode ? 'bg-[#1e2329] border-gray-700' : 'bg-white border-gray-200'} rounded-[4px] w-full max-w-6xl border shadow-2xl max-h-[90vh] flex flex-col overflow-hidden`}>
-                        <div className={`p-6 border-b flex justify-between items-center ${isDarkMode ? 'border-gray-700 bg-[#1e2329]' : 'border-gray-100 bg-gray-50'}`}>
-                            <div>
-                                <h3 className={`text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                    <div className="p-2 bg-cyan-500/10 text-cyan-500 rounded-[4px]">
-                                        <FaUserGraduate size={20} />
-                                    </div>
-                                    {selectedStudent.studentsDetails?.[0]?.studentName}
-                                </h3>
-                                <div className="flex flex-wrap gap-4 text-[10px] font-bold uppercase tracking-widest mt-2 text-gray-500">
-                                    <span className="flex items-center gap-1.5"><FaPhoneAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.mobileNum}</span>
-                                    <span className="flex items-center  gap-2 text-cyan-500 text-xl normal-case"><FaEnvelope size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.studentEmail}</span>
-                                    <span className="flex items-center text-cyan-500 text-l gap-1.5"><FaMapMarkerAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.centre}</span>
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2 sm:p-4 backdrop-blur-sm">
+                    <div className={`${isDarkMode ? 'bg-[#1e2329] border-gray-700' : 'bg-white border-gray-200'} rounded-[4px] w-full max-w-6xl border shadow-2xl max-h-[96vh] sm:max-h-[90vh] flex flex-col overflow-hidden`}>
+                        <div className={`p-4 sm:p-6 border-b flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 sm:gap-4 ${isDarkMode ? 'border-gray-700 bg-[#1e2329]' : 'border-gray-100 bg-gray-50'}`}>
+                            <div className="min-w-0 flex-1 w-full">
+                                <div className="flex items-center justify-between gap-2">
+                                    <h3 className={`text-xl sm:text-2xl font-black uppercase italic tracking-tighter flex items-center gap-2 sm:gap-3 truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        <div className="p-2 bg-cyan-500/10 text-cyan-500 rounded-[4px] shrink-0">
+                                            <FaUserGraduate size={18} className="sm:w-5 sm:h-5" />
+                                        </div>
+                                        <span className="truncate">{selectedStudent.studentsDetails?.[0]?.studentName}</span>
+                                    </h3>
+                                    <button
+                                        onClick={closeStudentModal}
+                                        className={`lg:hidden p-1.5 rounded-[4px] transition-all shrink-0 ${isDarkMode ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'}`}
+                                        title="Close"
+                                    >
+                                        <FaTimes size={18} />
+                                    </button>
+                                </div>
+                                <div className="flex flex-wrap gap-2 sm:gap-4 text-[10px] font-bold uppercase tracking-widest mt-2 text-gray-500">
+                                    <span className="flex items-center gap-1.5 shrink-0"><FaPhoneAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.mobileNum}</span>
+                                    <span className="flex items-center gap-1.5 text-cyan-500 text-xs sm:text-sm normal-case break-all"><FaEnvelope size={10} className="text-cyan-500 shrink-0" /> {selectedStudent.studentsDetails?.[0]?.studentEmail}</span>
+                                    <span className="flex items-center text-cyan-500 text-xs sm:text-sm gap-1.5 shrink-0"><FaMapMarkerAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.centre}</span>
                                     {studentAdmissions[0]?.department?.departmentName && (
-                                        <span className="flex items-center gap-1.5"><FaHistory size={10} className="text-orange-500" /> {studentAdmissions[0].department.departmentName}</span>
+                                        <span className="flex items-center gap-1.5 shrink-0"><FaHistory size={10} className="text-orange-500" /> {studentAdmissions[0].department.departmentName}</span>
                                     )}
                                 </div>
                             </div>
-                            <div className="flex items-center gap-3 flex-1 justify-center">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full lg:w-auto justify-between lg:justify-end">
                                 {/* Enrollment Number Badge */}
                                 {studentAdmissions.length > 0 && (() => {
                                     const primaryAdmission = studentAdmissions[0];
                                     const isEditingHeader = editingEnrollmentId === `header_${primaryAdmission._id}`;
                                     return (
-                                        <div className={`flex items-center gap-2 px-4 py-2.5 rounded-[4px] border ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200 shadow-sm'}`}>
+                                        <div className={`flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2.5 rounded-[4px] border ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/20' : 'bg-cyan-50 border-cyan-200 shadow-sm'}`}>
                                             <FaIdCard className="text-cyan-500 shrink-0" size={14} />
                                             {isEditingHeader ? (
                                                 <span className="flex items-center gap-1.5">
@@ -2945,7 +2956,7 @@ const EnrolledStudentsContent = () => {
                                                             if (e.key === 'Enter') handleUpdateEnrollmentNumber(primaryAdmission._id);
                                                             if (e.key === 'Escape') { setEditingEnrollmentId(null); setEditingEnrollmentValue(''); }
                                                         }}
-                                                        className={`px-2 py-0.5 text-sm font-black uppercase tracking-[0.2em] rounded-[4px] border focus:outline-none w-44 ${isDarkMode ? 'bg-[#131619] border-cyan-500/50 text-cyan-400 focus:border-cyan-400' : 'bg-white border-cyan-400 text-cyan-700 focus:border-cyan-600'}`}
+                                                        className={`px-2 py-0.5 text-xs sm:text-sm font-black uppercase tracking-[0.2em] rounded-[4px] border focus:outline-none w-32 sm:w-44 ${isDarkMode ? 'bg-[#131619] border-cyan-500/50 text-cyan-400 focus:border-cyan-400' : 'bg-white border-cyan-400 text-cyan-700 focus:border-cyan-600'}`}
                                                         disabled={isSavingEnrollment}
                                                     />
                                                     <button
@@ -2967,7 +2978,7 @@ const EnrolledStudentsContent = () => {
                                                 </span>
                                             ) : (
                                                 <span className="flex items-center gap-2">
-                                                    <span className={`text-xl font-black tracking-[0.15em] uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                                    <span className={`text-base sm:text-xl font-black tracking-[0.15em] uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
                                                         {primaryAdmission.admissionNumber || 'N/A'}
                                                     </span>
                                                     {primaryAdmission.admissionNumber && (
@@ -2996,44 +3007,46 @@ const EnrolledStudentsContent = () => {
                                         </div>
                                     );
                                 })()}
-                            </div>
-                            <div className="flex items-center gap-3 shrink-0">
-                                <button
-                                    onClick={() => {
-                                        const studentItem = students.find(s => s.student._id === selectedStudent._id) || { student: selectedStudent };
-                                        handleOpenServiceCallModal(studentItem);
-                                    }}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-black border border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-200'}`}
-                                >
-                                    <FaPhoneAlt size={12} /> Service Call
-                                </button>
-                                <button
-                                    onClick={() => handleViewJourney(selectedStudent)}
-                                    className={`flex items-center gap-2 px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black border border-cyan-500/20' : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-600 hover:text-white border border-cyan-200'}`}
-                                >
-                                    <FaRoute size={12} /> Journey
-                                </button>
-                                {canEdit && (
+
+                                <div className="flex flex-wrap items-center gap-2 shrink-0">
                                     <button
                                         onClick={() => {
-                                            const studentItem = students.find(s => s.student._id === selectedStudent._id);
-                                            if (studentItem) handleEditProfile(studentItem);
+                                            const studentItem = students.find(s => s.student._id === selectedStudent._id) || { student: selectedStudent };
+                                            handleOpenServiceCallModal(studentItem);
                                         }}
-                                        className={`flex items-center gap-2 px-4 py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500 hover:text-black border border-yellow-500/20' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-500 hover:text-white border border-yellow-200'}`}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500 hover:text-black border border-emerald-500/20' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-600 hover:text-white border border-emerald-200'}`}
                                     >
-                                        <FaEdit size={12} /> Edit Profile
+                                        <FaPhoneAlt size={10} /> Service Call
                                     </button>
-                                )}
-                                <button
-                                    onClick={closeStudentModal}
-                                    className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'}`}
-                                >
-                                    <FaTimes size={24} />
-                                </button>
+                                    <button
+                                        onClick={() => handleViewJourney(selectedStudent)}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 hover:bg-cyan-500 hover:text-black border border-cyan-500/20' : 'bg-cyan-50 text-cyan-700 hover:bg-cyan-600 hover:text-white border border-cyan-200'}`}
+                                    >
+                                        <FaRoute size={10} /> Journey
+                                    </button>
+                                    {canEdit && (
+                                        <button
+                                            onClick={() => {
+                                                const studentItem = students.find(s => s.student._id === selectedStudent._id);
+                                                if (studentItem) handleEditProfile(studentItem);
+                                            }}
+                                            className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-yellow-500/10 text-yellow-500 hover:bg-yellow-500 hover:text-black border border-yellow-500/20' : 'bg-yellow-50 text-yellow-600 hover:bg-yellow-500 hover:text-white border border-yellow-200'}`}
+                                        >
+                                            <FaEdit size={10} /> Edit Profile
+                                        </button>
+                                    )}
+                                    <button
+                                        onClick={closeStudentModal}
+                                        className={`hidden lg:block p-2 rounded-[4px] transition-all ${isDarkMode ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'}`}
+                                        title="Close"
+                                    >
+                                        <FaTimes size={20} />
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
-                        <div className={`p-6 space-y-8 overflow-y-auto custom-scrollbar ${isDarkMode ? 'custom-scrollbar-dark' : 'custom-scrollbar-light'}`}>
+                        <div className={`p-3 sm:p-6 space-y-6 sm:space-y-8 overflow-y-auto custom-scrollbar ${isDarkMode ? 'custom-scrollbar-dark' : 'custom-scrollbar-light'}`}>
                             {/* Deactivation Warning Banner */}
                             {selectedStudent.status === 'Deactivated' && (
                                 <div className={`p-4 rounded-[4px] border flex items-center gap-4 animate-pulse ${isDarkMode ? 'bg-red-500/10 border-red-500/50' : 'bg-red-50 border-red-200'}`}>
@@ -3063,7 +3076,7 @@ const EnrolledStudentsContent = () => {
                             )}
 
                             {/* Student Info Sections */}
-                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                                 {/* Personal Information */}
                                 <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100 shadow-sm'} rounded-[4px] border overflow-hidden`}>
                                     <div className={`px-4 py-3 border-b flex items-center justify-between ${isDarkMode ? 'border-gray-800 bg-[#1a1f24]' : 'border-gray-100 bg-white'}`}>
@@ -3080,7 +3093,7 @@ const EnrolledStudentsContent = () => {
                                             </div>
                                         )}
                                     </div>
-                                    <div className="p-4 grid grid-cols-2 gap-y-6 gap-x-6">
+                                    <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-y-4 sm:gap-y-6 gap-x-4 sm:gap-x-6">
                                         <div>
                                             <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><FaBirthdayCake size={10} /> Date of Birth</p>
                                             <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{formatDate(selectedStudent.studentsDetails?.[0]?.dateOfBirth)}</p>
@@ -3097,7 +3110,7 @@ const EnrolledStudentsContent = () => {
                                             <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><FaIdCard size={10} /> Acquisition Source</p>
                                             <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{selectedStudent.studentsDetails?.[0]?.source || "Walk-in"}</p>
                                         </div>
-                                        <div className="col-span-2">
+                                        <div className="col-span-1 sm:col-span-2">
                                             <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5 flex items-center gap-1.5"><FaMapMarkerAlt size={10} /> Residential Address</p>
                                             <p className={`font-black uppercase tracking-widest text-[11px] leading-relaxed ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
                                                 {selectedStudent.studentsDetails?.[0]?.address}, {selectedStudent.studentsDetails?.[0]?.state} - {selectedStudent.studentsDetails?.[0]?.pincode}
@@ -3113,7 +3126,7 @@ const EnrolledStudentsContent = () => {
                                         <h4 className={`font-black uppercase tracking-widest text-[10px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Academic Profile</h4>
                                     </div>
                                     <div className="p-4 space-y-6">
-                                        <div className="grid grid-cols-2 gap-6">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                                             <div>
                                                 <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">Last School Attended</p>
                                                 <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{selectedStudent.studentsDetails?.[0]?.schoolName || "N/A"}</p>
@@ -3130,7 +3143,7 @@ const EnrolledStudentsContent = () => {
                                                 <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">Exam Tag</p>
                                                 <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{selectedStudent.sessionExamCourse?.[0]?.examTag || "N/A"}</p>
                                             </div>
-                                            <div className="col-span-2 border-t border-gray-800/10 pt-4 mt-2">
+                                            <div className="col-span-1 sm:col-span-2 border-t border-gray-800/10 pt-4 mt-2">
                                                 <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
                                                     <FaUsers size={10} className="text-cyan-500" /> Batch Tagged
                                                 </p>
@@ -3178,7 +3191,7 @@ const EnrolledStudentsContent = () => {
                                     </div>
                                     <div className="p-4">
                                         {selectedStudent.guardians && selectedStudent.guardians.length > 0 ? (
-                                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
                                                 {selectedStudent.guardians.map((guardian, idx) => (
                                                     <React.Fragment key={idx}>
                                                         <div>
@@ -3197,18 +3210,18 @@ const EnrolledStudentsContent = () => {
                                                             <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">Annual Yield</p>
                                                             <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{guardian.annualIncome || "0"}</p>
                                                         </div>
-                                                        <div className="lg:col-span-2">
+                                                        <div className="col-span-1 sm:col-span-2 lg:col-span-2">
                                                             <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">E-Mail Address</p>
-                                                            <p className={`font-black normal-case tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{guardian.guardianEmail || "N/A"}</p>
+                                                            <p className={`font-black normal-case tracking-widest text-[11px] break-all ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{guardian.guardianEmail || "N/A"}</p>
                                                         </div>
-                                                        <div className="lg:col-span-2">
+                                                        <div className="col-span-1 sm:col-span-2 lg:col-span-2">
                                                             <p className="text-gray-500 text-[9px] font-black uppercase tracking-widest mb-1.5">Academic Credentials</p>
                                                             <p className={`font-black uppercase tracking-widest text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>{guardian.qualification || "N/A"}</p>
                                                         </div>
                                                         {guardian.organizationName && (
-                                                            <div className={`lg:col-span-4 p-4 rounded-[4px] border border-dashed ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
+                                                            <div className={`col-span-1 sm:col-span-2 lg:col-span-4 p-3 sm:p-4 rounded-[4px] border border-dashed ${isDarkMode ? 'bg-black/20 border-gray-800' : 'bg-gray-100 border-gray-200'}`}>
                                                                 <h6 className="text-[8px] text-cyan-500 font-black uppercase mb-3 flex items-center gap-2"><FaHistory size={10} /> Corporate Nexus</h6>
-                                                                <div className="grid grid-cols-2 lg:grid-cols-3 gap-6">
+                                                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
                                                                     <div>
                                                                         <p className="text-gray-500 text-[8px] font-black uppercase mb-1">Entity Name</p>
                                                                         <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{guardian.organizationName}</p>
@@ -3217,7 +3230,7 @@ const EnrolledStudentsContent = () => {
                                                                         <p className="text-gray-500 text-[8px] font-black uppercase mb-1">Designation</p>
                                                                         <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{guardian.designation}</p>
                                                                     </div>
-                                                                    <div className="lg:col-span-1">
+                                                                    <div className="col-span-1 sm:col-span-2 lg:col-span-1">
                                                                         <p className="text-gray-500 text-[8px] font-black uppercase mb-1">Locational Node</p>
                                                                         <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{guardian.officeAddress || "N/A"}</p>
                                                                     </div>

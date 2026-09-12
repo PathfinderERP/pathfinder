@@ -471,24 +471,24 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
     };
 
     return (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-            <div className="bg-[#1a1f24] rounded-xl border border-gray-700 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-2 sm:p-4">
+            <div className="bg-[#1a1f24] rounded-xl border border-gray-700 w-full max-w-4xl max-h-[96vh] sm:max-h-[90vh] overflow-y-auto">
                 {/* Header */}
-                <div className="p-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-[#1a1f24] z-10">
-                    <h2 className="text-xl font-bold text-white flex items-center gap-2">
+                <div className="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-[#1a1f24] z-10">
+                    <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                         <FaFileInvoice className="text-cyan-400" />
                         Bill Generator
                     </h2>
                     <button
                         onClick={onClose}
-                        className="text-gray-400 hover:text-white text-2xl"
+                        className="text-gray-400 hover:text-white text-2xl p-1"
                     >
                         &times;
                     </button>
                 </div>
 
                 {/* Content */}
-                <div className="p-6">
+                <div className="p-3 sm:p-6">
                     {!billData ? (
                         <div className="text-center py-12">
                             <FaFileInvoice className="text-6xl text-gray-600 mx-auto mb-4" />
@@ -522,31 +522,31 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                     ) : (
                         <div>
                             {/* Bill Preview */}
-                            <div className="bg-[#252b32] rounded-lg p-6 mb-6">
+                            <div className="bg-[#252b32] rounded-lg p-3 sm:p-6 mb-6">
                                 {/* Bill Header */}
                                 <div className="text-center mb-6 pb-6 border-b border-gray-700">
-                                    <h1 className="text-3xl font-bold text-cyan-400 mb-2">PATHFINDER ERP</h1>
-                                    <p className="text-gray-400">Fee Payment Receipt</p>
-                                    <div className="flex justify-between mt-4 text-sm items-center">
+                                    <h1 className="text-2xl sm:text-3xl font-bold text-cyan-400 mb-2">PATHFINDER ERP</h1>
+                                    <p className="text-xs sm:text-sm text-gray-400">Fee Payment Receipt</p>
+                                    <div className="flex flex-col sm:flex-row justify-between mt-4 text-xs sm:text-sm gap-2 items-start sm:items-center">
                                         <div className="text-left">
                                             <span className="text-white font-semibold block">Bill ID: {billData.billId}</span>
                                             <span className="text-gray-400 block">Date: {new Date(billData.billDate).toLocaleDateString('en-IN')}</span>
                                         </div>
-                                        <div className="text-right">
+                                        <div className="text-left sm:text-right">
                                             {(() => {
                                                 const status = billData.payment?.status;
                                                 const method = safeStr(billData.payment?.paymentMethod).toUpperCase();
                                                 
                                                 if (status === "REJECTED") {
-                                                    return <span className="text-sm font-bold px-3 py-1 rounded-full bg-red-500/20 text-red-500">REJECTED</span>;
+                                                    return <span className="text-xs sm:text-sm font-bold px-3 py-1 rounded-full bg-red-500/20 text-red-500">REJECTED</span>;
                                                 }
                                                 if (status === "CANCELLED") {
-                                                    return <span className="text-sm font-bold px-3 py-1 rounded-full bg-gray-500/20 text-gray-400">CANCELLED</span>;
+                                                    return <span className="text-xs sm:text-sm font-bold px-3 py-1 rounded-full bg-gray-500/20 text-gray-400">CANCELLED</span>;
                                                 }
                                                 if (status === "PENDING_CLEARANCE" || (method === "CHEQUE" && status === "PENDING")) {
-                                                    return <span className="text-sm font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-400">IN PROCESS</span>;
+                                                    return <span className="text-xs sm:text-sm font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-400">IN PROCESS</span>;
                                                 }
-                                                return <span className="text-sm font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400">RECEIVED</span>;
+                                                return <span className="text-xs sm:text-sm font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400">RECEIVED</span>;
                                             })()}
                                         </div>
                                     </div>
@@ -554,20 +554,20 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
 
                                 {/* Student Details */}
                                 <div className="mb-6">
-                                    <h3 className="text-lg font-bold text-cyan-400 mb-3">Student Details</h3>
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <h3 className="text-base sm:text-lg font-bold text-cyan-400 mb-3">Student Details</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
                                         <div><span className="text-gray-400">Name:</span> <span className="text-white font-medium">{billData.student.name}</span></div>
                                         <div><span className="text-gray-400">Admission No:</span> <span className="text-white font-medium">{billData.student.admissionNumber}</span></div>
                                         <div><span className="text-gray-400">Phone:</span> <span className="text-white font-medium">{billData.student.phoneNumber}</span></div>
-                                        <div className="col-span-2"><span className="text-gray-400">Email:</span> <span className="text-white font-medium">{billData.student.email || 'N/A'}</span></div>
+                                        <div className="col-span-1 sm:col-span-2 break-all"><span className="text-gray-400">Email:</span> <span className="text-white font-medium">{billData.student.email || 'N/A'}</span></div>
                                     </div>
                                 </div>
 
                                 {/* Course Details */}
                                 <div className="mb-6">
-                                    <h3 className="text-lg font-bold text-cyan-400 mb-3">Course Details</h3>
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
-                                        <div className="col-span-2 flex flex-wrap">
+                                    <h3 className="text-base sm:text-lg font-bold text-cyan-400 mb-3">Course Details</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
+                                        <div className="col-span-1 sm:col-span-2 flex flex-wrap">
                                             <span className="text-gray-400 mr-1">Course:</span>
                                             <span className="text-white font-medium">{billData.course.name}</span>
                                         </div>
@@ -580,8 +580,8 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
 
                                 {/* Payment Details */}
                                 <div className="mb-6">
-                                    <h3 className="text-lg font-bold text-cyan-400 mb-3">Payment Details</h3>
-                                    <div className="grid grid-cols-2 gap-3 text-sm">
+                                    <h3 className="text-base sm:text-lg font-bold text-cyan-400 mb-3">Payment Details</h3>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 text-xs sm:text-sm">
                                         <div><span className="text-gray-400">Installment:</span> <span className="text-white font-medium">#{billData.payment.installmentNumber}</span></div>
                                         <div><span className="text-gray-400">Payment Method:</span> <span className="text-white font-medium">{billData.payment.paymentMethod || 'N/A'}</span></div>
                                         <div>
@@ -593,7 +593,7 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                             </span>
                                         </div>
                                         {billData.payment.paymentMethod?.toUpperCase() !== 'CASH' && (
-                                            <div>
+                                            <div className="break-all">
                                                 <span className="text-gray-400">Transaction ID:</span> 
                                                 <span className="text-white font-medium ml-1">
                                                     {billData.payment.transactionId || (installment?.transactionId || 'N/A')}
@@ -607,7 +607,7 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                                 <div><span className="text-gray-400">Cheque Date:</span> <span className="text-white font-medium">{billData.payment.chequeDate ? new Date(billData.payment.chequeDate).toLocaleDateString('en-IN') : 'N/A'}</span></div>
                                             </>
                                         )}
-                                        <div className="col-span-2 border-t border-gray-700/60 pt-2 mt-1">
+                                        <div className="col-span-1 sm:col-span-2 border-t border-gray-700/60 pt-2 mt-1 break-all">
                                             <span className="text-gray-400 font-semibold">Remarks:</span>{" "}
                                             <span className="text-cyan-300 font-medium ml-1">
                                                 {billData.payment?.remarks || installment?.remarks || billData.remarks || admission?.remarks || 'N/A'}
@@ -617,9 +617,9 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                 </div>
 
                                 {/* Fee Breakdown */}
-                                <div className="bg-[#1a1f24] rounded-lg p-4">
-                                    <h3 className="text-lg font-bold text-cyan-400 mb-4">Fee Breakdown</h3>
-                                    <div className="space-y-2 text-sm">
+                                <div className="bg-[#1a1f24] rounded-lg p-3 sm:p-4">
+                                    <h3 className="text-base sm:text-lg font-bold text-cyan-400 mb-4">Fee Breakdown</h3>
+                                    <div className="space-y-2 text-xs sm:text-sm">
                                         {billData.amounts.grossFee > 0 && billData.amounts.waiver > 0 && (
                                             <div className="flex justify-between">
                                                 <span className="text-gray-400">Gross Fee</span>
@@ -645,7 +645,7 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                             <span className="text-white font-medium">₹ {Number(billData.amounts?.sgst || 0).toFixed(2)}</span>
                                         </div>
                                         <div className="border-t border-gray-700 pt-2 mt-2">
-                                            <div className="flex justify-between text-lg font-bold">
+                                            <div className="flex justify-between text-base sm:text-lg font-bold">
                                                 <span className="text-cyan-400">TOTAL AMOUNT</span>
                                                 <span className="text-cyan-400">₹ {Number(billData.amounts?.totalAmount || 0).toFixed(2)}</span>
                                             </div>
@@ -659,17 +659,17 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                             </div>
 
                             {/* Action Buttons */}
-                            <div className="flex gap-4 justify-center">
+                            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
                                 <button
                                     onClick={downloadPDF}
-                                    className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center gap-2"
+                                    className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center justify-center gap-2 w-full sm:w-auto text-sm"
                                 >
                                     <FaDownload />
                                     Download PDF
                                 </button>
                                 <button
                                     onClick={printBill}
-                                    className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg flex items-center gap-2"
+                                    className="px-6 py-3 bg-gray-700 hover:bg-gray-600 text-white font-bold rounded-lg flex items-center justify-center gap-2 w-full sm:w-auto text-sm"
                                 >
                                     <FaPrint />
                                     Print

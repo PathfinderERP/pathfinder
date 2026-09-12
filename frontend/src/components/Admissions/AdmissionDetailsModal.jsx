@@ -200,37 +200,43 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
 
     const labelClass = "block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5 flex items-center gap-2";
     const infoValueClass = `px-3 py-2.5 rounded-[4px] border font-bold text-[11px] uppercase tracking-wider transition-all ${isDarkMode ? 'bg-black/20 border-gray-800 text-white shadow-inner' : 'bg-white border-gray-200 text-gray-900 shadow-sm'}`;
-    const sectionClass = `p-6 rounded-[4px] border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`;
+    const sectionClass = `p-4 sm:p-6 rounded-[4px] border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-200'}`;
 
     return (
         <>
-            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-4 backdrop-blur-sm">
-                <div className={`rounded-[4px] border border-gray-800 max-w-6xl w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-2 sm:p-4 backdrop-blur-sm">
+                <div className={`rounded-[4px] border border-gray-800 max-w-6xl w-full max-h-[96vh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
                     {/* Header */}
-                    <div className={`p-6 border-b flex items-center justify-between sticky top-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
-                        <div className="flex flex-col">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 rounded-[4px] bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20">
-                                    <FaFileInvoice className="text-cyan-500 text-2xl" />
+                    <div className={`p-4 sm:p-6 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 sticky top-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                        <div className="flex items-center justify-between w-full sm:w-auto">
+                            <div className="flex items-center gap-3 sm:gap-4">
+                                <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-[4px] bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 shrink-0">
+                                    <FaFileInvoice className="text-cyan-500 text-xl sm:text-2xl" />
                                 </div>
                                 <div>
-                                    <h2 className={`text-2xl font-black italic tracking-tighter uppercase leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    <h2 className={`text-xl sm:text-2xl font-black italic tracking-tighter uppercase leading-none ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                         Admission Dossier
                                     </h2>
-                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-2">
+                                    <p className="text-[9px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] mt-1.5 sm:mt-2">
                                         PROTOCOL: <span className="text-cyan-500 font-mono tracking-widest">{admission.admissionNumber}</span>
                                     </p>
                                 </div>
                             </div>
+                            <button
+                                onClick={onClose}
+                                className={`sm:hidden p-2 rounded-[4px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10' : 'bg-gray-100 text-gray-400 hover:text-gray-900 hover:bg-gray-200'}`}
+                            >
+                                <FaTimes className="text-base" />
+                            </button>
                         </div>
-                        <div className="flex items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 w-full sm:w-auto justify-end">
                             {admission.admissionType === 'BOARD' ? (
                                 <button
                                     onClick={() => {
                                         onClose();
                                         navigate(`/edit-board-subjects/${admission._id}`);
                                     }}
-                                    className="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-black uppercase tracking-widest rounded-[4px] transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2"
+                                    className="px-4 sm:px-6 py-2 sm:py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-[4px] transition-all shadow-lg shadow-cyan-500/20 flex items-center gap-2 flex-1 sm:flex-initial justify-center"
                                 >
                                     <FaMoneyBillWave /> MANAGE MONTHLY BILLING
                                 </button>
@@ -243,7 +249,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                 window.openEditModal(admission);
                                             }
                                         }}
-                                        className="px-6 py-2.5 bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-black uppercase tracking-widest rounded-[4px] transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2"
+                                        className="px-4 sm:px-6 py-2 sm:py-2.5 bg-amber-500 hover:bg-amber-400 text-black text-[9px] sm:text-[10px] font-black uppercase tracking-widest rounded-[4px] transition-all shadow-lg shadow-amber-500/20 flex items-center gap-2 flex-1 sm:flex-initial justify-center"
                                     >
                                         <FaUser /> MODIFY SYSTEM DATA
                                     </button>
@@ -251,14 +257,14 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                             )}
                             <button
                                 onClick={onClose}
-                                className={`p-3 rounded-[4px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10' : 'bg-gray-100 text-gray-400 hover:text-gray-900 hover:bg-gray-200'}`}
+                                className={`hidden sm:flex p-3 rounded-[4px] transition-all active:scale-95 ${isDarkMode ? 'bg-white/5 text-gray-400 hover:text-white hover:bg-white/10' : 'bg-gray-100 text-gray-400 hover:text-gray-900 hover:bg-gray-200'}`}
                             >
                                 <FaTimes className="text-lg" />
                             </button>
                         </div>
                     </div>
 
-                    <div className={`p-8 overflow-y-auto space-y-8 custom-scrollbar ${isDarkMode ? 'dark' : ''}`}>
+                    <div className={`p-4 sm:p-8 overflow-y-auto space-y-6 sm:space-y-8 custom-scrollbar ${isDarkMode ? 'dark' : ''}`}>
                         {/* Deactivation Warning Banner */}
                         {admission.student?.status === 'Deactivated' && (
                             <div className={`p-4 rounded-[4px] border flex items-center gap-4 animate-pulse ${isDarkMode ? 'bg-red-500/5 border-red-500/20' : 'bg-red-50 border-red-200'}`}>
@@ -288,14 +294,14 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                         </div>
                                     )}
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                                     <div>
                                         <label className={labelClass}>ENTITY NAME</label>
                                         <div className={infoValueClass}>{student.studentName || "N/A"}</div>
                                     </div>
                                     <div>
                                         <label className={labelClass}>COORDINATION EMAIL</label>
-                                        <div className={`${infoValueClass} normal-case`}>{student.studentEmail || "N/A"}</div>
+                                        <div className={`${infoValueClass} normal-case break-all`}>{student.studentEmail || "N/A"}</div>
                                     </div>
                                     <div>
                                         <label className={labelClass}>PRIMARY CONTACT</label>
@@ -313,7 +319,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                         <label className={labelClass}>INSTITUTION</label>
                                         <div className={infoValueClass}>{student.schoolName || "N/A"}</div>
                                     </div>
-                                    <div className="md:col-span-2">
+                                    <div className="sm:col-span-2">
                                         <label className={labelClass}>GEO ADDRESS</label>
                                         <div className={`${infoValueClass} normal-case`}>{student.address || "N/A"}</div>
                                     </div>
@@ -325,7 +331,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                 <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
                                     <FaShieldAlt size={14} /> SECURE GUARDIAN NODE
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                                     <div>
                                         <label className={labelClass}>GUARDIAN NAME</label>
                                         <div className={infoValueClass}>{guardian.guardianName || "N/A"}</div>
@@ -340,7 +346,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                     </div>
                                     <div>
                                         <label className={labelClass}>SECURE EMAIL</label>
-                                        <div className={`${infoValueClass} normal-case`}>{guardian.guardianEmail || "N/A"}</div>
+                                        <div className={`${infoValueClass} normal-case break-all`}>{guardian.guardianEmail || "N/A"}</div>
                                     </div>
                                     <div>
                                         <label className={labelClass}>VOCATIONAL TAG</label>
@@ -360,7 +366,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                 <h3 className="text-[12px] font-black text-cyan-500 uppercase tracking-[0.2em] mb-6 flex items-center gap-3">
                                     <FaGraduationCap size={14} /> ACADEMIC VECTOR
                                 </h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                                     <div>
                                         <label className={labelClass}>COURSE / BOARD</label>
                                         <div className={infoValueClass}>
@@ -390,7 +396,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                         <div className={infoValueClass}>{formatDate(admission.admissionDate)}</div>
                                     </div>
                                     {exam.scienceMathParcent && (
-                                        <div className="md:col-span-2">
+                                        <div className="sm:col-span-2">
                                             <label className={labelClass}>S/M PERFORMANCE COEFF.</label>
                                             <div className={infoValueClass}>{exam.scienceMathParcent}</div>
                                         </div>
@@ -441,18 +447,18 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                         </div>
                                     </div>
 
-                                    <div className="grid grid-cols-3 gap-3">
-                                        <div className="p-4 rounded-[4px] border border-cyan-500/30 bg-cyan-500/5">
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                        <div className="p-3 sm:p-4 rounded-[4px] border border-cyan-500/30 bg-cyan-500/5">
                                             <span className="text-[9px] font-black text-cyan-500 uppercase block mb-1">TOTAL CAPEX</span>
-                                            <span className="text-[14px] font-black text-cyan-500">₹{admission.totalFees?.toLocaleString()}</span>
+                                            <span className="text-[13px] sm:text-[14px] font-black text-cyan-500">₹{admission.totalFees?.toLocaleString()}</span>
                                         </div>
-                                        <div className="p-4 rounded-[4px] border border-emerald-500/30 bg-emerald-500/5">
+                                        <div className="p-3 sm:p-4 rounded-[4px] border border-emerald-500/30 bg-emerald-500/5">
                                             <span className="text-[9px] font-black text-emerald-500 uppercase block mb-1">INITIAL OPEX</span>
-                                            <span className="text-[14px] font-black text-emerald-500">₹{admission.downPayment?.toLocaleString()}</span>
+                                            <span className="text-[13px] sm:text-[14px] font-black text-emerald-500">₹{admission.downPayment?.toLocaleString()}</span>
                                         </div>
-                                        <div className="p-4 rounded-[4px] border border-amber-500/30 bg-amber-500/5">
+                                        <div className="p-3 sm:p-4 rounded-[4px] border border-amber-500/30 bg-amber-500/5">
                                             <span className="text-[9px] font-black text-amber-500 uppercase block mb-1">OUTSTANDING</span>
-                                            <span className="text-[14px] font-black text-amber-500">₹{admission.remainingAmount?.toLocaleString()}</span>
+                                            <span className="text-[13px] sm:text-[14px] font-black text-amber-500">₹{admission.remainingAmount?.toLocaleString()}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -681,16 +687,16 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
 
             {/* Payment Modal */}
             {showPaymentModal && selectedInstallment && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110] p-4 backdrop-blur-md">
-                    <div className={`rounded-[4px] border border-gray-800 max-w-md w-full max-h-[90vh] flex flex-col shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
-                        <div className={`p-6 border-b flex items-center justify-between ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
-                            <h3 className={`text-lg font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>TRANSACTION INITIATION</h3>
-                            <button onClick={() => setShowPaymentModal(false)} className="text-gray-400 hover:text-white transition-colors">
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[110] p-2 sm:p-4 backdrop-blur-md">
+                    <div className={`rounded-[4px] border border-gray-800 max-w-md w-full max-h-[96vh] sm:max-h-[90vh] flex flex-col shadow-2xl overflow-hidden ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
+                        <div className={`p-4 sm:p-6 border-b flex items-center justify-between ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                            <h3 className={`text-base sm:text-lg font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>TRANSACTION INITIATION</h3>
+                            <button onClick={() => setShowPaymentModal(false)} className="text-gray-400 hover:text-white transition-colors p-1">
                                 <FaTimes />
                             </button>
                         </div>
 
-                        <div className={`p-4 border-b ${isDarkMode ? 'bg-cyan-500/5 border-gray-800' : 'bg-cyan-50 border-gray-100'}`}>
+                        <div className={`p-3 sm:p-4 border-b ${isDarkMode ? 'bg-cyan-500/5 border-gray-800' : 'bg-cyan-50 border-gray-100'}`}>
                             <div className="flex justify-between items-center">
                                 <div>
                                     <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest block mb-1">TARGET MILESTONE</span>
@@ -703,7 +709,7 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                             </div>
                         </div>
 
-                        <form onSubmit={handlePaymentSubmit} className="p-6 space-y-6 overflow-y-auto custom-scrollbar">
+                        <form onSubmit={handlePaymentSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto custom-scrollbar">
                             <div>
                                 <label className={labelClass}>SETTLEMENT QUANTITY *</label>
                                 <input

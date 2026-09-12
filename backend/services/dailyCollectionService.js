@@ -102,9 +102,15 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
                     },
                     revenueBase: {
                         $cond: [
-                            { $gt: ["$courseFee", 0] },
-                            "$courseFee",
-                            { $divide: ["$paidAmount", 1.18] }
+                            { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                            "$paidAmount",
+                            {
+                                $cond: [
+                                    { $gt: ["$courseFee", 0] },
+                                    "$courseFee",
+                                    { $divide: ["$paidAmount", 1.18] }
+                                ]
+                            }
                         ]
                     }
                 }
@@ -855,53 +861,13 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 };
             });
 
-            // Calculate weekday shortfall across all weekdays in this week based on effectiveBase targets
-            const weekdayList = weekDaysData.filter(d => !d.isWeekend);
-            let weekdayShortfall = 0;
-            weekdayList.forEach(wDay => {
-                weekdayShortfall += (wDay.effectiveBase - wDay.achieved);
-            });
+            // Sequential day-to-day rolling shortfall/overachievement within this week
+            let runningShortfall = 0;
 
-            // Compute finalTarget for each day in this week
             for (const d of weekDaysData) {
-                let finalTarget = 0;
-                let shortfallAdded = 0;
-
-                if (!d.isWeekend) {
-                    finalTarget = Math.round(Math.max(0, d.effectiveBase));
-                    shortfallAdded = Math.round(finalTarget - d.manualBase);
-                } else if (d.dayName === "Sat") {
-                    if (d.effectiveBase <= 0 && d.manualBase <= 0) {
-                        finalTarget = 0;
-                        shortfallAdded = 0;
-                    } else {
-                        finalTarget = Math.round(Math.max(0, d.effectiveBase + weekdayShortfall));
-                        shortfallAdded = Math.round(finalTarget - d.manualBase);
-                    }
-                } else if (d.dayName === "Sun") {
-                    const satObj = weekDaysData.find(x => x.dayName === "Sat");
-                    let shortfallAfterSat = weekdayShortfall;
-
-                    if (satObj) {
-                        if (satObj.effectiveBase > 0 || satObj.manualBase > 0) {
-                            const satAdjustedTarget = satObj.effectiveBase + weekdayShortfall;
-                            shortfallAfterSat = satAdjustedTarget - satObj.achieved;
-                        } else {
-                            shortfallAfterSat = weekdayShortfall - satObj.achieved;
-                        }
-                    }
-
-                    if (d.effectiveBase <= 0 && d.manualBase <= 0) {
-                        finalTarget = 0;
-                        shortfallAdded = 0;
-                    } else {
-                        finalTarget = Math.round(Math.max(0, d.effectiveBase + shortfallAfterSat));
-                        shortfallAdded = Math.round(finalTarget - d.manualBase);
-                    }
-                } else {
-                    finalTarget = Math.round(Math.max(0, d.effectiveBase));
-                    shortfallAdded = Math.round(finalTarget - d.manualBase);
-                }
+                const rawTarget = d.effectiveBase + runningShortfall;
+                const finalTarget = Math.round(Math.max(0, rawTarget));
+                const shortfallAdded = Math.round(finalTarget - d.manualBase);
 
                 daysResult[d.day] = {
                     finalTarget,
@@ -911,6 +877,13 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     isWeekend: d.isWeekend,
                     dayName: d.dayName
                 };
+
+                // Update runningShortfall for subsequent days in this week:
+                // Only days that have already occurred or are today have actual achievement data.
+                const isDayPastOrToday = isMonthInPast || (isCurrentMonth && d.day <= curDay);
+                if (isDayPastOrToday) {
+                    runningShortfall = rawTarget - d.achieved;
+                }
             }
 
             // Total target and total achieved for this week to determine adjustment (shortfall or surplus) for next week

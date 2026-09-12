@@ -477,10 +477,26 @@ const EmployeeAttendance = () => {
         const punchedRecord = dayRecords.find(r => r.checkIn?.time || r.checkOut?.time || (r.workingHours && r.workingHours > 0));
         const record = punchedRecord || dayRecords[0];
 
-        const regularization = regularizations.find(r => {
+        const dayRegularizations = (regularizations || []).filter(r => {
             if (!r || !r.date) return false;
             return format(new Date(r.date), "yyyy-MM-dd") === dateStrKey || isSameDay(new Date(r.date), date);
         });
+        const approvedRegs = dayRegularizations.filter(r => r.status === "Approved");
+        const regularization = approvedRegs[0] || dayRegularizations[0];
+
+        // Aggregate timings across all approved regularizations for this day
+        const earliestRegFromTime = approvedRegs.reduce((min, r) => (!min || (r.fromTime && r.fromTime < min) ? r.fromTime : min), null);
+        const latestRegToTime = approvedRegs.reduce((max, r) => (!max || (r.toTime && r.toTime > max) ? r.toTime : max), null);
+        let totalApprovedRegHours = 0;
+        approvedRegs.forEach(r => {
+            if (r.fromTime && r.toTime) {
+                const [fH, fM] = r.fromTime.split(':').map(Number);
+                const [tH, tM] = r.toTime.split(':').map(Number);
+                const diff = (tH * 60 + tM) - (fH * 60 + fM);
+                if (diff > 0) totalApprovedRegHours += (diff / 60);
+            }
+        });
+        totalApprovedRegHours = parseFloat(totalApprovedRegHours.toFixed(2));
 
         // Check if there is an approved leave for this date
         const approvedLeave = (leaveRequests || []).find(l => {
@@ -506,21 +522,18 @@ const EmployeeAttendance = () => {
             }
 
             // Also check regularization if present
-            if (regularization && regularization.status === "Approved") {
+            if (approvedRegs.length > 0) {
                 const isRegCheckIn = punchSource?.checkIn?.address === 'Regularized' || !punchSource?.checkIn?.time;
                 const isRegCheckOut = punchSource?.checkOut?.address === 'Regularized' || !punchSource?.checkOut?.time;
 
-                if (regularization.fromTime && (isRegCheckIn || !checkInTime)) {
-                    checkInTime = regularization.fromTime;
+                if (earliestRegFromTime && (isRegCheckIn || !checkInTime)) {
+                    checkInTime = earliestRegFromTime;
                 }
-                if (regularization.toTime && (isRegCheckOut || !checkOutTime)) {
-                    checkOutTime = regularization.toTime;
+                if (latestRegToTime && (isRegCheckOut || !checkOutTime)) {
+                    checkOutTime = latestRegToTime;
                 }
-                if (calculatedWh === 0 && regularization.fromTime && regularization.toTime) {
-                    const [fH, fM] = regularization.fromTime.split(':').map(Number);
-                    const [tH, tM] = regularization.toTime.split(':').map(Number);
-                    const diff = (tH * 60 + tM) - (fH * 60 + fM);
-                    if (diff > 0) calculatedWh = parseFloat((diff / 60).toFixed(2));
+                if (calculatedWh === 0 && totalApprovedRegHours > 0) {
+                    calculatedWh = totalApprovedRegHours;
                 }
             }
 
@@ -540,7 +553,8 @@ const EmployeeAttendance = () => {
                 checkOutCentre: punchSource?.checkOut?.centreId?.centreName || (regularization?.type || ""),
                 checkOutLabel: punchSource?.checkOut?.address || regularization?.locationAddress || "",
                 hasOfficePresence: Boolean(checkInTime || checkOutTime || (calculatedWh && calculatedWh > 0)),
-                regularization
+                regularization,
+                regularizations: dayRegularizations
             };
         }
 
@@ -555,33 +569,30 @@ const EmployeeAttendance = () => {
             }
 
             // If regularization is approved:
-            if (regularization && regularization.status === "Approved") {
+            if (approvedRegs.length > 0) {
                 const isRegCheckIn = record.checkIn?.address === 'Regularized' || !record.checkIn?.time || (record.remarks && record.remarks.includes('Regulariz'));
                 const isRegCheckOut = record.checkOut?.address === 'Regularized' || !record.checkOut?.time || (record.remarks && record.remarks.includes('Regulariz'));
 
-                if (regularization.fromTime && (isRegCheckIn || !checkInTime)) {
-                    checkInTime = regularization.fromTime;
+                if (earliestRegFromTime && (isRegCheckIn || !checkInTime)) {
+                    checkInTime = earliestRegFromTime;
                 }
-                if (regularization.toTime && (isRegCheckOut || !checkOutTime)) {
-                    checkOutTime = regularization.toTime;
+                if (latestRegToTime && (isRegCheckOut || !checkOutTime)) {
+                    checkOutTime = latestRegToTime;
                 }
 
                 // If both physical and regularization exist with distinct valid times, show earliest in and latest out
-                if (record.checkIn?.time && regularization.fromTime && record.checkIn.address !== 'Regularized') {
+                if (record.checkIn?.time && earliestRegFromTime && record.checkIn.address !== 'Regularized') {
                     const physIn = format(new Date(record.checkIn.time), "HH:mm");
-                    checkInTime = physIn < regularization.fromTime ? physIn : regularization.fromTime;
+                    checkInTime = physIn < earliestRegFromTime ? physIn : earliestRegFromTime;
                 }
-                if (record.checkOut?.time && regularization.toTime && record.checkOut.address !== 'Regularized') {
+                if (record.checkOut?.time && latestRegToTime && record.checkOut.address !== 'Regularized') {
                     const physOut = format(new Date(record.checkOut.time), "HH:mm");
-                    checkOutTime = physOut > regularization.toTime ? physOut : regularization.toTime;
+                    checkOutTime = physOut > latestRegToTime ? physOut : latestRegToTime;
                 }
 
                 if (calculatedWh === 0) {
-                    if (regularization.fromTime && regularization.toTime) {
-                        const [fH, fM] = regularization.fromTime.split(':').map(Number);
-                        const [tH, tM] = regularization.toTime.split(':').map(Number);
-                        const diff = (tH * 60 + tM) - (fH * 60 + fM);
-                        if (diff > 0) calculatedWh = parseFloat((diff / 60).toFixed(2));
+                    if (totalApprovedRegHours > 0) {
+                        calculatedWh = totalApprovedRegHours;
                     } else {
                         calculatedWh = workingHours || 9;
                     }
@@ -591,7 +602,7 @@ const EmployeeAttendance = () => {
             const calculatedStatus = computeStatusFromHours(record.status, calculatedWh, workingHours || 9);
             return {
                 type: record.status === "Week Off" ? "Off" : "Present",
-                name: record.status === "Week Off" ? "Week Off" : (regularization?.status === "Approved" ? "Present (Regularized)" : undefined),
+                name: record.status === "Week Off" ? "Week Off" : (approvedRegs.length > 0 ? "Present (Regularized)" : undefined),
                 checkIn: checkInTime,
                 checkOut: checkOutTime,
                 status: calculatedStatus,
@@ -600,21 +611,15 @@ const EmployeeAttendance = () => {
                 checkInLabel: record.checkIn?.address || regularization?.locationAddress || "",
                 checkOutCentre: record.checkOut?.centreId?.centreName || (regularization?.type || ""),
                 checkOutLabel: record.checkOut?.address || regularization?.locationAddress || "",
-                regularization
+                regularization,
+                regularizations: dayRegularizations
             };
         }
 
-        if (regularization && regularization.status === "Approved") {
-            let regHours = workingHours || 9;
-            let checkInStr = regularization.fromTime || null;
-            let checkOutStr = regularization.toTime || null;
-
-            if (regularization.fromTime && regularization.toTime) {
-                const [fH, fM] = regularization.fromTime.split(':').map(Number);
-                const [tH, tM] = regularization.toTime.split(':').map(Number);
-                const diff = (tH * 60 + tM) - (fH * 60 + fM);
-                if (diff > 0) regHours = parseFloat((diff / 60).toFixed(2));
-            }
+        if (approvedRegs.length > 0) {
+            let regHours = totalApprovedRegHours > 0 ? totalApprovedRegHours : (workingHours || 9);
+            let checkInStr = earliestRegFromTime || null;
+            let checkOutStr = latestRegToTime || null;
 
             const regStatus = computeStatusFromHours(null, regHours, workingHours || 9);
 
@@ -625,11 +630,12 @@ const EmployeeAttendance = () => {
                 checkOut: checkOutStr,
                 status: regStatus,
                 workingHours: regHours,
-                checkInCentre: regularization.type || "Office",
-                checkInLabel: regularization.locationAddress || "Regularized",
-                checkOutCentre: regularization.type || "Office",
-                checkOutLabel: regularization.locationAddress || "Regularized",
-                regularization
+                checkInCentre: regularization?.type || "Office",
+                checkInLabel: regularization?.locationAddress || "Regularized",
+                checkOutCentre: regularization?.type || "Office",
+                checkOutLabel: regularization?.locationAddress || "Regularized",
+                regularization,
+                regularizations: dayRegularizations
             };
         }
 
@@ -756,47 +762,60 @@ const EmployeeAttendance = () => {
         const { day, status } = data;
         const isDark = theme === 'dark';
 
+        // Lock background body scroll while modal is active
+        useEffect(() => {
+            const prevOverflow = document.body.style.overflow;
+            document.body.style.overflow = 'hidden';
+            return () => {
+                document.body.style.overflow = prevOverflow;
+            };
+        }, []);
+
         return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                <div className="absolute inset-0 bg-black/60 backdrop-blur-md" onClick={onClose}></div>
-                <div className={`relative w-full max-w-lg ${isDark ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300`}>
-                    {/* Header */}
-                    <div className="p-8 border-b border-gray-800/50 flex justify-between items-center bg-gradient-to-r from-cyan-500/10 to-transparent">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden">
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-md" onClick={onClose}></div>
+                <div className={`relative w-full max-w-lg max-h-[90vh] flex flex-col ${isDark ? 'bg-[#131619] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'} border rounded-3xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 my-auto`}>
+                    {/* Header - Fixed at top */}
+                    <div className="flex-shrink-0 px-6 py-5 sm:px-8 sm:py-6 border-b border-gray-800/50 flex justify-between items-center bg-gradient-to-r from-cyan-500/10 to-transparent">
                         <div>
-                            <h2 className={`text-3xl font-black tracking-tighter uppercase italic ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                            <h2 className={`text-2xl sm:text-3xl font-black tracking-tighter uppercase italic ${isDark ? 'text-white' : 'text-gray-900'}`}>
                                 Day <span className="text-cyan-500">Details</span>
                             </h2>
-                            <p className={`text-[10px] font-bold uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                            <p className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
                                 {format(day, 'EEEE, dd MMMM yyyy')}
                             </p>
                         </div>
-                        <button onClick={onClose} className="w-10 h-10 rounded-full border border-gray-800 flex items-center justify-center hover:bg-red-500 hover:text-white transition-all">
+                        <button
+                            onClick={onClose}
+                            aria-label="Close modal"
+                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-gray-700/60 flex items-center justify-center hover:bg-red-500 hover:text-white hover:border-red-500 transition-all text-xs sm:text-sm font-bold active:scale-90"
+                        >
                             ✕
                         </button>
                     </div>
 
-                    {/* Content */}
-                    <div className="p-8 space-y-6">
+                    {/* Scrollable Content Body with smooth sleek scrollbar */}
+                    <div className="flex-1 overflow-y-auto custom-modal-scrollbar overscroll-contain pl-5 pr-4 sm:pl-8 sm:pr-6 py-5 sm:py-6 space-y-4 sm:space-y-6">
                         {(status.type === "Present" || status.hasOfficePresence || status.checkIn || status.checkOut || (status.workingHours && status.workingHours > 0)) ? (
                             <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className={`p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                                    <div className={`p-3.5 sm:p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                         <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Check In</p>
-                                        <p className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{status.checkIn || '--:--'}</p>
+                                        <p className={`text-xl sm:text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{status.checkIn || '--:--'}</p>
                                     </div>
-                                    <div className={`p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                    <div className={`p-3.5 sm:p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
                                         <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Check Out</p>
-                                        <p className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{status.checkOut || '--:--'}</p>
+                                        <p className={`text-xl sm:text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{status.checkOut || '--:--'}</p>
                                     </div>
-                                    <div className={`col-span-2 p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                        <div className="flex justify-between items-center">
+                                    <div className={`col-span-2 p-3.5 sm:p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                        <div className="flex justify-between items-center flex-wrap gap-2">
                                             <div>
                                                 <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-1">Working Hours</p>
-                                                <p className={`text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{formatWorkingHours(status.workingHours)}</p>
+                                                <p className={`text-xl sm:text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{formatWorkingHours(status.workingHours)}</p>
                                             </div>
                                             <div className="text-right">
                                                 <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Status</p>
-                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                                                <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase ${
                                                     status.name === 'Early Leave' || status.status === 'Early Leave' ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' :
                                                     status.name === 'Short Leave' || status.status === 'Short Leave' ? 'bg-lime-500/20 text-lime-400 border border-lime-500/30' :
                                                     status.status === 'Present' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
@@ -814,28 +833,28 @@ const EmployeeAttendance = () => {
                                         </div>
                                     </div>
                                     {(status.checkInCentre || status.checkOutCentre || status.checkInLabel || status.checkOutLabel) && (
-                                        <div className={`col-span-2 p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                            <div className="space-y-4">
+                                        <div className={`col-span-2 p-3.5 sm:p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                            <div className="space-y-3 sm:space-y-4">
                                                 <div>
                                                     <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-1">Check In Location</p>
-                                                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} flex items-center gap-2 italic`}>
-                                                        <FaBuilding className="text-cyan-500" /> {status.checkInCentre || "Office"}
+                                                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} flex items-center gap-2 italic break-words`}>
+                                                        <FaBuilding className="text-cyan-500 flex-shrink-0" /> {status.checkInCentre || "Office"}
                                                     </p>
                                                     {status.checkInLabel && (
-                                                        <p className={`mt-1 text-[10px] font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-2`}>
-                                                            <FaMapMarkerAlt className="text-red-500" /> {status.checkInLabel}
+                                                        <p className={`mt-1 text-[10px] font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-2 break-words`}>
+                                                            <FaMapMarkerAlt className="text-red-500 flex-shrink-0" /> {status.checkInLabel}
                                                         </p>
                                                     )}
                                                 </div>
                                                 {status.checkOut && (
-                                                    <div className={`pt-4 border-t ${isDark ? 'border-gray-800/50' : 'border-gray-100'}`}>
+                                                    <div className={`pt-3 sm:pt-4 border-t ${isDark ? 'border-gray-800/50' : 'border-gray-100'}`}>
                                                         <p className="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-1">Check Out Location</p>
-                                                        <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} flex items-center gap-2 italic`}>
-                                                            <FaBuilding className="text-pink-500" /> {status.checkOutCentre || status.checkInCentre || "Office"}
+                                                        <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} flex items-center gap-2 italic break-words`}>
+                                                            <FaBuilding className="text-pink-500 flex-shrink-0" /> {status.checkOutCentre || status.checkInCentre || "Office"}
                                                         </p>
                                                         {status.checkOutLabel && (
-                                                            <p className={`mt-1 text-[10px] font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-2`}>
-                                                                <FaMapMarkerAlt className="text-red-500" /> {status.checkOutLabel}
+                                                            <p className={`mt-1 text-[10px] font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-2 break-words`}>
+                                                                <FaMapMarkerAlt className="text-red-500 flex-shrink-0" /> {status.checkOutLabel}
                                                             </p>
                                                         )}
                                                     </div>
@@ -847,10 +866,10 @@ const EmployeeAttendance = () => {
 
                                 {/* Approved Leave Details for Days with Office Presence */}
                                 {status.type === "Leave" && (
-                                    <div className={`p-5 rounded-2xl border ${isDark ? 'bg-purple-500/10 border-purple-500/30' : 'bg-purple-50 border-purple-200'} space-y-3`}>
+                                    <div className={`p-4 sm:p-5 rounded-2xl border ${isDark ? 'bg-purple-500/10 border-purple-500/30' : 'bg-purple-50 border-purple-200'} space-y-3`}>
                                         <div className="flex justify-between items-center">
                                             <div className="flex items-center gap-2.5">
-                                                <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                                                <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">
                                                     <FaCalendarCheck size={16} />
                                                 </div>
                                                 <div>
@@ -871,7 +890,7 @@ const EmployeeAttendance = () => {
                                                 <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
                                                     Approved Leave Details
                                                 </p>
-                                                <p className={`text-sm font-medium italic ${isDark ? 'text-gray-200' : 'text-gray-700'}`}>
+                                                <p className={`text-xs sm:text-sm font-medium italic ${isDark ? 'text-gray-200' : 'text-gray-700'} break-words`}>
                                                     "{status.reason || status.name}"
                                                 </p>
                                             </div>
@@ -880,18 +899,18 @@ const EmployeeAttendance = () => {
                                 )}
                             </div>
                         ) : (
-                            <div className={`p-12 rounded-3xl border text-center ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
+                            <div className={`p-8 sm:p-12 rounded-3xl border text-center ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
                                     status.type === 'Holiday' ? 'bg-blue-500/20 text-blue-400' :
                                     status.type === 'Leave' ? 'bg-purple-500/20 text-purple-400' :
                                     status.type === 'Absent' ? 'bg-red-500/20 text-red-400' :
                                     'bg-gray-500/20 text-gray-400'
                                 }`}>
-                                    {status.type === 'Holiday' ? <FaCalendarCheck size={32} /> :
-                                     status.type === 'Leave' ? <FaCalendarCheck size={32} /> :
-                                     <FaBuilding size={32} />}
+                                    {status.type === 'Holiday' ? <FaCalendarCheck size={28} /> :
+                                     status.type === 'Leave' ? <FaCalendarCheck size={28} /> :
+                                     <FaBuilding size={28} />}
                                 </div>
-                                <h3 className={`text-2xl font-black tracking-tighter uppercase italic ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                <h3 className={`text-xl sm:text-2xl font-black tracking-tighter uppercase italic ${isDark ? 'text-white' : 'text-gray-900'}`}>
                                     {status.name || status.type}
                                 </h3>
                                 <p className={`text-[10px] font-bold uppercase tracking-[0.3em] ${
@@ -902,17 +921,17 @@ const EmployeeAttendance = () => {
                                     {status.type === 'Holiday' ? 'Scheduled Holiday' : status.type === 'Leave' ? 'Approved Leave' : 'No presence recorded'}
                                 </p>
                                 {status.type === 'Holiday' && status.description && (
-                                    <div className={`mt-6 p-4 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-100'}`}>
-                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Reason / Description</p>
-                                        <p className={`text-sm font-medium italic ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                    <div className={`mt-4 sm:mt-6 p-3 sm:p-4 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-100'}`}>
+                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-1 sm:mb-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Reason / Description</p>
+                                        <p className={`text-xs sm:text-sm font-medium italic ${isDark ? 'text-gray-300' : 'text-gray-600'} break-words`}>
                                             "{status.description}"
                                         </p>
                                     </div>
                                 )}
                                 {status.type === 'Leave' && (status.reason || status.name) && (
-                                    <div className={`mt-6 p-4 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/20' : 'bg-purple-50/50 border-purple-100'}`}>
-                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-2 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Approved Leave Details</p>
-                                        <p className={`text-sm font-medium italic ${isDark ? 'text-gray-300' : 'text-gray-600'}`}>
+                                    <div className={`mt-4 sm:mt-6 p-3 sm:p-4 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/20' : 'bg-purple-50/50 border-purple-100'}`}>
+                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-1 sm:mb-2 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Approved Leave Details</p>
+                                        <p className={`text-xs sm:text-sm font-medium italic ${isDark ? 'text-gray-300' : 'text-gray-600'} break-words`}>
                                             "{status.reason || status.name}"
                                         </p>
                                     </div>
@@ -921,60 +940,60 @@ const EmployeeAttendance = () => {
                         )}
 
                         {/* Regularization details */}
-                        {status.regularization && (
-                            <div className={`p-6 rounded-2xl border ${status.regularization.status === 'Approved'
+                        {((status.regularizations && status.regularizations.length > 0) ? status.regularizations : (status.regularization ? [status.regularization] : [])).map((reg, rIdx) => (
+                            <div key={rIdx} className={`p-4 sm:p-6 rounded-2xl border ${reg.status === 'Approved'
                                 ? 'bg-emerald-500/5 border-emerald-500/20'
-                                : status.regularization.status === 'Rejected'
+                                : reg.status === 'Rejected'
                                     ? 'bg-red-500/5 border-red-500/20'
                                     : 'bg-orange-500/5 border-orange-500/20'
-                                } space-y-4`}>
-                                <div className="flex justify-between items-center">
-                                    <h4 className={`text-xs font-black uppercase tracking-widest ${status.regularization.status === 'Approved'
+                                } space-y-3 sm:space-y-4`}>
+                                <div className="flex justify-between items-center flex-wrap gap-2">
+                                    <h4 className={`text-xs font-black uppercase tracking-widest ${reg.status === 'Approved'
                                         ? 'text-emerald-500'
-                                        : status.regularization.status === 'Rejected'
+                                        : reg.status === 'Rejected'
                                             ? 'text-red-500'
                                             : 'text-orange-500'
                                         }`}>
-                                        Regularization {status.regularization.status}
+                                        Regularization {status.regularizations?.length > 1 ? `#${rIdx + 1} ` : ''}{reg.status}
                                     </h4>
-                                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase ${status.regularization.status === 'Approved'
-                                        ? 'bg-emerald-500/20 text-emerald-400'
-                                        : status.regularization.status === 'Rejected'
-                                            ? 'bg-red-500/20 text-red-400'
-                                            : 'bg-orange-500/20 text-orange-400'
+                                    <span className={`px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[9px] font-black uppercase ${reg.status === 'Approved'
+                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                        : reg.status === 'Rejected'
+                                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                            : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
                                         }`}>
-                                        {status.regularization.type}
+                                        {reg.type}
                                     </span>
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-4 text-xs">
+                                <div className="grid grid-cols-2 gap-3 sm:gap-4 text-xs">
                                     <div className="col-span-2">
                                         <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Reason</span>
-                                        <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'} italic`}>
-                                            "{status.regularization.reason}"
+                                        <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'} italic text-xs sm:text-sm break-words leading-relaxed`}>
+                                            "{reg.reason}"
                                         </p>
                                     </div>
-                                    {status.regularization.fromTime && status.regularization.toTime && (
+                                    {reg.fromTime && reg.toTime && (
                                         <div className="col-span-2">
                                             <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Regularized Timings</span>
-                                            <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                                {status.regularization.fromTime} - {status.regularization.toTime}
+                                            <p className={`font-black ${isDark ? 'text-white' : 'text-gray-900'} text-xs sm:text-sm`}>
+                                                {reg.fromTime} - {reg.toTime}
                                             </p>
                                         </div>
                                     )}
-                                    {status.regularization.status !== 'Pending' && (
+                                    {reg.status !== 'Pending' && (
                                         <>
-                                            <div>
+                                            <div className="col-span-2 sm:col-span-1">
                                                 <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Reviewed By</span>
                                                 <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                                    {status.regularization.reviewedBy?.name || 'Manager'}
+                                                    {reg.reviewedBy?.name || 'Manager'}
                                                 </p>
                                             </div>
-                                            {status.regularization.reviewRemark && (
+                                            {reg.reviewRemark && (
                                                 <div className="col-span-2">
                                                     <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Reviewer Remarks</span>
-                                                    <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'} italic`}>
-                                                        "{status.regularization.reviewRemark}"
+                                                    <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'} italic break-words`}>
+                                                        "{reg.reviewRemark}"
                                                     </p>
                                                 </div>
                                             )}
@@ -982,12 +1001,12 @@ const EmployeeAttendance = () => {
                                     )}
                                 </div>
                             </div>
-                        )}
+                        ))}
 
                         {/* Admin / HR Manual Override as Week Off */}
                         {isSuperAdminOrHR && status.status !== "Week Off" && (
-                            <div className="pt-6 mt-6 border-t border-amber-500/30">
-                                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-4">
+                            <div className="pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-amber-500/30">
+                                <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-3 sm:mb-4">
                                     <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-2">
                                         <FaBolt /> Admin & HR Override
                                     </p>
@@ -998,7 +1017,7 @@ const EmployeeAttendance = () => {
                                 <button
                                     onClick={() => handleAdminOverrideWeekOff(day)}
                                     disabled={marking}
-                                    className="w-full py-4 bg-amber-500 hover:bg-amber-600 text-black font-black rounded-2xl transition-all shadow-xl shadow-amber-500/20 active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
+                                    className="w-full py-3.5 sm:py-4 bg-amber-500 hover:bg-amber-600 text-black font-black rounded-2xl transition-all shadow-xl shadow-amber-500/20 active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
                                 >
                                     {marking ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-black"></div> : <><FaCalendarCheck size={16} /> Mark as Week Off (Admin Override)</>}
                                 </button>
@@ -1023,11 +1042,11 @@ const EmployeeAttendance = () => {
 
                             if (!isPastDay && status.status !== "Week Off" && !hasWeekOffInThisWeek) {
                                 return (
-                                    <div className="pt-6 mt-6 border-t border-gray-800/50">
+                                    <div className="pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-800/50">
                                         <button
                                             onClick={() => handleMarkWeekOff(day)}
                                             disabled={marking}
-                                            className="w-full py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-500/20 active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
+                                            className="w-full py-3.5 sm:py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-500/20 active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
                                         >
                                             {marking ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white"></div> : <><FaCalendarCheck size={16} /> Mark as Week Off</>}
                                         </button>
@@ -1081,71 +1100,71 @@ const EmployeeAttendance = () => {
                 )}
 
                 {/* 1. Header & Actions */}
-                <div className={`p-8 rounded-[2rem] border transition-all duration-300 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                    <div className="flex flex-col xl:flex-row gap-8 items-start xl:items-center justify-between">
+                <div className={`p-5 sm:p-8 rounded-2xl sm:rounded-[2rem] border transition-all duration-300 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <div className="flex flex-col xl:flex-row gap-6 xl:gap-8 items-start xl:items-center justify-between">
                         <div>
-                            <h1 className={`text-4xl md:text-5xl font-black mb-2 tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                            <h1 className={`text-2xl sm:text-4xl md:text-5xl font-black mb-1 sm:mb-2 tracking-tighter uppercase italic ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                 Attendance <span className="text-cyan-600">Registry</span>
                             </h1>
-                            <p className={`font-bold text-xs md:text-sm uppercase tracking-[0.3em] flex items-center gap-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            <p className={`font-bold text-[10px] sm:text-xs md:text-sm uppercase tracking-[0.2em] sm:tracking-[0.3em] flex items-center gap-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                 <FaCalendarCheck className="text-cyan-600" /> Track your daily presence
                             </p>
                         </div>
 
-                        <div className="flex flex-col md:flex-row items-center gap-6">
+                        <div className="flex flex-col md:flex-row items-stretch md:items-center gap-4 sm:gap-6 w-full xl:w-auto">
                             {/* Legend moved to header area */}
-                            <div className={`flex flex-wrap gap-2 md:gap-4 px-4 md:px-6 py-3 border rounded-xl shadow-inner w-full md:w-auto justify-center md:justify-start ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                <div className="flex items-center gap-2">
+                            <div className={`flex flex-wrap gap-2 md:gap-3 lg:gap-4 px-3 sm:px-6 py-2.5 sm:py-3 border rounded-xl shadow-inner w-full md:w-auto justify-center md:justify-start ${isDarkMode ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                <div className="flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-2.5 h-2.5 bg-red-500 rounded-[1px]" />
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Absent (&lt;4h)</span>
+                                    <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Absent (&lt;4h)</span>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-2.5 h-2.5 bg-orange-500 rounded-[1px]" />
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Half Day (&lt;4.5h)</span>
+                                    <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Half Day (&lt;4.5h)</span>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-2.5 h-2.5 bg-pink-500 rounded-[1px]" />
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Early Leave (up to 8.5h)</span>
+                                    <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Early Leave (up to 8.5h)</span>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-2.5 h-2.5 bg-lime-500 rounded-[1px]" />
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Short Leave (8.5 - 9h)</span>
+                                    <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Short Leave (8.5 - 9h)</span>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-2.5 h-2.5 bg-emerald-500 rounded-[1px]" />
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Present (9h)</span>
+                                    <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Present (9h)</span>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-2.5 h-2.5 bg-indigo-500 rounded-[1px]" />
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Overtime (&gt;9h) ★</span>
+                                    <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Overtime (&gt;9h) ★</span>
                                 </div>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-2.5 h-2.5 bg-gray-400 rounded-[1px]" />
-                                    <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Week Off</span>
+                                    <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Week Off</span>
                                 </div>
                             </div>
 
-                            <div className="flex gap-4 w-full md:w-auto">
+                            <div className="flex gap-3 sm:gap-4 w-full md:w-auto">
                                 {!todayRecord || !todayRecord.checkIn?.time ? (
                                     <button
                                         onClick={() => handleMarkAttendance('checkIn')}
                                         disabled={marking || loading}
-                                        className={`flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 font-black rounded-2xl transition-all shadow-2xl active:scale-95 disabled:opacity-50 ${isDarkMode ? 'bg-cyan-500 hover:bg-cyan-400 text-[#1a1f24] shadow-cyan-500/20' : 'bg-cyan-600 hover:bg-cyan-700 text-white shadow-cyan-600/20'}`}
+                                        className={`flex-1 md:flex-none flex items-center justify-center gap-3 sm:gap-4 px-6 sm:px-10 py-3.5 sm:py-5 font-black rounded-2xl transition-all shadow-2xl active:scale-95 disabled:opacity-50 ${isDarkMode ? 'bg-cyan-500 hover:bg-cyan-400 text-[#1a1f24] shadow-cyan-500/20' : 'bg-cyan-600 hover:bg-cyan-700 text-white shadow-cyan-600/20'}`}
                                     >
                                         {gpsAcquiring ? (
                                             <>
-                                                <FaSpinner size={20} className="animate-spin" />
-                                                <span className="uppercase tracking-widest text-sm">Acquiring Live GPS...</span>
+                                                <FaSpinner size={18} className="animate-spin" />
+                                                <span className="uppercase tracking-widest text-xs sm:text-sm">Acquiring Live GPS...</span>
                                             </>
                                         ) : marking ? (
                                             <>
-                                                <FaSpinner size={20} className="animate-spin" />
-                                                <span className="uppercase tracking-widest text-sm">Verifying Range (100m)...</span>
+                                                <FaSpinner size={18} className="animate-spin" />
+                                                <span className="uppercase tracking-widest text-xs sm:text-sm">Verifying Range (100m)...</span>
                                             </>
                                         ) : (
                                             <>
-                                                <FaMapMarkerAlt size={20} className="animate-bounce" />
-                                                <span className="uppercase tracking-widest text-sm">Clock In Now</span>
+                                                <FaMapMarkerAlt size={18} className="animate-bounce" />
+                                                <span className="uppercase tracking-widest text-xs sm:text-sm">Clock In Now</span>
                                             </>
                                         )}
                                     </button>
@@ -1154,7 +1173,7 @@ const EmployeeAttendance = () => {
                                         onClick={() => handleMarkAttendance('checkOut')}
                                         disabled={marking || loading || isWithinOneHour}
                                         title={isWithinOneHour ? "Clock out is disabled for 1 hour after clocking in" : ""}
-                                        className={`flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 font-black rounded-2xl transition-all shadow-2xl ${
+                                        className={`flex-1 md:flex-none flex items-center justify-center gap-3 sm:gap-4 px-6 sm:px-10 py-3.5 sm:py-5 font-black rounded-2xl transition-all shadow-2xl ${
                                             isWithinOneHour
                                                 ? 'bg-red-500/40 text-white/70 cursor-not-allowed shadow-red-500/10'
                                                 : 'bg-red-500 hover:bg-red-600 text-white shadow-red-500/20 active:scale-95'
@@ -1162,25 +1181,25 @@ const EmployeeAttendance = () => {
                                     >
                                         {gpsAcquiring ? (
                                             <>
-                                                <FaSpinner size={20} className="animate-spin" />
-                                                <span className="uppercase tracking-widest text-sm">Acquiring Live GPS...</span>
+                                                <FaSpinner size={18} className="animate-spin" />
+                                                <span className="uppercase tracking-widest text-xs sm:text-sm">Acquiring Live GPS...</span>
                                             </>
                                         ) : marking ? (
                                             <>
-                                                <FaSpinner size={20} className="animate-spin" />
-                                                <span className="uppercase tracking-widest text-sm">Verifying Range (100m)...</span>
+                                                <FaSpinner size={18} className="animate-spin" />
+                                                <span className="uppercase tracking-widest text-xs sm:text-sm">Verifying Range (100m)...</span>
                                             </>
                                         ) : (
                                             <>
-                                                <FaBolt size={20} className={isWithinOneHour ? "opacity-50" : "animate-pulse"} />
-                                                <span className="uppercase tracking-widest text-sm">Clock Out Now</span>
+                                                <FaBolt size={18} className={isWithinOneHour ? "opacity-50" : "animate-pulse"} />
+                                                <span className="uppercase tracking-widest text-xs sm:text-sm">Clock Out Now</span>
                                             </>
                                         )}
                                     </button>
                                 ) : (
-                                    <div className={`flex-1 md:flex-none flex items-center justify-center gap-4 px-10 py-5 font-black rounded-2xl cursor-not-allowed ${isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
-                                        <FaCheck size={20} />
-                                        <span className="uppercase tracking-widest text-sm">Shift Completed</span>
+                                    <div className={`flex-1 md:flex-none flex items-center justify-center gap-3 sm:gap-4 px-6 sm:px-10 py-3.5 sm:py-5 font-black rounded-2xl cursor-not-allowed ${isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400'}`}>
+                                        <FaCheck size={18} />
+                                        <span className="uppercase tracking-widest text-xs sm:text-sm">Shift Completed</span>
                                     </div>
                                 )}
                             </div>
@@ -1456,6 +1475,26 @@ const EmployeeAttendance = () => {
             <style>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 2px; }
+
+                .custom-modal-scrollbar {
+                    scrollbar-width: thin;
+                    scrollbar-color: rgba(6, 182, 212, 0.35) transparent;
+                    -webkit-overflow-scrolling: touch;
+                }
+                .custom-modal-scrollbar::-webkit-scrollbar {
+                    width: 5px;
+                }
+                .custom-modal-scrollbar::-webkit-scrollbar-track {
+                    background: transparent;
+                    margin: 8px 0;
+                }
+                .custom-modal-scrollbar::-webkit-scrollbar-thumb {
+                    background: rgba(6, 182, 212, 0.35);
+                    border-radius: 9999px;
+                }
+                .custom-modal-scrollbar::-webkit-scrollbar-thumb:hover {
+                    background: rgba(6, 182, 212, 0.7);
+                }
             `}</style>
         </Layout>
     );
