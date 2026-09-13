@@ -122,7 +122,7 @@ const DailyCollection = () => {
 
     useEffect(() => {
         fetchDailyCollection();
-    }, [date, startDate, endDate, activePreset, selectedCentres, selectedCourses, selectedDepartments, selectedExamTags, selectedPaymentMethods, searchText]);
+    }, [date, startDate, endDate, activePreset]);
 
     const isDarkMode = theme === "dark";
     const filterButtonClass = isDarkMode
@@ -155,14 +155,6 @@ const DailyCollection = () => {
     const tableBillTextClass = "text-blue-600 font-semibold";
     const wrapperBgClass = isDarkMode ? "bg-[#090b10]" : "bg-white";
     const centreDropdownRef = useRef(null);
-
-    useEffect(() => {
-        fetchMasterData();
-    }, []);
-
-    useEffect(() => {
-        fetchDailyCollection();
-    }, [date, startDate, endDate, activePreset, selectedCentres, selectedCourses, selectedDepartments, selectedExamTags, selectedPaymentMethods, searchText]);
 
     const fetchMasterData = async () => {
         try {
@@ -253,13 +245,6 @@ const DailyCollection = () => {
             } else {
                 params.append("date", date);
             }
-
-            if (selectedCentres.length) params.append("centreIds", selectedCentres.join(","));
-            if (selectedCourses.length) params.append("courseIds", selectedCourses.join(","));
-            if (selectedDepartments.length) params.append("departmentIds", selectedDepartments.join(","));
-            if (selectedExamTags.length) params.append("examTagId", selectedExamTags.join(","));
-            if (selectedPaymentMethods.length) params.append("paymentMode", selectedPaymentMethods.join(","));
-            if (searchText) params.append("search", searchText);
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/daily-collection?${params.toString()}`, {
                 headers: { Authorization: `Bearer ${token}` }
@@ -664,7 +649,7 @@ const DailyCollection = () => {
     };
 
     const exportToExcel = () => {
-        if (dailyDetails.length === 0) {
+        if (activeDetails.length === 0) {
             toast.warning("No data to export");
             return;
         }
@@ -674,11 +659,22 @@ const DailyCollection = () => {
 
             if (activeTab === "centers") {
                 // Export Centres Collection aggregated data
-                const aggregated = dailyDetails.reduce((acc, curr) => {
+                const initialAcc = {};
+                targetCentres.forEach(c => {
+                    if (c.centreName) {
+                        initialAcc[c.centreName] = { total: 0, totalWithoutGst: 0 };
+                    }
+                });
+
+                const aggregated = activeDetails.reduce((acc, curr) => {
                     const c = curr.centre || "N/A";
-                    if (!acc[c]) acc[c] = { total: 0, totalWithoutGst: 0 };
-                    acc[c][curr.paymentMethod] = (acc[c][curr.paymentMethod] || 0) + (curr.paidAmount || 0);
-                    acc[c].total += (curr.paidAmount || 0);
+                    if (targetCentreNamesSet && !targetCentreNamesSet.has(c.toLowerCase().trim())) {
+                        return acc;
+                    }
+                    const key = Object.keys(acc).find(k => k.toLowerCase().trim() === c.toLowerCase().trim()) || c;
+                    if (!acc[key]) acc[key] = { total: 0, totalWithoutGst: 0 };
+                    acc[key][curr.paymentMethod] = (acc[key][curr.paymentMethod] || 0) + (curr.paidAmount || 0);
+                    acc[key].total += (curr.paidAmount || 0);
 
                     let itemWithoutGst = 0;
                     if (curr.revenueWithoutGst !== undefined && curr.revenueWithoutGst !== null) {
@@ -689,18 +685,10 @@ const DailyCollection = () => {
                         const isPhsps = curr.centre && /phsps/i.test(curr.centre);
                         itemWithoutGst = isPhsps ? (curr.paidAmount || 0) : ((curr.paidAmount || 0) / 1.18);
                     }
-                    acc[c].totalWithoutGst = (acc[c].totalWithoutGst || 0) + itemWithoutGst;
+                    acc[key].totalWithoutGst = (acc[key].totalWithoutGst || 0) + itemWithoutGst;
 
                     return acc;
-                }, (() => {
-                    const initialAcc = {};
-                    targetCentres.forEach(c => {
-                        if (c.centreName) {
-                            initialAcc[c.centreName] = { total: 0, totalWithoutGst: 0 };
-                        }
-                    });
-                    return initialAcc;
-                })());
+                }, initialAcc);
 
                 const allSortedAggregated = Object.entries(aggregated).sort((a, b) => a[0].localeCompare(b[0]));
                 const sortedAggregated = allSortedAggregated.filter(([centre, data]) => {
@@ -773,6 +761,24 @@ const DailyCollection = () => {
                 toast.success("Centers collection exported successfully!");
             } else {
                 // Summary Sheet
+                const isPhspsMidnapore = (centre) => {
+                    if (!centre) return false;
+                    const str = centre.toLowerCase();
+                    return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
+                };
+                const totalExportWithGst = activeDetails.reduce((sum, d) => isPhspsMidnapore(d.centre) ? sum : sum + (d.paidAmount || 0), 0);
+                const exportPmCounts = Object.entries(
+                    activeDetails.reduce((acc, curr) => {
+                        const pm = curr.paymentMethod || "Unknown";
+                        if (!acc[pm]) acc[pm] = { totalAmount: 0, count: 0 };
+                        if (!isPhspsMidnapore(curr.centre)) {
+                            acc[pm].totalAmount += (curr.paidAmount || 0);
+                        }
+                        acc[pm].count += 1;
+                        return acc;
+                    }, {})
+                ).map(([method, data]) => ({ _id: method, totalAmount: data.totalAmount, count: data.count }));
+
                 const summaryData = [
                     ["Daily Collection Report"],
                     [""],
@@ -780,12 +786,12 @@ const DailyCollection = () => {
                     ["Collection Date:", new Date(date).toLocaleDateString()],
                     [""],
                     ["Summary Information"],
-                    ["Total Amount Collected:", "", "", "$" + formatAmount(totalCollection).replace("₹", "")],
-                    ["Total Transactions:", transactionCount],
+                    ["Total Amount Collected:", "", "", formatAmount(totalExportWithGst)],
+                    ["Total Transactions:", activeDetails.length],
                     [""],
                     ["Payment Methods Breakdown"],
                     ["Payment Method", "Total Amount", "Count"],
-                    ...paymentMethods.map(m => [m._id, formatAmount(m.totalAmount), m.count])
+                    ...exportPmCounts.map(m => [m._id, formatAmount(m.totalAmount), m.count])
                 ];
 
                 const summarySheet = XLSX.utils.aoa_to_sheet(summaryData);
@@ -934,14 +940,65 @@ const DailyCollection = () => {
         return activeCentres.filter(c => c._id && selectedSet.has(String(c._id).trim()));
     }, [activeCentres, selectedCentres]);
 
-    const activeDetails = selectedZones.length > 0
-        ? dailyDetails.filter(d => d.centre && zoneCentreNames.has(d.centre.toLowerCase().trim()))
-        : dailyDetails;
+    // Target centre names in lowercase for filtering transactions
+    const targetCentreNamesSet = React.useMemo(() => {
+        if (selectedZones.length === 0 && selectedCentres.length === 0) {
+            return null; // All centres allowed
+        }
+        return new Set(targetCentres.map(c => (c.centreName || "").toLowerCase().trim()).filter(Boolean));
+    }, [targetCentres, selectedZones, selectedCentres]);
+
+    // Course matchers
+    const selectedCourseMatchers = React.useMemo(() => {
+        if (!selectedCourses || selectedCourses.length === 0) return null;
+        const idSet = new Set(selectedCourses.map(id => String(id).toLowerCase().trim()));
+        const nameSet = new Set();
+        selectedCourses.forEach(id => {
+            const found = courses.find(c => String(c._id) === String(id));
+            if (found?.courseName) {
+                nameSet.add(found.courseName.toLowerCase().trim());
+            }
+        });
+        return { idSet, nameSet };
+    }, [selectedCourses, courses]);
+
+    // Department matchers
+    const selectedDepartmentMatchers = React.useMemo(() => {
+        if (!selectedDepartments || selectedDepartments.length === 0) return null;
+        const idSet = new Set(selectedDepartments.map(id => String(id).toLowerCase().trim()));
+        const nameSet = new Set();
+        selectedDepartments.forEach(id => {
+            const found = departments.find(d => String(d._id) === String(id));
+            if (found?.departmentName) {
+                nameSet.add(found.departmentName.toLowerCase().trim());
+            }
+        });
+        return { idSet, nameSet };
+    }, [selectedDepartments, departments]);
+
+    // Exam tag matchers
+    const selectedExamTagMatchers = React.useMemo(() => {
+        if (!selectedExamTags || selectedExamTags.length === 0) return null;
+        const idSet = new Set(selectedExamTags.map(id => String(id).toLowerCase().trim()));
+        const nameSet = new Set();
+        selectedExamTags.forEach(id => {
+            const found = examTags.find(t => String(t._id) === String(id));
+            const name = found?.name || found?.examName;
+            if (name) nameSet.add(name.toLowerCase().trim());
+        });
+        return { idSet, nameSet };
+    }, [selectedExamTags, examTags]);
+
+    // Payment methods set
+    const selectedPaymentMethodsSet = React.useMemo(() => {
+        if (!selectedPaymentMethods || selectedPaymentMethods.length === 0) return null;
+        return new Set(selectedPaymentMethods.map(m => String(m).toUpperCase().trim()));
+    }, [selectedPaymentMethods]);
 
     // Precompute collection without GST per centre for red flag status calculation
     const centreTotalsWithoutGst = React.useMemo(() => {
         const map = {};
-        activeDetails.forEach(curr => {
+        dailyDetails.forEach(curr => {
             const c = curr.centre || "N/A";
             let itemWithoutGst = 0;
             if (curr.revenueWithoutGst !== undefined && curr.revenueWithoutGst !== null) {
@@ -955,24 +1012,101 @@ const DailyCollection = () => {
             map[c] = (map[c] || 0) + itemWithoutGst;
         });
         return map;
-    }, [activeDetails]);
+    }, [dailyDetails]);
 
-    const isRedFlagCentre = (centreName) => {
+    const isRedFlagCentre = React.useCallback((centreName) => {
         if (!centreName) return false;
         const totalNoGst = centreTotalsWithoutGst[centreName] || 0;
         const target = centreTargets[centreName] || 0;
         return totalNoGst < target;
-    };
+    }, [centreTotalsWithoutGst, centreTargets]);
 
-    const redFlagFilteredDetails = React.useMemo(() => {
-        if (redFlagStatus === "red_flag") {
-            return activeDetails.filter(d => isRedFlagCentre(d.centre));
-        }
-        if (redFlagStatus === "non_red_flag") {
-            return activeDetails.filter(d => !isRedFlagCentre(d.centre));
-        }
-        return activeDetails;
-    }, [activeDetails, redFlagStatus, centreTotalsWithoutGst, centreTargets]);
+    // Filtered details that strictly respects ALL applied filters
+    const activeDetails = React.useMemo(() => {
+        const searchLower = searchText.trim().toLowerCase();
+
+        return dailyDetails.filter(d => {
+            // Centre / Zone filter
+            if (targetCentreNamesSet) {
+                const c = (d.centre || "").toLowerCase().trim();
+                if (!c || !targetCentreNamesSet.has(c)) return false;
+            }
+
+            // Course filter
+            if (selectedCourseMatchers) {
+                const cName = (d.courseName || "").toLowerCase().trim();
+                const cId = String(d.course || d.courseId || "").toLowerCase().trim();
+                const matchesName = cName && (
+                    selectedCourseMatchers.nameSet.has(cName) ||
+                    [...selectedCourseMatchers.nameSet].some(n => cName.includes(n))
+                );
+                const matchesId = cId && selectedCourseMatchers.idSet.has(cId);
+                if (!matchesName && !matchesId) return false;
+            }
+
+            // Department filter
+            if (selectedDepartmentMatchers) {
+                const dName = (d.departmentName || "").toLowerCase().trim();
+                const dId = String(d.department || d.departmentId || "").toLowerCase().trim();
+                const matchesName = dName && (
+                    selectedDepartmentMatchers.nameSet.has(dName) ||
+                    [...selectedDepartmentMatchers.nameSet].some(n => dName.includes(n))
+                );
+                const matchesId = dId && selectedDepartmentMatchers.idSet.has(dId);
+                if (!matchesName && !matchesId) return false;
+            }
+
+            // Exam tag filter
+            if (selectedExamTagMatchers) {
+                const tName = (d.examTagName || d.examTag || "").toLowerCase().trim();
+                const tId = String(d.examTagId || d.examTag || "").toLowerCase().trim();
+                const matchesName = tName && (
+                    selectedExamTagMatchers.nameSet.has(tName) ||
+                    [...selectedExamTagMatchers.nameSet].some(n => tName.includes(n))
+                );
+                const matchesId = tId && selectedExamTagMatchers.idSet.has(tId);
+                if (!matchesName && !matchesId) return false;
+            }
+
+            // Payment method filter
+            if (selectedPaymentMethodsSet) {
+                const pm = (d.paymentMethod || "").toUpperCase().trim();
+                if (!pm || !selectedPaymentMethodsSet.has(pm)) return false;
+            }
+
+            // Red flag filter
+            if (redFlagStatus === "red_flag" && !isRedFlagCentre(d.centre)) return false;
+            if (redFlagStatus === "non_red_flag" && isRedFlagCentre(d.centre)) return false;
+
+            // Search filter
+            if (searchLower) {
+                const matchesSearch =
+                    (d.billId && d.billId.toLowerCase().includes(searchLower)) ||
+                    (d.transactionId && d.transactionId.toLowerCase().includes(searchLower)) ||
+                    (d.studentName && d.studentName.toLowerCase().includes(searchLower)) ||
+                    (d.admissionNumber && String(d.admissionNumber).toLowerCase().includes(searchLower)) ||
+                    (d.studentMobile && String(d.studentMobile).toLowerCase().includes(searchLower)) ||
+                    (d.studentEmail && d.studentEmail.toLowerCase().includes(searchLower));
+                if (!matchesSearch) return false;
+            }
+
+            return true;
+        });
+    }, [
+        dailyDetails,
+        targetCentreNamesSet,
+        selectedCourseMatchers,
+        selectedDepartmentMatchers,
+        selectedExamTagMatchers,
+        selectedPaymentMethodsSet,
+        redFlagStatus,
+        searchText,
+        centreTotalsWithoutGst,
+        centreTargets,
+        isRedFlagCentre
+    ]);
+
+    const redFlagFilteredDetails = activeDetails;
 
     const filteredZones = zones.filter((z) =>
         z.name?.toLowerCase().includes(zoneSearch.toLowerCase())
@@ -1731,11 +1865,22 @@ const DailyCollection = () => {
                                     </tr>
                                 </thead>
                                 {(() => {
+                                    const initialAcc = {};
+                                    targetCentres.forEach(c => {
+                                        if (c.centreName) {
+                                            initialAcc[c.centreName] = { total: 0, totalWithoutGst: 0 };
+                                        }
+                                    });
+
                                     const aggregatedData = activeDetails.reduce((acc, curr) => {
                                         const c = curr.centre || "N/A";
-                                        if (!acc[c]) acc[c] = { total: 0, totalWithoutGst: 0 };
-                                        acc[c][curr.paymentMethod] = (acc[c][curr.paymentMethod] || 0) + (curr.paidAmount || 0);
-                                        acc[c].total += (curr.paidAmount || 0);
+                                        if (targetCentreNamesSet && !targetCentreNamesSet.has(c.toLowerCase().trim())) {
+                                            return acc;
+                                        }
+                                        const key = Object.keys(acc).find(k => k.toLowerCase().trim() === c.toLowerCase().trim()) || c;
+                                        if (!acc[key]) acc[key] = { total: 0, totalWithoutGst: 0 };
+                                        acc[key][curr.paymentMethod] = (acc[key][curr.paymentMethod] || 0) + (curr.paidAmount || 0);
+                                        acc[key].total += (curr.paidAmount || 0);
 
                                         let itemWithoutGst = 0;
                                         if (curr.revenueWithoutGst !== undefined && curr.revenueWithoutGst !== null) {
@@ -1746,18 +1891,11 @@ const DailyCollection = () => {
                                             const isPhsps = curr.centre && /phsps/i.test(curr.centre);
                                             itemWithoutGst = isPhsps ? (curr.paidAmount || 0) : ((curr.paidAmount || 0) / 1.18);
                                         }
-                                        acc[c].totalWithoutGst = (acc[c].totalWithoutGst || 0) + itemWithoutGst;
+                                        acc[key].totalWithoutGst = (acc[key].totalWithoutGst || 0) + itemWithoutGst;
 
                                         return acc;
-                                    }, (() => {
-                                        const initialAcc = {};
-                                        targetCentres.forEach(c => {
-                                            if (c.centreName) {
-                                                initialAcc[c.centreName] = { total: 0, totalWithoutGst: 0 };
-                                            }
-                                        });
-                                        return initialAcc;
-                                    })()); 
+                                    }, initialAcc);
+
                                     const allSortedData = Object.entries(aggregatedData).sort((a, b) => a[0].localeCompare(b[0]));
                                     const sortedData = allSortedData.filter(([centre, data]) => {
                                         if (redFlagStatus === "all") return true;

@@ -53,24 +53,12 @@ export const searchBill = async (req, res) => {
         let payments = await Payment.find({
             billId: { $regex: new RegExp(`^${queryParam.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') }
         })
-            .populate({
-                path: 'admission',
-                populate: [
-                    { path: 'student', populate: { path: 'batches' } },
-                    { path: 'course' },
-                    { path: 'board' },
-                    { path: 'department' },
-                    { path: 'examTag' },
-                    { path: 'class' },
-                    { path: 'paymentBreakdown.bankAccount' }
-                ]
-            })
             .populate('bankAccount')
             .populate('recordedBy', 'name email role')
             .populate('processedBy', 'name email role')
             .sort({ createdAt: -1 });
 
-        // 2. If no exact match on billId, search by partial billId, transactionId, or admission
+        // 2. If no exact match on billId, search by partial billId, transactionId
         if (!payments || payments.length === 0) {
             payments = await Payment.find({
                 $or: [
@@ -78,18 +66,6 @@ export const searchBill = async (req, res) => {
                     { transactionId: { $regex: queryParam, $options: 'i' } }
                 ]
             })
-                .populate({
-                    path: 'admission',
-                    populate: [
-                        { path: 'student', populate: { path: 'batches' } },
-                        { path: 'course' },
-                        { path: 'board' },
-                        { path: 'department' },
-                        { path: 'examTag' },
-                        { path: 'class' },
-                        { path: 'paymentBreakdown.bankAccount' }
-                    ]
-                })
                 .populate('bankAccount')
                 .populate('recordedBy', 'name email role')
                 .populate('processedBy', 'name email role')
@@ -97,7 +73,7 @@ export const searchBill = async (req, res) => {
                 .limit(20);
         }
 
-        // 3. If still nothing found, search in Admission by admissionNumber or student rollNo
+        // 3. If still nothing found, search in Admission by admissionNumber
         if (!payments || payments.length === 0) {
             const admissions = await Admission.find({
                 $or: [
@@ -111,18 +87,6 @@ export const searchBill = async (req, res) => {
                     admission: { $in: admissionIds },
                     billId: { $exists: true, $nin: [null, ""] }
                 })
-                    .populate({
-                        path: 'admission',
-                        populate: [
-                            { path: 'student', populate: { path: 'batches' } },
-                            { path: 'course' },
-                            { path: 'board' },
-                            { path: 'department' },
-                            { path: 'examTag' },
-                            { path: 'class' },
-                            { path: 'paymentBreakdown.bankAccount' }
-                        ]
-                    })
                     .populate('bankAccount')
                     .populate('recordedBy', 'name email role')
                     .populate('processedBy', 'name email role')
@@ -131,11 +95,13 @@ export const searchBill = async (req, res) => {
             }
         }
 
-        // 4. Also check BoardCourseAdmissions if not found
+        // 4. Also check BoardCourseAdmissions if not found (by admissionNumber, studentName, or mobileNum)
         if (!payments || payments.length === 0) {
             const boardAdmissions = await BoardCourseAdmission.find({
                 $or: [
-                    { admissionNumber: { $regex: queryParam, $options: 'i' } }
+                    { admissionNumber: { $regex: queryParam, $options: 'i' } },
+                    { studentName: { $regex: queryParam, $options: 'i' } },
+                    { mobileNum: { $regex: queryParam, $options: 'i' } }
                 ]
             }).select('_id');
 
@@ -163,42 +129,82 @@ export const searchBill = async (req, res) => {
         // Process details for each payment record
         const enrichedBills = await Promise.all(payments.map(async (payment) => {
             const paymentObj = payment.toObject();
-            let admission = payment.admission;
+            let admission = null;
             let admissionType = "STANDARD";
 
-            // If admission was not populated or is a BoardCourseAdmission
-            if (!admission || !admission.student) {
-                const boardAdm = await BoardCourseAdmission.findById(payment.admission)
-                    .populate({
-                        path: 'studentId',
-                        populate: [
-                            { path: 'department' },
-                            { path: 'batches', select: 'batchName' }
-                        ]
-                    })
-                    .populate('boardId')
-                    .populate('department')
-                    .populate('examTag');
+            const rawAdmId = payment.admission || (payment.populated ? payment.populated('admission') : null) || paymentObj.admission;
 
-                if (boardAdm) {
-                    admissionType = "BOARD";
-                    admission = {
-                        _id: boardAdm._id,
-                        admissionNumber: boardAdm.admissionNumber || "N/A",
-                        student: boardAdm.studentId,
-                        studentName: boardAdm.studentName || boardAdm.studentId?.studentsDetails?.[0]?.studentName,
-                        mobileNum: boardAdm.mobileNum || boardAdm.studentId?.studentsDetails?.[0]?.mobileNum,
-                        centre: boardAdm.centre || payment.centre,
-                        course: { courseName: boardAdm.boardCourseName || boardAdm.boardId?.boardCourse || "Board Course" },
-                        boardCourseName: boardAdm.boardCourseName || boardAdm.boardId?.boardCourse,
-                        department: boardAdm.department,
-                        examTag: boardAdm.examTag,
-                        academicSession: boardAdm.academicSession,
-                        totalFees: boardAdm.totalExpectedAmount || 0,
-                        totalPaidAmount: boardAdm.totalPaidAmount || 0,
-                        paymentStatus: boardAdm.status,
-                        installments: boardAdm.installments
-                    };
+            if (rawAdmId) {
+                // 1. Try standard Admission first
+                const standardAdm = await Admission.findById(rawAdmId)
+                    .populate({
+                        path: 'student',
+                        populate: { path: 'batches' }
+                    })
+                    .populate('course')
+                    .populate('board')
+                    .populate('department')
+                    .populate('examTag')
+                    .populate('class')
+                    .populate('paymentBreakdown.bankAccount');
+
+                if (standardAdm) {
+                    admissionType = "STANDARD";
+                    admission = standardAdm;
+                } else {
+                    // 2. Try BoardCourseAdmission
+                    const boardAdm = await BoardCourseAdmission.findById(rawAdmId)
+                        .populate({
+                            path: 'studentId',
+                            populate: [
+                                { path: 'department' },
+                                { path: 'batches', select: 'batchName' }
+                            ]
+                        })
+                        .populate('boardId')
+                        .populate('department')
+                        .populate('examTag');
+
+                    if (boardAdm) {
+                        admissionType = "BOARD";
+                        const studentObj = boardAdm.studentId;
+                        const studentDetail = studentObj?.studentsDetails?.[0];
+
+                        // Compute expected fees including monthly installments and one-time fees
+                        const installmentsSum = (boardAdm.installments || []).reduce((sum, inst) => sum + (inst.standardAmount || inst.payableAmount || 0), 0);
+                        const oneTimeSum = (boardAdm.admissionFee || 0) + (boardAdm.examFee || 0) + (boardAdm.additionalThingsAmount || 0);
+                        const calculatedExpected = installmentsSum + oneTimeSum;
+
+                        const totalFees = Math.max(boardAdm.totalExpectedAmount || 0, calculatedExpected, boardAdm.totalPaidAmount || 0);
+                        const totalPaid = boardAdm.totalPaidAmount || 0;
+                        const remaining = Math.max(0, parseFloat((totalFees - totalPaid).toFixed(2)));
+
+                        admission = {
+                            _id: boardAdm._id,
+                            admissionNumber: boardAdm.admissionNumber || "N/A",
+                            student: boardAdm.studentId,
+                            studentId: boardAdm.studentId,
+                            studentName: boardAdm.studentName || studentDetail?.studentName || "N/A",
+                            mobileNum: boardAdm.mobileNum || studentDetail?.mobileNum || "N/A",
+                            centre: boardAdm.centre || payment.centre,
+                            course: {
+                                courseName: payment.boardCourseName || boardAdm.boardCourseName || boardAdm.boardId?.boardCourse || "Board Course",
+                                name: payment.boardCourseName || boardAdm.boardCourseName || boardAdm.boardId?.boardCourse || "Board Course"
+                            },
+                            boardCourseName: payment.boardCourseName || boardAdm.boardCourseName || boardAdm.boardId?.boardCourse,
+                            department: boardAdm.department || studentObj?.department,
+                            examTag: boardAdm.examTag || (studentObj?.sessionExamCourse?.[0]?.examTag ? { name: studentObj.sessionExamCourse[0].examTag } : null),
+                            class: boardAdm.lastClass ? { name: boardAdm.lastClass } : null,
+                            lastClass: boardAdm.lastClass,
+                            academicSession: boardAdm.academicSession || studentObj?.sessionExamCourse?.[0]?.session || "N/A",
+                            totalFees: totalFees,
+                            totalPaidAmount: totalPaid,
+                            remainingAmount: remaining,
+                            paymentStatus: boardAdm.status || "ACTIVE",
+                            installments: boardAdm.installments,
+                            admissionDate: boardAdm.admissionDate || boardAdm.createdAt
+                        };
+                    }
                 }
             }
 
@@ -225,29 +231,34 @@ export const searchBill = async (req, res) => {
             const exempt = isGstExempt({
                 centreName: centreName,
                 admission: admission,
-                student: admission?.student
+                student: admission?.student || admission?.studentId
             });
 
             // Format student details
             const studentDoc = admission?.student;
+            const studentDetailItem = studentDoc?.studentsDetails?.[0];
             const studentDetails = {
                 id: studentDoc?._id || admission?.studentId || pntseRecord?._id || pmoRecord?._id,
-                name: studentDoc?.studentsDetails?.[0]?.studentName || admission?.studentName || pntseRecord?.name || pmoRecord?.name || "N/A",
+                name: admission?.studentName || studentDetailItem?.studentName || pntseRecord?.name || pmoRecord?.name || "N/A",
                 admissionNumber: admission?.admissionNumber || pntseRecord?.rollNo || pmoRecord?.rollNo || "N/A",
-                rollNo: studentDoc?.studentsDetails?.[0]?.rollNo || pntseRecord?.rollNo || pmoRecord?.rollNo || admission?.admissionNumber || "N/A",
-                mobileNum: studentDoc?.studentsDetails?.[0]?.mobileNum || admission?.mobileNum || pntseRecord?.phoneNo || pmoRecord?.phoneNo || "N/A",
-                email: studentDoc?.studentsDetails?.[0]?.studentEmail || pntseRecord?.email || pmoRecord?.email || "N/A",
+                rollNo: studentDetailItem?.rollNo || admission?.admissionNumber || pntseRecord?.rollNo || pmoRecord?.rollNo || "N/A",
+                mobileNum: admission?.mobileNum || studentDetailItem?.mobileNum || pntseRecord?.phoneNo || pmoRecord?.phoneNo || "N/A",
+                email: studentDetailItem?.studentEmail || pntseRecord?.email || pmoRecord?.email || "N/A",
                 batches: studentDoc?.batches?.map(b => b.batchName || b.name || b) || []
             };
 
             // Format course details
             const courseDetails = {
-                name: payment.boardCourseName || admission?.boardCourseName || admission?.course?.courseName || pntseRecord?.course || pmoRecord?.course || "N/A",
+                name: payment.boardCourseName || admission?.boardCourseName || admission?.course?.courseName || admission?.course?.name || pntseRecord?.course || pmoRecord?.course || "N/A",
                 department: admission?.department?.departmentName || "N/A",
-                examTag: admission?.examTag?.name || admission?.examTag?.tagName || "N/A",
+                examTag: admission?.examTag?.name || admission?.examTag?.tagName || (typeof admission?.examTag === 'string' ? admission.examTag : null) || studentDoc?.sessionExamCourse?.[0]?.examTag || "N/A",
                 class: admission?.class?.name || admission?.lastClass || "N/A",
                 session: admission?.academicSession || "N/A"
             };
+
+            if (!paymentObj.admission && rawAdmId) {
+                paymentObj.admission = rawAdmId;
+            }
 
             return {
                 payment: paymentObj,
@@ -256,7 +267,7 @@ export const searchBill = async (req, res) => {
                     _id: admission._id,
                     admissionNumber: admission.admissionNumber,
                     totalFees: admission.totalFees,
-                    downPayment: admission.downPayment,
+                    downPayment: admission.downPayment !== undefined ? admission.downPayment : (payment.installmentNumber === 0 ? payment.paidAmount : 0),
                     totalPaidAmount: admission.totalPaidAmount,
                     remainingAmount: admission.remainingAmount,
                     paymentStatus: admission.paymentStatus,
@@ -548,10 +559,10 @@ export const updateBill = async (req, res) => {
                 admissionSummary: admission ? {
                     _id: admission._id,
                     admissionNumber: admission.admissionNumber,
-                    totalFees: admission.totalFees,
-                    totalPaidAmount: admission.totalPaidAmount,
-                    remainingAmount: admission.remainingAmount,
-                    paymentStatus: admission.paymentStatus
+                    totalFees: admission.totalFees !== undefined ? admission.totalFees : (admission.totalExpectedAmount || 0),
+                    totalPaidAmount: admission.totalPaidAmount || 0,
+                    remainingAmount: admission.remainingAmount !== undefined ? admission.remainingAmount : Math.max(0, (admission.totalExpectedAmount || 0) - (admission.totalPaidAmount || 0)),
+                    paymentStatus: admission.paymentStatus || admission.status || "ACTIVE"
                 } : null
             }
         });

@@ -271,8 +271,12 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const allCentres = await Centre.find({}).select("centreName");
     const allCentreNames = allCentres.map(c => c.centreName);
 
+    const rawRole = user?.role || "";
+    const userRole = String(rawRole).toLowerCase().replace(/[\s\-_]+/g, "");
+    const isSuperAdmin = userRole === "superadmin" || userRole === "admin" || userRole === "ceo" || userRole === "accounts" || userRole.includes("admin") || rawRole === "superAdmin";
+
     let allowedCentreNames = [];
-    if (user.role !== 'superAdmin') {
+    if (!isSuperAdmin) {
         const userCentreIds = Array.isArray(user.centres) ? user.centres : [];
         const userCentres = await Centre.find({ _id: { $in: userCentreIds } }).select("centreName");
         allowedCentreNames = userCentres.map(c => c.centreName);
@@ -286,7 +290,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         if (validIds.length > 0) {
             const requestedCentres = await Centre.find({ _id: { $in: validIds } }).select("centreName");
             const requestedNames = requestedCentres.map(c => c.centreName);
-            if (user.role !== 'superAdmin') {
+            if (!isSuperAdmin) {
                 const finalNames = requestedNames.filter(name => allowedCentreNames.includes(name));
                 admissionMatch["effectiveCentre"] = { $in: finalNames.length > 0 ? buildCentreRegexes(finalNames) : ["__NO_MATCH__"] };
             } else {
@@ -296,7 +300,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     } else {
         const defaultAllCentreNames = allCentreNames.filter(name => name && !/franchise/i.test(name));
         const defaultAllowedCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name));
-        if (user.role !== 'superAdmin') {
+        if (!isSuperAdmin) {
             admissionMatch["effectiveCentre"] = { $in: defaultAllowedCentreNames.length > 0 ? buildCentreRegexes(defaultAllowedCentreNames) : ["__NO_MATCH__"] };
         } else {
             admissionMatch["effectiveCentre"] = { $in: defaultAllCentreNames.length > 0 ? buildCentreRegexes(defaultAllCentreNames) : ["__NO_MATCH__"] };

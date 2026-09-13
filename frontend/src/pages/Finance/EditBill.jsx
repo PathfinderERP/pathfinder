@@ -495,8 +495,15 @@ const EditBill = () => {
                                             <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/20">
                                                 {selectedBill.student?.admissionNumber || selectedBill.student?.rollNo || "N/A"}
                                             </span>
+                                            {selectedBill.admissionType === "BOARD" && (
+                                                <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-purple-500/10 text-purple-500 border border-purple-500/20">
+                                                    Board Course
+                                                </span>
+                                            )}
                                             <span className="px-2.5 py-0.5 text-xs font-semibold rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                                                {selectedBill.payment?.installmentNumber === 0 ? "Down Payment" : `Installment #${selectedBill.payment?.installmentNumber}`}
+                                                {selectedBill.payment?.installmentNumber === 0 
+                                                    ? (selectedBill.admissionType === "BOARD" ? "Initial Payment" : "Down Payment") 
+                                                    : `Installment #${selectedBill.payment?.installmentNumber}`}
                                             </span>
                                             {isExempt && (
                                                 <span className="px-2.5 py-0.5 text-xs font-bold rounded-full bg-green-500/10 text-green-500 border border-green-500/20">
