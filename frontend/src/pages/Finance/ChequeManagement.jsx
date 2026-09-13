@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import { hasPermission } from "../../config/permissions";
-import { FaSearch, FaCheckCircle, FaClock, FaTimes, FaSyncAlt, FaExclamationTriangle, FaFilter, FaDownload, FaRegFileAlt } from "react-icons/fa";
+import { FaSearch, FaCheckCircle, FaClock, FaTimes, FaSyncAlt, FaExclamationTriangle, FaFilter, FaDownload, FaRegFileAlt, FaFileInvoice } from "react-icons/fa";
 import { toast } from "react-toastify";
 import Select from "react-select";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useNavigate } from "react-router-dom";
 import { useTheme } from "../../context/ThemeContext";
+import BillGenerator from "../../components/Finance/BillGenerator";
 
 const ChequeManagement = () => {
     const { theme } = useTheme();
@@ -26,6 +27,8 @@ const ChequeManagement = () => {
     const [showClearModal, setShowClearModal] = useState(false);
     const [clearingId, setClearingId] = useState(null);
     const [clearDate, setClearDate] = useState(new Date().toISOString().split('T')[0]);
+
+    const [selectedBillCheque, setSelectedBillCheque] = useState(null);
 
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -295,6 +298,7 @@ const ChequeManagement = () => {
             "Cheque Deposit Date": c.depositedDate ? new Date(c.depositedDate).toLocaleDateString('en-IN') : "N/A",
             "Cleared/Rejected Date": c.clearedOrRejectedDate ? new Date(c.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A",
             "Status": c.status === "PAID" ? "Cleared" : (c.status === "REJECTED" ? "Rejected" : "Pending"),
+            "Bill No": c.status === "PAID" ? (c.billId || "Generated") : "N/A",
             "Centre": c.centre,
             "Course": c.courseName,
             "Department": c.department,
@@ -574,6 +578,7 @@ const ChequeManagement = () => {
                                 <th className="p-6">Cleared/Rejected Date</th>
                                 <th className="p-6">Receipt</th>
                                 <th className="p-6">Status</th>
+                                <th className="p-6 text-center">Bill</th>
                                 <th className="p-6">Processed By</th>
                                 <th className="p-6 text-right">Actions</th>
                             </tr>
@@ -581,13 +586,13 @@ const ChequeManagement = () => {
                         <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
                             {loading ? (
                                 <tr>
-                                    <td colSpan="11" className="p-20 text-center">
+                                    <td colSpan="12" className="p-20 text-center">
                                         <div className="animate-spin h-10 w-10 border-t-2 border-emerald-500 rounded-full mx-auto"></div>
                                     </td>
                                 </tr>
                             ) : currentItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan="11" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
+                                    <td colSpan="12" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
                                         No cheques found in records
                                     </td>
                                 </tr>
@@ -631,6 +636,19 @@ const ChequeManagement = () => {
                                             )}
                                         </td>
                                         <td className="p-6">{getStatusBadge(cheque.status)}</td>
+                                        <td className="p-6 text-center">
+                                            {cheque.status === "PAID" ? (
+                                                <button
+                                                    onClick={() => setSelectedBillCheque(cheque)}
+                                                    className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500 hover:text-black font-black text-[9px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm"
+                                                    title="View / Download Bill"
+                                                >
+                                                    <FaFileInvoice /> {cheque.billId || "View Bill"}
+                                                </button>
+                                            ) : (
+                                                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">---</span>
+                                            )}
+                                        </td>
                                         <td className="p-6">
                                             <div className="text-gray-500 font-black text-[10px] uppercase italic">
                                                 {cheque.status === "PAID" ? (cheque.processedBy || "System") : "---"}
@@ -830,6 +848,24 @@ const ChequeManagement = () => {
                             </div>
                         </div>
                     </div>
+                )}
+
+                {/* Bill Generator Modal */}
+                {selectedBillCheque && (
+                    <BillGenerator
+                        admission={{ _id: selectedBillCheque.admissionId }}
+                        installment={{
+                            _id: selectedBillCheque.paymentId,
+                            paymentId: selectedBillCheque.paymentId,
+                            installmentNumber: selectedBillCheque.installmentNumber,
+                            billingMonth: selectedBillCheque.billingMonth,
+                            billId: selectedBillCheque.billId,
+                            status: "PAID",
+                            isReceivingSlip: false
+                        }}
+                        isReceivingSlip={false}
+                        onClose={() => setSelectedBillCheque(null)}
+                    />
                 )}
             </div>
         </Layout>

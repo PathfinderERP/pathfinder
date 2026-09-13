@@ -34,6 +34,10 @@ const CancelChequePayment = () => {
     const [cheques, setCheques] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+    const [jumpToPage, setJumpToPage] = useState("");
+
     const [filters, setFilters] = useState({
         centre: [],
         course: [],
@@ -58,6 +62,7 @@ const CancelChequePayment = () => {
 
     // Fetch cheques when filters or search change
     useEffect(() => {
+        setCurrentPage(1);
         const timer = setTimeout(() => {
             fetchCheques();
         }, 500); // Debounce search
@@ -158,6 +163,7 @@ const CancelChequePayment = () => {
             chequeEndDate: ""
         });
         setSearchTerm("");
+        setCurrentPage(1);
     };
 
     const exportToExcel = () => {
@@ -265,6 +271,23 @@ const CancelChequePayment = () => {
             ...provided,
             color: isDarkMode ? 'white' : '#111827',
         }),
+    };
+
+    // Pagination Logic
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentItems = cheques.slice(indexOfFirstItem, indexOfLastItem);
+    const totalPages = Math.ceil(cheques.length / itemsPerPage) || 1;
+
+    const handleJumpToPage = (e) => {
+        e.preventDefault();
+        const page = parseInt(jumpToPage);
+        if (page > 0 && page <= totalPages) {
+            setCurrentPage(page);
+        } else {
+            toast.error(`Please enter a valid page number between 1 and ${totalPages}`);
+        }
+        setJumpToPage("");
     };
 
     return (
@@ -504,14 +527,14 @@ const CancelChequePayment = () => {
                                             <div className="text-gray-500 font-bold uppercase tracking-widest text-[10px]">Loading Records...</div>
                                         </td>
                                     </tr>
-                                ) : cheques.length === 0 ? (
+                                ) : currentItems.length === 0 ? (
                                     <tr>
                                         <td colSpan="11" className="p-12 text-center text-gray-500 font-bold uppercase tracking-widest text-xs italic">
                                             No cheque recovery records found
                                         </td>
                                     </tr>
                                 ) : (
-                                    cheques.map((cheque) => (
+                                    currentItems.map((cheque) => (
                                         <tr key={cheque.id || cheque.paymentId} className="hover:bg-cyan-500/[0.02] transition-colors group">
                                             <td className="p-6">
                                                 <span className="text-cyan-500 font-black">{cheque.chequeNumber && cheque.chequeNumber !== "N/A" ? cheque.chequeNumber : (cheque.transactionId || "N/A")}</span>
@@ -574,6 +597,69 @@ const CancelChequePayment = () => {
                             </tbody>
                         </table>
                     </div>
+
+                    {/* Pagination UI */}
+                    {!loading && cheques.length > 0 && (
+                        <div className={`p-4 border-t flex flex-col md:flex-row justify-between items-center gap-4 ${isDarkMode ? "border-gray-800 bg-[#131619]" : "border-gray-200 bg-white"}`}>
+                            <div className="flex items-center gap-4">
+                                <span className="text-gray-500 font-bold text-[10px] uppercase tracking-widest">
+                                    Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, cheques.length)} of {cheques.length} entries
+                                </span>
+                                <div className="flex items-center gap-2">
+                                    <label className="text-gray-500 font-bold text-[10px] uppercase tracking-widest">Rows per page:</label>
+                                    <select
+                                        value={itemsPerPage}
+                                        onChange={(e) => {
+                                            setItemsPerPage(Number(e.target.value));
+                                            setCurrentPage(1);
+                                        }}
+                                        className={`border rounded-lg px-2 py-1 text-[10px] font-bold outline-none focus:border-cyan-500/50 ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-300" : "bg-white border-gray-300 text-gray-700"}`}
+                                    >
+                                        <option value={10}>10</option>
+                                        <option value={20}>20</option>
+                                        <option value={50}>50</option>
+                                        <option value={100}>100</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                    disabled={currentPage === 1}
+                                    className={`px-3 py-1.5 font-bold text-[10px] uppercase rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all ${isDarkMode ? "bg-gray-800 text-gray-300 hover:bg-gray-700" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                                >
+                                    Previous
+                                </button>
+                                <span className="text-gray-400 font-bold text-[10px] uppercase px-2">
+                                    Page {currentPage} of {totalPages}
+                                </span>
+                                <button
+                                    onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                    disabled={currentPage === totalPages}
+                                    className={`px-3 py-1.5 font-bold text-[10px] uppercase rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all ${isDarkMode ? "bg-gray-800 text-gray-300 hover:bg-gray-700" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                                >
+                                    Next
+                                </button>
+                                <form onSubmit={handleJumpToPage} className="flex items-center gap-2 ml-2">
+                                    <input
+                                        type="number"
+                                        min="1"
+                                        max={totalPages}
+                                        value={jumpToPage}
+                                        onChange={(e) => setJumpToPage(e.target.value)}
+                                        placeholder="PAGE"
+                                        className={`w-16 border rounded-lg px-2 py-1.5 text-[10px] font-bold outline-none focus:border-cyan-500/50 text-center uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-300" : "bg-white border-gray-300 text-gray-700"}`}
+                                    />
+                                    <button
+                                        type="submit"
+                                        className="px-3 py-1.5 bg-cyan-500/10 text-cyan-500 border border-cyan-500/20 font-bold text-[10px] uppercase rounded-lg hover:bg-cyan-500 hover:text-black transition-all"
+                                    >
+                                        Go
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </Layout>

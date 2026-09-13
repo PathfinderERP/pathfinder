@@ -86,6 +86,7 @@ const populateAdmissions = async (cheques) => {
     if (remainingIds.length > 0) {
         const boardAdmissions = await BoardCourseAdmission.find({ _id: { $in: remainingIds } })
             .populate('boardId') // Boards model
+            .populate('studentId')
             .lean();
         boardMap = new Map(boardAdmissions.map(a => [a._id.toString(), a]));
     }
@@ -233,6 +234,17 @@ export const getPendingCheques = async (req, res) => {
             const isBoard = c.isBoardAdmission;
             const signedReceiptUrl = c.receiptFile ? await getSignedReceiptUrl(c.receiptFile) : null;
 
+            let billId = c.billId;
+            if (!billId && c.status === "PAID") {
+                if (isBoard) {
+                    const inst = adm?.installments?.find(i => i.monthNumber === c.installmentNumber || i.monthNumber === (c.installmentNumber + 1));
+                    billId = inst?.billId;
+                } else {
+                    const inst = adm?.paymentBreakdown?.find(p => p.installmentNumber === c.installmentNumber);
+                    billId = inst?.billId;
+                }
+            }
+
             return {
                 paymentId: c._id,
                 admissionId: adm?._id,
@@ -256,7 +268,10 @@ export const getPendingCheques = async (req, res) => {
                 depositedDate: c.depositedDate,
                 depositAccount: c.depositAccount,
                 depositedBy: c.depositedBy?.name || null,
-                isDeposited: c.isDeposited || false
+                isDeposited: c.isDeposited || false,
+                billId: billId || null,
+                billingMonth: c.billingMonth || null,
+                isBoardAdmission: isBoard
             };
         }));
 
@@ -819,7 +834,10 @@ export const getAllCheques = async (req, res) => {
                 if (search && search.trim()) {
                     const term = search.trim().toLowerCase();
                     const student = adm.student;
-                    const studentName = (c.isBoardAdmission ? (adm.studentName || adm.studentId?.name) : (student?.name || student?.studentName || "")) || "";
+                    const studentName = (c.isBoardAdmission
+                        ? (adm.studentName || adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentId?.name)
+                        : (student?.studentsDetails?.[0]?.studentName || student?.name || student?.studentName || adm.studentName || "")
+                    ) || "";
                     const admNo = (c.isBoardAdmission ? adm.admissionNumber : (adm.admissionNumber || adm.admissionNo)) || "";
                     const chqNo = c.transactionId || c.chequeNumber || "";
 
@@ -837,7 +855,16 @@ export const getAllCheques = async (req, res) => {
             const adm = c.admission;
             const isBoard = c.isBoardAdmission;
             const student = adm?.student;
-            const studentName = isBoard ? (adm?.studentName || adm?.studentId?.name || "N/A") : (student?.name || student?.studentName || "N/A");
+            const studentName = isBoard
+                ? (adm?.studentName || adm?.studentId?.studentsDetails?.[0]?.studentName || adm?.studentId?.name || "N/A")
+                : (
+                    student?.studentsDetails?.[0]?.studentName ||
+                    student?.name ||
+                    student?.studentName ||
+                    adm?.studentsDetails?.[0]?.studentName ||
+                    adm?.studentName ||
+                    "N/A"
+                );
             const admissionNo = isBoard ? (adm?.admissionNumber || "N/A") : (adm?.admissionNumber || adm?.admissionNo || "N/A");
 
             let signedReceiptUrl = c.receiptUrl || null;
