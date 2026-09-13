@@ -35,7 +35,7 @@ const ChequeManagement = () => {
         centre: [],
         course: [],
         department: [],
-        status: "all",
+        status: ["PENDING_CLEARANCE"],
         startDate: "",
         endDate: "",
         chequeStartDate: "",
@@ -49,19 +49,24 @@ const ChequeManagement = () => {
     });
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const canManageCheques = hasPermission(user, 'financeFees', 'chequeManagement', 'edit');
+    const userRoles = Array.isArray(user.role) ? user.role : [user.role];
+    const isSuperAdminOrAccounts = userRoles.some(r => {
+        const norm = typeof r === "string" ? r.toLowerCase().replace(/[\s\-_]+/g, "") : "";
+        return norm === "superadmin" || norm === "accounts" || norm === "account";
+    });
+
+    // All role users can view Cheque Management after being granted access, while superadmin and accounts have view access by default
+    const hasViewAccess = isSuperAdminOrAccounts || hasPermission(user, 'financeFees', 'chequeManagement', 'view');
+
+    // Cheque approval and rejection strictly restricted to accounts and superadmin roles
+    const canManageCheques = isSuperAdminOrAccounts && hasPermission(user, 'financeFees', 'chequeManagement', 'edit');
 
     useEffect(() => {
-        const userRoles = Array.isArray(user.role) ? user.role : [user.role];
-        const isAuthorized = userRoles.some(r => {
-            const norm = typeof r === "string" ? r.toLowerCase().replace(/\s+/g, "") : "";
-            return norm === "superadmin" || norm === "accounts";
-        });
-        if (!isAuthorized) {
+        if (!hasViewAccess) {
             toast.error("Access Denied: You do not have permission to view Cheque Management.");
             navigate("/");
         }
-    }, [user, navigate]);
+    }, [hasViewAccess, navigate]);
 
     useEffect(() => {
         fetchMetadata();
@@ -91,12 +96,24 @@ const ChequeManagement = () => {
             const courses = await coursesRes.json();
             const depts = await deptsRes.json();
 
-            // Filter centres based on user's authorized centres
+            // Filter centres based on user's authorized assigned centres
+            const isSuperAdminUser = userRoles.some(r => {
+                const norm = typeof r === "string" ? r.toLowerCase().replace(/[\s\-_]+/g, "") : "";
+                return norm === "superadmin";
+            });
+
             const filteredCentres = Array.isArray(centres)
-                ? centres.filter(c =>
-                    user.role === 'superAdmin' || user.role === 'Super Admin' ||
-                    (user.centres && user.centres.some(uc => uc._id === c._id || (uc.centreName && c.centreName && uc.centreName.trim() === c.centreName.trim())))
-                )
+                ? centres.filter(c => {
+                    if (isSuperAdminUser) return true;
+                    if (!user.centres || user.centres.length === 0) return false;
+                    return user.centres.some(uc => {
+                        const ucId = typeof uc === 'object' ? (uc._id || uc.id) : uc;
+                        const ucName = typeof uc === 'object' ? uc.centreName : null;
+                        const matchId = ucId && c._id && ucId.toString() === c._id.toString();
+                        const matchName = ucName && c.centreName && ucName.trim().toLowerCase() === c.centreName.trim().toLowerCase();
+                        return matchId || matchName;
+                    });
+                })
                 : [];
 
             setMetadata({
@@ -118,13 +135,9 @@ const ChequeManagement = () => {
 
             // Handle multi-select arrays and other filters
             Object.entries(filters).forEach(([key, value]) => {
-                if (key === 'status') {
-                    if (value === 'cleared') queryParams.append('status', 'PAID');
-                    else if (value === 'pending') queryParams.append('status', 'PENDING_CLEARANCE');
-                    else if (value === 'bounced') queryParams.append('status', 'REJECTED');
-                } else if (Array.isArray(value) && value.length > 0) {
+                if (Array.isArray(value) && value.length > 0) {
                     value.forEach(v => queryParams.append(key, v));
-                } else if (value && !Array.isArray(value)) {
+                } else if (value && !Array.isArray(value) && value !== 'all') {
                     queryParams.append(key, value);
                 }
             });
@@ -163,6 +176,10 @@ const ChequeManagement = () => {
     };
 
     const handleClearCheque = async () => {
+        if (!canManageCheques) {
+            toast.error("Access Denied: Only Accounts and SuperAdmin roles can clear cheques.");
+            return;
+        }
         if (!clearDate) {
             toast.error("Please provide a cleared date");
             return;
@@ -200,6 +217,10 @@ const ChequeManagement = () => {
     };
 
     const handleRejectCheque = async () => {
+        if (!canManageCheques) {
+            toast.error("Access Denied: Only Accounts and SuperAdmin roles can reject cheques.");
+            return;
+        }
         if (!rejectDate) {
             toast.error("Please provide a rejection date");
             return;
@@ -249,7 +270,7 @@ const ChequeManagement = () => {
             centre: [],
             course: [],
             department: [],
-            status: "all",
+            status: ["PENDING_CLEARANCE"],
             startDate: "",
             endDate: "",
             chequeStartDate: "",
@@ -449,16 +470,25 @@ const ChequeManagement = () => {
                         </div>
                         <div>
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Status Wise Filter</label>
-                            <select
-                                value={filters.status}
-                                onChange={(e) => handleFilterChange("status", e.target.value)}
-                                className={`w-full border rounded-xl py-3 px-4 font-bold text-xs uppercase outline-none focus:border-emerald-500/50 transition-all appearance-none cursor-pointer ${isDarkMode ? "bg-[#131619] border-gray-800 text-gray-200" : "bg-white border-gray-300 text-gray-800"}`}
-                            >
-                                <option value="all">All Status (Active)</option>
-                                <option value="pending">Pending Clearance</option>
-                                <option value="cleared">Cleared</option>
-                                <option value="bounced">Bounced/Rejected</option>
-                            </select>
+                            <Select
+                                isMulti
+                                options={[
+                                    { value: "PENDING_CLEARANCE", label: "INPROCESS" },
+                                    { value: "PAID", label: "CLEARED" },
+                                    { value: "REJECTED", label: "REJECTED" }
+                                ]}
+                                value={(Array.isArray(filters.status) ? filters.status : []).map(s => {
+                                    if (s === "PENDING_CLEARANCE") return { value: s, label: "INPROCESS" };
+                                    if (s === "PAID") return { value: s, label: "CLEARED" };
+                                    if (s === "REJECTED") return { value: s, label: "REJECTED" };
+                                    return { value: s, label: s };
+                                })}
+                                onChange={(selected) => handleFilterChange("status", selected ? selected.map(s => s.value) : [])}
+                                styles={customSelectStyles}
+                                placeholder="ALL STATUS"
+                                className="react-select-container"
+                                classNamePrefix="react-select"
+                            />
                         </div>
                     </div>
 
@@ -607,7 +637,7 @@ const ChequeManagement = () => {
                                             </div>
                                         </td>
                                         <td className="p-6 text-right">
-                                            {cheque.status === "PENDING_CLEARANCE" && canManageCheques && (
+                                            {cheque.status === "PENDING_CLEARANCE" && canManageCheques ? (
                                                 <div className="flex justify-end gap-2">
                                                     <button
                                                         onClick={() => {
@@ -630,6 +660,8 @@ const ChequeManagement = () => {
                                                         Bounce
                                                     </button>
                                                 </div>
+                                            ) : (
+                                                <span className="text-[10px] text-gray-500 font-bold uppercase">---</span>
                                             )}
                                         </td>
                                     </tr>

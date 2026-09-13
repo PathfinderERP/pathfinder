@@ -145,10 +145,10 @@ export const getPendingCheques = async (req, res) => {
             if (validStatusFilters.length > 0) {
                 query.status = { $in: validStatusFilters };
             } else {
-                query.status = { $in: ["PENDING_CLEARANCE", "PAID"] };
+                query.status = { $in: ["PENDING_CLEARANCE", "PAID", "REJECTED"] };
             }
         } else {
-            query.status = { $in: ["PENDING_CLEARANCE", "PAID"] };
+            query.status = { $in: ["PENDING_CLEARANCE", "PAID", "REJECTED"] };
         }
 
         let cheques = await Payment.find(query)
@@ -165,6 +165,26 @@ export const getPendingCheques = async (req, res) => {
 
         // Manual Population
         await populateAdmissions(cheques);
+
+        // Filter based on user's authorized assigned centres (under User Management)
+        const userRoles = Array.isArray(req.user?.role) ? req.user.role : [req.user?.role || ''];
+        const isSuperAdmin = userRoles.some(r => {
+            const clean = (typeof r === 'string' ? r : '').toLowerCase().replace(/[\s\-_]+/g, '');
+            return clean === 'superadmin';
+        });
+
+        if (!isSuperAdmin) {
+            const userCentres = await CentreSchema.find({
+                _id: { $in: req.user?.centres || [] }
+            }).select('centreName');
+            const authorizedCentreNames = userCentres.map(c => (c.centreName || '').trim().toLowerCase()).filter(Boolean);
+
+            cheques = cheques.filter(c => {
+                const adm = c.admission;
+                const admCentre = (adm?.centre || '').trim().toLowerCase();
+                return admCentre && authorizedCentreNames.includes(admCentre);
+            });
+        }
 
         // Filter results based on query params (since some data is in populated fields)
         if (centre || course || department || search) {
@@ -247,9 +267,24 @@ export const getPendingCheques = async (req, res) => {
     }
 };
 
+const checkChequeApprovalRoleAccess = (user) => {
+    if (!user) return false;
+    const roles = Array.isArray(user.role) ? user.role : [user.role || ''];
+    return roles.some(r => {
+        const clean = (typeof r === 'string' ? r : '').toLowerCase().replace(/[\s\-_]+/g, '');
+        return clean === 'superadmin' || clean === 'accounts' || clean === 'account';
+    });
+};
+
 // Clear a cheque
 export const clearCheque = async (req, res) => {
     try {
+        if (!checkChequeApprovalRoleAccess(req.user)) {
+            return res.status(403).json({
+                message: "Access Denied: Cheque approval can only be performed by Accounts and SuperAdmin roles."
+            });
+        }
+
         const { paymentId } = req.params;
         const { clearedDate } = req.body;
 
@@ -288,6 +323,25 @@ export const clearCheque = async (req, res) => {
 
         if (!admission) {
             return res.status(404).json({ message: "Admission record not found" });
+        }
+
+        const userRoles = Array.isArray(req.user?.role) ? req.user.role : [req.user?.role || ''];
+        const isSuperAdmin = userRoles.some(r => {
+            const clean = (typeof r === 'string' ? r : '').toLowerCase().replace(/[\s\-_]+/g, '');
+            return clean === 'superadmin';
+        });
+
+        if (!isSuperAdmin) {
+            const userCentres = await CentreSchema.find({
+                _id: { $in: req.user?.centres || [] }
+            }).select('centreName');
+            const authorizedCentreNames = userCentres.map(c => (c.centreName || '').trim().toLowerCase()).filter(Boolean);
+            const admCentre = (admission.centre || '').trim().toLowerCase();
+            if (!authorizedCentreNames.includes(admCentre)) {
+                return res.status(403).json({
+                    message: "Access Denied: You are not authorized to process cheques for this centre."
+                });
+            }
         }
 
         // 1. Update Payment record
@@ -410,6 +464,12 @@ export const clearCheque = async (req, res) => {
 // Reject a cheque (Bounce)
 export const rejectCheque = async (req, res) => {
     try {
+        if (!checkChequeApprovalRoleAccess(req.user)) {
+            return res.status(403).json({
+                message: "Access Denied: Cheque rejection can only be performed by Accounts and SuperAdmin roles."
+            });
+        }
+
         const { paymentId } = req.params;
         const { reason, rejectedDate } = req.body;
 
@@ -435,6 +495,25 @@ export const rejectCheque = async (req, res) => {
 
         if (!admission) {
             return res.status(404).json({ message: "Admission record not found" });
+        }
+
+        const userRoles = Array.isArray(req.user?.role) ? req.user.role : [req.user?.role || ''];
+        const isSuperAdmin = userRoles.some(r => {
+            const clean = (typeof r === 'string' ? r : '').toLowerCase().replace(/[\s\-_]+/g, '');
+            return clean === 'superadmin';
+        });
+
+        if (!isSuperAdmin) {
+            const userCentres = await CentreSchema.find({
+                _id: { $in: req.user?.centres || [] }
+            }).select('centreName');
+            const authorizedCentreNames = userCentres.map(c => (c.centreName || '').trim().toLowerCase()).filter(Boolean);
+            const admCentre = (admission.centre || '').trim().toLowerCase();
+            if (!authorizedCentreNames.includes(admCentre)) {
+                return res.status(403).json({
+                    message: "Access Denied: You are not authorized to process cheques for this centre."
+                });
+            }
         }
 
         // Revert any variance adjustments made during payment recording
@@ -675,6 +754,32 @@ export const getAllCheques = async (req, res) => {
         // Manual Population
         await populateAdmissions(cheques);
 
+        // Filter based on user's authorized assigned centres (under User Management)
+        const userRoles = Array.isArray(req.user?.role) ? req.user.role : [req.user?.role || ''];
+        const isSuperAdmin = userRoles.some(r => {
+            const clean = (typeof r === 'string' ? r : '').toLowerCase().replace(/[\s\-_]+/g, '');
+            return clean === 'superadmin';
+        });
+
+        if (!isSuperAdmin) {
+            const userCentreIds = (req.user?.centres || []).map(c => typeof c === 'object' && c?._id ? c._id : c);
+            const userCentres = await CentreSchema.find({
+                _id: { $in: userCentreIds }
+            }).select('centreName');
+            const authorizedCentreNames = new Set([
+                ...userCentres.map(c => (c.centreName || '').trim().toLowerCase()),
+                ...(req.user?.centres || []).map(c => typeof c === 'object' && c?.centreName ? c.centreName.trim().toLowerCase() : null)
+            ]);
+            authorizedCentreNames.delete(null);
+            authorizedCentreNames.delete('');
+
+            cheques = cheques.filter(c => {
+                const adm = c.admission;
+                const admCentre = (adm?.centre || '').trim().toLowerCase();
+                return admCentre && authorizedCentreNames.has(admCentre);
+            });
+        }
+
         // Filter results based on query params (since some data is in populated fields)
         if (centre || course || department || search) {
             const requestedCentres = centre ? (Array.isArray(centre) ? centre : [centre]) : [];
@@ -709,36 +814,48 @@ export const getAllCheques = async (req, res) => {
                     matchesDept = requestedDepts.includes(deptName);
                 }
 
+                // Search matching (Admission No, Student Name, Cheque Number)
                 let matchesSearch = true;
-                if (search) {
-                    const searchLower = search.toLowerCase();
-                    const studentName = (c.isBoardAdmission ? adm.studentName : (adm.student?.studentsDetails?.[0]?.studentName || "")).toLowerCase();
-                    const admissionNo = adm.admissionNumber?.toLowerCase() || "";
-                    const chequeNo = c.transactionId?.toLowerCase() || "";
+                if (search && search.trim()) {
+                    const term = search.trim().toLowerCase();
+                    const student = adm.student;
+                    const studentName = (c.isBoardAdmission ? (adm.studentName || adm.studentId?.name) : (student?.name || student?.studentName || "")) || "";
+                    const admNo = (c.isBoardAdmission ? adm.admissionNumber : (adm.admissionNumber || adm.admissionNo)) || "";
+                    const chqNo = c.transactionId || c.chequeNumber || "";
 
-                    matchesSearch = studentName.includes(searchLower) ||
-                        admissionNo.includes(searchLower) ||
-                        chequeNo.includes(searchLower);
+                    matchesSearch = studentName.toLowerCase().includes(term) ||
+                        admNo.toLowerCase().includes(term) ||
+                        chqNo.toLowerCase().includes(term);
                 }
 
                 return matchesCentre && matchesCourse && matchesDept && matchesSearch;
             });
         }
 
+        // Format for frontend response
         const formattedCheques = await Promise.all(cheques.map(async (c) => {
             const adm = c.admission;
             const isBoard = c.isBoardAdmission;
-            const signedReceiptUrl = c.receiptFile ? await getSignedReceiptUrl(c.receiptFile) : null;
+            const student = adm?.student;
+            const studentName = isBoard ? (adm?.studentName || adm?.studentId?.name || "N/A") : (student?.name || student?.studentName || "N/A");
+            const admissionNo = isBoard ? (adm?.admissionNumber || "N/A") : (adm?.admissionNumber || adm?.admissionNo || "N/A");
+
+            let signedReceiptUrl = c.receiptUrl || null;
+            if (signedReceiptUrl && !signedReceiptUrl.startsWith("http")) {
+                try {
+                    signedReceiptUrl = await getFileUrl(signedReceiptUrl);
+                } catch (e) {
+                    console.error("Error signing receipt URL:", e);
+                }
+            }
 
             return {
                 id: c._id,
                 paymentId: c._id,
-                studentName: isBoard
-                    ? adm?.studentName
-                    : (adm?.student?.studentsDetails?.[0]?.studentName || "Unknown"),
-                admissionNo: adm?.admissionNumber || "N/A",
-                chequeNumber: c.transactionId || "N/A",
-                bankName: c.accountHolderName || "N/A",
+                chequeNumber: c.transactionId || c.chequeNumber || "N/A",
+                studentName,
+                admissionNo,
+                bankName: c.bankName || c.accountHolderName || "N/A",
                 amount: c.paidAmount,
                 chequeDate: c.chequeDate,
                 status: c.status === "PAID" ? "Cleared" : (c.status === "REJECTED" ? "Rejected" : (c.status === "CANCELLED" ? "Cancelled" : "Pending")),
@@ -789,10 +906,16 @@ export const cancelCheque = async (req, res) => {
         }
 
         // Center Visibility Restriction
-        if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
+        const userRoles = Array.isArray(req.user?.role) ? req.user.role : [req.user?.role || ''];
+        const isSuperAdmin = userRoles.some(r => {
+            const clean = (typeof r === 'string' ? r : '').toLowerCase().replace(/[\s\-_]+/g, '');
+            return clean === 'superadmin';
+        });
+
+        if (!isSuperAdmin) {
             const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
-            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim()).filter(Boolean) : [];
-            const centerName = (admission.centre || "").trim();
+            const userCentreNames = currentUser ? currentUser.centres.map(c => (c.centreName || "").trim().toLowerCase()).filter(Boolean) : [];
+            const centerName = (admission.centre || "").trim().toLowerCase();
             if (!userCentreNames.includes(centerName)) {
                 return res.status(403).json({ message: "Access denied: You cannot cancel cheques for this center" });
             }

@@ -24,6 +24,11 @@ const CancelChequePayment = () => {
     const [searchTerm, setSearchTerm] = useState("");
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const userRoles = Array.isArray(user.role) ? user.role : [user.role || ''];
+    const isSuperAdminUser = userRoles.some(r => {
+        const norm = typeof r === "string" ? r.toLowerCase().replace(/[\s\-_]+/g, "") : "";
+        return norm === "superadmin";
+    });
 
     // State for cheques
     const [cheques, setCheques] = useState([]);
@@ -33,7 +38,7 @@ const CancelChequePayment = () => {
         centre: [],
         course: [],
         department: [],
-        status: [],
+        status: ["REJECTED"],
         startDate: "",
         endDate: "",
         chequeStartDate: "",
@@ -75,12 +80,19 @@ const CancelChequePayment = () => {
             const courses = await coursesRes.json();
             const depts = await deptsRes.json();
 
-            // Filter centres based on user's authorized centres
+            // Filter centres based on user's authorized assigned centres (under User Management)
             const filteredCentres = Array.isArray(centres)
-                ? centres.filter(c =>
-                    user.role === 'superAdmin' || user.role === 'Super Admin' ||
-                    (user.centres && user.centres.some(uc => uc._id === c._id || (uc.centreName && c.centreName && uc.centreName.trim() === c.centreName.trim())))
-                )
+                ? centres.filter(c => {
+                    if (isSuperAdminUser) return true;
+                    if (!user.centres || user.centres.length === 0) return false;
+                    return user.centres.some(uc => {
+                        const ucId = typeof uc === 'object' ? (uc._id || uc.id) : uc;
+                        const ucName = typeof uc === 'object' ? uc.centreName : null;
+                        const matchId = ucId && c._id && ucId.toString() === c._id.toString();
+                        const matchName = ucName && c.centreName && ucName.trim().toLowerCase() === c.centreName.trim().toLowerCase();
+                        return matchId || matchName;
+                    });
+                })
                 : [];
 
             setMetadata({
@@ -139,7 +151,7 @@ const CancelChequePayment = () => {
             centre: [],
             course: [],
             department: [],
-            status: [],
+            status: ["REJECTED"],
             startDate: "",
             endDate: "",
             chequeStartDate: "",
@@ -155,7 +167,7 @@ const CancelChequePayment = () => {
         }
 
         const dataToExport = cheques.map(c => ({
-            "Cheque No": c.chequeNumber,
+            "Cheque No": c.chequeNumber || c.transactionId || "N/A",
             "Student Name": c.studentName,
             "Admission No": c.admissionNo,
             "Bank": c.bankName,
@@ -265,7 +277,7 @@ const CancelChequePayment = () => {
                             Cheque Payment <span className="text-cyan-500">Records</span>
                         </h1>
                         <p className="text-gray-500 text-xs font-bold uppercase tracking-widest">
-                            Comprehensive History of Cleared, Rejected & Cancelled Cheques
+                            Comprehensive History of Rejected & Cleared Cheques
                         </p>
                     </div>
 
@@ -275,16 +287,16 @@ const CancelChequePayment = () => {
                             <BarChart
                                 data={[
                                     {
-                                        name: 'Cleared',
-                                        value: cheques.filter(c => c.status === "Cleared").length,
-                                        amount: cheques.filter(c => c.status === "Cleared").reduce((sum, c) => sum + (c.amount || 0), 0),
-                                        color: '#10b981'
-                                    },
-                                    {
                                         name: 'Rejected',
                                         value: cheques.filter(c => c.status === "Rejected").length,
                                         amount: cheques.filter(c => c.status === "Rejected").reduce((sum, c) => sum + (c.amount || 0), 0),
                                         color: '#ef4444'
+                                    },
+                                    {
+                                        name: 'Cleared',
+                                        value: cheques.filter(c => c.status === "Cleared").length,
+                                        amount: cheques.filter(c => c.status === "Cleared").reduce((sum, c) => sum + (c.amount || 0), 0),
+                                        color: '#10b981'
                                     }
                                 ]}
                                 margin={{ top: 5, right: 5, left: 5, bottom: 5 }}
@@ -326,8 +338,8 @@ const CancelChequePayment = () => {
                                 <Bar dataKey="value" radius={[4, 4, 0, 0]}>
                                     {
                                         [
-                                            { name: 'Cleared', color: '#10b981' },
-                                            { name: 'Rejected', color: '#ef4444' }
+                                            { name: 'Rejected', color: '#ef4444' },
+                                            { name: 'Cleared', color: '#10b981' }
                                         ].map((entry, index) => (
                                             <Cell key={`cell-${index}`} fill={entry.color} fillOpacity={0.8} />
                                         ))
@@ -385,9 +397,8 @@ const CancelChequePayment = () => {
                             <Select
                                 isMulti
                                 options={[
-                                    { value: "PAID", label: "CLEARED" },
                                     { value: "REJECTED", label: "REJECTED" },
-                                    { value: "CANCELLED", label: "CANCELLED" }
+                                    { value: "PAID", label: "CLEARED" }
                                 ]}
                                 value={filters.status.map(s => ({ value: s, label: s === "PAID" ? "CLEARED" : s }))}
                                 onChange={(selected) => handleFilterChange("status", selected ? selected.map(s => s.value) : [])}
@@ -503,7 +514,7 @@ const CancelChequePayment = () => {
                                     cheques.map((cheque) => (
                                         <tr key={cheque.id || cheque.paymentId} className="hover:bg-cyan-500/[0.02] transition-colors group">
                                             <td className="p-6">
-                                                <span className="text-cyan-500 font-black">{cheque.chequeNumber}</span>
+                                                <span className="text-cyan-500 font-black">{cheque.chequeNumber && cheque.chequeNumber !== "N/A" ? cheque.chequeNumber : (cheque.transactionId || "N/A")}</span>
                                             </td>
                                             <td className="p-6">
                                                 <div className={`font-bold uppercase ${isDarkMode ? "text-white" : "text-gray-900"}`}>{cheque.studentName}</div>
