@@ -21,10 +21,13 @@ const ManageBoardAdmission = () => {
     const [paymentModal, setPaymentModal] = useState({ show: false, installment: null });
     const [showBillGenerator, setShowBillGenerator] = useState(false);
     const [selectedInstForBill, setSelectedInstForBill] = useState(null);
+    const [preloadedBillData, setPreloadedBillData] = useState(null);
+    const [allAdmissionPayments, setAllAdmissionPayments] = useState([]);
     const [examPayments, setExamPayments] = useState([]);
     const [additionalFeePayments, setAdditionalFeePayments] = useState([]);
     const [admissionPayments, setAdmissionPayments] = useState([]);
     const [examPaymentModal, setExamPaymentModal] = useState(false);
+
     const [additionalFeePaymentModal, setAdditionalFeePaymentModal] = useState(false);
     const [ncrpPaymentModal, setNcrpPaymentModal] = useState(false);
     const [editingInstId, setEditingInstId] = useState(null);
@@ -93,29 +96,34 @@ const ManageBoardAdmission = () => {
                 setSelectedSubjectIds(admissionData.selectedSubjects.map(s => s.subjectId._id));
 
                 // Fetch bills/payments for this admission to find exam fee payments
-                const billsRes = await fetch(`${apiUrl}/payment/bills/${id}`, {
+                const billsRes = await fetch(`${apiUrl}/payment/bills/${id}?includeCheques=true`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 if (billsRes.ok) {
                     const billsData = await billsRes.json();
                     const allPayments = billsData.data || [];
+                    setAllAdmissionPayments(allPayments);
                     setExamPayments(allPayments.filter(p =>
-                        p.remarks?.toLowerCase()?.includes("exam") ||
-                        p.boardCourseName?.toLowerCase()?.includes("examination")
+                        (p.remarks?.toLowerCase()?.includes("exam") ||
+                        p.boardCourseName?.toLowerCase()?.includes("examination")) &&
+                        p.status !== "REJECTED"
                     ));
                     setAdditionalFeePayments(allPayments.filter(p =>
-                        p.remarks?.toLowerCase()?.includes("additional") ||
-                        (admissionData?.additionalThingsName && p.boardCourseName?.toLowerCase()?.includes(admissionData.additionalThingsName.toLowerCase()))
+                        (p.remarks?.toLowerCase()?.includes("additional") ||
+                        (admissionData?.additionalThingsName && p.boardCourseName?.toLowerCase()?.includes(admissionData.additionalThingsName.toLowerCase()))) &&
+                        p.status !== "REJECTED"
                     ));
                     setAdmissionPayments(allPayments.filter(p =>
-                        p.remarks?.toLowerCase()?.includes("initial") ||
+                        (p.remarks?.toLowerCase()?.includes("initial") ||
                         p.remarks?.toLowerCase()?.includes("admission") ||
                         p.remarks?.toLowerCase()?.includes("recovery") ||
                         p.remarks?.toLowerCase()?.includes("restored") ||
                         p.installmentNumber === 0 ||
-                        p.installmentNumber === 1
+                        p.installmentNumber === 1) &&
+                        p.status !== "REJECTED"
                     ));
                 }
+
             }
             if (boardsRes.ok) {
                 if (admissionData) {
@@ -252,9 +260,67 @@ const ManageBoardAdmission = () => {
             });
 
             if (response.ok) {
-                toast.success("Payment collected");
+                const isCheque = paymentForm.paymentMethod === "CHEQUE";
+                toast.success(isCheque ? "Cheque recorded! Generating receiving slip..." : "Payment collected");
+                const inst = paymentModal.installment;
+                const formCopy = { ...paymentForm };
                 setPaymentModal({ show: false, installment: null });
                 fetchData();
+
+                if (isCheque) {
+                    const totalPaid = Number(formCopy.amount || 0) + Number(formCopy.paidExamFee || 0) + Number(formCopy.paidAdditionalThings || 0);
+                    const feeBase = totalPaid / 1.18;
+                    const gstHalf = (totalPaid - feeBase) / 2;
+                    setSelectedInstForBill({
+                        installmentNumber: inst.monthNumber,
+                        isReceivingSlip: true,
+                        paymentMethod: "CHEQUE",
+                        billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+                    });
+                    setPreloadedBillData({
+                        isReceivingSlip: true,
+                        billId: null,
+                        slipType: "CHEQUE RECEIVING SLIP",
+                        billDate: formCopy.receivedDate || new Date(),
+                        centre: {
+                            name: admission?.centre || 'General',
+                            address: 'N/A'
+                        },
+                        student: {
+                            name: admission?.studentId?.studentsDetails?.[0]?.studentName || admission?.studentName || '',
+                            admissionNumber: admission?.studentId?.admissionNumber || admission?.admissionNumber || 'N/A',
+                            phoneNumber: admission?.studentId?.studentsDetails?.[0]?.mobileNum || admission?.mobileNum || '',
+                            email: admission?.studentId?.studentsDetails?.[0]?.studentEmail || ''
+                        },
+                        course: {
+                            name: selectedBoard?.boardCourse || admission?.boardCourseName || 'Board Course',
+                            department: admission?.department?.departmentName || '',
+                            examTag: admission?.examTag?.tagName || admission?.examTag?.name || '',
+                            class: admission?.lastClass || '',
+                            session: admission?.academicSession || ''
+                        },
+                        payment: {
+                            installmentNumber: inst.monthNumber,
+                            paymentMethod: "CHEQUE",
+                            transactionId: formCopy.transactionId,
+                            bankName: formCopy.bankName,
+                            accountHolderName: formCopy.accountHolderName,
+                            chequeDate: formCopy.chequeDate,
+                            receivedDate: formCopy.receivedDate,
+                            status: "PENDING_CLEARANCE",
+                            remarks: `Board Installment Month ${inst.monthNumber}`
+                        },
+                        amounts: {
+                            grossFee: totalPaid,
+                            waiver: 0,
+                            courseFee: parseFloat(feeBase.toFixed(2)),
+                            cgst: parseFloat(gstHalf.toFixed(2)),
+                            sgst: parseFloat(gstHalf.toFixed(2)),
+                            totalAmount: totalPaid
+                        }
+                    });
+                    setShowBillGenerator(true);
+                }
             } else {
                 const data = await response.json();
                 toast.error(data.message || "Payment failed");
@@ -291,9 +357,65 @@ const ManageBoardAdmission = () => {
             });
 
             if (response.ok) {
-                toast.success("Exam fee payment collected");
+                const isCheque = paymentForm.paymentMethod === "CHEQUE";
+                toast.success(isCheque ? "Cheque recorded! Generating receiving slip..." : "Exam fee payment collected");
+                const formCopy = { ...paymentForm };
                 setExamPaymentModal(false);
                 fetchData();
+
+                if (isCheque) {
+                    const totalPaid = Number(formCopy.amount || 0);
+                    const feeBase = totalPaid / 1.18;
+                    const gstHalf = (totalPaid - feeBase) / 2;
+                    setSelectedInstForBill({
+                        installmentNumber: 0,
+                        isReceivingSlip: true,
+                        paymentMethod: "CHEQUE"
+                    });
+                    setPreloadedBillData({
+                        isReceivingSlip: true,
+                        billId: null,
+                        slipType: "CHEQUE RECEIVING SLIP",
+                        billDate: formCopy.receivedDate || new Date(),
+                        centre: {
+                            name: admission?.centre || 'General',
+                            address: 'N/A'
+                        },
+                        student: {
+                            name: admission?.studentId?.studentsDetails?.[0]?.studentName || admission?.studentName || '',
+                            admissionNumber: admission?.studentId?.admissionNumber || admission?.admissionNumber || 'N/A',
+                            phoneNumber: admission?.studentId?.studentsDetails?.[0]?.mobileNum || admission?.mobileNum || '',
+                            email: admission?.studentId?.studentsDetails?.[0]?.studentEmail || ''
+                        },
+                        course: {
+                            name: `${selectedBoard?.boardCourse || admission?.boardCourseName || 'Board Course'} + Examination`,
+                            department: admission?.department?.departmentName || '',
+                            examTag: admission?.examTag?.tagName || admission?.examTag?.name || '',
+                            class: admission?.lastClass || '',
+                            session: admission?.academicSession || ''
+                        },
+                        payment: {
+                            installmentNumber: 0,
+                            paymentMethod: "CHEQUE",
+                            transactionId: formCopy.transactionId,
+                            bankName: formCopy.bankName,
+                            accountHolderName: formCopy.accountHolderName,
+                            chequeDate: formCopy.chequeDate,
+                            receivedDate: formCopy.receivedDate,
+                            status: "PENDING_CLEARANCE",
+                            remarks: "Board Examination Fee Payment"
+                        },
+                        amounts: {
+                            grossFee: totalPaid,
+                            waiver: 0,
+                            courseFee: parseFloat(feeBase.toFixed(2)),
+                            cgst: parseFloat(gstHalf.toFixed(2)),
+                            sgst: parseFloat(gstHalf.toFixed(2)),
+                            totalAmount: totalPaid
+                        }
+                    });
+                    setShowBillGenerator(true);
+                }
             } else {
                 const data = await response.json();
                 toast.error(data.message || "Payment failed");
@@ -323,10 +445,65 @@ const ManageBoardAdmission = () => {
                 body: JSON.stringify(ncrpPaymentForm)
             });
             if (response.ok) {
-                toast.success("NCRP fee payment collected!");
+                const isCheque = ncrpPaymentForm.paymentMethod === "CHEQUE";
+                toast.success(isCheque ? "Cheque recorded! Generating receiving slip..." : "NCRP fee payment collected!");
+                const formCopy = { ...ncrpPaymentForm };
                 setNcrpPaymentModal(false);
                 setNcrpPaymentForm({ paidExamFee: 0, paidAdditionalThings: 0, paymentMethod: "CASH", transactionId: "", bankName: "", bankAccount: "", accountHolderName: "", chequeDate: new Date().toISOString().split('T')[0] });
                 fetchData();
+
+                if (isCheque) {
+                    const feeBase = totalToPay / 1.18;
+                    const gstHalf = (totalToPay - feeBase) / 2;
+                    setSelectedInstForBill({
+                        installmentNumber: 0,
+                        isReceivingSlip: true,
+                        paymentMethod: "CHEQUE"
+                    });
+                    setPreloadedBillData({
+                        isReceivingSlip: true,
+                        billId: null,
+                        slipType: "CHEQUE RECEIVING SLIP",
+                        billDate: new Date(),
+                        centre: {
+                            name: admission?.centre || 'General',
+                            address: 'N/A'
+                        },
+                        student: {
+                            name: admission?.studentId?.studentsDetails?.[0]?.studentName || admission?.studentName || '',
+                            admissionNumber: admission?.studentId?.admissionNumber || admission?.admissionNumber || 'N/A',
+                            phoneNumber: admission?.studentId?.studentsDetails?.[0]?.mobileNum || admission?.mobileNum || '',
+                            email: admission?.studentId?.studentsDetails?.[0]?.studentEmail || ''
+                        },
+                        course: {
+                            name: `${selectedBoard?.boardCourse || admission?.boardCourseName || 'Board Course'} (NCRP Fees)`,
+                            department: admission?.department?.departmentName || '',
+                            examTag: admission?.examTag?.tagName || admission?.examTag?.name || '',
+                            class: admission?.lastClass || '',
+                            session: admission?.academicSession || ''
+                        },
+                        payment: {
+                            installmentNumber: 0,
+                            paymentMethod: "CHEQUE",
+                            transactionId: formCopy.transactionId,
+                            bankName: formCopy.bankName,
+                            accountHolderName: formCopy.accountHolderName,
+                            chequeDate: formCopy.chequeDate,
+                            receivedDate: new Date(),
+                            status: "PENDING_CLEARANCE",
+                            remarks: "NCRP Fees Cheque Payment"
+                        },
+                        amounts: {
+                            grossFee: totalToPay,
+                            waiver: 0,
+                            courseFee: parseFloat(feeBase.toFixed(2)),
+                            cgst: parseFloat(gstHalf.toFixed(2)),
+                            sgst: parseFloat(gstHalf.toFixed(2)),
+                            totalAmount: totalToPay
+                        }
+                    });
+                    setShowBillGenerator(true);
+                }
             } else {
                 const data = await response.json();
                 toast.error(data.message || "Payment failed");
@@ -362,9 +539,65 @@ const ManageBoardAdmission = () => {
             });
 
             if (response.ok) {
-                toast.success("Additional fee payment collected");
+                const isCheque = paymentForm.paymentMethod === "CHEQUE";
+                toast.success(isCheque ? "Cheque recorded! Generating receiving slip..." : "Additional fee payment collected");
+                const formCopy = { ...paymentForm };
                 setAdditionalFeePaymentModal(false);
                 fetchData();
+
+                if (isCheque) {
+                    const totalPaid = Number(formCopy.amount || 0);
+                    const feeBase = totalPaid / 1.18;
+                    const gstHalf = (totalPaid - feeBase) / 2;
+                    setSelectedInstForBill({
+                        installmentNumber: 0,
+                        isReceivingSlip: true,
+                        paymentMethod: "CHEQUE"
+                    });
+                    setPreloadedBillData({
+                        isReceivingSlip: true,
+                        billId: null,
+                        slipType: "CHEQUE RECEIVING SLIP",
+                        billDate: formCopy.receivedDate || new Date(),
+                        centre: {
+                            name: admission?.centre || 'General',
+                            address: 'N/A'
+                        },
+                        student: {
+                            name: admission?.studentId?.studentsDetails?.[0]?.studentName || admission?.studentName || '',
+                            admissionNumber: admission?.studentId?.admissionNumber || admission?.admissionNumber || 'N/A',
+                            phoneNumber: admission?.studentId?.studentsDetails?.[0]?.mobileNum || admission?.mobileNum || '',
+                            email: admission?.studentId?.studentsDetails?.[0]?.studentEmail || ''
+                        },
+                        course: {
+                            name: `${selectedBoard?.boardCourse || admission?.boardCourseName || 'Board Course'} + ${admission?.additionalThingsName || 'Additional Fee'}`,
+                            department: admission?.department?.departmentName || '',
+                            examTag: admission?.examTag?.tagName || admission?.examTag?.name || '',
+                            class: admission?.lastClass || '',
+                            session: admission?.academicSession || ''
+                        },
+                        payment: {
+                            installmentNumber: 0,
+                            paymentMethod: "CHEQUE",
+                            transactionId: formCopy.transactionId,
+                            bankName: formCopy.bankName,
+                            accountHolderName: formCopy.accountHolderName,
+                            chequeDate: formCopy.chequeDate,
+                            receivedDate: formCopy.receivedDate,
+                            status: "PENDING_CLEARANCE",
+                            remarks: `Board Additional Fee Payment (${admission?.additionalThingsName || ''})`
+                        },
+                        amounts: {
+                            grossFee: totalPaid,
+                            waiver: 0,
+                            courseFee: parseFloat(feeBase.toFixed(2)),
+                            cgst: parseFloat(gstHalf.toFixed(2)),
+                            sgst: parseFloat(gstHalf.toFixed(2)),
+                            totalAmount: totalPaid
+                        }
+                    });
+                    setShowBillGenerator(true);
+                }
             } else {
                 const data = await response.json();
                 toast.error(data.message || "Payment failed");
@@ -478,15 +711,27 @@ const ManageBoardAdmission = () => {
 
                                 <div className="relative space-y-4 pl-4 before:absolute before:inset-0 before:ml-[34px] before:w-[2px] before:bg-gray-800 before:z-0">
                                     {admission.installments.map((inst, index) => {
-                                        const isPaid = inst.status === "PAID";
+                                        const matchingPaidPayment = allAdmissionPayments.find(p => (p.installmentNumber === inst.monthNumber || p.installmentNumber === (inst.monthNumber - 1)) && (p.status === 'PAID' || p.status === 'COMPLETED'));
+                                        const matchingPendingCheque = allAdmissionPayments.find(p => (p.installmentNumber === inst.monthNumber || p.installmentNumber === (inst.monthNumber - 1)) && p.status === 'PENDING_CLEARANCE');
+                                        const isChequePending = Boolean(matchingPendingCheque || inst.status === "PENDING_CLEARANCE");
+                                        const hasOnlyRejectedCheque = allAdmissionPayments.some(p => (p.installmentNumber === inst.monthNumber || p.installmentNumber === (inst.monthNumber - 1)) && p.status === 'REJECTED') && !matchingPaidPayment && !isChequePending;
+                                        const isPaid = !isChequePending && !hasOnlyRejectedCheque && (inst.status === "PAID" || Boolean(matchingPaidPayment));
                                         const isCurrent = effectiveFromMonth?._id === inst._id;
-                                        const isNextToPay = !isPaid && (index === 0 || admission.installments[index - 1].status === "PAID");
+                                        const prevInst = admission.installments[index - 1];
+                                        const prevMatchingPaid = prevInst && allAdmissionPayments.find(p => (p.installmentNumber === prevInst.monthNumber || p.installmentNumber === (prevInst.monthNumber - 1)) && (p.status === 'PAID' || p.status === 'COMPLETED'));
+                                        const prevMatchingPending = prevInst && allAdmissionPayments.find(p => (p.installmentNumber === prevInst.monthNumber || p.installmentNumber === (prevInst.monthNumber - 1)) && p.status === 'PENDING_CLEARANCE');
+                                        const prevChequePending = Boolean(prevMatchingPending || prevInst?.status === "PENDING_CLEARANCE");
+                                        const prevHasOnlyRejected = prevInst && allAdmissionPayments.some(p => (p.installmentNumber === prevInst.monthNumber || p.installmentNumber === (prevInst.monthNumber - 1)) && p.status === 'REJECTED') && !prevMatchingPaid && !prevChequePending;
+                                        const prevPaid = !prevChequePending && !prevHasOnlyRejected && (prevInst?.status === "PAID" || Boolean(prevMatchingPaid));
+                                        const prevCleared = index === 0 || prevPaid || prevChequePending;
+                                        const isNextToPay = !isPaid && !isChequePending && prevCleared;
+                                        const displayPaid = hasOnlyRejectedCheque ? 0 : (isChequePending ? (matchingPendingCheque?.paidAmount || inst.paidAmount) : inst.paidAmount);
 
                                         return (
                                             <div
                                                 key={inst._id}
                                                 onClick={() => {
-                                                    if (!isPaid) {
+                                                    if (!isPaid && !isChequePending) {
                                                         setEffectiveFromMonth(inst);
                                                         let subIds = inst.subjects?.map(s =>
                                                             (typeof s.subjectId === 'object' && s.subjectId !== null)
@@ -506,81 +751,83 @@ const ManageBoardAdmission = () => {
                                                 className={`relative z-10 p-5 rounded-xl border flex items-center justify-between cursor-pointer transition-all shadow-sm ${isCurrent
                                                     ? 'border-cyan-500 ring-2 ring-cyan-500/50 bg-cyan-900/20 scale-[1.02]'
                                                     : isPaid
-                                                        ? (isDarkMode ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-green-50 border-green-200 opacity-90')
-                                                        : isNextToPay
-                                                            ? (isDarkMode ? 'bg-[#1a222c] border-cyan-500/30' : 'bg-white border-cyan-200 shadow-sm')
-                                                            : (isDarkMode ? 'bg-gray-800/40 border-gray-800/50 hover:border-gray-600 opacity-70' : 'bg-gray-50 border-gray-100 hover:border-gray-200 opacity-70')
+                                                        ? (isDarkMode ? 'border-emerald-500/30 bg-emerald-950/10' : 'border-emerald-500/30 bg-emerald-50')
+                                                        : isChequePending
+                                                            ? (isDarkMode ? 'border-amber-500/30 bg-amber-950/10' : 'border-amber-500/30 bg-amber-50')
+                                                            : (isDarkMode ? 'border-gray-800 bg-[#22272e]' : 'border-gray-200 bg-white')
                                                     }`}
                                             >
-                                                <div className="flex items-center gap-5">
-                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all shadow-lg ${isPaid
-                                                        ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.4)]'
-                                                        : isNextToPay
-                                                            ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]'
-                                                            : isDarkMode ? 'bg-gray-800 text-gray-500 border border-gray-700' : 'bg-white text-gray-400 border border-gray-200'
+                                                <div className="flex items-center gap-4">
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm ${isPaid
+                                                        ? 'bg-emerald-500 text-black'
+                                                        : isChequePending
+                                                            ? 'bg-amber-500 text-black'
+                                                            : isNextToPay
+                                                                ? 'bg-cyan-500 text-black'
+                                                                : (isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400')
                                                         }`}>
-                                                        {isPaid ? <FaCheck /> : inst.monthNumber}
+                                                        {isPaid ? <FaCheck /> : isChequePending ? <FaFileInvoice /> : inst.monthNumber}
                                                     </div>
-                                                    <div className="space-y-1">
-                                                        {editingInstId === inst._id ? (
-                                                            <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                                <select
-                                                                    value={editMonth}
-                                                                    onChange={(e) => setEditMonth(Number(e.target.value))}
-                                                                    className={`px-2 py-1 text-xs font-bold uppercase rounded border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                                                >
-                                                                    {MONTH_NAMES.map((mName, idx) => (
-                                                                        <option key={mName} value={idx}>{mName.toUpperCase()}</option>
-                                                                    ))}
-                                                                </select>
-                                                                <select
-                                                                    value={editYear}
-                                                                    onChange={(e) => setEditYear(Number(e.target.value))}
-                                                                    className={`px-2 py-1 text-xs font-bold uppercase rounded border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                                                >
-                                                                    {YEARS_LIST.map((y) => (
-                                                                        <option key={y} value={y}>{y}</option>
-                                                                    ))}
-                                                                </select>
-                                                                <button
-                                                                    onClick={(e) => handleSaveInstallmentDate(inst._id, e)}
-                                                                    disabled={isSavingDate}
-                                                                    className="p-1.5 bg-emerald-500 text-black rounded hover:bg-emerald-400 transition-all text-xs font-bold"
-                                                                    title="Save"
-                                                                >
-                                                                    <FaCheck />
-                                                                </button>
-                                                                <button
-                                                                    onClick={(e) => { e.stopPropagation(); setEditingInstId(null); }}
-                                                                    className="p-1.5 bg-gray-700 text-white rounded hover:bg-gray-600 transition-all text-xs font-bold"
-                                                                    title="Cancel"
-                                                                >
-                                                                    <FaTimes />
-                                                                </button>
-                                                            </div>
-                                                        ) : (
-                                                            <div className="flex items-center gap-2 group/date">
-                                                                <p className={`text-sm font-black uppercase ${isPaid ? 'text-emerald-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
-                                                                    {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                                                                </p>
-                                                                {admission?.studentId?.status !== 'Deactivated' && (
-                                                                    <button
-                                                                        onClick={(e) => {
-                                                                            e.stopPropagation();
-                                                                            const d = new Date(inst.dueDate);
-                                                                            setEditingInstId(inst._id);
-                                                                            setEditMonth(d.getMonth());
-                                                                            setEditYear(d.getFullYear());
-                                                                        }}
-                                                                        className="p-1 text-gray-400 hover:text-cyan-400 transition-all cursor-pointer"
-                                                                        title="Click to update month and year"
+                                                    <div>
+                                                        <div className="flex items-center gap-2">
+                                                            {editingInstId === inst._id ? (
+                                                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                                    <select
+                                                                        value={editMonth}
+                                                                        onChange={(e) => setEditMonth(parseInt(e.target.value))}
+                                                                        className={`text-xs font-bold p-1 rounded border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
                                                                     >
-                                                                        <FaEdit className="text-xs" />
+                                                                        {MONTH_NAMES.map((m, idx) => (
+                                                                            <option key={idx} value={idx}>{m}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <select
+                                                                        value={editYear}
+                                                                        onChange={(e) => setEditYear(parseInt(e.target.value))}
+                                                                        className={`text-xs font-bold p-1 rounded border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+                                                                    >
+                                                                        {YEARS_LIST.map((yr) => (
+                                                                            <option key={yr} value={yr}>{yr}</option>
+                                                                        ))}
+                                                                    </select>
+                                                                    <button
+                                                                        onClick={(e) => handleSaveInstallmentDate(inst._id, e)}
+                                                                        disabled={isSavingDate}
+                                                                        className="p-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs transition-colors"
+                                                                        title="Save Date"
+                                                                    >
+                                                                        <FaCheck />
                                                                     </button>
-                                                                )}
-                                                            </div>
-                                                        )}
-                                                        <p className="text-[11px] font-bold uppercase tracking-wider">
+                                                                    <button
+                                                                        onClick={(e) => { e.stopPropagation(); setEditingInstId(null); }}
+                                                                        className="p-1.5 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs transition-colors"
+                                                                        title="Cancel"
+                                                                    >
+                                                                        <FaTimes />
+                                                                    </button>
+                                                                </div>
+                                                            ) : (
+                                                                <p className={`text-sm font-black uppercase flex items-center gap-1.5 ${isPaid ? 'text-emerald-400' : isChequePending ? 'text-amber-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
+                                                                    {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                                                                    {!isPaid && !isChequePending && admission?.studentId?.status !== 'Deactivated' && (
+                                                                        <button
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                const d = new Date(inst.dueDate);
+                                                                                setEditingInstId(inst._id);
+                                                                                setEditMonth(d.getMonth());
+                                                                                setEditYear(d.getFullYear());
+                                                                            }}
+                                                                            className="text-gray-500 hover:text-cyan-400 transition-colors p-1"
+                                                                            title="Edit Billing Month/Year"
+                                                                        >
+                                                                            <FaEdit className="text-xs" />
+                                                                        </button>
+                                                                    )}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                        <p className="text-xs font-black uppercase text-gray-500">
                                                             Payable: <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>₹{inst.payableAmount.toFixed(0)}</span>
                                                         </p>
                                                     </div>
@@ -588,10 +835,10 @@ const ManageBoardAdmission = () => {
 
                                                 <div className="flex items-center gap-6" onClick={(e) => e.stopPropagation()}>
                                                     <div className="text-right">
-                                                        <p className={`text-sm font-black tracking-widest ${isPaid ? 'text-emerald-500' : 'text-gray-500'}`}>
-                                                            {inst.status}
+                                                        <p className={`text-sm font-black tracking-widest ${isPaid ? 'text-emerald-500' : isChequePending ? 'text-amber-400' : 'text-gray-500'}`}>
+                                                            {isPaid ? "PAID" : isChequePending ? "PENDING CLEARANCE" : (hasOnlyRejectedCheque ? "PENDING" : inst.status)}
                                                         </p>
-                                                        <p className={`text-[11px] font-bold ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Paid: ₹{inst.paidAmount}</p>
+                                                        <p className={`text-[11px] font-bold ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Paid: ₹{displayPaid}</p>
                                                     </div>
                                                     <div className="w-[1px] h-10 bg-gray-700/50 mx-2"></div>
                                                     {isPaid ? (
@@ -599,16 +846,49 @@ const ManageBoardAdmission = () => {
                                                             onClick={() => {
                                                                 const transformedInst = {
                                                                     ...inst,
+                                                                    status: "PAID",
                                                                     installmentNumber: inst.monthNumber,
-                                                                    billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+                                                                    billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+                                                                    billId: matchingPaidPayment?.billId || inst.billId,
+                                                                    _id: matchingPaidPayment?._id || inst._id,
+                                                                    paymentMethod: matchingPaidPayment?.paymentMethod || inst.paymentMethod,
+                                                                    transactionId: matchingPaidPayment?.transactionId || inst.transactionId,
+                                                                    isReceivingSlip: false
                                                                 };
                                                                 setSelectedInstForBill(transformedInst);
+                                                                setPreloadedBillData(null);
                                                                 setShowBillGenerator(true);
                                                             }}
                                                             className="px-5 py-2.5 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[11px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-2 group"
                                                         >
                                                             <FaFileInvoice className="text-emerald-500 group-hover:text-black" />
                                                             BILL
+                                                        </button>
+                                                    ) : isChequePending ? (
+                                                        <button
+                                                            onClick={() => {
+                                                                const matchingCheque = matchingPendingCheque || allAdmissionPayments.find(p => (p.installmentNumber === inst.monthNumber || p.installmentNumber === (inst.monthNumber - 1)) && p.status === 'PENDING_CLEARANCE');
+                                                                if (matchingCheque) {
+                                                                    setSelectedInstForBill({
+                                                                        ...matchingCheque,
+                                                                        isReceivingSlip: true
+                                                                    });
+                                                                } else {
+                                                                    setSelectedInstForBill({
+                                                                        ...inst,
+                                                                        installmentNumber: inst.monthNumber,
+                                                                        isReceivingSlip: true,
+                                                                        paymentMethod: "CHEQUE",
+                                                                        billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
+                                                                    });
+                                                                }
+                                                                setPreloadedBillData(null);
+                                                                setShowBillGenerator(true);
+                                                            }}
+                                                            className="px-5 py-2.5 border border-amber-500/50 text-amber-500 rounded-lg font-black text-[11px] uppercase hover:bg-amber-500 hover:text-black transition-all flex items-center gap-2 group"
+                                                        >
+                                                            <FaFileInvoice className="text-amber-500 group-hover:text-black" />
+                                                            RECEIVING SLIP
                                                         </button>
                                                     ) : (
                                                         <button
@@ -618,7 +898,7 @@ const ManageBoardAdmission = () => {
                                                                     return;
                                                                 }
                                                                 setPaymentModal({ show: true, installment: inst });
-                                                                setPaymentForm({ ...paymentForm, amount: inst.payableAmount - inst.paidAmount });
+                                                                setPaymentForm({ ...paymentForm, amount: inst.payableAmount - displayPaid });
                                                             }}
                                                             disabled={!isNextToPay || admission?.studentId?.status === 'Deactivated'}
                                                             className={`px-6 py-2.5 rounded-lg font-black text-[11px] uppercase transition-all shadow-lg ${isNextToPay && admission?.studentId?.status !== 'Deactivated'
@@ -949,7 +1229,13 @@ const ManageBoardAdmission = () => {
                         boardCourseName: selectedBoard?.boardCourse || 'Board Course'
                     }}
                     installment={selectedInstForBill}
-                    onClose={() => setShowBillGenerator(false)}
+                    preloadedBillData={preloadedBillData}
+                    isReceivingSlip={selectedInstForBill?.isReceivingSlip || Boolean(preloadedBillData?.isReceivingSlip)}
+                    onClose={() => {
+                        setShowBillGenerator(false);
+                        setSelectedInstForBill(null);
+                        setPreloadedBillData(null);
+                    }}
                 />
             )}
             {/* Admission Fee & General Payments Section (For NCRP or any student to see initial bill) */}
@@ -964,19 +1250,31 @@ const ManageBoardAdmission = () => {
 
                     <div className="flex flex-wrap gap-4">
                         {admissionPayments.length > 0 ? (
-                            admissionPayments.map((p, idx) => (
-                                <button
-                                    key={p.billId || idx}
-                                    onClick={() => {
-                                        setSelectedInstForBill(p);
-                                        setShowBillGenerator(true);
-                                    }}
-                                    className="px-6 py-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 rounded-lg font-black text-xs uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-2 shadow-lg"
-                                >
-                                    <FaFileInvoice />
-                                    VIEW ADMISSION BILL {admissionPayments.length > 1 ? `#${idx + 1}` : ''}
-                                </button>
-                            ))
+                            admissionPayments.map((p, idx) => {
+                                const isSlip = Boolean(p.status === 'PENDING_CLEARANCE' || (p.isReceivingSlip && !p.billId && p.status !== 'PAID' && p.status !== 'COMPLETED' && p.status !== 'REJECTED'));
+                                return (
+                                    <button
+                                        key={p.billId || p._id || idx}
+                                        onClick={() => {
+                                            setSelectedInstForBill({
+                                                ...p,
+                                                isReceivingSlip: isSlip,
+                                                status: isSlip ? 'PENDING_CLEARANCE' : 'PAID'
+                                            });
+                                            setPreloadedBillData(null);
+                                            setShowBillGenerator(true);
+                                        }}
+                                        className={`px-6 py-3 border rounded-lg font-black text-xs uppercase transition-all flex items-center gap-2 shadow-lg ${
+                                            isSlip
+                                                ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-black'
+                                                : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-black'
+                                        }`}
+                                    >
+                                        <FaFileInvoice />
+                                        {isSlip ? 'VIEW RECEIVING SLIP' : 'VIEW ADMISSION BILL'} {admissionPayments.length > 1 ? `#${idx + 1}` : ''}
+                                    </button>
+                                );
+                            })
                         ) : (
                             <div className="text-gray-500 text-xs font-bold uppercase italic text-center w-full py-4 border border-dashed border-gray-800 rounded-lg">
                                 No admission payment records found in unified portal
@@ -1075,19 +1373,31 @@ const ManageBoardAdmission = () => {
                             )}
                             {examPayments.length > 0 && (
                                 <div className="flex flex-col gap-1 flex-1">
-                                    {examPayments.map((p, idx) => (
-                                        <button
-                                            key={p.billId}
-                                            onClick={() => {
-                                                setSelectedInstForBill(p);
-                                                setShowBillGenerator(true);
-                                            }}
-                                            className="w-full py-2 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[10px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center justify-center gap-2"
-                                        >
-                                            <FaFileInvoice />
-                                            VIEW BILL {examPayments.length > 1 ? `#${idx + 1}` : ''}
-                                        </button>
-                                    ))}
+                                    {examPayments.map((p, idx) => {
+                                        const isSlip = Boolean(p.status === 'PENDING_CLEARANCE' || (p.isReceivingSlip && !p.billId && p.status !== 'PAID' && p.status !== 'COMPLETED' && p.status !== 'REJECTED'));
+                                        return (
+                                            <button
+                                                key={p.billId || p._id || idx}
+                                                onClick={() => {
+                                                    setSelectedInstForBill({
+                                                        ...p,
+                                                        isReceivingSlip: isSlip,
+                                                        status: isSlip ? 'PENDING_CLEARANCE' : 'PAID'
+                                                    });
+                                                    setPreloadedBillData(null);
+                                                    setShowBillGenerator(true);
+                                                }}
+                                                className={`w-full py-2 border rounded-lg font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${
+                                                    isSlip
+                                                        ? 'border-amber-500/50 text-amber-500 hover:bg-amber-500 hover:text-black'
+                                                        : 'border-emerald-500/50 text-emerald-500 hover:bg-emerald-500 hover:text-black'
+                                                }`}
+                                            >
+                                                <FaFileInvoice />
+                                                {isSlip ? 'VIEW RECEIVING SLIP' : 'VIEW BILL'} {examPayments.length > 1 ? `#${idx + 1}` : ''}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -1279,19 +1589,31 @@ const ManageBoardAdmission = () => {
                             )}
                             {additionalFeePayments.length > 0 && (
                                 <div className="flex flex-col gap-1 flex-1">
-                                    {additionalFeePayments.map((p, idx) => (
-                                        <button
-                                            key={p.billId}
-                                            onClick={() => {
-                                                setSelectedInstForBill(p);
-                                                setShowBillGenerator(true);
-                                            }}
-                                            className="w-full py-2 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[10px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center justify-center gap-2"
-                                        >
-                                            <FaFileInvoice />
-                                            VIEW BILL {additionalFeePayments.length > 1 ? `#${idx + 1}` : ''}
-                                        </button>
-                                    ))}
+                                    {additionalFeePayments.map((p, idx) => {
+                                        const isSlip = Boolean(p.status === 'PENDING_CLEARANCE' || (p.isReceivingSlip && !p.billId && p.status !== 'PAID' && p.status !== 'COMPLETED' && p.status !== 'REJECTED'));
+                                        return (
+                                            <button
+                                                key={p.billId || p._id || idx}
+                                                onClick={() => {
+                                                    setSelectedInstForBill({
+                                                        ...p,
+                                                        isReceivingSlip: isSlip,
+                                                        status: isSlip ? 'PENDING_CLEARANCE' : 'PAID'
+                                                    });
+                                                    setPreloadedBillData(null);
+                                                    setShowBillGenerator(true);
+                                                }}
+                                                className={`w-full py-2 border rounded-lg font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${
+                                                    isSlip
+                                                        ? 'border-amber-500/50 text-amber-500 hover:bg-amber-500 hover:text-black'
+                                                        : 'border-emerald-500/50 text-emerald-500 hover:bg-emerald-500 hover:text-black'
+                                                }`}
+                                            >
+                                                <FaFileInvoice />
+                                                {isSlip ? 'VIEW RECEIVING SLIP' : 'VIEW BILL'} {additionalFeePayments.length > 1 ? `#${idx + 1}` : ''}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>

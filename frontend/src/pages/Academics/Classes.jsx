@@ -1599,7 +1599,8 @@ const Classes = () => {
             dateStr = d.toISOString().split('T')[0];
         }
         const [year, month, day] = dateStr.split('-').map(Number);
-        const [hours, minutes] = (timeStr || "00:00").split(':').map(Number);
+        const cleanTime = String(timeStr || "00:00").trim().replace('.', ':');
+        const [hours, minutes] = cleanTime.split(':').map(Number);
         return new Date(year, month - 1, day, isNaN(hours) ? 0 : hours, isNaN(minutes) ? 0 : minutes, 0, 0);
     };
 
@@ -2492,10 +2493,9 @@ const Classes = () => {
                                     <tr><td colSpan="16" className="p-12 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes found with selected filters</td></tr>
                                 ) : (
                                     classes.map((cls) => {
+                                        if (!cls) return null;
                                         const schedStart = parseClassDateTime(cls.date, cls.startTime);
-                                        const schedEnd = parseClassDateTime(cls.date, cls.endTime);
                                         const isStartReached = !schedStart || currentTime >= schedStart;
-                                        const isEndReached = !schedEnd || currentTime >= schedEnd;
 
                                         return (
                                         <tr key={cls._id} className={`transition-colors text-sm group ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-50 text-gray-600'}`}>
@@ -2601,13 +2601,8 @@ const Classes = () => {
                                                             {isAcademicAdmin ? (
                                                                 <button
                                                                     onClick={() => handleEndClass(cls._id)}
-                                                                    disabled={!isEndReached}
-                                                                    className={`px-3 py-1 rounded text-[10px] font-bold uppercase border transition-all ${
-                                                                        !isEndReached
-                                                                            ? "bg-gray-600/10 text-gray-500 border-gray-600/20 cursor-not-allowed opacity-50"
-                                                                            : "bg-red-600 text-white border-red-700 hover:bg-red-700 transition-all shadow-lg animate-pulse cursor-pointer"
-                                                                    }`}
-                                                                    title={!isEndReached ? `Class can only be ended at or after ${cls.endTime}` : "End Class"}
+                                                                    className="bg-red-600 text-white border border-red-700 hover:bg-red-700 px-3 py-1 rounded text-[10px] font-bold uppercase transition-all shadow-lg animate-pulse cursor-pointer"
+                                                                    title="End Class"
                                                                 >
                                                                     End
                                                                 </button>

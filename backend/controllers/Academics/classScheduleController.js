@@ -1307,7 +1307,8 @@ export const parseClassDateTime = (dateVal, timeStr) => {
         dateStr = d.toISOString().split('T')[0];
     }
     const [year, month, day] = dateStr.split('-').map(Number);
-    const [hours, minutes] = (timeStr || "00:00").split(':').map(Number);
+    const cleanTime = String(timeStr || "00:00").trim().replace('.', ':');
+    const [hours, minutes] = cleanTime.split(':').map(Number);
     return new Date(year, month - 1, day, isNaN(hours) ? 0 : hours, isNaN(minutes) ? 0 : minutes, 0, 0);
 };
 
@@ -1771,14 +1772,6 @@ export const endClass = async (req, res) => {
         // Permission Check
         if (!ALL_ROLES_FOR_CLASS.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
-        }
-
-        // Check if scheduled end time has arrived
-        const schedEndTime = parseClassDateTime(currentClass.date, currentClass.endTime);
-        if (schedEndTime && new Date() < schedEndTime) {
-            return res.status(400).json({
-                message: `Class cannot be ended before scheduled end time (${currentClass.endTime})`
-            });
         }
 
         currentClass.status = "Completed";
@@ -2910,16 +2903,10 @@ export const bulkEndClass = async (req, res) => {
         }
 
         const classesToEnd = await ClassSchedule.find(query);
-        const now = new Date();
-        const eligibleClassIds = classesToEnd
-            .filter(c => {
-                const schedEndTime = parseClassDateTime(c.date, c.endTime);
-                return !schedEndTime || now >= schedEndTime;
-            })
-            .map(c => c._id);
+        const eligibleClassIds = classesToEnd.map(c => c._id);
 
         if (eligibleClassIds.length === 0) {
-            return res.status(400).json({ message: "None of the selected classes have reached their scheduled end time yet." });
+            return res.status(400).json({ message: "No eligible ongoing classes to end." });
         }
 
         const result = await ClassSchedule.updateMany(

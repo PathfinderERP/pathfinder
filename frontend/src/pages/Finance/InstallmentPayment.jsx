@@ -1713,11 +1713,31 @@ const InstallmentPayment = () => {
                 toast.success(dataToSubmit.paymentMethod === "CHEQUE" ? "Cheque recorded! Pending clearance." : "Payment successful!");
                 setShowPayModal(false);
 
-                // Show bill generator only for non-CHEQUE payments.
-                // For CHEQUE: no bill is generated until cleared in Cheque Management.
-                if (dataToSubmit.paymentMethod !== "CHEQUE") {
+                // Show bill generator for non-CHEQUE payments, or receiving slip for CHEQUE payments
+                if (dataToSubmit.paymentMethod === "CHEQUE") {
                     setBillModal({
                         show: true,
+                        isReceivingSlip: true,
+                        admission: data.admission,
+                        installment: {
+                            installmentNumber: activeInstallment.installmentNumber,
+                            amount: activeInstallment.amount,
+                            paidAmount: dataToSubmit.paidAmount,
+                            paidDate: new Date(),
+                            receivedDate: dataToSubmit.receivedDate,
+                            paymentMethod: "CHEQUE",
+                            transactionId: dataToSubmit.transactionId,
+                            bankName: dataToSubmit.bankName,
+                            accountHolderName: dataToSubmit.accountHolderName,
+                            chequeDate: dataToSubmit.chequeDate,
+                            status: "PENDING_CLEARANCE",
+                            isReceivingSlip: true
+                        }
+                    });
+                } else {
+                    setBillModal({
+                        show: true,
+                        isReceivingSlip: false,
                         admission: data.admission,
                         installment: {
                             installmentNumber: activeInstallment.installmentNumber,
@@ -4039,9 +4059,27 @@ const InstallmentPayment = () => {
                                                                                 </button>
                                                                             )}
                                                                             {installment.status === "PENDING_CLEARANCE" && (
-                                                                                <span className="px-2 py-1 bg-amber-500/10 text-amber-500 border border-amber-500/20 text-[10px] font-black uppercase rounded-lg tracking-wider">
-                                                                                    Cheque In Process
-                                                                                </span>
+                                                                                <button
+                                                                                    onClick={() => setBillModal({
+                                                                                        show: true,
+                                                                                        isReceivingSlip: true,
+                                                                                        admission: { ...admission, _id: admission.admissionId },
+                                                                                        installment: {
+                                                                                            installmentNumber: installment.installmentNumber,
+                                                                                            amount: installment.amount,
+                                                                                            paidAmount: installment.paidAmount || installment.amount,
+                                                                                            paidDate: installment.paidDate || new Date(),
+                                                                                            paymentMethod: "CHEQUE",
+                                                                                            status: "PENDING_CLEARANCE",
+                                                                                            isReceivingSlip: true
+                                                                                        }
+                                                                                    })}
+                                                                                    className="p-2 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 rounded-lg border border-amber-500/20 transition-all group/btn flex items-center gap-1 text-[10px] font-black uppercase"
+                                                                                    title="View Receiving Slip"
+                                                                                >
+                                                                                    <FaFileInvoice className="group-hover/btn:scale-110 transition-transform" />
+                                                                                    SLIP
+                                                                                </button>
                                                                             )}
                                                                         </td>
                                                                     </tr>
@@ -4289,7 +4327,8 @@ const InstallmentPayment = () => {
                     <BillGenerator
                         admission={billModal.admission}
                         installment={billModal.installment}
-                        onClose={() => setBillModal({ show: false, admission: null, installment: null })}
+                        isReceivingSlip={billModal.isReceivingSlip || billModal.installment?.isReceivingSlip}
+                        onClose={() => setBillModal({ show: false, admission: null, installment: null, isReceivingSlip: false })}
                     />
                 )}
 

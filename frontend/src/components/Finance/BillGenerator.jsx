@@ -4,7 +4,7 @@ import { toast } from 'react-toastify';
 import jsPDF from 'jspdf';
 import logo from '../../assets/logo-1.svg';
 
-const BillGenerator = ({ admission, installment, onClose, preloadedBillData = null }) => {
+const BillGenerator = ({ admission, installment, onClose, preloadedBillData = null, isReceivingSlip = false }) => {
     const [generating, setGenerating] = useState(false);
     const generatingRef = useRef(false);
     const [billData, setBillData] = useState(preloadedBillData);  // pre-populate if provided
@@ -12,9 +12,32 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
     const apiUrl = import.meta.env.VITE_API_URL;
     const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : '';
 
+    // A document is a provisional receiving slip ONLY when explicitly requested or when an uncleared cheque is actively pending clearance.
+    // If the payment is cleared/paid, or explicitly marked as not a receiving slip, it is ALWAYS an official Bill.
+    const isClearedOrPaid = installment?.status === 'PAID' || 
+                            installment?.status === 'COMPLETED' || 
+                            billData?.payment?.status === 'PAID' || 
+                            billData?.payment?.status === 'COMPLETED' ||
+                            Boolean(installment?.billId && installment?.billId !== 'PENDING') ||
+                            Boolean(billData?.billId);
+
+    const isExplicitlySlip = isReceivingSlip === true || 
+                             installment?.isReceivingSlip === true || 
+                             preloadedBillData?.isReceivingSlip === true || 
+                             billData?.isReceivingSlip === true;
+
+    const isChequePendingClearance = installment?.status === 'PENDING_CLEARANCE' || 
+                                     billData?.payment?.status === 'PENDING_CLEARANCE';
+
+    const isSlip = Boolean(
+        !isClearedOrPaid && (isChequePendingClearance || isExplicitlySlip)
+    );
+
     useEffect(() => {
         if (preloadedBillData) {
             setBillData(preloadedBillData);
+        } else if (admission && installment && !billData && !generatingRef.current) {
+            generateBill();
         }
     }, [preloadedBillData]);
 
@@ -54,11 +77,17 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
             const queryParams = new URLSearchParams();
             if (installment.billingMonth) queryParams.append('billingMonth', installment.billingMonth);
             if (installment.billId) queryParams.append('billId', installment.billId);
+            if (installment._id) queryParams.append('paymentId', installment._id);
             
             const queryString = queryParams.toString() ? `?${queryParams.toString()}` : '';
+            const instNum = installment.installmentNumber !== undefined ? installment.installmentNumber : 0;
+
+            const endpoint = isSlip
+                ? `${apiUrl}/payment/receiving-slip/${admission._id}/${instNum}${queryString}`
+                : `${apiUrl}/payment/generate-bill/${admission._id}/${instNum}${queryString}`;
 
             const response = await fetch(
-                `${apiUrl}/payment/generate-bill/${admission._id}/${installment.installmentNumber}${queryString}`,
+                endpoint,
                 {
                     method: 'POST',
                     headers: {
@@ -72,18 +101,19 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
 
             if (data.success) {
                 setBillData(data.data);
-                toast.success('Bill generated successfully!');
+                toast.success(isSlip ? 'Receiving slip generated successfully!' : 'Bill generated successfully!');
             } else {
-                toast.error(data.message || 'Failed to generate bill');
+                toast.error(data.message || (isSlip ? 'Failed to generate receiving slip' : 'Failed to generate bill'));
             }
         } catch (error) {
-            console.error('Error generating bill:', error);
-            toast.error('Error generating bill');
+            console.error('Error generating bill/slip:', error);
+            toast.error(isSlip ? 'Error generating receiving slip' : 'Error generating bill');
         } finally {
             generatingRef.current = false;
             setGenerating(false);
         }
     };
+
 
     const numberToWords = (num) => {
         if (!num) return "Zero Only";
@@ -168,8 +198,8 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
             const status = billData.payment?.status;
             const method = localSafeStr(billData.payment?.paymentMethod).toUpperCase();
 
-            let statusLabel = "RECEIVED";
-            let statusColor = [0, 150, 0]; // Green
+            let statusLabel = isSlip ? "IN PROCESS" : "RECEIVED";
+            let statusColor = isSlip ? [0, 100, 220] : [0, 150, 0]; // Blue for slip, Green for received bill
 
             if (status === "REJECTED") {
                 statusLabel = "REJECTED";
@@ -177,9 +207,9 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
             } else if (status === "CANCELLED") {
                 statusLabel = "CANCELLED";
                 statusColor = [150, 150, 150]; // Gray
-            } else if (status === "PENDING_CLEARANCE" || (method === "CHEQUE" && status === "PENDING")) {
+            } else if (status === "PENDING_CLEARANCE" || (method === "CHEQUE" && status === "PENDING") || isSlip) {
                 statusLabel = "IN PROCESS";
-                statusColor = [0, 0, 200]; // Blue
+                statusColor = [0, 100, 220]; // Blue
             }
 
             doc.setTextColor(...statusColor);
@@ -250,11 +280,11 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
             doc.text(localSafeStr(gstToDisplay), xOffset + margin + 13, yPos + 4.5);
             yPos += rowHeight;
 
-            // MONEY RECEIPT
+            // RECEIPT / SLIP TITLE
             doc.rect(xOffset + margin, yPos, tableWidth, rowHeight);
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(8.5);
-            doc.text('MONEY RECEIPT', xOffset + halfWidth / 2, yPos + 4.2, { align: 'center' });
+            doc.text(isSlip ? 'CHEQUE RECEIVING SLIP' : 'MONEY RECEIPT', xOffset + halfWidth / 2, yPos + 4.2, { align: 'center' });
             yPos += rowHeight;
 
             // Branch | Received Date
@@ -274,12 +304,12 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
             doc.text(receivedDateStr, midX + 21, yPos + 4.2);
             yPos += rowHeight;
 
-            // Receipt No | Date
+            // Receipt No / Slip Ref | Date (No Bill ID on Cheque Receiving Slip!)
             doc.rect(xOffset + margin, yPos, halfWidth / 2 - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            doc.text('Receipt No.:', xOffset + margin + 2, yPos + 4.2);
+            doc.text(isSlip ? 'Slip Ref:' : 'Receipt No.:', xOffset + margin + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
-            doc.text(localSafeStr(billData.billId), xOffset + margin + 22, yPos + 4.2);
+            doc.text(isSlip ? 'CHEQUE ACKNOWLEDGEMENT' : localSafeStr(billData.billId), xOffset + margin + (isSlip ? 16 : 22), yPos + 4.2);
             doc.rect(midX, yPos, halfWidth / 2 - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
             doc.text('Date:', midX + 2, yPos + 4.2);
@@ -356,25 +386,25 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
             doc.text('Mode:', xOffset + margin + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
             doc.text(localSafeStr(billData.payment?.paymentMethod), xOffset + margin + 13, yPos + 4.2);
+            const paymentMethod2 = localSafeStr(billData.payment?.paymentMethod).toUpperCase();
             doc.rect(midX, yPos, halfWidth / 2 - margin, rowHeight);
             doc.setFont('helvetica', 'normal');
-            doc.text('Txn ID:', midX + 2, yPos + 4.2);
+            doc.text(isSlip || paymentMethod2 === 'CHEQUE' ? 'Chq No:' : 'Txn ID:', midX + 2, yPos + 4.2);
             doc.setFont('helvetica', 'bold');
-            const paymentMethod2 = localSafeStr(billData.payment?.paymentMethod).toUpperCase();
-            doc.text(paymentMethod2 === 'CASH' ? '/cash' : localSafeStr(billData.payment?.transactionId), midX + 15, yPos + 4.2);
+            doc.text(paymentMethod2 === 'CASH' ? '/cash' : localSafeStr(billData.payment?.transactionId), midX + (isSlip || paymentMethod2 === 'CHEQUE' ? 18 : 15), yPos + 4.2);
             yPos += rowHeight;
 
             // Cheque/Bank Details (Conditional)
-            if (['CHEQUE', 'BANK_TRANSFER'].includes(paymentMethod2)) {
+            if (['CHEQUE', 'BANK_TRANSFER'].includes(paymentMethod2) || isSlip) {
                 doc.rect(xOffset + margin, yPos, halfWidth / 2 - margin, rowHeight);
                 doc.setFont('helvetica', 'normal');
                 doc.setFontSize(7.5);
-                doc.text(paymentMethod2 === 'CHEQUE' ? 'Chq Name:' : 'Payer:', xOffset + margin + 2, yPos + 4.2);
+                doc.text(paymentMethod2 === 'CHEQUE' || isSlip ? 'Chq Name:' : 'Payer:', xOffset + margin + 2, yPos + 4.2);
                 doc.setFont('helvetica', 'bold');
                 doc.text(localSafeStr(billData.payment?.accountHolderName), xOffset + margin + 20, yPos + 4.2);
                 doc.rect(midX, yPos, halfWidth / 2 - margin, rowHeight);
                 doc.setFont('helvetica', 'normal');
-                doc.text(paymentMethod2 === 'CHEQUE' ? 'Chq Date:' : 'Pay Date:', midX + 2, yPos + 4.2);
+                doc.text(paymentMethod2 === 'CHEQUE' || isSlip ? 'Chq Date:' : 'Pay Date:', midX + 2, yPos + 4.2);
                 doc.setFont('helvetica', 'bold');
                 const cDate = billData.payment?.chequeDate ? new Date(billData.payment.chequeDate).toLocaleDateString('en-IN') : 'N/A';
                 doc.text(cDate, midX + 18, yPos + 4.2);
@@ -402,7 +432,9 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
             doc.rect(xOffset + margin, yPos, noteBoxWidth, footerHeight);
             doc.setFontSize(6);
             doc.setFont('helvetica', 'bold');
-            const noteText = 'Note: Fees are not refundable under any circumstances and cannot be adjusted against any other name or course.';
+            const noteText = isSlip
+                ? 'Note: This is a provisional receiving slip issued for cheque payment subject to realization in bank account. Official Money Receipt with Bill No. will be generated upon realization. Fees are non-refundable.'
+                : 'Note: Fees are not refundable under any circumstances and cannot be adjusted against any other name or course.';
             const wrappedNote = doc.splitTextToSize(noteText, noteBoxWidth - 4);
             doc.text(wrappedNote, xOffset + margin + 2, yPos + 4);
             doc.rect(xOffset + margin + noteBoxWidth, yPos, signBoxWidth, footerHeight);
@@ -447,8 +479,15 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
         try {
             const doc = createPDFDoc();
             const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : '';
-            doc.save(`Bill_${safeStr(billData.billId)}.pdf`);
-            toast.success('Bill downloaded successfully!');
+            if (isSlip) {
+                const chq = safeStr(billData.payment?.transactionId || 'Cheque').replace(/[^a-zA-Z0-9_-]/g, '_');
+                const sName = safeStr(billData.student?.name || 'Student').replace(/\s+/g, '_');
+                doc.save(`Receiving_Slip_${sName}_${chq}.pdf`);
+                toast.success('Receiving slip downloaded successfully!');
+            } else {
+                doc.save(`Bill_${safeStr(billData.billId)}.pdf`);
+                toast.success('Bill downloaded successfully!');
+            }
         } catch (error) {
             console.error("PDF Generation Error:", error);
             toast.error("Failed to generate PDF. Please try again.");
@@ -477,7 +516,7 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                 <div className="p-4 sm:p-6 border-b border-gray-700 flex justify-between items-center sticky top-0 bg-[#1a1f24] z-10">
                     <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
                         <FaFileInvoice className="text-cyan-400" />
-                        Bill Generator
+                        {isSlip ? "Cheque Receiving Slip" : "Bill Generator"}
                     </h2>
                     <button
                         onClick={onClose}
@@ -491,45 +530,65 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                 <div className="p-3 sm:p-6">
                     {!billData ? (
                         <div className="text-center py-12">
-                            <FaFileInvoice className="text-6xl text-gray-600 mx-auto mb-4" />
-                            <h3 className="text-xl font-semibold text-white mb-2">
-                                Generate Bill for Installment #{installment?.installmentNumber}
-                            </h3>
-                            <p className="text-gray-400 mb-6">
-                                Click the button below to generate a bill for this payment
-                            </p>
-                            {/* Only show generate button for non-preloaded flows */}
-                            {!preloadedBillData && (
-                                <button
-                                    onClick={generateBill}
-                                    disabled={generating}
-                                    className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center gap-2 mx-auto disabled:opacity-50"
-                                >
-                                    {generating ? (
-                                        <>
-                                            <FaSpinner className="animate-spin" />
-                                            Generating...
-                                        </>
-                                    ) : (
-                                        <>
+                            {generating ? (
+                                <>
+                                    <FaSpinner className="animate-spin text-5xl text-cyan-400 mx-auto mb-4" />
+                                    <h3 className="text-xl font-semibold text-white mb-2">
+                                        Generating {isSlip ? "Receiving Slip" : "Bill"}...
+                                    </h3>
+                                    <p className="text-gray-400 mb-6">
+                                        Please wait while we retrieve the {isSlip ? "cheque receiving slip" : "bill"}.
+                                    </p>
+                                </>
+                            ) : (
+                                <>
+                                    <FaFileInvoice className="text-6xl text-gray-600 mx-auto mb-4" />
+                                    <h3 className="text-xl font-semibold text-white mb-2">
+                                        Generate {isSlip ? "Receiving Slip" : "Bill"} for Installment #{installment?.installmentNumber !== undefined ? installment.installmentNumber : 0}
+                                    </h3>
+                                    <p className="text-gray-400 mb-6">
+                                        Click the button below to generate a {isSlip ? "provisional cheque receiving slip" : "bill"} for this payment
+                                    </p>
+                                    {!preloadedBillData && (
+                                        <button
+                                            onClick={generateBill}
+                                            disabled={generating}
+                                            className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center gap-2 mx-auto disabled:opacity-50"
+                                        >
                                             <FaFileInvoice />
-                                            Generate Bill
-                                        </>
+                                            Generate {isSlip ? "Receiving Slip" : "Bill"}
+                                        </button>
                                     )}
-                                </button>
+                                </>
                             )}
                         </div>
                     ) : (
                         <div>
-                            {/* Bill Preview */}
+                            {/* Provisional Alert Notice for Cheque Receiving Slip */}
+                            {isSlip && (
+                                <div className="mb-4 p-3.5 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300 text-xs flex items-center gap-3">
+                                    <span className="font-bold uppercase tracking-wider bg-blue-500/20 text-blue-400 px-2.5 py-1 rounded text-[10px] whitespace-nowrap">
+                                        PROVISIONAL SLIP
+                                    </span>
+                                    <span>
+                                        This is a provisional receiving slip issued for cheque payment. Official Bill No. will be generated only after cheque clearance in Cheque Management.
+                                    </span>
+                                </div>
+                            )}
+
+                            {/* Bill / Slip Preview */}
                             <div className="bg-[#252b32] rounded-lg p-3 sm:p-6 mb-6">
-                                {/* Bill Header */}
+                                {/* Header */}
                                 <div className="text-center mb-6 pb-6 border-b border-gray-700">
                                     <h1 className="text-2xl sm:text-3xl font-bold text-cyan-400 mb-2">PATHFINDER ERP</h1>
-                                    <p className="text-xs sm:text-sm text-gray-400">Fee Payment Receipt</p>
+                                    <p className="text-xs sm:text-sm text-gray-400">
+                                        {isSlip ? "Cheque Payment Receiving Slip (Provisional)" : "Fee Payment Receipt"}
+                                    </p>
                                     <div className="flex flex-col sm:flex-row justify-between mt-4 text-xs sm:text-sm gap-2 items-start sm:items-center">
                                         <div className="text-left">
-                                            <span className="text-white font-semibold block">Bill ID: {billData.billId}</span>
+                                            <span className="text-white font-semibold block">
+                                                {isSlip ? "Slip Ref: CHEQUE ACKNOWLEDGEMENT" : `Bill ID: ${billData.billId}`}
+                                            </span>
                                             <span className="text-gray-400 block">Date: {new Date(billData.billDate).toLocaleDateString('en-IN')}</span>
                                         </div>
                                         <div className="text-left sm:text-right">
@@ -543,7 +602,7 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                                 if (status === "CANCELLED") {
                                                     return <span className="text-xs sm:text-sm font-bold px-3 py-1 rounded-full bg-gray-500/20 text-gray-400">CANCELLED</span>;
                                                 }
-                                                if (status === "PENDING_CLEARANCE" || (method === "CHEQUE" && status === "PENDING")) {
+                                                if (status === "PENDING_CLEARANCE" || (method === "CHEQUE" && status === "PENDING") || isSlip) {
                                                     return <span className="text-xs sm:text-sm font-bold px-3 py-1 rounded-full bg-blue-500/20 text-blue-400">IN PROCESS</span>;
                                                 }
                                                 return <span className="text-xs sm:text-sm font-bold px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-400">RECEIVED</span>;
@@ -594,7 +653,7 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                         </div>
                                         {billData.payment.paymentMethod?.toUpperCase() !== 'CASH' && (
                                             <div className="break-all">
-                                                <span className="text-gray-400">Transaction ID:</span> 
+                                                <span className="text-gray-400">{isSlip || billData.payment.paymentMethod?.toUpperCase() === 'CHEQUE' ? 'Cheque No:' : 'Transaction ID:'}</span>
                                                 <span className="text-white font-medium ml-1">
                                                     {billData.payment.transactionId || (installment?.transactionId || 'N/A')}
                                                 </span>
@@ -603,6 +662,7 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                         <div><span className="text-gray-400">Payment Date:</span> <span className="text-white font-medium">{new Date(billData.payment.paidDate || billData.payment.receivedDate).toLocaleDateString('en-IN')}</span></div>
                                         {['CHEQUE', 'BANK_TRANSFER'].includes(billData.payment.paymentMethod) && (
                                             <>
+                                                <div><span className="text-gray-400">{isSlip || billData.payment.paymentMethod === 'CHEQUE' ? 'Bank Name:' : 'Bank:'}</span> <span className="text-white font-medium">{billData.payment.bankName || 'N/A'}</span></div>
                                                 <div><span className="text-gray-400">Payer Name:</span> <span className="text-white font-medium">{billData.payment.accountHolderName || 'N/A'}</span></div>
                                                 <div><span className="text-gray-400">Cheque Date:</span> <span className="text-white font-medium">{billData.payment.chequeDate ? new Date(billData.payment.chequeDate).toLocaleDateString('en-IN') : 'N/A'}</span></div>
                                             </>
@@ -654,7 +714,9 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                 </div>
 
                                 <p className="text-xs text-gray-500 text-center mt-6 italic">
-                                    This is a computer-generated receipt and does not require a signature.
+                                    {isSlip
+                                        ? "This is a computer-generated provisional cheque receiving slip. It does not require a signature."
+                                        : "This is a computer-generated receipt and does not require a signature."}
                                 </p>
                             </div>
 
@@ -665,7 +727,7 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                     className="px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center justify-center gap-2 w-full sm:w-auto text-sm"
                                 >
                                     <FaDownload />
-                                    Download PDF
+                                    {isSlip ? "Download Receiving Slip PDF" : "Download PDF"}
                                 </button>
                                 <button
                                     onClick={printBill}
@@ -684,3 +746,4 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
 };
 
 export default BillGenerator;
+

@@ -1642,11 +1642,29 @@ const EnrolledStudentsContent = () => {
                 }
                 setShowPaymentModal(false);
 
-                // Show bill generator only for non-CHEQUE payments.
-                // For CHEQUE: no bill until cleared in Cheque Management.
-                if (paymentData.paymentMethod !== "CHEQUE") {
+                // Show bill generator for non-CHEQUE payments, or receiving slip for CHEQUE payments
+                if (paymentData.paymentMethod === "CHEQUE") {
                     setBillModal({
                         show: true,
+                        isReceivingSlip: true,
+                        admission: data.admission || selectedAdmission,
+                        installment: {
+                            ...selectedInstallment,
+                            paidAmount: paymentData.paidAmount,
+                            paymentMethod: "CHEQUE",
+                            transactionId: paymentData.transactionId,
+                            bankName: paymentData.bankName,
+                            accountHolderName: paymentData.accountHolderName,
+                            chequeDate: paymentData.chequeDate,
+                            receivedDate: paymentData.receivedDate || new Date(),
+                            status: "PENDING_CLEARANCE",
+                            isReceivingSlip: true
+                        }
+                    });
+                } else {
+                    setBillModal({
+                        show: true,
+                        isReceivingSlip: false,
                         admission: data.admission || selectedAdmission,
                         installment: {
                             ...selectedInstallment,
@@ -3573,19 +3591,32 @@ const EnrolledStudentsContent = () => {
                                                         </p>
                                                         {admission.downPayment > 0 && (
                                                             <button
-                                                                onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({
-                                                                    show: true,
-                                                                    admission: admission,
-                                                                    installment: {
-                                                                        installmentNumber: 0,
-                                                                        status: admission.downPaymentStatus || "PAID"
-                                                                    }
-                                                                })}
+                                                                onClick={() => {
+                                                                    if (selectedStudent.status === 'Deactivated') return;
+                                                                    const isChequeDown = admission.downPaymentStatus === "PENDING_CLEARANCE";
+                                                                    setBillModal({
+                                                                        show: true,
+                                                                        isReceivingSlip: isChequeDown,
+                                                                        admission: admission,
+                                                                        installment: {
+                                                                            installmentNumber: 0,
+                                                                            paymentMethod: isChequeDown ? "CHEQUE" : undefined,
+                                                                            status: admission.downPaymentStatus || "PAID",
+                                                                            isReceivingSlip: isChequeDown
+                                                                        }
+                                                                    });
+                                                                }}
                                                                 disabled={selectedStudent.status === 'Deactivated'}
-                                                                className={`mt-2 text-[10px] px-2 py-1 rounded flex items-center gap-1 w-full justify-center transition-colors shadow-sm ${selectedStudent.status === 'Deactivated' ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-blue-500 hover:bg-blue-400 text-white'}`}
-                                                                title={selectedStudent.status === 'Deactivated' ? "Student is deactivated" : "Download Down Payment Receipt"}
+                                                                className={`mt-2 text-[10px] px-2 py-1 rounded flex items-center gap-1 w-full justify-center transition-colors shadow-sm ${
+                                                                    selectedStudent.status === 'Deactivated'
+                                                                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                                                        : admission.downPaymentStatus === "PENDING_CLEARANCE"
+                                                                            ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                                                                            : 'bg-blue-500 hover:bg-blue-400 text-white'
+                                                                }`}
+                                                                title={selectedStudent.status === 'Deactivated' ? "Student is deactivated" : admission.downPaymentStatus === "PENDING_CLEARANCE" ? "Download Receiving Slip" : "Download Down Payment Receipt"}
                                                             >
-                                                                <FaFileInvoice /> Receipt
+                                                                <FaFileInvoice /> {admission.downPaymentStatus === "PENDING_CLEARANCE" ? "Receiving Slip" : "Receipt"}
                                                             </button>
                                                         )}
                                                     </div>
@@ -3687,16 +3718,23 @@ const EnrolledStudentsContent = () => {
                                                                                         <button
                                                                                             onClick={() => setBillModal({
                                                                                                 show: true,
+                                                                                                isReceivingSlip: history.status === "PENDING_CLEARANCE",
                                                                                                 admission: admission,
                                                                                                 installment: {
                                                                                                     installmentNumber: 0,
                                                                                                     billingMonth: history.month,
-                                                                                                    status: history.status || "PAID"
+                                                                                                    paymentMethod: history.status === "PENDING_CLEARANCE" ? "CHEQUE" : undefined,
+                                                                                                    status: history.status || "PAID",
+                                                                                                    isReceivingSlip: history.status === "PENDING_CLEARANCE"
                                                                                                 }
                                                                                             })}
-                                                                                            className={`mt-4 w-full py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm'}`}
+                                                                                            className={`mt-4 w-full py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
+                                                                                                history.status === "PENDING_CLEARANCE"
+                                                                                                    ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                                                                                                    : isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm'
+                                                                                            }`}
                                                                                         >
-                                                                                            <FaFileInvoice size={10} /> Extract Bill
+                                                                                            <FaFileInvoice size={10} /> {history.status === "PENDING_CLEARANCE" ? "Receiving Slip" : "Extract Bill"}
                                                                                         </button>
                                                                                     )}
                                                                                 </div>
@@ -3804,11 +3842,29 @@ const EnrolledStudentsContent = () => {
                                                                                                 ) : (
                                                                                                     ((isPaid || payment.status === "PENDING_CLEARANCE") && (payment.paidAmount > 0 || payment.amount > 0)) && (
                                                                                                         <button
-                                                                                                            onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: payment })}
+                                                                                                            onClick={() => {
+                                                                                                                if (selectedStudent.status === 'Deactivated') return;
+                                                                                                                const isSlip = payment.status === "PENDING_CLEARANCE";
+                                                                                                                setBillModal({
+                                                                                                                    show: true,
+                                                                                                                    isReceivingSlip: isSlip,
+                                                                                                                    admission: admission,
+                                                                                                                    installment: {
+                                                                                                                        ...payment,
+                                                                                                                        isReceivingSlip: isSlip
+                                                                                                                    }
+                                                                                                                });
+                                                                                                            }}
                                                                                                             disabled={selectedStudent.status === 'Deactivated'}
-                                                                                                            className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${selectedStudent.status === 'Deactivated' ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed') : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')}`}
+                                                                                                            className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${
+                                                                                                                selectedStudent.status === 'Deactivated'
+                                                                                                                    ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')
+                                                                                                                    : payment.status === "PENDING_CLEARANCE"
+                                                                                                                        ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200 shadow-sm')
+                                                                                                                        : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')
+                                                                                                            }`}
                                                                                                         >
-                                                                                                            <FaFileInvoice size={10} /> BILL
+                                                                                                            <FaFileInvoice size={10} /> {payment.status === "PENDING_CLEARANCE" ? "RECEIVING SLIP" : "BILL"}
                                                                                                         </button>
                                                                                                     )
                                                                                                 )}
@@ -3848,7 +3904,9 @@ const EnrolledStudentsContent = () => {
                                                                             admissionBillsData[admission._id].map((bill, bIdx) => (
                                                                                 <tr key={bill._id} className={`transition-all ${isDarkMode ? 'hover:bg-white/5' : 'hover:bg-gray-50'}`}>
                                                                                     <td className="p-4 text-[10px] font-bold text-gray-500 uppercase tracking-widest">{formatDate(bill.receivedDate || bill.paidDate || bill.createdAt)}</td>
-                                                                                    <td className={`p-4 font-black text-[10px] tracking-widest ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{bill.billId || "MANUAL_ADJ"}</td>
+                                                                                    <td className={`p-4 font-black text-[10px] tracking-widest ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                                                                        {bill.billId || ((bill.isReceivingSlip || (bill.paymentMethod === 'CHEQUE' && bill.status === 'PENDING_CLEARANCE')) ? "PENDING CLEARANCE" : "MANUAL_ADJ")}
+                                                                                    </td>
                                                                                     <td className="p-4 text-green-500 font-black text-[11px] tracking-widest italic">₹{fmt(bill.paidAmount)}</td>
                                                                                     <td className="p-4 text-[9px] font-black uppercase tracking-widest text-gray-500">{bill.paymentMethod || "UNSET"}</td>
                                                                                     <td className="p-4">
@@ -3858,16 +3916,35 @@ const EnrolledStudentsContent = () => {
                                                                                     </td>
                                                                                     {canEdit && (
                                                                                         <td className="p-4 text-center">
-                                                                                            {bill.billId && (["PAID", "COMPLETED"].includes(bill.status) || bill.status === "PENDING_CLEARANCE") && bill.paidAmount > 0 && (
-                                                                                                <button
-                                                                                                    onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({ show: true, admission: admission, installment: bill })}
-                                                                                                    disabled={selectedStudent.status === 'Deactivated'}
-                                                                                                    className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${selectedStudent.status === 'Deactivated' ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed') : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')}`}
-                                                                                                    title="Extract Receipt"
-                                                                                                >
-                                                                                                    <FaFileInvoice size={10} /> REC
-                                                                                                </button>
-                                                                                            )}
+                                                                                            {(() => {
+                                                                                                const isSlip = Boolean(bill.status === 'PENDING_CLEARANCE' || (bill.isReceivingSlip && !bill.billId && bill.status !== 'PAID' && bill.status !== 'COMPLETED'));
+                                                                                                const canShow = (bill.billId || isSlip) && (["PAID", "COMPLETED"].includes(bill.status) || bill.status === "PENDING_CLEARANCE") && bill.paidAmount > 0;
+                                                                                                if (!canShow) return null;
+                                                                                                return (
+                                                                                                    <button
+                                                                                                        onClick={() => selectedStudent.status !== 'Deactivated' && setBillModal({
+                                                                                                            show: true,
+                                                                                                            isReceivingSlip: isSlip,
+                                                                                                            admission: admission,
+                                                                                                            installment: {
+                                                                                                                ...bill,
+                                                                                                                isReceivingSlip: isSlip
+                                                                                                            }
+                                                                                                        })}
+                                                                                                        disabled={selectedStudent.status === 'Deactivated'}
+                                                                                                        className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${
+                                                                                                            selectedStudent.status === 'Deactivated'
+                                                                                                                ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')
+                                                                                                                : isSlip
+                                                                                                                    ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200 shadow-sm')
+                                                                                                                    : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')
+                                                                                                        }`}
+                                                                                                        title={isSlip ? "Download Receiving Slip" : "Extract Receipt"}
+                                                                                                    >
+                                                                                                        <FaFileInvoice size={10} /> {isSlip ? "SLIP" : "REC"}
+                                                                                                    </button>
+                                                                                                );
+                                                                                            })()}
                                                                                         </td>
                                                                                     )}
                                                                                 </tr>
@@ -4240,7 +4317,9 @@ const EnrolledStudentsContent = () => {
                 <BillGenerator
                     admission={billModal.admission}
                     installment={billModal.installment}
-                    onClose={() => setBillModal({ show: false, admission: null, installment: null })}
+                    preloadedBillData={billModal.preloadedBillData}
+                    isReceivingSlip={billModal.isReceivingSlip || billModal.installment?.isReceivingSlip}
+                    onClose={() => setBillModal({ show: false, admission: null, installment: null, preloadedBillData: null, isReceivingSlip: false })}
                 />
             )}
 

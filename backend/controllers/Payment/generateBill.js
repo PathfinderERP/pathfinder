@@ -217,7 +217,8 @@ export const generateBill = async (req, res) => {
             } else {
                 query = {
                     admission: admissionId,
-                    installmentNumber: paymentLookupNum // Use the matched index (0 or 1)
+                    installmentNumber: paymentLookupNum, // Use the matched index (0 or 1)
+                    status: { $nin: ["REJECTED", "CANCELLED"] }
                 };
 
                 if (isBoardType) {
@@ -541,21 +542,31 @@ export const getBillById = async (req, res) => {
 export const getBillsByAdmission = async (req, res) => {
     try {
         const { admissionId } = req.params;
+        const { includeCheques, all } = req.query;
 
-        const payments = await Payment.find({
-            admission: admissionId,
-            billId: { $exists: true, $ne: null }
-        }).populate({
+        const filter = { admission: admissionId };
+        if (includeCheques === 'true' || all === 'true') {
+            filter.$or = [
+                { billId: { $exists: true, $ne: null } },
+                { paymentMethod: "CHEQUE" }
+            ];
+        } else {
+            filter.billId = { $exists: true, $ne: null };
+        }
+
+        const payments = await Payment.find(filter).populate({
             path: 'admission',
             populate: [
                 { path: 'student' },
                 { path: 'course' }
             ]
-        }).sort({ paidDate: 1 });
+        }).sort({ paidDate: 1, receivedDate: 1 });
 
         const bills = payments.map(payment => ({
-            billId: payment.billId,
-            billDate: payment.paidDate,
+            _id: payment._id,
+            billId: payment.billId || null,
+            isReceivingSlip: !payment.billId && payment.paymentMethod === 'CHEQUE' && payment.status === 'PENDING_CLEARANCE',
+            billDate: payment.paidDate || payment.receivedDate,
             paidDate: payment.paidDate,
             receivedDate: payment.receivedDate,
             installmentNumber: payment.installmentNumber,
@@ -565,6 +576,10 @@ export const getBillsByAdmission = async (req, res) => {
             totalAmount: payment.totalAmount,
             paymentMethod: payment.paymentMethod,
             transactionId: payment.transactionId,
+            bankName: payment.bankName,
+            accountHolderName: payment.accountHolderName,
+            chequeDate: payment.chequeDate,
+            status: payment.status,
             remarks: payment.remarks,
             boardCourseName: payment.boardCourseName
         }));
@@ -580,3 +595,234 @@ export const getBillsByAdmission = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
+
+// Generate Receiving Slip for Cheque Payments (Strictly read-only, no Bill ID generation, no daily collection)
+export const generateReceivingSlip = async (req, res) => {
+    try {
+        const { admissionId, installmentNumber } = req.params;
+        const { billingMonth, paymentId } = { ...req.query, ...req.body };
+        const installmentNum = parseInt(installmentNumber) || 0;
+
+        // Find admission: try standard Admission first, then BoardCourseAdmission
+        let admission = await Admission.findById(admissionId)
+            .populate({
+                path: 'student',
+                populate: [
+                    { path: 'department' },
+                    { path: 'batches', select: 'batchName' }
+                ]
+            })
+            .populate('course')
+            .populate('board')
+            .populate('department')
+            .populate('examTag')
+            .populate('class');
+
+        let isBoardAdmission = false;
+
+        if (!admission) {
+            admission = await BoardCourseAdmission.findById(admissionId)
+                .populate({
+                    path: 'studentId',
+                    populate: [
+                        { path: 'department' },
+                        { path: 'batches', select: 'batchName' }
+                    ]
+                })
+                .populate('boardId')
+                .populate('department')
+                .populate('examTag');
+
+            if (admission) {
+                isBoardAdmission = true;
+                admission.student = admission.studentId;
+                admission.centre = admission.centre || "General";
+                admission.boardCourseName = admission.boardCourseName || (admission.boardId?.boardCourse || "Board Course");
+                admission.academicSession = admission.academicSession || "N/A";
+                admission.admissionNumber = admission.admissionNumber || "PENDING";
+            }
+        }
+
+        if (!admission) {
+            return res.status(404).json({ success: false, message: "Admission not found" });
+        }
+
+        // Centre resolution
+        let centre = await CentreSchema.findOne({ centreName: admission.centre });
+        if (!centre) {
+            centre = await CentreSchema.findOne({
+                centreName: { $regex: new RegExp(`^${admission.centre}$`, 'i') }
+            });
+        }
+        if (!centre) {
+            centre = {
+                centreName: admission.centre || "Pathfinder",
+                address: 'N/A',
+                phoneNumber: 'N/A',
+                enterGstNo: 'N/A',
+                enterCorporateOfficeAddress: '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                enterCorporateOfficePhoneNumber: '033 2455-1840 / 2454-4817 / 4668'
+            };
+        }
+
+        // Locate payment record or installment details
+        let payment = null;
+        if (paymentId) {
+            payment = await Payment.findById(paymentId);
+        }
+
+        if (!payment) {
+            let paymentQuery = {
+                admission: admissionId,
+                paymentMethod: "CHEQUE"
+            };
+
+            if (isBoardAdmission) {
+                // In board admissions, installment numbers might be 0-indexed or 1-indexed
+                const candidates = [installmentNum, installmentNum - 1, installmentNum === 1 ? 0 : installmentNum].filter(n => n >= 0);
+                payment = await Payment.findOne({
+                    admission: admissionId,
+                    installmentNumber: { $in: candidates },
+                    paymentMethod: "CHEQUE"
+                }).sort({ createdAt: -1 });
+
+                if (!payment && billingMonth) {
+                    payment = await Payment.findOne({
+                        admission: admissionId,
+                        billingMonth,
+                        paymentMethod: "CHEQUE"
+                    }).sort({ createdAt: -1 });
+                }
+            } else {
+                payment = await Payment.findOne({
+                    admission: admissionId,
+                    installmentNumber: installmentNum,
+                    paymentMethod: "CHEQUE"
+                }).sort({ createdAt: -1 });
+            }
+        }
+
+        // Fallback: if no payment record has paymentMethod CHEQUE specifically queried, get latest payment for this installment
+        if (!payment) {
+            payment = await Payment.findOne({
+                admission: admissionId,
+                installmentNumber: isBoardAdmission && installmentNum > 0 ? { $in: [installmentNum, installmentNum - 1] } : installmentNum
+            }).sort({ createdAt: -1 });
+        }
+
+        // Extract installment data from admission structure if available
+        let instData = null;
+        if (isBoardAdmission && admission.installments) {
+            instData = admission.installments.find(i => i.monthNumber === installmentNum || i._id?.toString() === installmentNumber);
+        } else if (!isBoardAdmission && admission.paymentBreakdown) {
+            instData = admission.paymentBreakdown.find(p => p.installmentNumber === installmentNum);
+        }
+
+        // Check if payment is definitively cleared/approved with an official billId and PAID status
+        const isCleardCheque = payment && Boolean(payment.billId) && 
+                               (payment.status === "PAID" || payment.status === "COMPLETED") && 
+                               payment.status !== "REJECTED" && 
+                               payment.status !== "CANCELLED";
+
+        if (isCleardCheque) {
+            return generateBill(req, res);
+        }
+
+        // Determine paid amount
+        let actualPaidTotal = payment?.paidAmount || payment?.totalAmount || 0;
+        if (actualPaidTotal <= 0) {
+            if (installmentNum === 0 && admission.downPayment > 0) {
+                actualPaidTotal = admission.downPayment;
+            } else if (instData && (instData.paidAmount > 0 || instData.amount > 0)) {
+                actualPaidTotal = instData.paidAmount || instData.amount;
+            }
+        }
+
+        // Calculate fee breakdown
+        const exempt = isGstExempt({
+            centreName: centre.centreName,
+            admission,
+            student: admission.student || admission.studentId,
+            boardName: admission.boardCourseName
+        });
+
+        let finalCourseFee, finalCgst, finalSgst;
+        if (exempt) {
+            finalCourseFee = parseFloat(Number(actualPaidTotal).toFixed(2));
+            finalCgst = 0;
+            finalSgst = 0;
+        } else if (payment && payment.courseFee !== undefined && payment.cgst !== undefined && payment.sgst !== undefined && payment.courseFee > 0) {
+            finalCourseFee = parseFloat(Number(payment.courseFee).toFixed(2));
+            finalCgst = parseFloat(Number(payment.cgst).toFixed(2));
+            finalSgst = parseFloat(Number(payment.sgst).toFixed(2));
+        } else {
+            const billBase = actualPaidTotal / 1.18;
+            finalCourseFee = parseFloat(billBase.toFixed(2));
+            const finalGstPool = actualPaidTotal - finalCourseFee;
+            finalCgst = parseFloat((finalGstPool / 2).toFixed(2));
+            finalSgst = parseFloat((finalGstPool - finalCgst).toFixed(2));
+        }
+
+        const receivingSlipData = {
+            isReceivingSlip: true,
+            billId: null, // Strictly NO bill number for receiving slip
+            slipType: "CHEQUE RECEIVING SLIP",
+            slipDate: payment?.receivedDate || payment?.paidDate || instData?.receivedDate || new Date(),
+            billDate: payment?.receivedDate || payment?.paidDate || instData?.receivedDate || new Date(),
+            gstNumber: (centre.enterGstNo && centre.enterGstNo !== 'N/A') ? centre.enterGstNo : (centre.gstNumber || 'N/A'),
+            centre: {
+                name: centre.centreName || admission.centre,
+                address: centre.address || 'N/A',
+                phoneNumber: centre.phoneNumber || 'N/A',
+                gstNumber: centre.enterGstNo || 'N/A',
+                corporateAddress: centre.enterCorporateOfficeAddress || '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                corporatePhone: centre.enterCorporateOfficePhoneNumber || '033 2455-1840 / 2454-4817 / 4668'
+            },
+            student: {
+                id: (admission.student?._id || admission.studentId?._id || admission.studentId || 'N/A'),
+                name: (admission.student?.studentsDetails?.[0]?.studentName || admission.studentName || 'N/A'),
+                admissionNumber: admission.admissionNumber || (admission.student?.studentsDetails?.[0]?.rollNo || 'N/A'),
+                phoneNumber: (admission.student?.studentsDetails?.[0]?.mobileNum || admission.mobileNum || 'N/A'),
+                email: (admission.student?.studentsDetails?.[0]?.studentEmail || 'N/A')
+            },
+            course: {
+                name: payment?.boardCourseName || (admission.boardCourseName || (admission.course?.courseName || 'N/A')),
+                department: admission.department?.departmentName || admission.student?.department?.departmentName || 'N/A',
+                examTag: admission.examTag?.name || admission.examTag?.tagName || (admission.student?.sessionExamCourse && admission.student.sessionExamCourse.find(sec => sec.session === admission.academicSession)?.examTag) || 'N/A',
+                class: admission.class?.name || admission.lastClass || (admission.student?.examSchema && admission.student.examSchema[0]?.class) || 'N/A',
+                session: admission.academicSession || 'N/A'
+            },
+            payment: {
+                installmentNumber: payment?.installmentNumber !== undefined ? payment.installmentNumber : installmentNum,
+                paymentMethod: "CHEQUE",
+                transactionId: payment?.transactionId || instData?.transactionId || admission.downPaymentTransactionId || 'N/A',
+                bankName: payment?.bankName || instData?.bankName || 'N/A',
+                accountHolderName: payment?.accountHolderName || instData?.accountHolderName || 'N/A',
+                chequeDate: payment?.chequeDate || instData?.chequeDate || null,
+                paidDate: payment?.paidDate || instData?.paidDate,
+                receivedDate: payment?.receivedDate || instData?.receivedDate || new Date(),
+                status: "PENDING_CLEARANCE",
+                remarks: payment?.remarks || instData?.remarks || admission.remarks || "Cheque Received (Subject to Realisation)"
+            },
+            amounts: {
+                grossFee: actualPaidTotal,
+                waiver: 0,
+                courseFee: finalCourseFee,
+                cgst: finalCgst,
+                sgst: finalSgst,
+                totalAmount: actualPaidTotal
+            }
+        };
+
+        return res.status(200).json({
+            success: true,
+            message: "Receiving slip generated successfully",
+            data: receivingSlipData
+        });
+
+    } catch (err) {
+        console.error("Error generating receiving slip:", err);
+        return res.status(500).json({ success: false, message: "Server error generating receiving slip", error: err.message });
+    }
+};
+

@@ -4,6 +4,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaArrowLeft, FaCalculator, FaMoneyBillWave, FaCalendarAlt, FaUserGraduate, FaCheckCircle, FaTrash } from 'react-icons/fa';
 import { useTheme } from '../context/ThemeContext';
+import BillGenerator from '../components/Finance/BillGenerator';
 
 const BoardCourseAdmissionPage = () => {
     const { studentId } = useParams();
@@ -13,6 +14,8 @@ const BoardCourseAdmissionPage = () => {
 
     const [loading, setLoading] = useState(false);
     const [student, setStudent] = useState(null);
+    const [receivingSlipModal, setReceivingSlipModal] = useState({ show: false, admission: null, installment: null, preloadedBillData: null });
+
     const [boards, setBoards] = useState([]);
     const [selectedBoard, setSelectedBoard] = useState(null);
     const [selectedSubjectIds, setSelectedSubjectIds] = useState([]);
@@ -541,8 +544,82 @@ const BoardCourseAdmissionPage = () => {
 
             const data = await response.json();
             if (response.ok) {
-                toast.success("Board Admission processed successfully!");
-                setTimeout(() => navigate(`/board-admissions?tab=Enrolled`), 1000);
+                const totalPaidToday = Number(downPayment) + Number(paidExamFee) + Number(paidAdditionalThings);
+                if (paymentMethod === "CHEQUE" && totalPaidToday > 0) {
+                    toast.success("Board Admission processed! Generating Cheque Receiving Slip...");
+                    const admissionData = data.admission || {};
+                    const centreName = counselData?.centre || student?.studentsDetails?.[0]?.centre || 'General';
+                    const sName = student?.studentsDetails?.[0]?.studentName || student?.studentName || '';
+                    const admNo = admissionData.admissionNumber || student?.admissionNumber || student?.studentsDetails?.[0]?.rollNo || 'PENDING';
+                    const phone = student?.studentsDetails?.[0]?.mobileNum || student?.mobileNum || '';
+                    const email = student?.studentsDetails?.[0]?.studentEmail || '';
+                    const courseName = selectedBoard?.boardCourse || 'Board Course';
+
+                    const feeBase = totalPaidToday / 1.18;
+                    const gstHalf = (totalPaidToday - feeBase) / 2;
+
+                    setReceivingSlipModal({
+                        show: true,
+                        admission: admissionData._id ? admissionData : { _id: admissionData._id || studentId, ...admissionData },
+                        installment: {
+                            installmentNumber: 0,
+                            amount: totalPaidToday,
+                            paidAmount: totalPaidToday,
+                            receivedDate,
+                            paymentMethod: "CHEQUE",
+                            transactionId,
+                            bankName,
+                            accountHolderName,
+                            chequeDate,
+                            status: "PENDING_CLEARANCE"
+                        },
+                        preloadedBillData: {
+                            isReceivingSlip: true,
+                            billId: null,
+                            slipType: "CHEQUE RECEIVING SLIP",
+                            billDate: receivedDate || new Date(),
+                            centre: {
+                                name: centreName,
+                                address: 'N/A'
+                            },
+                            student: {
+                                name: sName,
+                                admissionNumber: admNo,
+                                phoneNumber: phone,
+                                email: email
+                            },
+                            course: {
+                                name: Number(paidExamFee) > 0 ? `${courseName} + Examination` : courseName,
+                                department: selectedDepartment,
+                                examTag: selectedExamTag,
+                                class: lastClass,
+                                session: academicSession
+                            },
+                            payment: {
+                                installmentNumber: 0,
+                                paymentMethod: "CHEQUE",
+                                transactionId,
+                                bankName,
+                                accountHolderName,
+                                chequeDate,
+                                receivedDate,
+                                status: "PENDING_CLEARANCE",
+                                remarks: remarks || "Board Admission Initial Cheque Payment"
+                            },
+                            amounts: {
+                                grossFee: totalPaidToday,
+                                waiver: 0,
+                                courseFee: parseFloat(feeBase.toFixed(2)),
+                                cgst: parseFloat(gstHalf.toFixed(2)),
+                                sgst: parseFloat(gstHalf.toFixed(2)),
+                                totalAmount: totalPaidToday
+                            }
+                        }
+                    });
+                } else {
+                    toast.success("Board Admission processed successfully!");
+                    setTimeout(() => navigate(`/board-admissions?tab=Enrolled`), 1000);
+                }
             } else {
                 toast.error(data.message || "Something went wrong");
             }
@@ -1241,8 +1318,22 @@ const BoardCourseAdmissionPage = () => {
                     </div>
                 </div>
             </form>
+
+            {receivingSlipModal.show && (
+                <BillGenerator
+                    admission={receivingSlipModal.admission}
+                    installment={receivingSlipModal.installment}
+                    preloadedBillData={receivingSlipModal.preloadedBillData}
+                    isReceivingSlip={true}
+                    onClose={() => {
+                        setReceivingSlipModal({ show: false, admission: null, installment: null, preloadedBillData: null });
+                        navigate(`/board-admissions?tab=Enrolled`);
+                    }}
+                />
+            )}
         </div>
     );
 };
 
 export default BoardCourseAdmissionPage;
+

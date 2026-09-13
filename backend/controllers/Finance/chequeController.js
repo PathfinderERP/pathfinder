@@ -282,6 +282,8 @@ export const clearCheque = async (req, res) => {
         if (!admission) {
             admission = await BoardCourseAdmission.findById(payment.admission);
             isBoardAdmission = true;
+        } else if (admission.admissionType === "BOARD") {
+            isBoardAdmission = true;
         }
 
         if (!admission) {
@@ -314,19 +316,33 @@ export const clearCheque = async (req, res) => {
             const centreCode = centre?.enterCode || "GEN";
             payment.billId = await generateBillId(centreCode, clearedDate || new Date());
         }
+        payment.isReceivingSlip = false;
 
         await payment.save();
 
         if (isBoardAdmission) {
             // 2. Update Board Admission installments
-            const inst = admission.installments.find(i => i.monthNumber === payment.installmentNumber || i.monthNumber === (payment.installmentNumber + 1));
+            const inst = admission.installments?.find(i => 
+                (payment.transactionId && i.paymentTransactions?.some(t => t.transactionId === payment.transactionId)) ||
+                (payment.billingMonth && new Date(i.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) === payment.billingMonth) ||
+                (payment.installmentId && i._id?.toString() === payment.installmentId.toString()) ||
+                i.monthNumber === (payment.installmentNumber + 1) ||
+                i.monthNumber === payment.installmentNumber
+            );
             if (inst) {
-                // If paidAmount (already recorded) >= payableAmount, mark as PAID
-                if (inst.paidAmount >= (inst.payableAmount || 0) - 0.5) {
-                    inst.status = "PAID";
+                inst.status = "PAID";
+                inst.billId = payment.billId;
+                if (!inst.paidAmount || inst.paidAmount < payment.paidAmount) {
+                    inst.paidAmount = payment.paidAmount || inst.payableAmount;
                 }
+            }
 
-                // Also check and update the specific transaction status if needed (though Payment doc is the source)
+            if (admission.monthlySubjectHistory && payment.billingMonth) {
+                const hist = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
+                if (hist) {
+                    hist.isPaid = true;
+                    hist.status = "PAID";
+                }
             }
 
             // 3. Recalculate Board Admission totalPaidAmount
@@ -413,6 +429,8 @@ export const rejectCheque = async (req, res) => {
         if (!admission) {
             admission = await BoardCourseAdmission.findById(payment.admission);
             isBoardAdmission = true;
+        } else if (admission.admissionType === "BOARD") {
+            isBoardAdmission = true;
         }
 
         if (!admission) {
@@ -431,39 +449,61 @@ export const rejectCheque = async (req, res) => {
 
         if (isBoardAdmission) {
             // 2. Update Board Admission installments
-            const inst = admission.installments.find(i => i.monthNumber === payment.installmentNumber);
+            const inst = admission.installments?.find(i => 
+                (payment.transactionId && i.paymentTransactions?.some(t => t.transactionId === payment.transactionId)) ||
+                (payment.billingMonth && new Date(i.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) === payment.billingMonth) ||
+                (payment.installmentId && i._id?.toString() === payment.installmentId.toString()) ||
+                i.monthNumber === (payment.installmentNumber + 1) ||
+                i.monthNumber === payment.installmentNumber
+            );
             if (inst) {
-                // Subtract the rejected amount
-                inst.paidAmount = Math.max(0, (inst.paidAmount || 0) - (payment.paidAmount || 0));
-
-                // Reset to PENDING or OVERDUE
-                const today = new Date();
-                if (new Date(inst.dueDate) < today) {
-                    inst.status = "PENDING"; // Often labeled as pending until cleared, or "OVERDUE" if expired
-                    // Note: Board schema uses ["PENDING", "PARTIALLY_PAID", "PARTIAL", "PAID"]
-                    if (inst.paidAmount > 0) inst.status = "PARTIAL";
-                    else inst.status = "PENDING";
-                } else {
-                    if (inst.paidAmount > 0) inst.status = "PARTIAL";
-                    else inst.status = "PENDING";
+                // Find and remove the transaction from the array
+                if (payment.transactionId) {
+                    inst.paymentTransactions = (inst.paymentTransactions || []).filter(t => t.transactionId !== payment.transactionId);
                 }
 
-                // Find and remove the transaction from the array if possible
-                if (payment.transactionId) {
-                    inst.paymentTransactions = inst.paymentTransactions.filter(t => t.transactionId !== payment.transactionId);
+                // Recalculate true paid amount for this installment from remaining valid transactions
+                inst.paidAmount = (inst.paymentTransactions || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+
+                if (inst.paidAmount >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0) {
+                    inst.status = "PAID";
+                } else if (inst.paidAmount > 0.5) {
+                    inst.status = "PARTIAL";
+                } else {
+                    inst.status = "PENDING";
+                }
+            }
+
+            if (admission.monthlySubjectHistory && payment.billingMonth) {
+                const hist = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
+                if (hist) {
+                    hist.isPaid = false;
+                    hist.status = "PENDING";
+                    hist.paidAmount = Math.max(0, (hist.paidAmount || 0) - (payment.paidAmount || 0));
                 }
             }
 
             // 3. Recalculate Board Admission totals
-            // Check if it was an exam fee (some cheques might be for exam fees)
-            const isExamFee = payment.remarks?.toLowerCase().includes("exam");
+            // Check if it was an exam fee or additional fee
+            const isExamFee = payment.remarks?.toLowerCase().includes("exam") || payment.boardCourseName?.toLowerCase().includes("examination");
             if (isExamFee) {
                 admission.examFeePaid = Math.max(0, (admission.examFeePaid || 0) - (payment.paidAmount || 0));
                 if (admission.examFeePaid > 0) admission.examFeeStatus = "PARTIAL";
                 else admission.examFeeStatus = "PENDING";
             }
 
-            admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
+            const isAdditionalFee = payment.remarks?.toLowerCase().includes("additional") || 
+                (admission.additionalThingsName && payment.boardCourseName?.toLowerCase().includes(admission.additionalThingsName.toLowerCase()));
+            if (isAdditionalFee) {
+                admission.additionalThingsPaid = Math.max(0, (admission.additionalThingsPaid || 0) - (payment.paidAmount || 0));
+                if (admission.additionalThingsPaid > 0) admission.additionalThingsStatus = "PARTIAL";
+                else admission.additionalThingsStatus = "PENDING";
+            }
+
+            admission.totalPaidAmount = (admission.installments || []).reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0) + (admission.additionalThingsPaid || 0);
+            if (admission.totalExpectedAmount && admission.totalPaidAmount < admission.totalExpectedAmount - 0.5) {
+                admission.status = "ACTIVE";
+            }
 
             // Re-trigger cascade if needed (handled by the controller logic usually)
             // For now, we manually recalculate the chain for board admissions to be safe

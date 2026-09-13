@@ -734,11 +734,33 @@ const StudentAdmissionPage = () => {
                 toast.success("Admission created successfully!");
                 setCreatedAdmission(data.admission);
 
-                // If down payment was made and NOT a cheque, automatically open bill generator
-                if (data.admission.downPayment > 0 && currentFormData.paymentMethod !== "CHEQUE") {
+                // If down payment was made via cheque, generate Receiving Slip; otherwise generate Bill
+                if (data.admission.downPayment > 0 && currentFormData.paymentMethod === "CHEQUE") {
+                    toast.success("Cheque recorded! Generating receiving slip...", { autoClose: 3000 });
+                    setBillModal({
+                        show: true,
+                        isReceivingSlip: true,
+                        admission: data.admission,
+                        installment: {
+                            installmentNumber: 0,
+                            amount: data.admission.downPayment,
+                            paidAmount: data.admission.downPayment,
+                            paidDate: new Date(),
+                            receivedDate: formData.receivedDate,
+                            paymentMethod: "CHEQUE",
+                            transactionId: formData.transactionId,
+                            bankName: formData.bankName,
+                            accountHolderName: formData.accountHolderName,
+                            chequeDate: formData.chequeDate,
+                            status: "PENDING_CLEARANCE",
+                            isReceivingSlip: true
+                        }
+                    });
+                } else if (data.admission.downPayment > 0) {
                     toast.success("Admission created! Generating bill...", { autoClose: 3000 });
                     setBillModal({
                         show: true,
+                        isReceivingSlip: false,
                         admission: data.admission,
                         installment: {
                             installmentNumber: 0,
@@ -747,12 +769,9 @@ const StudentAdmissionPage = () => {
                             paidDate: new Date(),
                             receivedDate: formData.receivedDate,
                             paymentMethod: formData.paymentMethod,
-                            status: formData.paymentMethod === "CHEQUE" ? "PENDING_CLEARANCE" : "PAID"
+                            status: "PAID"
                         }
                     });
-                } else if (formData.paymentMethod === "CHEQUE") {
-                    toast.info("Admission created. Cheque pending clearance.", { autoClose: 5000 });
-                    setTimeout(() => navigate("/admissions"), 3000);
                 } else {
                     setTimeout(() => navigate("/admissions"), 2000);
                 }
@@ -1616,7 +1635,11 @@ const StudentAdmissionPage = () => {
                 <BillGenerator
                     admission={billModal.admission}
                     installment={billModal.installment}
-                    onClose={() => setBillModal({ show: false, admission: null, installment: null })}
+                    isReceivingSlip={billModal.isReceivingSlip || billModal.installment?.isReceivingSlip}
+                    onClose={() => {
+                        setBillModal({ show: false, admission: null, installment: null, isReceivingSlip: false });
+                        navigate("/enrolled-students");
+                    }}
                 />
             )}
 

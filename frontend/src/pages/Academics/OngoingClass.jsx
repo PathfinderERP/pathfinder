@@ -94,7 +94,8 @@ const OngoingClass = () => {
             dateStr = d.toISOString().split('T')[0];
         }
         const [year, month, day] = dateStr.split('-').map(Number);
-        const [hours, minutes] = (timeStr || "00:00").split(':').map(Number);
+        const cleanTime = String(timeStr || "00:00").trim().replace('.', ':');
+        const [hours, minutes] = cleanTime.split(':').map(Number);
         return new Date(year, month - 1, day, isNaN(hours) ? 0 : hours, isNaN(minutes) ? 0 : minutes, 0, 0);
     };
 
@@ -722,10 +723,9 @@ const OngoingClass = () => {
                                     <tr><td colSpan={canEdit ? 18 : 17} className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes are currently ongoing</td></tr>
                                 ) : (
                                     classes.map((cls, index) => {
+                                        if (!cls) return null;
                                         const schedStart = parseClassDateTime(cls.date, cls.startTime);
-                                        const schedEnd = parseClassDateTime(cls.date, cls.endTime);
                                         const isStartReached = !schedStart || currentTime >= schedStart;
-                                        const isEndReached = !schedEnd || currentTime >= schedEnd;
 
                                         return (
                                         <tr key={cls._id} className={`transition-colors text-sm ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-50 text-gray-600'}`}>
@@ -854,13 +854,8 @@ const OngoingClass = () => {
                                                     {(isAcademicAdmin || isTeacher || isHod) ? (
                                                         <button
                                                             onClick={() => handleEndClass(cls._id)}
-                                                            disabled={!isEndReached}
-                                                            className={`px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg ${
-                                                                !isEndReached
-                                                                    ? "bg-gray-600/20 text-gray-500 border border-gray-600/30 cursor-not-allowed opacity-50"
-                                                                    : "bg-red-600 hover:bg-red-700 text-white shadow-red-900/20 cursor-pointer"
-                                                            }`}
-                                                            title={!isEndReached ? `Class can only be ended at or after ${cls.endTime}` : "End Class"}
+                                                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg shadow-red-900/20 cursor-pointer"
+                                                            title="End Class"
                                                         >
                                                             <FaStop size={10} /> End
                                                         </button>

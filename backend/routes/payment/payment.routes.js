@@ -1,5 +1,5 @@
 import express from "express";
-import { generateBill, getBillById, getBillsByAdmission } from "../../controllers/Payment/generateBill.js";
+import { generateBill, getBillById, getBillsByAdmission, generateReceivingSlip } from "../../controllers/Payment/generateBill.js";
 import { initiatePosPayment, getPosPaymentStatus, cancelPosPayment } from "../../controllers/Payment/posController.js";
 import { requireAuth, requireGranularPermission, requireAnyGranularPermission } from "../../middleware/permissionMiddleware.js";
 
@@ -14,6 +14,11 @@ router.post("/generate-bill/:admissionId/:installmentNumber", requireAnyGranular
     { module: "admissions", section: "boardCourseAdmission", action: "create" },
     { module: "admissions", section: "boardCourseAdmission", action: "edit" }
 ]), generateBill);
+
+// Cheque Receiving Slip (provisional acknowledgment, no Bill ID, strictly read-only)
+router.get("/receiving-slip/:admissionId/:installmentNumber", requireAuth, generateReceivingSlip);
+router.post("/receiving-slip/:admissionId/:installmentNumber", requireAuth, generateReceivingSlip);
+
 
 import { searchBill, updateBill } from "../../controllers/Payment/editBillController.js";
 

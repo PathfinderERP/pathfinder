@@ -808,6 +808,73 @@ export const getBoardAdmissionById = async (req, res) => {
             .populate('selectedSubjects.subjectId')
             .populate('installments.subjects.subjectId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
+
+        // --- SELF-HEALING & SYNCHRONIZATION WITH PAYMENT RECORDS ---
+        const allPayments = await Payment.find({ admission: admission._id });
+        const rejectedTxIds = new Set(allPayments.filter(p => p.status === "REJECTED" || p.status === "CANCELLED").map(p => p.transactionId).filter(Boolean));
+
+        let needsSave = false;
+        if (rejectedTxIds.size > 0 && admission.installments?.length > 0) {
+            admission.installments.forEach(inst => {
+                const initialTxCount = (inst.paymentTransactions || []).length;
+                inst.paymentTransactions = (inst.paymentTransactions || []).filter(t => !rejectedTxIds.has(t.transactionId));
+                if (inst.paymentTransactions.length !== initialTxCount) {
+                    needsSave = true;
+                }
+                const correctPaid = (inst.paymentTransactions || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+                if (Math.abs((inst.paidAmount || 0) - correctPaid) > 0.01) {
+                    inst.paidAmount = correctPaid;
+                    needsSave = true;
+                }
+                const targetStatus = (inst.paidAmount >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0)
+                    ? "PAID"
+                    : (inst.paidAmount > 0.5 ? "PARTIAL" : "PENDING");
+                if (inst.status !== targetStatus) {
+                    inst.status = targetStatus;
+                    needsSave = true;
+                }
+            });
+
+            if (needsSave) {
+                let runningBalance = 0;
+                let adjustmentApplied = false;
+                for (let i = 0; i < admission.installments.length; i++) {
+                    const current = admission.installments[i];
+                    const netMonthly = (current.standardAmount || 0) - (current.waiverAmount || 0);
+                    const extraFees = current.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
+
+                    if (current.monthNumber > 1 && !adjustmentApplied && Math.abs(runningBalance) > 0.5) {
+                        current.adjustmentAmount = -runningBalance;
+                        adjustmentApplied = true;
+                    } else if (current.monthNumber > 1) {
+                        current.adjustmentAmount = 0;
+                    }
+
+                    current.payableAmount = Math.max(0, netMonthly + extraFees + (current.adjustmentAmount || 0));
+
+                    if (current.paidAmount >= current.payableAmount - 0.5 && current.payableAmount > 0) {
+                        current.status = "PAID";
+                    } else if (current.paidAmount > 0.5) {
+                        current.status = "PARTIAL";
+                    } else {
+                        current.status = "PENDING";
+                    }
+
+                    if (current.paidAmount > 0.5) {
+                        runningBalance += (current.paidAmount - (netMonthly + extraFees));
+                        adjustmentApplied = false;
+                    }
+                }
+
+                admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0) + (admission.additionalThingsPaid || 0);
+                if (admission.totalExpectedAmount && admission.totalPaidAmount < admission.totalExpectedAmount - 0.5) {
+                    admission.status = "ACTIVE";
+                }
+
+                await admission.save({ validateBeforeSave: false });
+            }
+        }
+
         res.status(200).json(admission);
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message }); console.error("COLLECT ERROR:", error)
@@ -1185,7 +1252,9 @@ export const collectBoardInstallment = async (req, res) => {
             current.payableAmount = Math.max(0, fullPayable);
 
             // 3. Update status
-            if (current.paidAmount > 0.5 || (current.payableAmount <= 0.5 && (current.standardAmount || 0) > 0)) {
+            if (current.monthNumber === inst.monthNumber && paymentMethod === "CHEQUE") {
+                current.status = "PENDING";
+            } else if (current.paidAmount > 0.5 || (current.payableAmount <= 0.5 && (current.standardAmount || 0) > 0)) {
                 current.status = "PAID";
             } else {
                 current.status = "PENDING";
