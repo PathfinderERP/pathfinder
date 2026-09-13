@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Layout from "../../components/Layout";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -13,6 +13,17 @@ const AddClass = () => {
     const navigate = useNavigate();
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
+
+    const isHazraUser = useMemo(() => {
+        const userObj = JSON.parse(localStorage.getItem("user") || "{}");
+        if (userObj.role === 'superAdmin' || userObj.role === 'superadmin') return true;
+        const centres = userObj.centres || [];
+        return centres.some(c => {
+            const name = (c.centreName || c.name || '').toLowerCase();
+            const id = (c._id || c).toString();
+            return name.includes('hazra') || id === '697088baabb4820c05aecdb0';
+        });
+    }, []);
 
     useEffect(() => {
         const userObj = JSON.parse(localStorage.getItem("user") || "{}");
@@ -415,7 +426,7 @@ const AddClass = () => {
                             label="Class Mode"
                             name="classMode"
                             value={formData.classMode}
-                            options={["Online", "Offline"]}
+                            options={isHazraUser ? ["Online", "Offline"] : ["Offline"]}
                             onChange={handleChange}
                             placeholder="Select"
                             isDarkMode={isDarkMode}

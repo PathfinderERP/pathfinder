@@ -50,6 +50,20 @@ const OngoingClass = () => {
     const [dropdownLoading, setDropdownLoading] = useState(false);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isHazraUser = React.useMemo(() => {
+        if (!user) return false;
+        if (user.role === 'superAdmin' || user.role === 'superadmin') return true;
+        const HAZRA_ID = "697088baabb4820c05aecdb0";
+        if (Array.isArray(user.centres)) {
+            return user.centres.some(c => {
+                const cId = (c && typeof c === 'object') ? (c._id || c.id) : c;
+                const cName = (c && typeof c === 'object') ? (c.centreName || c.name || '') : '';
+                return String(cId) === HAZRA_ID || /hazra/i.test(String(cName));
+            });
+        }
+        return false;
+    }, [user]);
+
     const ALL_ROLES_FOR_CLASS = [
         'teacher', 'admin', 'superAdmin', 'superadmin', 'telecaller', 'centralizedTelecaller',
         'counsellor', 'RM', 'Class_Coordinator', 'classcoordinator', 'class_coordinator',
@@ -60,6 +74,29 @@ const OngoingClass = () => {
     const isAcademicAdmin = !!user.role || ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase());
     const isTeacher = user.role === "teacher";
     const isHod = user.role === "hod" || user.role === "HOD";
+
+    const [currentTime, setCurrentTime] = useState(new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 10000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const parseClassDateTime = (dateVal, timeStr) => {
+        if (!dateVal || !timeStr) return null;
+        let dateStr = "";
+        if (typeof dateVal === 'string') {
+            dateStr = dateVal.split('T')[0];
+        } else if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+            dateStr = dateVal.toISOString().split('T')[0];
+        } else {
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return null;
+            dateStr = d.toISOString().split('T')[0];
+        }
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const [hours, minutes] = (timeStr || "00:00").split(':').map(Number);
+        return new Date(year, month - 1, day, isNaN(hours) ? 0 : hours, isNaN(minutes) ? 0 : minutes, 0, 0);
+    };
 
     const API_URL = import.meta.env.VITE_API_URL;
 
@@ -474,10 +511,12 @@ const OngoingClass = () => {
                                 <Select
                                     isMulti
                                     isSearchable
-                                    options={[
+                                    options={isHazraUser ? [
                                         { value: "Online", label: "Online" },
                                         { value: "Offline", label: "Offline" },
                                         // { value: "Hybrid", label: "Hybrid" }
+                                    ] : [
+                                        { value: "Offline", label: "Offline" },
                                     ]}
                                     value={filters.classMode}
                                     onChange={(val) => handleFilterChange("classMode", val)}
@@ -682,25 +721,35 @@ const OngoingClass = () => {
                                 ) : classes.length === 0 ? (
                                     <tr><td colSpan={canEdit ? 18 : 17} className="p-8 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes are currently ongoing</td></tr>
                                 ) : (
-                                    classes.map((cls, index) => (
+                                    classes.map((cls, index) => {
+                                        const schedStart = parseClassDateTime(cls.date, cls.startTime);
+                                        const schedEnd = parseClassDateTime(cls.date, cls.endTime);
+                                        const isStartReached = !schedStart || currentTime >= schedStart;
+                                        const isEndReached = !schedEnd || currentTime >= schedEnd;
+
+                                        return (
                                         <tr key={cls._id} className={`transition-colors text-sm ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-50 text-gray-600'}`}>
                                             {canEdit && (
                                                 <td className="p-4 text-center">
                                                     <input
                                                         type="checkbox"
                                                         checked={selectedIds.has(cls._id)}
-                                                        onChange={() => handleSelectRow(cls._id)}
-                                                        className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 cursor-pointer"
+                                                        onChange={() => handleSelectOne(cls._id)}
+                                                        className="w-4 h-4 rounded border-gray-700 text-blue-600 focus:ring-blue-500"
                                                     />
                                                 </td>
                                             )}
-                                            <td className="p-4 font-bold text-gray-500">{(page - 1) * limit + index + 1}</td>
+                                            <td className="p-4">{index + 1}</td>
                                             <td className={`p-4 font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cls.className}</td>
-                                            <td className="p-4 whitespace-nowrap">{formatDate(cls.date)}</td>
+                                            <td className="p-4 font-mono">{formatDate(cls.date)}</td>
                                             <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>
-                                            <td className="p-4">{cls.classMode}</td>
                                             <td className="p-4">
-                                                <div className="flex flex-wrap gap-1">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${cls.classMode === 'Online' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
+                                                    {cls.classMode}
+                                                </span>
+                                            </td>
+                                            <td className="p-4">
+                                                <div className="flex flex-wrap gap-1 max-w-[150px]">
                                                     {cls.batchIds && cls.batchIds.length > 0 ? (
                                                         cls.batchIds.map(b => (
                                                             <span key={b._id} className="px-2 py-0.5 bg-cyan-500/10 text-cyan-400 rounded text-[10px] border border-cyan-500/20">
@@ -729,13 +778,18 @@ const OngoingClass = () => {
                                                         <FaCheck size={8} /> Present
                                                     </span>
                                                 ) : (
-                                                    isTeacher ? (
+                                                    (isTeacher || isAcademicAdmin || isHod) ? (
                                                         <button
-                                                            disabled={verifyingId === cls._id}
+                                                            disabled={verifyingId === cls._id || !isStartReached}
                                                             onClick={() => handleAttendance(cls._id, 'teacher')}
-                                                            className="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1 rounded text-[10px] font-bold uppercase transition shadow-lg shadow-blue-900/20 disabled:opacity-50"
+                                                            className={`px-3 py-1 rounded text-[10px] font-bold uppercase transition shadow-lg ${
+                                                                !isStartReached
+                                                                    ? "bg-gray-600/20 text-gray-500 border border-gray-600/30 cursor-not-allowed opacity-50"
+                                                                    : "bg-blue-600 hover:bg-blue-700 text-white shadow-blue-900/20 cursor-pointer"
+                                                            }`}
+                                                            title={!isStartReached ? `Teacher attendance active after start time (${cls.startTime})` : "Mark Attendance"}
                                                         >
-                                                            Mark Attendance
+                                                            {verifyingId === cls._id ? "Marking..." : "Mark Attendance"}
                                                         </button>
                                                     ) : (
                                                         <span className="bg-red-600/20 text-red-400 px-3 py-1 rounded-full text-[10px] font-bold border border-red-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
@@ -800,7 +854,13 @@ const OngoingClass = () => {
                                                     {(isAcademicAdmin || isTeacher || isHod) ? (
                                                         <button
                                                             onClick={() => handleEndClass(cls._id)}
-                                                            className="bg-red-600 hover:bg-red-700 text-white px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg shadow-red-900/20"
+                                                            disabled={!isEndReached}
+                                                            className={`px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg ${
+                                                                !isEndReached
+                                                                    ? "bg-gray-600/20 text-gray-500 border border-gray-600/30 cursor-not-allowed opacity-50"
+                                                                    : "bg-red-600 hover:bg-red-700 text-white shadow-red-900/20 cursor-pointer"
+                                                            }`}
+                                                            title={!isEndReached ? `Class can only be ended at or after ${cls.endTime}` : "End Class"}
                                                         >
                                                             <FaStop size={10} /> End
                                                         </button>
@@ -815,7 +875,8 @@ const OngoingClass = () => {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))
+                                    );
+                                    })
                                 )}
                             </tbody>
                         </table>

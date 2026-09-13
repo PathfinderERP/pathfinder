@@ -1272,6 +1272,44 @@ const ALL_ROLES_FOR_CLASS = [
     'assistantZonalManager', 'assistantCenterIncharge', 'supportStaff'
 ];
 
+const HAZRA_CENTRE_ID = "697088baabb4820c05aecdb0";
+
+const checkIsHazraUser = async (user) => {
+    if (!user) return false;
+    const rawRole = (user.role || "").toLowerCase().replace(/\s+/g, "");
+    if (rawRole === 'superadmin' || user.role === 'superAdmin') return true;
+    
+    const userCentres = (user.centres || []).map(c => (c && c._id ? c._id.toString() : (c ? c.toString() : '')));
+    if (userCentres.includes(HAZRA_CENTRE_ID)) return true;
+
+    try {
+        const hazraCentre = await Centre.findOne({ centreName: { $regex: /^hazra/i } });
+        if (hazraCentre && userCentres.includes(hazraCentre._id.toString())) {
+            return true;
+        }
+    } catch (e) {
+        // ignore
+    }
+    return false;
+};
+
+// Helper to convert class date and time string into a local Date object
+export const parseClassDateTime = (dateVal, timeStr) => {
+    if (!dateVal || !timeStr) return null;
+    let dateStr = "";
+    if (typeof dateVal === 'string') {
+        dateStr = dateVal.split('T')[0];
+    } else if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+        dateStr = dateVal.toISOString().split('T')[0];
+    } else {
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return null;
+        dateStr = d.toISOString().split('T')[0];
+    }
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const [hours, minutes] = (timeStr || "00:00").split(':').map(Number);
+    return new Date(year, month - 1, day, isNaN(hours) ? 0 : hours, isNaN(minutes) ? 0 : minutes, 0, 0);
+};
 
 // Create a new class schedule
 export const createClassSchedule = async (req, res) => {
@@ -1310,9 +1348,21 @@ export const createClassSchedule = async (req, res) => {
         }
 
         // Final centreIds list
-        const finalCentreIds = centreIds || (centreId ? [centreId] : []);
+        let finalCentreIds = centreIds || (centreId ? [centreId] : []);
         const finalCoordinatorIds = coordinatorIds || (coordinatorId ? [coordinatorId] : []);
         const firstCoordinatorId = finalCoordinatorIds.length > 0 ? finalCoordinatorIds[0] : undefined;
+
+        // Enforce Online class rules: only Hazra-assigned users or superAdmin can create Online classes
+        if (classMode === 'Online') {
+            const isHazra = await checkIsHazraUser(req.user);
+            if (!isHazra) {
+                return res.status(403).json({ message: "Only users assigned to Hazra centre can create Online classes." });
+            }
+            // Lock Online class centre to Hazra H.O
+            const hazraCentre = await Centre.findOne({ centreName: { $regex: /^hazra/i } });
+            const hazraId = hazraCentre ? hazraCentre._id : new mongoose.Types.ObjectId(HAZRA_CENTRE_ID);
+            finalCentreIds = [hazraId];
+        }
 
         // Center authorization check
         if (req.user.role !== 'superAdmin') {
@@ -1508,7 +1558,11 @@ export const getClassSchedules = async (req, res) => {
             }
         }
 
-        if (req.query.classMode) {
+        const isHazra = await checkIsHazraUser(req.user);
+        if (!isHazra) {
+            // Online classes are strictly visible ONLY to users assigned to Hazra centre (or superAdmin)
+            query.classMode = { $ne: 'Online' };
+        } else if (req.query.classMode) {
             const classModes = req.query.classMode.split(',').filter(m => m.trim());
             if (classModes.length > 0) query.classMode = { $in: classModes };
         }
@@ -1674,6 +1728,14 @@ export const startClass = async (req, res) => {
             return res.status(403).json({ message: "Access denied" });
         }
 
+        // Check if scheduled start time has arrived
+        const schedStartTime = parseClassDateTime(currentClass.date, currentClass.startTime);
+        if (schedStartTime && new Date() < schedStartTime) {
+            return res.status(400).json({
+                message: `Class cannot be started before scheduled start time (${currentClass.startTime})`
+            });
+        }
+
         // Relaxed validation: Allow starting if there is ANY subject, chapter, and topic info
         // This supports legacy classes that might have single chapterId or topicIds.
         const hasSubject = currentClass.acadSubjectId || currentClass.subjectId;
@@ -1709,6 +1771,14 @@ export const endClass = async (req, res) => {
         // Permission Check
         if (!ALL_ROLES_FOR_CLASS.includes(req.user.role)) {
             return res.status(403).json({ message: "Access denied" });
+        }
+
+        // Check if scheduled end time has arrived
+        const schedEndTime = parseClassDateTime(currentClass.date, currentClass.endTime);
+        if (schedEndTime && new Date() < schedEndTime) {
+            return res.status(400).json({
+                message: `Class cannot be ended before scheduled end time (${currentClass.endTime})`
+            });
         }
 
         currentClass.status = "Completed";
@@ -1759,13 +1829,26 @@ export const updateClassSchedule = async (req, res) => {
             return res.status(400).json({ message: "Academic Content (Class, Subject, Chapters, Topics) is required" });
         }
 
-        const finalCentreIds = centreIds || (centreId ? [centreId] : []);
+        let finalCentreIds = centreIds || (centreId ? [centreId] : []);
         const finalCoordinatorIds = coordinatorIds || (coordinatorId ? [coordinatorId] : []);
         const firstCoordinatorId = finalCoordinatorIds.length > 0 ? finalCoordinatorIds[0] : undefined;
 
         const currentClass = await ClassSchedule.findById(id);
         if (!currentClass) {
             return res.status(404).json({ message: "Class schedule not found" });
+        }
+
+        // Online class restrictions: only Hazra users or superAdmin can edit Online classes
+        if (classMode === 'Online' || currentClass.classMode === 'Online') {
+            const isHazra = await checkIsHazraUser(req.user);
+            if (!isHazra) {
+                return res.status(403).json({ message: "Only users assigned to Hazra centre can edit Online classes." });
+            }
+            if (classMode === 'Online') {
+                const hazraCentre = await Centre.findOne({ centreName: { $regex: /^hazra/i } });
+                const hazraId = hazraCentre ? hazraCentre._id : new mongoose.Types.ObjectId(HAZRA_CENTRE_ID);
+                finalCentreIds = [hazraId];
+            }
         }
 
         // Permission Check
@@ -1868,11 +1951,26 @@ export const deleteClassSchedule = async (req, res) => {
             return res.status(403).json({ message: "Access denied" });
         }
 
-        const deletedClass = await ClassSchedule.findByIdAndDelete(id);
-
-        if (!deletedClass) {
+        const currentClass = await ClassSchedule.findById(id);
+        if (!currentClass) {
             return res.status(404).json({ message: "Class schedule not found" });
         }
+
+        if (currentClass.classMode === 'Online') {
+            const isHazra = await checkIsHazraUser(req.user);
+            if (!isHazra) {
+                return res.status(403).json({ message: "Only users assigned to Hazra centre can delete Online classes." });
+            }
+        } else if (req.user.role !== 'superAdmin') {
+            const userCentres = (req.user.centres || []).map(c => c.toString());
+            const classCentres = (currentClass.centreIds || [currentClass.centreId]).filter(Boolean).map(c => c.toString());
+            const hasCentre = classCentres.some(cid => userCentres.includes(cid));
+            if (!hasCentre) {
+                return res.status(403).json({ message: "You are not authorized to delete classes for this center." });
+            }
+        }
+
+        await ClassSchedule.findByIdAndDelete(id);
 
         res.status(200).json({ message: "Class schedule deleted successfully" });
     } catch (error) {
@@ -1906,7 +2004,7 @@ export const submitFeedback = async (req, res) => {
 export const markTeacherAttendance = async (req, res) => {
     try {
         const { id } = req.params;
-        const { latitude, longitude } = req.body;
+        const { latitude, longitude, attendance } = req.body;
         const currentClass = await ClassSchedule.findById(id);
 
         if (!currentClass) {
@@ -1918,12 +2016,23 @@ export const markTeacherAttendance = async (req, res) => {
             return res.status(403).json({ message: "Access denied" });
         }
 
-        currentClass.teacherAttendance = true;
+        // Check if scheduled start time has arrived
+        const schedStartTime = parseClassDateTime(currentClass.date, currentClass.startTime);
+        if (schedStartTime && new Date() < schedStartTime) {
+            return res.status(400).json({
+                message: `Teacher attendance cannot be marked before scheduled start time (${currentClass.startTime})`
+            });
+        }
+
+        currentClass.teacherAttendance = attendance !== undefined ? !!attendance : true;
         currentClass.attendanceLatitude = latitude;
         currentClass.attendanceLongitude = longitude;
         await currentClass.save();
 
-        res.status(200).json({ message: "Attendance marked successfully", class: currentClass });
+        res.status(200).json({ 
+            message: currentClass.teacherAttendance ? "Attendance marked successfully" : "Attendance unmarked successfully", 
+            class: currentClass 
+        });
     } catch (error) {
         console.error("Error marking teacher attendance:", error);
         res.status(500).json({ message: "Server error", error: error.message });
@@ -2076,6 +2185,14 @@ export const importClassesExcel = async (req, res) => {
                 continue;
             }
 
+            if (classMode === 'Online') {
+                const isHazra = await checkIsHazraUser(req.user);
+                if (!isHazra) {
+                    errors.push(`Row ${rowNumber}: Only users assigned to Hazra centre can import Online classes.`);
+                    continue;
+                }
+            }
+
             const classHours = Number(row['Class Hours']);
             if (isNaN(classHours) || classHours <= 0) {
                 errors.push(`Row ${rowNumber}: Class Hours must be a positive number`);
@@ -2097,8 +2214,16 @@ export const importClassesExcel = async (req, res) => {
             }
 
             // Center
-            const centreRegex = new RegExp(`^${String(row['Center']).trim()}$`, "i");
-            const centre = await Centre.findOne({ $or: [{ centreName: centreRegex }, { name: centreRegex }] });
+            let centre;
+            if (classMode === 'Online') {
+                centre = await Centre.findOne({ centreName: { $regex: /^hazra/i } });
+                if (!centre) {
+                    centre = await Centre.findById(HAZRA_CENTRE_ID);
+                }
+            } else {
+                const centreRegex = new RegExp(`^${String(row['Center']).trim()}$`, "i");
+                centre = await Centre.findOne({ $or: [{ centreName: centreRegex }, { name: centreRegex }] });
+            }
             if (!centre) {
                 errors.push(`Row ${rowNumber}: Center '${row['Center']}' not found`);
                 continue;
@@ -2362,7 +2487,11 @@ export const exportClassSchedulesExcel = async (req, res) => {
             }
         }
 
-        if (req.query.classMode) {
+        const isHazra = await checkIsHazraUser(req.user);
+        if (!isHazra) {
+            // Online classes are strictly visible ONLY to users assigned to Hazra centre (or superAdmin)
+            query.classMode = { $ne: 'Online' };
+        } else if (req.query.classMode) {
             const classModes = req.query.classMode.split(',').filter(m => m.trim());
             if (classModes.length > 0) query.classMode = { $in: classModes };
         }
@@ -2721,7 +2850,10 @@ export const bulkEndClass = async (req, res) => {
                 if (subjectIds.length > 0) query.subjectId = { $in: subjectIds };
             }
 
-            if (classMode) {
+            const isHazra = await checkIsHazraUser(req.user);
+            if (!isHazra) {
+                query.classMode = { $ne: 'Online' };
+            } else if (classMode) {
                 const classModes = classMode.split(',').filter(m => m.trim());
                 if (classModes.length > 0) query.classMode = { $in: classModes };
             }
@@ -2744,10 +2876,10 @@ export const bulkEndClass = async (req, res) => {
                 query.$and.push({
                     $or: [
                         { className: { $regex: search, $options: "i" } },
+                        { session: { $regex: search, $options: "i" } },
                         { startTime: { $regex: search, $options: "i" } },
                         { endTime: { $regex: search, $options: "i" } },
-                        { classMode: { $regex: search, $options: "i" } },
-                        { session: { $regex: search, $options: "i" } },
+                        { classMode: { $regex: search, $options: "i" } }
                     ]
                 });
             }
@@ -2759,11 +2891,15 @@ export const bulkEndClass = async (req, res) => {
 
             // Center authorization check
             if (req.user.role !== 'superAdmin') {
+                const isHazra = await checkIsHazraUser(req.user);
                 const userCentres = req.user.centres || [];
                 const userCentreStrs = userCentres.map(c => c.toString());
 
                 const classesToVerify = await ClassSchedule.find({ _id: { $in: ids } });
                 for (const cls of classesToVerify) {
+                    if (cls.classMode === 'Online' && !isHazra) {
+                        return res.status(403).json({ message: "Only users assigned to Hazra centre can end Online classes" });
+                    }
                     const finalCentreIds = cls.centreIds || (cls.centreId ? [cls.centreId] : []);
                     const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
                     if (unauthorized.length > 0) {
@@ -2773,8 +2909,21 @@ export const bulkEndClass = async (req, res) => {
             }
         }
 
+        const classesToEnd = await ClassSchedule.find(query);
+        const now = new Date();
+        const eligibleClassIds = classesToEnd
+            .filter(c => {
+                const schedEndTime = parseClassDateTime(c.date, c.endTime);
+                return !schedEndTime || now >= schedEndTime;
+            })
+            .map(c => c._id);
+
+        if (eligibleClassIds.length === 0) {
+            return res.status(400).json({ message: "None of the selected classes have reached their scheduled end time yet." });
+        }
+
         const result = await ClassSchedule.updateMany(
-            query,
+            { _id: { $in: eligibleClassIds } },
             {
                 $set: {
                     status: "Completed",
@@ -2893,7 +3042,10 @@ export const bulkStartClass = async (req, res) => {
                 const subjectIds = subjectId.split(',').filter(id => id.trim());
                 if (subjectIds.length > 0) query.subjectId = { $in: subjectIds };
             }
-            if (classMode) {
+            const isHazra = await checkIsHazraUser(req.user);
+            if (!isHazra) {
+                query.classMode = { $ne: 'Online' };
+            } else if (classMode) {
                 const classModes = classMode.split(',').filter(m => m.trim());
                 if (classModes.length > 0) query.classMode = { $in: classModes };
             }
@@ -2926,11 +3078,15 @@ export const bulkStartClass = async (req, res) => {
 
             // Center authorization check
             if (req.user.role !== 'superAdmin') {
+                const isHazra = await checkIsHazraUser(req.user);
                 const userCentres = req.user.centres || [];
                 const userCentreStrs = userCentres.map(c => c.toString());
 
                 const classesToVerify = await ClassSchedule.find({ _id: { $in: ids } });
                 for (const cls of classesToVerify) {
+                    if (cls.classMode === 'Online' && !isHazra) {
+                        return res.status(403).json({ message: "Only users assigned to Hazra centre can start Online classes" });
+                    }
                     const finalCentreIds = cls.centreIds || (cls.centreId ? [cls.centreId] : []);
                     const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
                     if (unauthorized.length > 0) {
@@ -2956,12 +3112,17 @@ export const bulkStartClass = async (req, res) => {
             });
         }
 
+        const now = new Date();
         const validClassIds = classesToStart
-            .filter(c => isValidClass(c))
+            .filter(c => {
+                if (!isValidClass(c)) return false;
+                const schedStartTime = parseClassDateTime(c.date, c.startTime);
+                return !schedStartTime || now >= schedStartTime;
+            })
             .map(c => c._id);
 
         if (validClassIds.length === 0) {
-            return res.status(400).json({ message: "No eligible upcoming classes to start." });
+            return res.status(400).json({ message: "None of the selected classes have reached their scheduled start time yet." });
         }
 
         const result = await ClassSchedule.updateMany(

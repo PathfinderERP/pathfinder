@@ -35,6 +35,21 @@ const CCTeacherReview = () => {
     const [selectedFeedback, setSelectedFeedback] = useState(null);
     const [showModal, setShowModal] = useState(false);
 
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const isHazraUser = React.useMemo(() => {
+        if (!user) return false;
+        if (user.role === 'superAdmin' || user.role === 'superadmin') return true;
+        const HAZRA_ID = "697088baabb4820c05aecdb0";
+        if (Array.isArray(user.centres)) {
+            return user.centres.some(c => {
+                const cId = (c && typeof c === 'object') ? (c._id || c.id) : c;
+                const cName = (c && typeof c === 'object') ? (c.centreName || c.name || '') : '';
+                return String(cId) === HAZRA_ID || /hazra/i.test(String(cName));
+            });
+        }
+        return false;
+    }, [user]);
+
     const API_URL = import.meta.env.VITE_API_URL;
 
     useEffect(() => {
@@ -253,10 +268,12 @@ const CCTeacherReview = () => {
                                 <Select
                                     isMulti
                                     isSearchable
-                                    options={[
+                                    options={isHazraUser ? [
                                         { value: "Online", label: "Online" },
                                         { value: "Offline", label: "Offline" },
                                         { value: "Hybrid", label: "Hybrid" }
+                                    ] : [
+                                        { value: "Offline", label: "Offline" },
                                     ]}
                                     value={filters.classMode}
                                     onChange={(val) => handleFilterChange("classMode", val)}

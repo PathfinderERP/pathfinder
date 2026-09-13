@@ -1413,7 +1413,7 @@
 
 
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import Layout from "../../components/Layout";
 import { FaSearch, FaTimes, FaEdit, FaTrash, FaPlus, FaCheck, FaFileExcel, FaDownload, FaUpload } from "react-icons/fa";
 import * as XLSX from "xlsx";
@@ -1568,6 +1568,40 @@ const Classes = () => {
     const isCoordinator = user.role === "Class_Coordinator";
     const isTeacher = user.role === "teacher";
     const isHod = user.role === "hod";
+
+    const isHazraUser = useMemo(() => {
+        if (user.role === 'superAdmin' || user.role === 'superadmin') return true;
+        const centres = user.centres || [];
+        return centres.some(c => {
+            const name = (c.centreName || c.name || '').toLowerCase();
+            const id = (c._id || c).toString();
+            return name.includes('hazra') || id === '697088baabb4820c05aecdb0';
+        });
+    }, [user]);
+
+    // Current time ticker for real-time start/end button status
+    const [currentTime, setCurrentTime] = useState(new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 10000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const parseClassDateTime = (dateVal, timeStr) => {
+        if (!dateVal || !timeStr) return null;
+        let dateStr = "";
+        if (typeof dateVal === 'string') {
+            dateStr = dateVal.split('T')[0];
+        } else if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+            dateStr = dateVal.toISOString().split('T')[0];
+        } else {
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return null;
+            dateStr = d.toISOString().split('T')[0];
+        }
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const [hours, minutes] = (timeStr || "00:00").split(':').map(Number);
+        return new Date(year, month - 1, day, isNaN(hours) ? 0 : hours, isNaN(minutes) ? 0 : minutes, 0, 0);
+    };
 
     // Filters State
     const [filters, setFilters] = useState({
@@ -1972,6 +2006,29 @@ const Classes = () => {
         }
     };
 
+    const handleTeacherAttendance = async (id, status = true) => {
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${API_URL}/academics/class-schedule/mark-attendance/${id}`, {
+                method: "PUT",
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ attendance: status })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(status ? "Teacher marked Present!" : "Teacher marked Absent!");
+                setClasses(prev => prev.map(c => c._id === id ? { ...c, teacherAttendance: status } : c));
+            } else {
+                toast.error(data.message || "Failed to update attendance");
+            }
+        } catch (error) {
+            toast.error("Error updating teacher attendance");
+        }
+    };
+
     const fetchEditAcadSubjects = async (classId) => {
         if (!classId) { setEditAcadSubjects([]); return; }
         try {
@@ -2250,10 +2307,11 @@ const Classes = () => {
                         <div className="flex flex-col">
                             <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">Mode</label>
                             <Select
-                                options={[
+                                options={isHazraUser ? [
                                     { value: "Online", label: "Online" },
                                     { value: "Offline", label: "Offline" },
-
+                                ] : [
+                                    { value: "Offline", label: "Offline" },
                                 ]}
                                 value={filters.classMode ? { value: filters.classMode, label: filters.classMode } : null}
                                 onChange={(selected) => {
@@ -2433,7 +2491,13 @@ const Classes = () => {
                                 ) : classes.length === 0 ? (
                                     <tr><td colSpan="16" className="p-12 text-center text-gray-500 uppercase tracking-widest opacity-50">No classes found with selected filters</td></tr>
                                 ) : (
-                                    classes.map((cls) => (
+                                    classes.map((cls) => {
+                                        const schedStart = parseClassDateTime(cls.date, cls.startTime);
+                                        const schedEnd = parseClassDateTime(cls.date, cls.endTime);
+                                        const isStartReached = !schedStart || currentTime >= schedStart;
+                                        const isEndReached = !schedEnd || currentTime >= schedEnd;
+
+                                        return (
                                         <tr key={cls._id} className={`transition-colors text-sm group ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-50 text-gray-600'}`}>
                                             <td className={`p-4 font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cls.className}</td>
                                             <td className="p-4">{cls.batchNames || cls.batchId?.batchName || cls.batchId?.name || "-"}</td>
@@ -2459,13 +2523,35 @@ const Classes = () => {
                                             </td>
                                             <td className="p-4 text-center">
                                                 {cls.teacherAttendance ? (
-                                                    <span className="bg-green-600/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold border border-green-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => (canEdit || isAcademicAdmin || isTeacher || isHod) && handleTeacherAttendance(cls._id, false)}
+                                                        disabled={!isStartReached || !(canEdit || isAcademicAdmin || isTeacher || isHod)}
+                                                        className={`bg-green-600/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold border border-green-600/50 flex items-center justify-center gap-1 mx-auto w-fit transition-all ${
+                                                            !isStartReached
+                                                                ? "opacity-50 cursor-not-allowed"
+                                                                : (canEdit || isAcademicAdmin || isTeacher || isHod) ? "hover:bg-green-600/30 cursor-pointer" : "cursor-default"
+                                                        }`}
+                                                        title={!isStartReached ? `Teacher attendance active after start time (${cls.startTime})` : "Click to mark Absent"}
+                                                    >
                                                         <FaCheck size={10} /> Present
-                                                    </span>
+                                                    </button>
                                                 ) : (
-                                                    <span className="bg-red-600/20 text-red-400 px-3 py-1 rounded-full text-xs font-bold border border-red-600/50 flex items-center justify-center gap-1 mx-auto w-fit">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => (canEdit || isAcademicAdmin || isTeacher || isHod) && handleTeacherAttendance(cls._id, true)}
+                                                        disabled={!isStartReached || !(canEdit || isAcademicAdmin || isTeacher || isHod)}
+                                                        className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center justify-center gap-1 mx-auto w-fit transition-all ${
+                                                            !isStartReached
+                                                                ? "bg-red-600/10 text-red-400/50 border-red-600/20 opacity-50 cursor-not-allowed"
+                                                                : (canEdit || isAcademicAdmin || isTeacher || isHod)
+                                                                    ? "bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border-red-600/50 cursor-pointer shadow-sm shadow-red-900/10"
+                                                                    : "bg-red-600/20 text-red-400 border-red-600/50 cursor-default"
+                                                        }`}
+                                                        title={!isStartReached ? `Teacher attendance active after start time (${cls.startTime})` : "Click to mark Present"}
+                                                    >
                                                         Absent
-                                                    </span>
+                                                    </button>
                                                 )}
                                             </td>
                                             <td className="p-4 text-center font-mono text-[10px] text-cyan-400">
@@ -2496,7 +2582,13 @@ const Classes = () => {
                                                         isAcademicAdmin ? (
                                                             <button
                                                                 onClick={() => handleStartClass(cls._id)}
-                                                                className="bg-green-600/10 text-green-400 px-3 py-1 rounded text-[10px] font-bold uppercase border border-green-600/30 hover:bg-green-600 hover:text-white transition-all shadow-lg shadow-green-900/10"
+                                                                disabled={!isStartReached}
+                                                                className={`px-3 py-1 rounded text-[10px] font-bold uppercase border transition-all ${
+                                                                    !isStartReached
+                                                                        ? "bg-gray-600/10 text-gray-500 border-gray-600/20 cursor-not-allowed opacity-50"
+                                                                        : "bg-green-600/10 text-green-400 border-green-600/30 hover:bg-green-600 hover:text-white transition-all shadow-lg shadow-green-900/10 cursor-pointer"
+                                                                }`}
+                                                                title={!isStartReached ? `Class can only be started at or after ${cls.startTime}` : "Start Class"}
                                                             >
                                                                 Start
                                                             </button>
@@ -2509,7 +2601,13 @@ const Classes = () => {
                                                             {isAcademicAdmin ? (
                                                                 <button
                                                                     onClick={() => handleEndClass(cls._id)}
-                                                                    className="bg-red-600 text-white px-3 py-1 rounded text-[10px] font-bold uppercase border border-red-700 hover:bg-red-700 transition-all shadow-lg animate-pulse"
+                                                                    disabled={!isEndReached}
+                                                                    className={`px-3 py-1 rounded text-[10px] font-bold uppercase border transition-all ${
+                                                                        !isEndReached
+                                                                            ? "bg-gray-600/10 text-gray-500 border-gray-600/20 cursor-not-allowed opacity-50"
+                                                                            : "bg-red-600 text-white border-red-700 hover:bg-red-700 transition-all shadow-lg animate-pulse cursor-pointer"
+                                                                    }`}
+                                                                    title={!isEndReached ? `Class can only be ended at or after ${cls.endTime}` : "End Class"}
                                                                 >
                                                                     End
                                                                 </button>
@@ -2541,8 +2639,9 @@ const Classes = () => {
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))
-                                )}
+                                    );
+                                })
+                            )}
                             </tbody>
                         </table>
                     </div>
@@ -2773,7 +2872,7 @@ const Classes = () => {
                                             className={`p-3 rounded-lg border focus:border-yellow-500 outline-none transition-all ${isDarkMode ? 'bg-[#131619] text-white border-gray-700' : 'bg-gray-50 text-gray-900 border-gray-300'}`}
                                         >
                                             <option value="Offline">Offline</option>
-                                            <option value="Online">Online</option>
+                                            {isHazraUser && <option value="Online">Online</option>}
                                         </select>
                                     </div>
 

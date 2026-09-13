@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
 import Layout from "../../components/Layout";
 import Select from "react-select";
 import { toast, ToastContainer } from "react-toastify";
@@ -9,15 +9,12 @@ import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
 
 const UpcomingClass = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
+
     const [classes, setClasses] = useState([]);
     const [filteredClasses, setFilteredClasses] = useState([]);
     const [loading, setLoading] = useState(false);
-    const [dropdownData, setDropdownData] = useState({ teachers: [], centres: [], subjects: [] });
-    const [dropdownLoading, setDropdownLoading] = useState(false);
-    const { theme } = useTheme();
-    const isDarkMode = theme === "dark";
-
-    // Pagination
     const [limit, setLimit] = useState(10);
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
@@ -30,22 +27,44 @@ const UpcomingClass = () => {
     const [selectedIds, setSelectedIds] = useState(new Set());
     const [selectAllMatching, setSelectAllMatching] = useState(false);
 
-    // Filter states
+    // Filters and Form States
     const [filters, setFilters] = useState({
-        teacherId: [],
         centreId: [],
-        subjectId: [],
-        classMode: [],
         batchId: [],
+        subjectId: [],
+        teacherId: [],
+        coordinatorId: [],
         fromDate: "",
         toDate: "",
+        search: "",
+        classMode: [],
         startTime: "",
+        endTime: ""
+    });
+
+    const [dropdownData, setDropdownData] = useState({
+        centres: [],
+        batches: [],
+        subjects: [],
+        teachers: [],
+        coordinators: []
     });
 
     const [showFilters, setShowFilters] = useState(false);
     const [canEdit, setCanEdit] = useState(false);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
+
+    const isHazraUser = useMemo(() => {
+        if (user.role === 'superAdmin' || user.role === 'superadmin') return true;
+        const centres = user.centres || [];
+        return centres.some(c => {
+            const name = (c.centreName || c.name || '').toLowerCase();
+            const id = (c._id || c).toString();
+            return name.includes('hazra') || id === '697088baabb4820c05aecdb0';
+        });
+    }, [user]);
+
     const ALL_ROLES_FOR_CLASS = [
         'teacher', 'admin', 'superAdmin', 'superadmin', 'telecaller', 'centralizedTelecaller',
         'counsellor', 'RM', 'Class_Coordinator', 'classcoordinator', 'class_coordinator',
@@ -56,6 +75,29 @@ const UpcomingClass = () => {
     const isAcademicAdmin = !!user.role || ALL_ROLES_FOR_CLASS.some(r => r.toLowerCase() === user.role?.toLowerCase());
 
     const isHod = user.role === "hod" || user.role === "HOD";
+
+    const [currentTime, setCurrentTime] = useState(new Date());
+    useEffect(() => {
+        const timer = setInterval(() => setCurrentTime(new Date()), 10000);
+        return () => clearInterval(timer);
+    }, []);
+
+    const parseClassDateTime = (dateVal, timeStr) => {
+        if (!dateVal || !timeStr) return null;
+        let dateStr = "";
+        if (typeof dateVal === 'string') {
+            dateStr = dateVal.split('T')[0];
+        } else if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
+            dateStr = dateVal.toISOString().split('T')[0];
+        } else {
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return null;
+            dateStr = d.toISOString().split('T')[0];
+        }
+        const [year, month, day] = dateStr.split('-').map(Number);
+        const [hours, minutes] = (timeStr || "00:00").split(':').map(Number);
+        return new Date(year, month - 1, day, isNaN(hours) ? 0 : hours, isNaN(minutes) ? 0 : minutes, 0, 0);
+    };
 
     const API_URL = import.meta.env.VITE_API_URL;
 
@@ -637,8 +679,10 @@ const UpcomingClass = () => {
                                 <Select
                                     isMulti
                                     isSearchable={false}
-                                    options={[
+                                    options={isHazraUser ? [
                                         { value: "Online", label: "Online" },
+                                        { value: "Offline", label: "Offline" }
+                                    ] : [
                                         { value: "Offline", label: "Offline" }
                                     ]}
                                     value={filters.classMode}
@@ -806,7 +850,11 @@ const UpcomingClass = () => {
                                         </td>
                                     </tr>
                                 ) : (
-                                    filteredClasses.map((cls, idx) => (
+                                    filteredClasses.map((cls, idx) => {
+                                        const schedStart = parseClassDateTime(cls.date, cls.startTime);
+                                        const isStartReached = !schedStart || currentTime >= schedStart;
+
+                                        return (
                                         <tr
                                             key={cls._id}
                                             className={`transition-colors text-sm ${isDarkMode ? "hover:bg-[#252b32] text-gray-300" : "hover:bg-blue-50/40 text-gray-600"}`}
@@ -870,7 +918,13 @@ const UpcomingClass = () => {
                                                 {(isAcademicAdmin || isHod) ? (
                                                     <button
                                                         onClick={() => handleStartClass(cls._id)}
-                                                        className="bg-green-600 hover:bg-green-700 text-white px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg shadow-green-900/20 mx-auto"
+                                                        disabled={!isStartReached}
+                                                        className={`px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg mx-auto ${
+                                                            !isStartReached
+                                                                ? "bg-gray-600/20 text-gray-500 border border-gray-600/30 cursor-not-allowed opacity-50"
+                                                                : "bg-green-600 hover:bg-green-700 text-white shadow-green-900/20 cursor-pointer"
+                                                        }`}
+                                                        title={!isStartReached ? `Class can only be started at or after ${cls.startTime}` : "Start Class"}
                                                     >
                                                         <FaPlay size={9} /> Start
                                                     </button>
@@ -879,7 +933,8 @@ const UpcomingClass = () => {
                                                 )}
                                             </td>
                                         </tr>
-                                    ))
+                                    );
+                                    })
                                 )}
                             </tbody>
                         </table>
