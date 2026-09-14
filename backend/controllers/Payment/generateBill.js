@@ -7,6 +7,7 @@ import Class from "../../models/Master_data/Class.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
 import Department from "../../models/Master_data/Department.js";
 import Boards from "../../models/Master_data/Boards.js";
+import Allocation from "../../models/Inventory/Allocation.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import { isGstExempt } from "../../utils/gstHelper.js";
 
@@ -445,9 +446,26 @@ export const getBillById = async (req, res) => {
         }
 
         const admission = payment.admission;
+        let boardCourseAdmission = null;
+        let allocation = null;
+
+        if (!admission || !admission.department) {
+            if (payment.admission) {
+                boardCourseAdmission = await BoardCourseAdmission.findById(payment.admission)
+                    .populate('department', 'departmentName')
+                    .populate('examTag', 'name')
+                    .populate('boardId', 'boardCourse name')
+                    .populate('studentId')
+                    .lean();
+            }
+            allocation = await Allocation.findOne({ billNumber: billId })
+                .populate('student')
+                .populate('admission')
+                .lean();
+        }
 
         // Fetch centre information
-        const centre = await CentreSchema.findOne({ centreName: admission?.centre || payment.centre });
+        const centre = await CentreSchema.findOne({ centreName: admission?.centre || allocation?.centre || payment.centre });
         if (!centre) {
             return res.status(404).json({ message: "Centre information not found" });
         }
@@ -484,6 +502,10 @@ export const getBillById = async (req, res) => {
             finalSgst = parseFloat((finalGstPool - finalCgst).toFixed(2));
         }
 
+        const studentProfile = admission?.student?.studentsDetails?.[0] || 
+                               allocation?.student?.studentsDetails?.[0] || 
+                               boardCourseAdmission?.studentId?.studentsDetails?.[0] || {};
+
         const billData = {
             billId: payment.billId,
             billDate: payment.paidDate || new Date(),
@@ -496,18 +518,27 @@ export const getBillById = async (req, res) => {
                 corporatePhone: centre.enterCorporateOfficePhoneNumber || '033 2455-1840 / 2454-4817 / 4668'
             },
             student: {
-                id: admission?.student?._id || payment.studentId,
-                name: admission?.student?.studentsDetails?.[0]?.studentName || 'N/A',
-                admissionNumber: admission?.admissionNumber || 'N/A',
-                phoneNumber: admission?.student?.studentsDetails?.[0]?.mobileNum || 'N/A',
-                email: admission?.student?.studentsDetails?.[0]?.studentEmail || 'N/A'
+                id: admission?.student?._id || allocation?.student?._id || allocation?.student || payment.studentId,
+                name: studentProfile.studentName || admission?.studentName || boardCourseAdmission?.studentName || 'N/A',
+                admissionNumber: admission?.admissionNumber || allocation?.admissionNumber || boardCourseAdmission?.admissionNumber || studentProfile.formNo || studentProfile.rollNo || 'N/A',
+                phoneNumber: studentProfile.mobileNum || studentProfile.whatsappNumber || admission?.mobileNum || boardCourseAdmission?.mobileNum || 'N/A',
+                email: studentProfile.studentEmail || 'N/A'
             },
             course: {
-                name: payment.boardCourseName || (admission?.boardCourseName || (admission?.course?.courseName || 'N/A')),
-                department: admission?.department?.departmentName || 'N/A',
-                examTag: admission?.examTag?.name || 'N/A',
-                class: admission?.class?.name || 'N/A',
-                session: admission?.academicSession || 'N/A'
+                name: payment.boardCourseName || (allocation?.items?.map(i => `${i.itemName} (x${i.quantity || 1})`).join(', ')) || (admission?.boardCourseName || (admission?.course?.courseName || 'N/A')),
+                department: (admission?.department?.departmentName && !/inventory/i.test(admission.department.departmentName) ? admission.department.departmentName : null) ||
+                            (allocation?.departmentName && !/inventory/i.test(allocation.departmentName) ? allocation.departmentName : null) ||
+                            boardCourseAdmission?.department?.departmentName ||
+                            admission?.student?.department?.departmentName || 'N/A',
+                examTag: (admission?.examTag?.name && !/inventory/i.test(admission.examTag.name) ? admission.examTag.name : null) ||
+                         (allocation?.examTagName && !/inventory/i.test(allocation.examTagName) ? allocation.examTagName : null) ||
+                         boardCourseAdmission?.examTag?.name || 'N/A',
+                class: admission?.class?.name ||
+                       allocation?.className ||
+                       boardCourseAdmission?.lastClass || 'N/A',
+                session: admission?.academicSession ||
+                         allocation?.session ||
+                         boardCourseAdmission?.academicSession || 'N/A'
             },
             payment: {
                 installmentNumber: payment.installmentNumber,

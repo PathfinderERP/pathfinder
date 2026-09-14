@@ -80,6 +80,9 @@ const StudentSchema = new mongoose.Schema({
   allocatedItems: [{
     itemName: String,
     quantity: { type: Number, default: 1 },
+    itemType: { type: String, enum: ['Free', 'Paid'], default: 'Free' },
+    price: { type: Number, default: 0 },
+    billNumber: { type: String },
     allocationDate: { type: Date, default: Date.now },
     allocatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
   }],

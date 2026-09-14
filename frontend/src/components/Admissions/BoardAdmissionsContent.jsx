@@ -2021,7 +2021,7 @@ const BoardAdmissionsContent = () => {
                                                             )}
                                                         </span>
                                                         <div className="flex flex-col gap-0.5 mt-0.5">
-                                                            <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tight">UID: {student?.uid || (student?._id || item.studentId || "").toString().slice(-8).toUpperCase()}</span>
+                                                            <span className="text-[9px] text-gray-500 font-bold uppercase tracking-tight">UID: {student?.uid || (student?._id || item.studentId?._id || item.studentId || item._id || "").toString().slice(-8).toUpperCase()}</span>
                                                             {(item.studentEmail || details.studentEmail) && (
                                                                 <span className="text-[9px] text-cyan-500/70 font-bold lowercase tracking-tight truncate max-w-[150px]">
                                                                     {item.studentEmail || details.studentEmail}

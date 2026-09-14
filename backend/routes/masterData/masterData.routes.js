@@ -18,6 +18,9 @@ import {
     createActivityPurpose, getActivityPurposes, updateActivityPurpose, deleteActivityPurpose
 } from "../../controllers/masterData/activityPurposeController.js";
 import {
+    createInventoryMasterItem, getInventoryMasterItems, updateInventoryMasterItem, deleteInventoryMasterItem, bulkUpdateInventoryMasterStatus
+} from "../../controllers/masterData/inventoryController.js";
+import {
     createSchoolData, getSchoolData, updateSchoolData, deleteSchoolData, bulkImportSchoolData,
     bulkDeleteSchoolData, bulkUpdateSchoolData, getSchoolDataDistinctFields, getSchoolsOverview
 } from "../../controllers/masterData/schoolDataController.js";
@@ -29,6 +32,7 @@ import ExpenditureType from "../../models/Master_data/ExpenditureType.js";
 import Account from "../../models/Master_data/Account.js";
 import FollowUpFeedback from "../../models/Master_data/FollowUpFeedback.js";
 import ActivityPurpose from "../../models/Master_data/ActivityPurpose.js";
+import InventoryMaster from "../../models/Master_data/Inventory.js";
 
 const router = express.Router();
 
@@ -86,5 +90,13 @@ router.post("/school-data/bulk-delete", requireAuth, bulkDeleteSchoolData);
 router.put("/school-data/bulk-update", requireAuth, bulkUpdateSchoolData);
 router.put("/school-data/:id", requireAuth, updateSchoolData);
 router.delete("/school-data/:id", requireAuth, deleteSchoolData);
+
+// Inventory Master
+router.get("/inventory", requireAuth, getInventoryMasterItems);
+router.post("/inventory", requireGranularPermission("masterData", "inventory", "create"), createInventoryMasterItem);
+router.post("/inventory/import", requireGranularPermission("masterData", "inventory", "create"), bulkImport(InventoryMaster));
+router.put("/inventory/bulk-status", requireGranularPermission("masterData", "inventory", "edit"), bulkUpdateInventoryMasterStatus);
+router.put("/inventory/:id", requireGranularPermission("masterData", "inventory", "edit"), updateInventoryMasterItem);
+router.delete("/inventory/:id", requireGranularPermission("masterData", "inventory", "delete"), deleteInventoryMasterItem);
 
 export default router;

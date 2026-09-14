@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../../components/Layout";
-import { FaCalendarAlt, FaHistory, FaCheck, FaTimes, FaSpinner, FaPlus, FaClock, FaBriefcase, FaHome, FaExclamationCircle, FaLaptopHouse, FaStopwatch, FaUserClock, FaCamera, FaMapMarkerAlt, FaVideoSlash, FaCheckCircle, FaSyncAlt, FaEye, FaEdit } from "react-icons/fa";
+import { FaCalendarAlt, FaHistory, FaCheck, FaTimes, FaSpinner, FaPlus, FaClock, FaBriefcase, FaHome, FaExclamationCircle, FaLaptopHouse, FaStopwatch, FaUserClock, FaCamera, FaMapMarkerAlt, FaVideoSlash, FaCheckCircle, FaSyncAlt, FaEye, FaEdit, FaTrashAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../../context/ThemeContext";
 
@@ -28,6 +28,37 @@ const MyRegularization = () => {
     const [editModalReq, setEditModalReq] = useState(null);
     const [editFormData, setEditFormData] = useState({ date: "", type: "On Duty", reason: "", fromTime: "", toTime: "" });
     const [editSubmitting, setEditSubmitting] = useState(false);
+    const [deleteConfirmReq, setDeleteConfirmReq] = useState(null);
+    const [deletingId, setDeletingId] = useState(null);
+
+    const handleDeleteReq = async (reqId) => {
+        if (!reqId) return;
+        setDeletingId(reqId);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/regularizations/${reqId}`, {
+                method: "DELETE",
+                headers: { Authorization: `Bearer ${token}` }
+            });
+
+            if (response.ok) {
+                toast.success("Regularization request deleted successfully!");
+                setDeleteConfirmReq(null);
+                if (viewModalReq && viewModalReq._id === reqId) {
+                    setViewModalReq(null);
+                }
+                fetchRequests();
+            } else {
+                const err = await response.json();
+                toast.error(err.message || "Failed to delete regularization request");
+            }
+        } catch (error) {
+            console.error("Delete Regularization error:", error);
+            toast.error("An error occurred while deleting");
+        } finally {
+            setDeletingId(null);
+        }
+    };
 
     const handleOpenEditModal = (req) => {
         setEditModalReq(req);
@@ -684,13 +715,22 @@ const MyRegularization = () => {
                                             <FaEye size={12} /> View Details
                                         </button>
                                         {req.status !== 'Approved' && (
-                                            <button
-                                                type="button"
-                                                onClick={() => handleOpenEditModal(req)}
-                                                className="px-3 py-2 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-black uppercase tracking-wider hover:bg-blue-500/20 transition-all flex items-center gap-1.5"
-                                            >
-                                                <FaEdit size={12} /> Edit
-                                            </button>
+                                            <>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => handleOpenEditModal(req)}
+                                                    className="px-3 py-2 rounded-xl border border-blue-500/30 bg-blue-500/10 text-blue-600 dark:text-blue-400 text-xs font-black uppercase tracking-wider hover:bg-blue-500/20 transition-all flex items-center gap-1.5"
+                                                >
+                                                    <FaEdit size={12} /> Edit
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setDeleteConfirmReq(req)}
+                                                    className="px-3 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-wider hover:bg-rose-500/20 transition-all flex items-center gap-1.5"
+                                                >
+                                                    <FaTrashAlt size={12} /> Delete
+                                                </button>
+                                            </>
                                         )}
                                     </div>
                                 </div>
@@ -778,7 +818,16 @@ const MyRegularization = () => {
                             )}
                         </div>
 
-                        <div className="flex justify-end pt-4 border-t border-gray-800">
+                        <div className="flex justify-between items-center pt-4 border-t border-gray-200 dark:border-gray-800">
+                            {viewModalReq.status !== 'Approved' ? (
+                                <button
+                                    type="button"
+                                    onClick={() => setDeleteConfirmReq(viewModalReq)}
+                                    className="px-4 py-2 rounded-xl border border-rose-500/30 bg-rose-500/10 text-rose-600 dark:text-rose-400 text-xs font-black uppercase tracking-wider hover:bg-rose-500/20 transition-all flex items-center gap-1.5"
+                                >
+                                    <FaTrashAlt size={12} /> Delete Request
+                                </button>
+                            ) : <div />}
                             <button onClick={() => setViewModalReq(null)} className="px-5 py-2 rounded-xl bg-gray-800 hover:bg-gray-700 font-bold uppercase text-xs tracking-wider text-white">
                                 Close
                             </button>
@@ -870,6 +919,57 @@ const MyRegularization = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Delete Confirmation Modal */}
+            {deleteConfirmReq && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
+                    <div className={`w-full max-w-md p-6 rounded-3xl border shadow-2xl space-y-5 ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'}`}>
+                        <div className="flex items-center gap-3 text-rose-500 pb-2 border-b border-gray-200 dark:border-gray-800">
+                            <div className="p-3 bg-rose-500/10 rounded-2xl">
+                                <FaTrashAlt size={20} />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-black uppercase tracking-tight">Delete Request</h3>
+                                <p className="text-xs text-gray-400 font-bold uppercase">Confirm Cancellation</p>
+                            </div>
+                        </div>
+
+                        <p className={`text-sm leading-relaxed ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                            Are you sure you want to delete your regularization request for <span className={`font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{new Date(deleteConfirmReq.date).toLocaleDateString()}</span> ({deleteConfirmReq.type})?
+                        </p>
+                        <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                            This action cannot be undone. If you submitted this request by mistake, deleting it will remove it permanently.
+                        </p>
+
+                        <div className="flex justify-end gap-3 pt-4 border-t border-gray-200 dark:border-gray-800">
+                            <button
+                                type="button"
+                                disabled={deletingId === deleteConfirmReq._id}
+                                onClick={() => setDeleteConfirmReq(null)}
+                                className={`px-5 py-2.5 rounded-xl border font-bold uppercase text-xs tracking-wider transition-colors disabled:opacity-50 ${isDarkMode ? 'border-gray-700 text-gray-300 hover:bg-gray-800' : 'border-gray-300 text-gray-700 hover:bg-gray-100'}`}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                type="button"
+                                disabled={deletingId === deleteConfirmReq._id}
+                                onClick={() => handleDeleteReq(deleteConfirmReq._id)}
+                                className="px-5 py-2.5 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black uppercase text-xs tracking-wider shadow-lg shadow-rose-600/30 transition-all flex items-center gap-2 disabled:opacity-50"
+                            >
+                                {deletingId === deleteConfirmReq._id ? (
+                                    <>
+                                        <FaSpinner className="animate-spin" /> Deleting...
+                                    </>
+                                ) : (
+                                    <>
+                                        <FaTrashAlt size={12} /> Delete Request
+                                    </>
+                                )}
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}

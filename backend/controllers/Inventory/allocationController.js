@@ -1,4 +1,5 @@
 import Allocation from "../../models/Inventory/Allocation.js";
+import Payment from "../../models/Payment/Payment.js";
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
@@ -7,6 +8,9 @@ import ClassSchema from "../../models/Master_data/Class.js";
 import DepartmentSchema from "../../models/Master_data/Department.js";
 import BoardsSchema from "../../models/Master_data/Boards.js";
 import SessionSchema from "../../models/Master_data/Session.js";
+import ExamTagSchema from "../../models/Master_data/ExamTag.js";
+import InventoryMaster from "../../models/Master_data/Inventory.js";
+import { generateBillId } from "../../utils/billIdGenerator.js";
 
 // Fast Store Overview: aggregates active centres, active student counts, item allocations, master filters & global stats
 export const getStoreOverview = async (req, res) => {
@@ -31,18 +35,25 @@ export const getStoreOverview = async (req, res) => {
                     masterSessions: [],
                     masterClasses: [],
                     masterDepartments: [],
-                    masterBoards: []
+                    masterBoards: [],
+                    masterExamTags: [],
+                    masterInventoryItems: []
                 });
             }
 
-            centreQuery.$or = [
-                { _id: { $in: userCentres } },
-                { centreName: { $in: userCentres } }
-            ];
+            centreQuery.centreName = { $in: userCentres };
         }
 
-        // Fetch active centres, active sessions, master classes, departments and boards in parallel
-        const [centres, activeSessions, masterClasses, masterDepartments, masterBoards] = await Promise.all([
+        // Fetch Master Reference Filters and Active Centres in parallel
+        const [
+            centres,
+            activeSessions,
+            masterClasses,
+            masterDepartments,
+            masterBoards,
+            masterExamTags,
+            masterInventoryItems
+        ] = await Promise.all([
             CentreSchema.find(centreQuery)
                 .select("centreName centreCode enterCode location address state status")
                 .lean(),
@@ -52,7 +63,9 @@ export const getStoreOverview = async (req, res) => {
                 .lean(),
             ClassSchema.find({}).select("name _id").sort({ name: 1 }).lean(),
             DepartmentSchema.find({}).select("departmentName _id").sort({ departmentName: 1 }).lean(),
-            BoardsSchema.find({}).select("boardCourse name _id").sort({ boardCourse: 1 }).lean()
+            BoardsSchema.find({}).select("boardCourse name _id").sort({ boardCourse: 1 }).lean(),
+            ExamTagSchema.find({}).select("name _id").sort({ name: 1 }).lean(),
+            InventoryMaster.find({ status: { $ne: "Deactive" } }).sort({ name: 1 }).lean()
         ]);
 
         if (centres.length === 0) {
@@ -68,7 +81,9 @@ export const getStoreOverview = async (req, res) => {
                 masterSessions: activeSessions.map(s => s.sessionName).filter(Boolean),
                 masterClasses,
                 masterDepartments,
-                masterBoards
+                masterBoards,
+                masterExamTags: masterExamTags.map(t => t.name).filter(Boolean),
+                masterInventoryItems: masterInventoryItems || []
             });
         }
 
@@ -216,7 +231,9 @@ export const getStoreOverview = async (req, res) => {
             masterSessions: activeSessions.map(s => s.sessionName).filter(Boolean),
             masterClasses: masterClasses.map(c => c.name).filter(Boolean),
             masterDepartments: masterDepartments.map(d => d.departmentName).filter(Boolean),
-            masterBoards: masterBoards.map(b => b.boardCourse || b.name).filter(Boolean)
+            masterBoards: masterBoards.map(b => b.boardCourse || b.name).filter(Boolean),
+            masterExamTags: masterExamTags.map(t => t.name).filter(Boolean),
+            masterInventoryItems: masterInventoryItems || []
         });
     } catch (error) {
         console.error("Get Store Overview Error:", error);
@@ -257,9 +274,10 @@ export const getCentreStudents = async (req, res) => {
                 centre: regexCentre,
                 admissionStatus: { $nin: ["INACTIVE", "CANCELLED"] }
             })
-            .select("_id student admissionNumber academicSession class department board boardCourseName admissionDate createdAt")
+            .select("_id student admissionNumber academicSession class department board boardCourseName examTag admissionDate createdAt")
             .populate("class", "name")
             .populate("department", "departmentName")
+            .populate("examTag", "name")
             .lean(),
 
             BoardCourseAdmission.find({
@@ -267,9 +285,10 @@ export const getCentreStudents = async (req, res) => {
                 enrolledStudentsStatus: { $ne: "INACTIVE" },
                 status: { $ne: "CANCELLED" }
             })
-            .select("_id studentId admissionNumber academicSession lastClass department boardId boardCourseName admissionDate createdAt")
+            .select("_id studentId admissionNumber academicSession lastClass department boardId boardCourseName examTag admissionDate createdAt")
             .populate("department", "departmentName")
             .populate("boardId", "boardCourse")
+            .populate("examTag", "name")
             .lean()
         ]);
 
@@ -291,6 +310,7 @@ export const getCentreStudents = async (req, res) => {
                 className: adm.class?.name || null,
                 departmentName: adm.department?.departmentName || null,
                 boardName: adm.board || null,
+                examTagName: adm.examTag?.name || null,
                 admissionDate: adm.admissionDate || adm.createdAt
             });
         }
@@ -306,11 +326,12 @@ export const getCentreStudents = async (req, res) => {
                 className: adm.lastClass || null,
                 departmentName: adm.department?.departmentName || null,
                 boardName: adm.boardId?.boardCourse || null,
+                examTagName: adm.examTag?.name || null,
                 admissionDate: adm.admissionDate || adm.createdAt
             });
         }
 
-        // Combine into standard student object with resolved Session, Class, Department, Board
+        // Combine into standard student object with resolved Session, Class, Department, Board, ExamTag
         const result = students.map(student => {
             const sId = student._id.toString();
             const admissions = studentAdmissionsMap.get(sId) || [];
@@ -336,6 +357,9 @@ export const getCentreStudents = async (req, res) => {
             // Resolve Board
             const resolvedBoard = studentDetail.board || latestAdmission?.boardName || "N/A";
 
+            // Resolve Exam Tag
+            const resolvedExamTag = latestAdmission?.examTagName || student.sessionExamCourse?.[0]?.examTag || "N/A";
+
             return {
                 student: {
                     _id: student._id,
@@ -348,6 +372,7 @@ export const getCentreStudents = async (req, res) => {
                 resolvedClass,
                 resolvedDepartment,
                 resolvedBoard,
+                resolvedExamTag,
                 centre: centre.trim()
             };
         });
@@ -359,41 +384,370 @@ export const getCentreStudents = async (req, res) => {
     }
 };
 
+// Helper to resolve student's actual Department, Exam Tag, Class, Session, Board & Admission Number
+export const resolveStudentAcademicDetails = async (studentId, admissionId = null, clientDetails = {}) => {
+    let resolvedDepartment = (clientDetails.department || clientDetails.resolvedDepartment) && !/inventory/i.test(clientDetails.department || clientDetails.resolvedDepartment) && (clientDetails.department || clientDetails.resolvedDepartment) !== "N/A" ? (clientDetails.department || clientDetails.resolvedDepartment) : null;
+    let resolvedExamTag = (clientDetails.examTag || clientDetails.resolvedExamTag) && !/inventory/i.test(clientDetails.examTag || clientDetails.resolvedExamTag) && (clientDetails.examTag || clientDetails.resolvedExamTag) !== "N/A" ? (clientDetails.examTag || clientDetails.resolvedExamTag) : null;
+    let resolvedClass = (clientDetails.class || clientDetails.resolvedClass) && (clientDetails.class || clientDetails.resolvedClass) !== "N/A" ? (clientDetails.class || clientDetails.resolvedClass) : null;
+    let resolvedSession = (clientDetails.session || clientDetails.resolvedSession) && (clientDetails.session || clientDetails.resolvedSession) !== "N/A" ? (clientDetails.session || clientDetails.resolvedSession) : null;
+    let resolvedBoard = (clientDetails.board || clientDetails.resolvedBoard) && (clientDetails.board || clientDetails.resolvedBoard) !== "N/A" ? (clientDetails.board || clientDetails.resolvedBoard) : null;
+    let admissionNumber = (clientDetails.admissionNumber || clientDetails.admissionNo) && clientDetails.admissionNumber !== "N/A" ? (clientDetails.admissionNumber || clientDetails.admissionNo) : null;
+    let finalAdmissionId = admissionId || null;
+
+    // Fetch Student document
+    let studentDoc = null;
+    if (studentId) {
+        studentDoc = await Student.findById(studentId)
+            .populate('department', 'departmentName')
+            .populate({
+                path: 'course',
+                select: 'courseName department examTag class courseSession',
+                populate: [
+                    { path: 'department', select: 'departmentName' },
+                    { path: 'examTag', select: 'name' },
+                    { path: 'class', select: 'name' }
+                ]
+            })
+            .lean();
+
+        // If studentId wasn't found directly, check if it is an admission ID
+        if (!studentDoc) {
+            const admCheck = await Admission.findById(studentId).populate('student').lean();
+            if (admCheck?.student) {
+                finalAdmissionId = admCheck._id;
+                studentDoc = admCheck.student;
+            } else {
+                const badmCheck = await BoardCourseAdmission.findById(studentId).populate('studentId').lean();
+                if (badmCheck?.studentId) {
+                    finalAdmissionId = badmCheck._id;
+                    studentDoc = badmCheck.studentId;
+                }
+            }
+        }
+    }
+
+    const studentInfo = studentDoc?.studentsDetails?.[0] || {};
+
+    // Fetch Admission or BoardCourseAdmission
+    let admissionDoc = null;
+    if (finalAdmissionId) {
+        admissionDoc = await Admission.findById(finalAdmissionId)
+            .populate({
+                path: 'course',
+                select: 'courseName department examTag class courseSession',
+                populate: [
+                    { path: 'department', select: 'departmentName' },
+                    { path: 'examTag', select: 'name' },
+                    { path: 'class', select: 'name' }
+                ]
+            })
+            .populate('department', 'departmentName')
+            .populate('examTag', 'name')
+            .populate('class', 'name')
+            .populate('board', 'boardCourse name')
+            .lean();
+        
+        if (!admissionDoc) {
+            admissionDoc = await BoardCourseAdmission.findById(finalAdmissionId)
+                .populate('department', 'departmentName')
+                .populate('examTag', 'name')
+                .populate('boardId', 'boardCourse name')
+                .lean();
+        }
+    }
+
+    if (!admissionDoc && studentDoc?._id) {
+        admissionDoc = await Admission.findOne({ student: studentDoc._id })
+            .sort({ createdAt: -1 })
+            .populate({
+                path: 'course',
+                select: 'courseName department examTag class courseSession',
+                populate: [
+                    { path: 'department', select: 'departmentName' },
+                    { path: 'examTag', select: 'name' },
+                    { path: 'class', select: 'name' }
+                ]
+            })
+            .populate('department', 'departmentName')
+            .populate('examTag', 'name')
+            .populate('class', 'name')
+            .populate('board', 'boardCourse name')
+            .lean();
+    }
+
+    if (!admissionDoc && studentDoc?._id) {
+        admissionDoc = await BoardCourseAdmission.findOne({ studentId: studentDoc._id })
+            .sort({ createdAt: -1 })
+            .populate('department', 'departmentName')
+            .populate('examTag', 'name')
+            .populate('boardId', 'boardCourse name')
+            .lean();
+    }
+
+    if (admissionDoc?._id) {
+        finalAdmissionId = admissionDoc._id;
+    }
+
+    // Resolve Session
+    if (!resolvedSession || resolvedSession === "N/A") {
+        resolvedSession = admissionDoc?.academicSession || 
+                          admissionDoc?.course?.courseSession ||
+                          studentDoc?.course?.courseSession ||
+                          studentDoc?.sessionExamCourse?.[0]?.session || 
+                          studentInfo.session || 
+                          "N/A";
+    }
+
+    // Resolve Class
+    if (!resolvedClass || resolvedClass === "N/A") {
+        resolvedClass = admissionDoc?.class?.name || 
+                        admissionDoc?.class?.className ||
+                        admissionDoc?.lastClass || 
+                        admissionDoc?.course?.class?.name ||
+                        studentDoc?.course?.class?.name ||
+                        studentDoc?.examSchema?.[0]?.class || 
+                        studentInfo.class || 
+                        "N/A";
+    }
+
+    // Resolve Department (Ensure it never displays 'STORE / INVENTORY')
+    if (!resolvedDepartment || resolvedDepartment === "N/A" || /inventory/i.test(resolvedDepartment)) {
+        resolvedDepartment = admissionDoc?.department?.departmentName || 
+                             admissionDoc?.department?.name ||
+                             admissionDoc?.course?.department?.departmentName ||
+                             studentDoc?.department?.departmentName || 
+                             studentDoc?.department?.name ||
+                             studentDoc?.course?.department?.departmentName ||
+                             "N/A";
+    }
+
+    // Resolve Exam Tag (Ensure it never displays 'INVENTORY')
+    if (!resolvedExamTag || resolvedExamTag === "N/A" || /inventory/i.test(resolvedExamTag)) {
+        resolvedExamTag = admissionDoc?.examTag?.name || 
+                          admissionDoc?.course?.examTag?.name ||
+                          studentDoc?.course?.examTag?.name ||
+                          studentDoc?.sessionExamCourse?.[0]?.examTag || 
+                          "N/A";
+    }
+
+    // Resolve Board
+    if (!resolvedBoard || resolvedBoard === "N/A") {
+        resolvedBoard = admissionDoc?.board?.boardCourse || 
+                        admissionDoc?.board?.name || 
+                        admissionDoc?.boardId?.boardCourse || 
+                        admissionDoc?.boardId?.name || 
+                        studentInfo.board || 
+                        "N/A";
+    }
+
+    // Resolve Admission Number
+    if (!admissionNumber || admissionNumber === "N/A") {
+        admissionNumber = admissionDoc?.admissionNumber || 
+                          studentInfo.formNo || 
+                          studentInfo.rollNo || 
+                          studentDoc?.uid ||
+                          "N/A";
+    }
+
+    return {
+        studentDoc,
+        studentInfo,
+        admissionDoc,
+        finalAdmissionId,
+        resolvedSession,
+        resolvedClass,
+        resolvedDepartment,
+        resolvedBoard,
+        resolvedExamTag,
+        admissionNumber
+    };
+};
+
 // Create new allocation for single student
 export const createAllocation = async (req, res) => {
     try {
-        const { studentId, admissionId, items } = req.body;
+        const { 
+            studentId, 
+            admissionId, 
+            items, 
+            centreName,
+            paymentMethod = 'CASH',
+            receivedDate = new Date(),
+            transactionId = '',
+            accountHolderName = '',
+            remarks = '',
+            discount = 0,
+            waiver = 0,
+            studentDetails = {}
+        } = req.body;
 
         if (!studentId || !items || items.length === 0) {
             return res.status(400).json({ message: "Missing required fields" });
         }
 
-        let finalAdmissionId = admissionId;
-        if (!finalAdmissionId) {
-            const adm = await Admission.findOne({ student: studentId }).sort({ createdAt: -1 }).select('_id');
-            finalAdmissionId = adm ? adm._id : null;
+        const profile = await resolveStudentAcademicDetails(studentId, admissionId, studentDetails);
+        const targetCentreName = centreName || profile.studentInfo?.centre || 'MAIN';
+        const finalAdmissionId = profile.finalAdmissionId;
+
+        const hasPaidItems = items.some(i => i.itemType === 'Paid' || Number(i.price) > 0);
+        let billNumber = null;
+        let targetCentreCode = null;
+
+        const centreDoc = await CentreSchema.findOne({
+            $or: [
+                { centreName: new RegExp(`^${targetCentreName.trim()}$`, 'i') },
+                { centreCode: new RegExp(`^${targetCentreName.trim()}$`, 'i') },
+                { enterCode: new RegExp(`^${targetCentreName.trim()}$`, 'i') }
+            ]
+        }).select('centreCode enterCode centreName address phoneNumber enterGstNo enterCorporateOfficeAddress enterCorporateOfficePhoneNumber').lean();
+
+        // Standard Pathfinder branch code is enterCode (e.g. BAR, BL, DUR, HZ), NOT numeric centreCode!
+        targetCentreCode = (centreDoc?.enterCode || centreDoc?.centreCode || targetCentreName.slice(0, 3)).trim().toUpperCase();
+
+        const grossAmount = items.reduce((acc, curr) => {
+            const isPaid = curr.itemType === 'Paid' || Number(curr.price) > 0;
+            const price = Number(curr.price) || 0;
+            const qty = Number(curr.quantity) || 1;
+            return acc + (isPaid ? price * qty : 0);
+        }, 0);
+
+        const grossAmountNum = parseFloat(grossAmount.toFixed(2));
+        const inputDiscount = discount !== undefined && discount !== null && discount !== '' 
+            ? Number(discount) 
+            : (waiver !== undefined && waiver !== null && waiver !== '' ? Number(waiver) : 0);
+        const discountNum = Math.max(0, Math.min(grossAmountNum, parseFloat((Number(inputDiscount) || 0).toFixed(2))));
+        const totalAmountNum = parseFloat(Math.max(0, grossAmountNum - discountNum).toFixed(2));
+        const paymentDate = receivedDate ? new Date(receivedDate) : new Date();
+
+        let paymentRecord = null;
+        let billData = null;
+
+        if (hasPaidItems && grossAmountNum > 0) {
+            billNumber = await generateBillId(targetCentreCode, paymentDate);
+
+            // Calculate GST breakdown (18% inclusive) on net payable amount
+            // baseAmount = total / 1.18, without-GST amount saved in courseFee
+            const baseAmount = totalAmountNum > 0 ? parseFloat((totalAmountNum / 1.18).toFixed(2)) : 0;
+            const gstPool = totalAmountNum > 0 ? parseFloat((totalAmountNum - baseAmount).toFixed(2)) : 0;
+            const cgst = parseFloat((gstPool / 2).toFixed(2));
+            const sgst = parseFloat((gstPool - cgst).toFixed(2));
+
+            paymentRecord = new Payment({
+                admission: finalAdmissionId || studentId,
+                installmentNumber: 0,
+                amount: totalAmountNum,
+                paidAmount: totalAmountNum,
+                dueDate: paymentDate,
+                paidDate: paymentDate,
+                receivedDate: paymentDate,
+                status: 'PAID',
+                paymentMethod: paymentMethod || 'CASH',
+                transactionId: transactionId || '',
+                accountHolderName: accountHolderName || '',
+                remarks: remarks || (discountNum > 0 
+                    ? `Inventory Store Allotment - Gross: Rs. ${grossAmountNum} | Discount: Rs. ${discountNum} | Net: Rs. ${totalAmountNum}` 
+                    : `Inventory Store Allotment - ${profile.studentInfo?.studentName || ''}`),
+                recordedBy: req.user?.id || req.user?._id,
+                cgst,
+                sgst,
+                courseFee: baseAmount, // Without-GST taxable amount for Daily Collection & Transaction Report
+                totalAmount: totalAmountNum,
+                billId: billNumber,
+                centre: centreDoc?.centreName || targetCentreName,
+                boardCourseName: items.map(i => `${i.itemName} (x${i.quantity || 1})`).join(', ')
+            });
+
+            await paymentRecord.save();
+
+            billData = {
+                billId: billNumber,
+                billDate: paymentDate,
+                centre: {
+                    name: centreDoc?.centreName || targetCentreName,
+                    address: centreDoc?.address || 'N/A',
+                    phoneNumber: centreDoc?.phoneNumber || 'N/A',
+                    gstNumber: centreDoc?.enterGstNo || 'N/A',
+                    corporateAddress: centreDoc?.enterCorporateOfficeAddress || '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                    corporatePhone: centreDoc?.enterCorporateOfficePhoneNumber || '033 2455-1840 / 2454-4817 / 4668'
+                },
+                student: {
+                    id: studentId,
+                    name: profile.studentInfo?.studentName || 'N/A',
+                    admissionNumber: profile.admissionNumber,
+                    phoneNumber: profile.studentInfo?.mobileNum || profile.studentInfo?.whatsappNumber || 'N/A',
+                    email: profile.studentInfo?.studentEmail || 'N/A'
+                },
+                course: {
+                    name: items.map(i => `${i.itemName} (x${i.quantity || 1})`).join(', '),
+                    department: profile.resolvedDepartment,
+                    examTag: profile.resolvedExamTag,
+                    class: profile.resolvedClass,
+                    session: profile.resolvedSession
+                },
+                payment: {
+                    installmentNumber: 0,
+                    paymentMethod: paymentMethod || 'CASH',
+                    transactionId: transactionId || '',
+                    accountHolderName: accountHolderName || '',
+                    paidDate: paymentDate,
+                    receivedDate: paymentDate,
+                    status: 'PAID',
+                    remarks: remarks || `Inventory Store Allotment - Total: Rs. ${totalAmountNum}`
+                },
+                amounts: {
+                    grossFee: grossAmountNum,
+                    waiver: discountNum,
+                    courseFee: baseAmount,
+                    cgst,
+                    sgst,
+                    totalAmount: totalAmountNum
+                },
+                items: items
+            };
         }
+
+        const mappedItems = items.map(item => ({
+            itemName: item.itemName,
+            quantity: Number(item.quantity) || 1,
+            itemType: (item.itemType === 'Paid' || Number(item.price) > 0) ? 'Paid' : 'Free',
+            price: Number(item.price) || 0,
+            status: 'Allocated'
+        }));
 
         const allocation = await Allocation.create({
             student: studentId,
-            admission: finalAdmissionId,
-            items: items.map(item => ({
-                itemName: item.itemName,
-                quantity: Number(item.quantity) || 1,
-                status: 'Allocated'
-            })),
-            allocatedBy: req.user._id
+            admission: finalAdmissionId || null,
+            centre: targetCentreName,
+            centreCode: targetCentreCode,
+            billNumber,
+            hasPaidItems,
+            grossAmount: grossAmountNum,
+            discount: discountNum,
+            totalAmount: totalAmountNum,
+            payment: paymentRecord ? paymentRecord._id : null,
+            paymentMethod: hasPaidItems ? (paymentMethod || 'CASH') : null,
+            session: profile.resolvedSession,
+            className: profile.resolvedClass,
+            departmentName: profile.resolvedDepartment,
+            examTagName: profile.resolvedExamTag,
+            boardName: profile.resolvedBoard,
+            items: mappedItems,
+            allocatedBy: req.user._id,
+            allocationDate: paymentDate
         });
 
-        // Also update student schema with allocated items
+        // Update student schema with allocated items
         await Student.findByIdAndUpdate(studentId, {
             $push: {
                 allocatedItems: {
                     $each: items.map(item => ({
                         itemName: item.itemName,
                         quantity: Number(item.quantity) || 1,
+                        itemType: (item.itemType === 'Paid' || Number(item.price) > 0) ? 'Paid' : 'Free',
+                        price: Number(item.price) || 0,
+                        billNumber,
                         allocatedBy: req.user._id,
-                        allocationDate: new Date()
+                        allocationDate: paymentDate
                     }))
                 }
             }
@@ -401,7 +755,10 @@ export const createAllocation = async (req, res) => {
 
         res.status(201).json({
             message: "Items allocated successfully",
-            allocation
+            allocation,
+            billNumber,
+            hasPaidItems,
+            billData
         });
     } catch (error) {
         console.error("Create Allocation Error:", error);
@@ -409,73 +766,194 @@ export const createAllocation = async (req, res) => {
     }
 };
 
-// Create bulk allocations for multiple students (centre-level or multi-select)
+// Create bulk allocations for multiple students (multi-select)
 export const createBulkAllocation = async (req, res) => {
     try {
-        const { students, items, centreName, scope } = req.body;
+        const { 
+            students, 
+            items, 
+            centreName,
+            paymentMethod = 'CASH',
+            receivedDate = new Date(),
+            transactionId = '',
+            accountHolderName = '',
+            remarks = '',
+            discount = 0,
+            waiver = 0
+        } = req.body;
 
         if (!items || !Array.isArray(items) || items.length === 0) {
             return res.status(400).json({ message: "No items selected for allocation" });
         }
 
-        const itemsToPush = items.map(item => ({
-            itemName: item.itemName,
-            quantity: Number(item.quantity) || 1,
-            allocatedBy: req.user._id,
-            allocationDate: new Date()
-        }));
+        if (!students || !Array.isArray(students) || students.length === 0) {
+            return res.status(400).json({ message: "No students selected for allocation" });
+        }
 
-        let studentIdsToUpdate = [];
-        let validAllocations = [];
+        const hasPaidItems = items.some(i => i.itemType === 'Paid' || Number(i.price) > 0);
+        const perStudentGross = items.reduce((acc, curr) => {
+            const isPaid = curr.itemType === 'Paid' || Number(curr.price) > 0;
+            const price = Number(curr.price) || 0;
+            const qty = Number(curr.quantity) || 1;
+            return acc + (isPaid ? price * qty : 0);
+        }, 0);
+        const perStudentGrossNum = parseFloat(perStudentGross.toFixed(2));
+        const paymentDate = receivedDate ? new Date(receivedDate) : new Date();
 
-        // Direct centre-wide bulk allotment
-        if (centreName && scope) {
-            const regexCentre = new RegExp(`^${centreName.trim()}$`, "i");
-            const studentMatch = {
-                status: { $ne: "Deactivated" },
-                "studentsDetails.centre": regexCentre
-            };
+        const inputDiscount = discount !== undefined && discount !== null && discount !== '' 
+            ? Number(discount) 
+            : (waiver !== undefined && waiver !== null && waiver !== '' ? Number(waiver) : 0);
+        const totalDiscountNum = Math.max(0, Number(inputDiscount) || 0);
+        const perStudentDiscount = students.length > 0 ? parseFloat((totalDiscountNum / students.length).toFixed(2)) : 0;
 
-            if (scope === 'centre_not_allotted') {
-                studentMatch["allocatedItems.0"] = { $exists: false };
+        let defaultCentreCode = null;
+        let defaultCentreDoc = null;
+        if (centreName) {
+            defaultCentreDoc = await CentreSchema.findOne({
+                $or: [
+                    { centreName: new RegExp(`^${centreName.trim()}$`, 'i') },
+                    { centreCode: new RegExp(`^${centreName.trim()}$`, 'i') },
+                    { enterCode: new RegExp(`^${centreName.trim()}$`, 'i') }
+                ]
+            }).select('centreCode enterCode centreName address phoneNumber enterGstNo enterCorporateOfficeAddress enterCorporateOfficePhoneNumber').lean();
+            defaultCentreCode = (defaultCentreDoc?.enterCode || defaultCentreDoc?.centreCode || centreName.slice(0, 3)).trim().toUpperCase();
+        }
+
+        const studentIds = students.map(s => typeof s === 'object' ? s.studentId : s).filter(Boolean);
+        const studentDocs = await Student.find({ _id: { $in: studentIds } }).select('_id studentsDetails').lean();
+        const studentMap = new Map();
+        studentDocs.forEach(sd => {
+            studentMap.set(sd._id.toString(), sd);
+        });
+
+        const centreCodeCache = new Map();
+        if (defaultCentreCode && centreName) {
+            centreCodeCache.set(centreName.trim().toUpperCase(), { code: defaultCentreCode, doc: defaultCentreDoc });
+        }
+
+        const studentIdsToUpdate = [];
+        const validAllocations = [];
+        const studentPushes = [];
+        const generatedBillNumbers = [];
+
+        for (const s of students) {
+            const studentId = typeof s === 'object' ? s.studentId : s;
+            const admissionId = typeof s === 'object' ? s.admissionId : null;
+            if (!studentId) continue;
+
+            const profile = await resolveStudentAcademicDetails(studentId, admissionId, typeof s === 'object' ? s : {});
+            const studentDoc = profile.studentDoc || studentMap.get(studentId.toString());
+            const stCentre = profile.studentInfo?.centre || studentDoc?.studentsDetails?.[0]?.centre || centreName || 'MAIN';
+            const cKey = stCentre.trim().toUpperCase();
+
+            let cInfo = centreCodeCache.get(cKey);
+            if (!cInfo) {
+                const cDoc = await CentreSchema.findOne({
+                    $or: [
+                        { centreName: new RegExp(`^${stCentre.trim()}$`, 'i') },
+                        { centreCode: new RegExp(`^${stCentre.trim()}$`, 'i') },
+                        { enterCode: new RegExp(`^${stCentre.trim()}$`, 'i') }
+                    ]
+                }).select('centreCode enterCode centreName address phoneNumber enterGstNo enterCorporateOfficeAddress enterCorporateOfficePhoneNumber').lean();
+                const code = (cDoc?.enterCode || cDoc?.centreCode || stCentre.slice(0, 3)).trim().toUpperCase();
+                cInfo = { code, doc: cDoc };
+                centreCodeCache.set(cKey, cInfo);
             }
 
-            const matchedStudents = await Student.find(studentMatch).select("_id").lean();
-            studentIdsToUpdate = matchedStudents.map(s => s._id);
+            const cCode = cInfo.code;
+            let billNumber = null;
+            let paymentRecord = null;
 
-            for (const sId of studentIdsToUpdate) {
-                validAllocations.push({
-                    student: sId,
-                    admission: null,
-                    items: items.map(item => ({
-                        itemName: item.itemName,
-                        quantity: Number(item.quantity) || 1,
-                        status: 'Allocated'
-                    })),
-                    allocatedBy: req.user._id,
-                    allocationDate: new Date()
+            const studentGrossNum = perStudentGrossNum;
+            const studentDiscountNum = Math.min(studentGrossNum, perStudentDiscount);
+            const studentNetNum = Math.max(0, parseFloat((studentGrossNum - studentDiscountNum).toFixed(2)));
+
+            const baseAmount = studentNetNum > 0 ? parseFloat((studentNetNum / 1.18).toFixed(2)) : 0;
+            const gstPool = studentNetNum > 0 ? parseFloat((studentNetNum - baseAmount).toFixed(2)) : 0;
+            const cgst = parseFloat((gstPool / 2).toFixed(2));
+            const sgst = parseFloat((gstPool - cgst).toFixed(2));
+
+            if (hasPaidItems && studentGrossNum > 0) {
+                billNumber = await generateBillId(cCode, paymentDate);
+                generatedBillNumbers.push(billNumber);
+
+                paymentRecord = new Payment({
+                    admission: profile.finalAdmissionId || studentId,
+                    installmentNumber: 0,
+                    amount: studentNetNum,
+                    paidAmount: studentNetNum,
+                    dueDate: paymentDate,
+                    paidDate: paymentDate,
+                    receivedDate: paymentDate,
+                    status: 'PAID',
+                    paymentMethod: paymentMethod || 'CASH',
+                    transactionId: transactionId || '',
+                    accountHolderName: accountHolderName || '',
+                    remarks: remarks || (studentDiscountNum > 0 
+                        ? `Bulk Inventory Allotment - Gross: Rs. ${studentGrossNum} | Discount: Rs. ${studentDiscountNum} | Net: Rs. ${studentNetNum}` 
+                        : `Bulk Inventory Allotment - ${profile.studentInfo?.studentName || ''}`),
+                    recordedBy: req.user?.id || req.user?._id,
+                    cgst,
+                    sgst,
+                    courseFee: baseAmount, // Without-GST for Daily Collection & Transaction Report
+                    totalAmount: studentNetNum,
+                    billId: billNumber,
+                    centre: cInfo.doc?.centreName || stCentre,
+                    boardCourseName: items.map(i => `${i.itemName} (x${i.quantity || 1})`).join(', ')
                 });
-            }
-        } else if (students && Array.isArray(students) && students.length > 0) {
-            for (const s of students) {
-                const studentId = typeof s === 'object' ? s.studentId : s;
-                let admissionId = typeof s === 'object' ? s.admissionId : null;
 
-                if (studentId) {
-                    studentIdsToUpdate.push(studentId);
-                    validAllocations.push({
-                        student: studentId,
-                        admission: admissionId,
-                        items: items.map(item => ({
-                            itemName: item.itemName,
-                            quantity: Number(item.quantity) || 1,
-                            status: 'Allocated'
-                        })),
-                        allocatedBy: req.user._id,
-                        allocationDate: new Date()
-                    });
-                }
+                await paymentRecord.save();
             }
+
+            const mappedItems = items.map(item => ({
+                itemName: item.itemName,
+                quantity: Number(item.quantity) || 1,
+                itemType: (item.itemType === 'Paid' || Number(item.price) > 0) ? 'Paid' : 'Free',
+                price: Number(item.price) || 0,
+                status: 'Allocated'
+            }));
+
+            validAllocations.push({
+                student: studentId,
+                admission: profile.finalAdmissionId || null,
+                centre: stCentre,
+                centreCode: cCode,
+                billNumber,
+                hasPaidItems,
+                grossAmount: studentGrossNum,
+                discount: studentDiscountNum,
+                totalAmount: studentNetNum,
+                payment: paymentRecord ? paymentRecord._id : null,
+                paymentMethod: hasPaidItems ? (paymentMethod || 'CASH') : null,
+                session: profile.resolvedSession,
+                className: profile.resolvedClass,
+                departmentName: profile.resolvedDepartment,
+                examTagName: profile.resolvedExamTag,
+                boardName: profile.resolvedBoard,
+                items: mappedItems,
+                allocatedBy: req.user._id,
+                allocationDate: paymentDate
+            });
+
+            studentIdsToUpdate.push(studentId);
+
+            studentPushes.push(
+                Student.findByIdAndUpdate(studentId, {
+                    $push: {
+                        allocatedItems: {
+                            $each: items.map(item => ({
+                                itemName: item.itemName,
+                                quantity: Number(item.quantity) || 1,
+                                itemType: (item.itemType === 'Paid' || Number(item.price) > 0) ? 'Paid' : 'Free',
+                                price: Number(item.price) || 0,
+                                billNumber,
+                                allocatedBy: req.user._id,
+                                allocationDate: paymentDate
+                            }))
+                        }
+                    }
+                })
+            );
         }
 
         if (studentIdsToUpdate.length === 0) {
@@ -487,22 +965,15 @@ export const createBulkAllocation = async (req, res) => {
             await Allocation.insertMany(validAllocations);
         }
 
-        // Push allocated items to all target students
-        await Student.updateMany(
-            { _id: { $in: studentIdsToUpdate } },
-            {
-                $push: {
-                    allocatedItems: {
-                        $each: itemsToPush
-                    }
-                }
-            }
-        );
+        // Run student updates in parallel
+        await Promise.all(studentPushes);
 
         res.status(201).json({
             message: `Successfully allocated items to ${studentIdsToUpdate.length} students`,
             count: studentIdsToUpdate.length,
-            allocationsCount: validAllocations.length
+            allocationsCount: validAllocations.length,
+            hasPaidItems,
+            billNumbers: generatedBillNumbers
         });
     } catch (error) {
         console.error("Bulk Allocation Error:", error);
@@ -550,5 +1021,138 @@ export const getAllAllocations = async (req, res) => {
     } catch (error) {
         console.error("Get All Allocations Error:", error);
         res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+// Get Bill Details formatted specifically for BillGenerator PDF receipt
+export const getBillDetailsByBillId = async (req, res) => {
+    try {
+        const billId = req.params.billId || req.query.billId;
+        if (!billId) {
+            return res.status(400).json({ message: "Bill ID is required" });
+        }
+
+        // Find allocation by billNumber
+        const allocation = await Allocation.findOne({ billNumber: billId })
+            .populate('student')
+            .populate('admission')
+            .populate('payment')
+            .lean();
+
+        // Find payment record
+        let payment = allocation?.payment || await Payment.findOne({ billId }).lean();
+
+        if (!payment && !allocation) {
+            return res.status(404).json({ message: "Bill not found" });
+        }
+
+        const targetCentreName = allocation?.centre || payment?.centre || 'MAIN';
+        const centreDoc = await CentreSchema.findOne({
+            $or: [
+                { centreName: new RegExp(`^${targetCentreName.trim()}$`, 'i') },
+                { centreCode: new RegExp(`^${targetCentreName.trim()}$`, 'i') },
+                { enterCode: new RegExp(`^${targetCentreName.trim()}$`, 'i') }
+            ]
+        }).select('centreCode enterCode centreName address phoneNumber enterGstNo enterCorporateOfficeAddress enterCorporateOfficePhoneNumber').lean();
+
+        let studentId = allocation?.student?._id || allocation?.student;
+        let admissionId = allocation?.admission?._id || allocation?.admission;
+        if (!studentId && payment?.admission) {
+            const adm = await Admission.findById(payment.admission).lean();
+            if (adm) {
+                admissionId = adm._id;
+                studentId = adm.student;
+            } else {
+                const badm = await BoardCourseAdmission.findById(payment.admission).lean();
+                if (badm) {
+                    admissionId = badm._id;
+                    studentId = badm.studentId;
+                } else {
+                    studentId = payment.admission;
+                }
+            }
+        }
+
+        const profile = await resolveStudentAcademicDetails(studentId, admissionId, {
+            department: allocation?.departmentName,
+            examTag: allocation?.examTagName,
+            class: allocation?.className,
+            session: allocation?.session,
+            board: allocation?.boardName
+        });
+
+        const totalAmountNum = parseFloat(Number(payment?.paidAmount || payment?.totalAmount || allocation?.totalAmount || 0).toFixed(2));
+        const grossFee = allocation?.grossAmount !== undefined && allocation?.grossAmount !== null && Number(allocation.grossAmount) > 0
+            ? parseFloat(Number(allocation.grossAmount).toFixed(2))
+            : totalAmountNum;
+        const waiver = allocation?.discount !== undefined && allocation?.discount !== null
+            ? parseFloat(Number(allocation.discount).toFixed(2))
+            : (grossFee > totalAmountNum ? parseFloat((grossFee - totalAmountNum).toFixed(2)) : 0);
+
+        const courseFee = payment?.courseFee !== undefined && payment.courseFee !== null
+            ? parseFloat(Number(payment.courseFee).toFixed(2))
+            : (totalAmountNum > 0 ? parseFloat((totalAmountNum / 1.18).toFixed(2)) : 0);
+        const cgst = payment?.cgst !== undefined && payment.cgst !== null
+            ? parseFloat(Number(payment.cgst).toFixed(2))
+            : (totalAmountNum > 0 ? parseFloat(((totalAmountNum - courseFee) / 2).toFixed(2)) : 0);
+        const sgst = payment?.sgst !== undefined && payment.sgst !== null
+            ? parseFloat(Number(payment.sgst).toFixed(2))
+            : (totalAmountNum > 0 ? parseFloat((totalAmountNum - courseFee - cgst).toFixed(2)) : 0);
+
+        const itemNames = allocation?.items?.map(i => `${i.itemName} (x${i.quantity || 1})`).join(', ') || payment?.boardCourseName || 'Inventory Store Items';
+
+        const billData = {
+            billId: billId,
+            billDate: payment?.paidDate || payment?.receivedDate || allocation?.allocationDate || new Date(),
+            centre: {
+                name: centreDoc?.centreName || targetCentreName,
+                address: centreDoc?.address || 'N/A',
+                phoneNumber: centreDoc?.phoneNumber || 'N/A',
+                gstNumber: centreDoc?.enterGstNo || 'N/A',
+                corporateAddress: centreDoc?.enterCorporateOfficeAddress || '47, Kalidas Patitundi Lane, Kalighat, Kolkata-700026',
+                corporatePhone: centreDoc?.enterCorporateOfficePhoneNumber || '033 2455-1840 / 2454-4817 / 4668'
+            },
+            student: {
+                id: studentId,
+                name: profile.studentInfo?.studentName || 'N/A',
+                admissionNumber: profile.admissionNumber,
+                phoneNumber: profile.studentInfo?.mobileNum || profile.studentInfo?.whatsappNumber || 'N/A',
+                email: profile.studentInfo?.studentEmail || 'N/A'
+            },
+            course: {
+                name: itemNames,
+                department: profile.resolvedDepartment,
+                examTag: profile.resolvedExamTag,
+                class: profile.resolvedClass,
+                session: profile.resolvedSession
+            },
+            payment: {
+                installmentNumber: payment?.installmentNumber || 0,
+                paymentMethod: payment?.paymentMethod || allocation?.paymentMethod || 'CASH',
+                transactionId: payment?.transactionId || '',
+                accountHolderName: payment?.accountHolderName || '',
+                paidDate: payment?.paidDate || allocation?.allocationDate,
+                receivedDate: payment?.receivedDate || allocation?.allocationDate,
+                status: payment?.status || 'PAID',
+                remarks: payment?.remarks || `Inventory Store Allotment - Total: Rs. ${totalAmountNum}`
+            },
+            amounts: {
+                grossFee: grossFee > 0 ? grossFee : totalAmountNum,
+                waiver,
+                courseFee,
+                cgst,
+                sgst,
+                totalAmount: totalAmountNum
+            },
+            items: allocation?.items || []
+        };
+
+        res.status(200).json({
+            success: true,
+            data: billData
+        });
+    } catch (error) {
+        console.error("Get Bill Details Error:", error);
+        res.status(500).json({ message: "Server error getting bill details", error: error.message });
     }
 };

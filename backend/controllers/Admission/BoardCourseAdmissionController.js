@@ -101,19 +101,60 @@ export const createBoardAdmission = async (req, res) => {
         const rawPaymentMethod = paymentMethod;
         paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
         
-        if (!studentId || !mongoose.Types.ObjectId.isValid(studentId)) {
-            return res.status(400).json({ message: "A valid Student ID is required for admission" });
+        let student = null;
+        if (studentId && mongoose.Types.ObjectId.isValid(studentId)) {
+            student = await Students.findById(studentId).populate('batches');
         }
 
-        let student = await Students.findById(studentId).populate('batches');
+        // 1. Check if studentId or counselId is a BoardCourseCounselling record
+        const counselIdToTry = req.body.counselId || studentId;
+        if (!student && counselIdToTry && mongoose.Types.ObjectId.isValid(counselIdToTry)) {
+            const counselDoc = await BoardCourseCounselling.findById(counselIdToTry);
+            if (counselDoc) {
+                if (counselDoc.studentId && mongoose.Types.ObjectId.isValid(counselDoc.studentId)) {
+                    student = await Students.findById(counselDoc.studentId).populate('batches');
+                }
+                if (!student && counselDoc.mobileNum) {
+                    student = await Students.findOne({ "studentsDetails.mobileNum": counselDoc.mobileNum }).populate('batches');
+                }
+                if (!student) {
+                    student = new Students({
+                        studentsDetails: [{
+                            studentName: counselDoc.studentName || studentName || "Student",
+                            mobileNum: counselDoc.mobileNum || mobileNum || "",
+                            whatsappNumber: counselDoc.whatsappNumber || counselDoc.mobileNum || mobileNum || "",
+                            studentEmail: counselDoc.studentEmail || "",
+                            centre: counselDoc.centre || centre || "Not Specified",
+                            programme: counselDoc.programme || programme || "CRP",
+                            lastClass: counselDoc.lastClass || lastClass || ""
+                        }],
+                        sessionExamCourse: [{
+                            examTag: examTagName || counselDoc.examTag || "",
+                            session: academicSession || counselDoc.academicSession || ""
+                        }],
+                        isEnrolled: false,
+                        department: counselDoc.department || department,
+                        createdBy: req.user?.name || "System",
+                        updatedBy: req.user?.name || "System"
+                    });
+                    await student.save();
+                }
+                if (student) {
+                    studentId = student._id;
+                    await BoardCourseCounselling.findByIdAndUpdate(counselDoc._id, { studentId: student._id });
+                }
+            }
+        }
+
+        // 2. Check PNTSE and PMO
         if (!student) {
             const [PNTSEStudent, PMOStudent] = await Promise.all([
                 import("../../models/PNTSEStudent.js").then(m => m.default),
                 import("../../models/PMOStudent.js").then(m => m.default)
             ]);
             const [pntse, pmo] = await Promise.all([
-                PNTSEStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean(),
-                PMOStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean()
+                (studentId && mongoose.Types.ObjectId.isValid(studentId)) ? PNTSEStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean() : null,
+                (studentId && mongoose.Types.ObjectId.isValid(studentId)) ? PMOStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean() : null
             ]);
             const doc = pntse || pmo;
             if (doc) {
@@ -148,8 +189,73 @@ export const createBoardAdmission = async (req, res) => {
             }
         }
 
+        // 3. Check LeadManagement
+        if (!student && studentId && mongoose.Types.ObjectId.isValid(studentId)) {
+            const LeadManagement = (await import("../../models/LeadManagement.js")).default;
+            const lead = await LeadManagement.findById(studentId);
+            if (lead) {
+                if (lead.phoneNumber) {
+                    student = await Students.findOne({ "studentsDetails.mobileNum": lead.phoneNumber }).populate('batches');
+                }
+                if (!student) {
+                    student = new Students({
+                        studentsDetails: [{
+                            studentName: lead.name || studentName || "Student",
+                            mobileNum: lead.phoneNumber || mobileNum || "",
+                            whatsappNumber: lead.phoneNumber || mobileNum || "",
+                            studentEmail: lead.email || "",
+                            centre: lead.centre?.centreName || lead.centre || centre || "Not Specified",
+                            programme: programme || "CRP",
+                            lastClass: lastClass || lead.className?.name || lead.className || ""
+                        }],
+                        sessionExamCourse: [{
+                            examTag: examTagName || "",
+                            session: academicSession || ""
+                        }],
+                        isEnrolled: false,
+                        department: department,
+                        createdBy: req.user?.name || "System",
+                        updatedBy: req.user?.name || "System"
+                    });
+                    await student.save();
+                    await LeadManagement.findByIdAndUpdate(lead._id, { isCounseled: true });
+                }
+                if (student) studentId = student._id;
+            }
+        }
+
+        // 4. Check by mobile number
+        if (!student && mobileNum) {
+            student = await Students.findOne({ "studentsDetails.mobileNum": mobileNum }).populate('batches');
+            if (student) studentId = student._id;
+        }
+
+        // 5. Fallback: auto-create Student from request details
+        if (!student && (studentName || mobileNum)) {
+            student = new Students({
+                studentsDetails: [{
+                    studentName: studentName || "Student",
+                    mobileNum: mobileNum || "",
+                    whatsappNumber: mobileNum || "",
+                    centre: centre || "Not Specified",
+                    programme: programme || "CRP",
+                    lastClass: lastClass || ""
+                }],
+                sessionExamCourse: [{
+                    examTag: examTagName || "",
+                    session: academicSession || ""
+                }],
+                isEnrolled: false,
+                department: department,
+                createdBy: req.user?.name || "System",
+                updatedBy: req.user?.name || "System"
+            });
+            await student.save();
+            studentId = student._id;
+        }
+
         if (!student) {
-            return res.status(404).json({ message: "Student not found" });
+            return res.status(404).json({ message: "Student profile not found" });
         }
 
         if (student.status === 'Deactivated') {
@@ -505,8 +611,17 @@ export const createBoardAdmission = async (req, res) => {
         }
 
         // Mark board counselling records as ENROLLED
+        if (req.body.counselId) {
+            await BoardCourseCounselling.findByIdAndUpdate(req.body.counselId, { status: "ENROLLED" });
+        }
         await BoardCourseCounselling.updateMany(
-            { studentId, boardId },
+            { 
+                $or: [
+                    { studentId, boardId },
+                    { studentId },
+                    ...(mobileNum ? [{ mobileNum, boardId }] : [])
+                ]
+            },
             { status: "ENROLLED" }
         );
 

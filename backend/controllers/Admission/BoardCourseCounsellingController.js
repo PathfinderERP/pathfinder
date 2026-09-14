@@ -125,6 +125,9 @@ export const createBoardCourseCounselling = async (req, res) => {
                     studentId = student._id;
                     // Mark lead as counseled
                     await LeadManagement.findByIdAndUpdate(lead._id, { isCounseled: true });
+                } else {
+                    // Not a valid student or lead, reset studentId so fallback creates student
+                    studentId = null;
                 }
             }
         }
@@ -270,7 +273,7 @@ export const getBoardCourseCounselling = async (req, res) => {
     try {
         const { id } = req.params;
         if (id) {
-            const record = await BoardCourseCounselling.findById(id)
+            let record = await BoardCourseCounselling.findById(id)
                 .populate({
                     path: 'studentId',
                     populate: {
@@ -284,6 +287,78 @@ export const getBoardCourseCounselling = async (req, res) => {
                 .populate('department');
             
             if (!record) return res.status(404).json({ message: "Counselling record not found" });
+
+            // Auto-heal: If studentId is null/missing/unlinked, resolve or create Student profile
+            if (!record.studentId) {
+                let resolvedStudent = null;
+                if (record.mobileNum) {
+                    resolvedStudent = await Student.findOne({ "studentsDetails.mobileNum": record.mobileNum }).populate('batches');
+                }
+                if (!resolvedStudent && record.mobileNum) {
+                    const lead = await LeadManagement.findOne({ phoneNumber: record.mobileNum });
+                    resolvedStudent = new Student({
+                        studentsDetails: [{
+                            studentName: record.studentName || lead?.name || "Student",
+                            mobileNum: record.mobileNum || lead?.phoneNumber || "",
+                            whatsappNumber: record.whatsappNumber || record.mobileNum || lead?.phoneNumber || "",
+                            studentEmail: record.studentEmail || lead?.email || "",
+                            centre: record.centre || lead?.centre?.centreName || lead?.centre || "Not Specified",
+                            board: lead?.board?.boardName || lead?.board || "",
+                            state: lead?.state || "",
+                            schoolName: lead?.schoolName || "",
+                            pincode: lead?.pincode || "",
+                            address: lead?.address || "",
+                            programme: record.programme || "CRP",
+                            examSchema: [{
+                                examName: record.examTag?.name || "",
+                                class: record.lastClass || lead?.className?.name || lead?.className || ""
+                            }]
+                        }],
+                        sessionExamCourse: [{
+                            examTag: record.examTag?.name || "",
+                            session: record.academicSession || ""
+                        }],
+                        isEnrolled: false,
+                        department: record.department?._id || record.department,
+                        counselledBy: record.counselledBy?._id || record.counselledBy,
+                        createdBy: "System Healing",
+                        updatedBy: "System Healing"
+                    });
+                    await resolvedStudent.save();
+                    if (lead) {
+                        await LeadManagement.findByIdAndUpdate(lead._id, { isCounseled: true });
+                    }
+                }
+                if (!resolvedStudent) {
+                    resolvedStudent = new Student({
+                        studentsDetails: [{
+                            studentName: record.studentName || "Student",
+                            mobileNum: record.mobileNum || "",
+                            whatsappNumber: record.mobileNum || "",
+                            studentEmail: record.studentEmail || "",
+                            centre: record.centre || "Not Specified",
+                            programme: record.programme || "CRP",
+                            lastClass: record.lastClass || ""
+                        }],
+                        sessionExamCourse: [{
+                            examTag: record.examTag?.name || "",
+                            session: record.academicSession || ""
+                        }],
+                        isEnrolled: false,
+                        department: record.department?._id || record.department,
+                        counselledBy: record.counselledBy?._id || record.counselledBy,
+                        createdBy: "System Healing",
+                        updatedBy: "System Healing"
+                    });
+                    await resolvedStudent.save();
+                }
+
+                if (resolvedStudent) {
+                    await BoardCourseCounselling.findByIdAndUpdate(record._id, { studentId: resolvedStudent._id });
+                    record.studentId = resolvedStudent;
+                }
+            }
+
             return res.status(200).json(record);
         }
 
@@ -310,6 +385,74 @@ export const getBoardCourseCounselling = async (req, res) => {
             .populate('counselledBy', 'name email')
             .populate('department')
             .sort({ counselledDate: -1, createdAt: -1 });
+
+        // Auto-heal any counselling records with missing/unlinked studentId in list
+        for (let item of counselling) {
+            if (!item.studentId) {
+                try {
+                    let resolvedStudent = null;
+                    if (item.mobileNum) {
+                        resolvedStudent = await Student.findOne({ "studentsDetails.mobileNum": item.mobileNum }).populate('batches');
+                    }
+                    if (!resolvedStudent && item.mobileNum) {
+                        const lead = await LeadManagement.findOne({ phoneNumber: item.mobileNum });
+                        resolvedStudent = new Student({
+                            studentsDetails: [{
+                                studentName: item.studentName || lead?.name || "Student",
+                                mobileNum: item.mobileNum || lead?.phoneNumber || "",
+                                whatsappNumber: item.whatsappNumber || item.mobileNum || lead?.phoneNumber || "",
+                                studentEmail: item.studentEmail || lead?.email || "",
+                                centre: item.centre || lead?.centre?.centreName || lead?.centre || "Not Specified",
+                                programme: item.programme || "CRP",
+                                lastClass: item.lastClass || lead?.className?.name || lead?.className || ""
+                            }],
+                            sessionExamCourse: [{
+                                examTag: item.examTag?.name || "",
+                                session: item.academicSession || ""
+                            }],
+                            isEnrolled: false,
+                            department: item.department?._id || item.department,
+                            counselledBy: item.counselledBy?._id || item.counselledBy,
+                            createdBy: "System Healing",
+                            updatedBy: "System Healing"
+                        });
+                        await resolvedStudent.save();
+                        if (lead) {
+                            await LeadManagement.findByIdAndUpdate(lead._id, { isCounseled: true });
+                        }
+                    }
+                    if (!resolvedStudent) {
+                        resolvedStudent = new Student({
+                            studentsDetails: [{
+                                studentName: item.studentName || "Student",
+                                mobileNum: item.mobileNum || "",
+                                whatsappNumber: item.mobileNum || "",
+                                studentEmail: item.studentEmail || "",
+                                centre: item.centre || "Not Specified",
+                                programme: item.programme || "CRP",
+                                lastClass: item.lastClass || ""
+                            }],
+                            sessionExamCourse: [{
+                                examTag: item.examTag?.name || "",
+                                session: item.academicSession || ""
+                            }],
+                            isEnrolled: false,
+                            department: item.department?._id || item.department,
+                            counselledBy: item.counselledBy?._id || item.counselledBy,
+                            createdBy: "System Healing",
+                            updatedBy: "System Healing"
+                        });
+                        await resolvedStudent.save();
+                    }
+                    if (resolvedStudent) {
+                        await BoardCourseCounselling.findByIdAndUpdate(item._id, { studentId: resolvedStudent._id });
+                        item.studentId = resolvedStudent;
+                    }
+                } catch (e) {
+                    console.error("Auto-heal error for item:", item._id, e);
+                }
+            }
+        }
 
         res.status(200).json(counselling);
     } catch (error) {

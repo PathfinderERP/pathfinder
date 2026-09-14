@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import Layout from "../../components/Layout";
 import {
@@ -154,8 +154,462 @@ const computeStatusFromHours = (status, hours, target = 9) => {
         if (hours > (targetNum + (5 / 60))) return "Overtime";
         return "Present";
     }
-    return status || "Present";
+    return status;
 };
+
+const DayDetailsModal = React.memo(({
+    data,
+    onClose,
+    isDarkMode,
+    isSuperAdminOrHR,
+    marking,
+    handleAdminOverrideWeekOff,
+    handleMarkWeekOff,
+    attendanceData
+}) => {
+    if (!data) return null;
+    const { day, status } = data;
+    const isDark = isDarkMode;
+
+    // Lock background body scroll while modal is active
+    useEffect(() => {
+        const prevOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+        return () => {
+            document.body.style.overflow = prevOverflow;
+        };
+    }, []);
+
+    return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden">
+            <div className="fixed inset-0 bg-black/70 backdrop-blur-md" onClick={onClose}></div>
+            <div className={`relative w-full max-w-lg max-h-[90vh] flex flex-col ${isDark ? 'bg-[#131619] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'} border rounded-3xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 my-auto`}>
+                {/* Header - Fixed at top */}
+                <div className="flex-shrink-0 px-6 py-5 sm:px-8 sm:py-6 border-b border-gray-800/50 flex justify-between items-center bg-gradient-to-r from-cyan-500/10 to-transparent">
+                    <div>
+                        <h2 className={`text-2xl sm:text-3xl font-black tracking-tighter uppercase italic ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                            Day <span className="text-cyan-500">Details</span>
+                        </h2>
+                        <p className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
+                            {format(day, 'EEEE, dd MMMM yyyy')}
+                        </p>
+                    </div>
+                    <button
+                        onClick={onClose}
+                        aria-label="Close modal"
+                        className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-gray-700/60 flex items-center justify-center hover:bg-red-500 hover:text-white hover:border-red-500 transition-all text-xs sm:text-sm font-bold active:scale-90"
+                    >
+                        ✕
+                    </button>
+                </div>
+
+                {/* Scrollable Content Body with smooth sleek scrollbar */}
+                <div className="flex-1 overflow-y-auto custom-modal-scrollbar overscroll-contain pl-5 pr-4 sm:pl-8 sm:pr-6 py-5 sm:py-6 space-y-4 sm:space-y-6">
+                    {(status.type === "Present" || status.hasOfficePresence || status.checkIn || status.checkOut || (status.workingHours && status.workingHours > 0)) ? (
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                                <div className={`p-3.5 sm:p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Check In</p>
+                                    <p className={`text-xl sm:text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{status.checkIn || '--:--'}</p>
+                                </div>
+                                <div className={`p-3.5 sm:p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                    <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Check Out</p>
+                                    <p className={`text-xl sm:text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{status.checkOut || '--:--'}</p>
+                                </div>
+                                <div className={`col-span-2 p-3.5 sm:p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                    <div className="flex justify-between items-center flex-wrap gap-2">
+                                        <div>
+                                            <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-1">Working Hours</p>
+                                            <p className={`text-xl sm:text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{formatWorkingHours(status.workingHours)}</p>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Status</p>
+                                            <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase ${
+                                                status.name === 'Early Leave' || status.status === 'Early Leave' ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' :
+                                                status.name === 'Short Leave' || status.status === 'Short Leave' ? 'bg-lime-500/20 text-lime-400 border border-lime-500/30' :
+                                                status.status === 'Present' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                                status.status === 'Overtime' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
+                                                status.status === 'Half Day' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
+                                                status.status === 'Absent' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+                                                status.status === 'Forgot to Checkout' ? 'bg-orange-900/40 text-orange-400 border border-orange-500/30' :
+                                                status.status === 'Week Off' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' :
+                                                status.status === 'Leave' || status.type === 'Leave' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
+                                                'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
+                                            }`}>
+                                                {status.name || status.status}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                                {(status.checkInCentre || status.checkOutCentre || status.checkInLabel || status.checkOutLabel) && (
+                                    <div className={`col-span-2 p-3.5 sm:p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                                        <div className="space-y-3 sm:space-y-4">
+                                            <div>
+                                                <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-1">Check In Location</p>
+                                                <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} flex items-center gap-2 italic break-words`}>
+                                                    <FaBuilding className="text-cyan-500 flex-shrink-0" /> {status.checkInCentre || "Office"}
+                                                </p>
+                                                {status.checkInLabel && (
+                                                    <p className={`mt-1 text-[10px] font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-2 break-words`}>
+                                                        <FaMapMarkerAlt className="text-red-500 flex-shrink-0" /> {status.checkInLabel}
+                                                    </p>
+                                                )}
+                                            </div>
+                                            {status.checkOut && (
+                                                <div className={`pt-3 sm:pt-4 border-t ${isDark ? 'border-gray-800/50' : 'border-gray-100'}`}>
+                                                    <p className="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-1">Check Out Location</p>
+                                                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} flex items-center gap-2 italic break-words`}>
+                                                        <FaBuilding className="text-pink-500 flex-shrink-0" /> {status.checkOutCentre || status.checkInCentre || "Office"}
+                                                    </p>
+                                                    {status.checkOutLabel && (
+                                                        <p className={`mt-1 text-[10px] font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-2 break-words`}>
+                                                            <FaMapMarkerAlt className="text-red-500 flex-shrink-0" /> {status.checkOutLabel}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Approved Leave Details for Days with Office Presence */}
+                            {status.type === "Leave" && (
+                                <div className={`p-4 sm:p-5 rounded-2xl border ${isDark ? 'bg-purple-500/10 border-purple-500/30' : 'bg-purple-50 border-purple-200'} space-y-3`}>
+                                    <div className="flex justify-between items-center">
+                                        <div className="flex items-center gap-2.5">
+                                            <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">
+                                                <FaCalendarCheck size={16} />
+                                            </div>
+                                            <div>
+                                                <p className={`text-sm font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                                    {status.name || "Approved Leave"}
+                                                </p>
+                                                <p className="text-[9px] font-bold uppercase tracking-widest text-purple-400">
+                                                    Approved Permission
+                                                </p>
+                                            </div>
+                                        </div>
+                                        <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                                            Approved
+                                        </span>
+                                    </div>
+                                    {(status.reason || status.name) && (
+                                        <div className={`p-3.5 rounded-xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-white border-purple-100'}`}>
+                                            <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
+                                                Approved Leave Details
+                                            </p>
+                                            <p className={`text-xs sm:text-sm font-medium italic ${isDark ? 'text-gray-200' : 'text-gray-700'} break-words`}>
+                                                "{status.reason || status.name}"
+                                            </p>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ) : (
+                        <div className={`p-8 sm:p-12 rounded-3xl border text-center ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
+                            <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
+                                status.type === 'Holiday' ? 'bg-blue-500/20 text-blue-400' :
+                                status.type === 'Leave' ? 'bg-purple-500/20 text-purple-400' :
+                                status.type === 'Absent' ? 'bg-red-500/20 text-red-400' :
+                                'bg-gray-500/20 text-gray-400'
+                            }`}>
+                                {status.type === 'Holiday' ? <FaCalendarCheck size={28} /> :
+                                 status.type === 'Leave' ? <FaCalendarCheck size={28} /> :
+                                 <FaBuilding size={28} />}
+                            </div>
+                            <h3 className={`text-xl sm:text-2xl font-black tracking-tighter uppercase italic ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                {status.name || status.type}
+                            </h3>
+                            <p className={`text-[10px] font-bold uppercase tracking-[0.3em] ${
+                                status.type === 'Leave' ? 'text-purple-400' :
+                                status.type === 'Holiday' ? 'text-blue-400' :
+                                isDark ? 'text-gray-500' : 'text-gray-400'
+                            }`}>
+                                {status.type === 'Holiday' ? 'Scheduled Holiday' : status.type === 'Leave' ? 'Approved Leave' : 'No presence recorded'}
+                            </p>
+                            {status.type === 'Holiday' && status.description && (
+                                <div className={`mt-4 sm:mt-6 p-3 sm:p-4 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-100'}`}>
+                                    <p className={`text-[9px] font-black uppercase tracking-widest mb-1 sm:mb-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Reason / Description</p>
+                                    <p className={`text-xs sm:text-sm font-medium italic ${isDark ? 'text-gray-300' : 'text-gray-600'} break-words`}>
+                                        "{status.description}"
+                                    </p>
+                                </div>
+                            )}
+                            {status.type === 'Leave' && (status.reason || status.name) && (
+                                <div className={`mt-4 sm:mt-6 p-3 sm:p-4 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/20' : 'bg-purple-50/50 border-purple-100'}`}>
+                                    <p className={`text-[9px] font-black uppercase tracking-widest mb-1 sm:mb-2 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Approved Leave Details</p>
+                                    <p className={`text-xs sm:text-sm font-medium italic ${isDark ? 'text-gray-300' : 'text-gray-600'} break-words`}>
+                                        "{status.reason || status.name}"
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Regularization details */}
+                    {((status.regularizations && status.regularizations.length > 0) ? status.regularizations : (status.regularization ? [status.regularization] : [])).map((reg, rIdx) => (
+                        <div key={rIdx} className={`p-4 sm:p-6 rounded-2xl border ${reg.status === 'Approved'
+                            ? 'bg-emerald-500/5 border-emerald-500/20'
+                            : reg.status === 'Rejected'
+                                ? 'bg-red-500/5 border-red-500/20'
+                                : 'bg-orange-500/5 border-orange-500/20'
+                            } space-y-3 sm:space-y-4`}>
+                            <div className="flex justify-between items-center flex-wrap gap-2">
+                                <h4 className={`text-xs font-black uppercase tracking-widest ${reg.status === 'Approved'
+                                    ? 'text-emerald-500'
+                                    : reg.status === 'Rejected'
+                                        ? 'text-red-500'
+                                        : 'text-orange-500'
+                                    }`}>
+                                    Regularization {status.regularizations?.length > 1 ? `#${rIdx + 1} ` : ''}{reg.status}
+                                </h4>
+                                <span className={`px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[9px] font-black uppercase ${reg.status === 'Approved'
+                                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                                    : reg.status === 'Rejected'
+                                        ? 'bg-red-500/20 text-red-400 border border-red-500/30'
+                                        : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
+                                    }`}>
+                                    {reg.type}
+                                </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 sm:gap-4 text-xs">
+                                <div className="col-span-2">
+                                    <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Reason</span>
+                                    <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'} italic text-xs sm:text-sm break-words leading-relaxed`}>
+                                        "{reg.reason}"
+                                    </p>
+                                </div>
+                                {reg.fromTime && reg.toTime && (
+                                    <div className="col-span-2">
+                                        <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Regularized Timings</span>
+                                        <p className={`font-black ${isDark ? 'text-white' : 'text-gray-900'} text-xs sm:text-sm`}>
+                                            {reg.fromTime} - {reg.toTime}
+                                        </p>
+                                    </div>
+                                )}
+                                {reg.status !== 'Pending' && (
+                                    <>
+                                        <div className="col-span-2 sm:col-span-1">
+                                            <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Reviewed By</span>
+                                            <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
+                                                {reg.reviewedBy?.name || 'Manager'}
+                                            </p>
+                                        </div>
+                                        {reg.reviewRemark && (
+                                            <div className="col-span-2">
+                                                <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Reviewer Remarks</span>
+                                                <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'} italic break-words`}>
+                                                    "{reg.reviewRemark}"
+                                                </p>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+
+                    {/* Admin / HR Manual Override as Week Off */}
+                    {isSuperAdminOrHR && status.status !== "Week Off" && (
+                        <div className="pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-amber-500/30">
+                            <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-3 sm:mb-4">
+                                <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-2">
+                                    <FaBolt /> Admin & HR Override
+                                </p>
+                                <p className={`text-[10px] mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    As Superadmin / HR, you can mark this date as a Week Off for this employee upon their request.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => handleAdminOverrideWeekOff(day)}
+                                disabled={marking}
+                                className="w-full py-3.5 sm:py-4 bg-amber-500 hover:bg-amber-600 text-black font-black rounded-2xl transition-all shadow-xl shadow-amber-500/20 active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
+                            >
+                                {marking ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-black"></div> : <><FaCalendarCheck size={16} /> Mark as Week Off (Admin Override)</>}
+                            </button>
+                        </div>
+                    )}
+
+                    {/* Mark as Week Off Option (For Employees: Current & Upcoming Week) */}
+                    {!isSuperAdminOrHR && (() => {
+                        const today = new Date();
+                        const todayStart = startOfDay(today);
+
+                        // Prevent marking for past days
+                        const isPastDay = day < todayStart;
+
+                        // Check if a Week Off is already defined for the week of the selected 'day'
+                        const weekStart = startOfWeek(day, { weekStartsOn: 1 });
+                        const weekEnd = endOfWeek(day, { weekStartsOn: 1 });
+                        const hasWeekOffInThisWeek = (attendanceData || []).some(a => {
+                            const d = new Date(a.date);
+                            return d >= weekStart && d <= weekEnd && a.status === "Week Off";
+                        });
+
+                        if (!isPastDay && status.status !== "Week Off" && !hasWeekOffInThisWeek) {
+                            return (
+                                <div className="pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-800/50">
+                                    <button
+                                        onClick={() => handleMarkWeekOff(day)}
+                                        disabled={marking}
+                                        className="w-full py-3.5 sm:py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-500/20 active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
+                                    >
+                                        {marking ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white"></div> : <><FaCalendarCheck size={16} /> Mark as Week Off</>}
+                                    </button>
+                                    <p className={`mt-2 text-[8px] font-bold text-center uppercase tracking-widest ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
+                                        * ALLOWED FOR CURRENT & UPCOMING WEEKS
+                                    </p>
+                                </div>
+                            );
+                        }
+                        return null;
+                    })()}
+                </div>
+            </div>
+        </div>
+    );
+});
+
+const CalendarMonthCard = React.memo(({
+    month,
+    mIdx,
+    monthSummary,
+    monthWorkingHours,
+    isDarkMode,
+    workingHours,
+    onSelectDay,
+    getDayStatus
+}) => {
+    const { days = [], mPresents = 0, mAbsents = 0, mWeekOffs = 0, mHolidays = 0, mLeaves = 0 } = monthSummary || {};
+    const target = parseTargetHours(workingHours);
+
+    return (
+        <div className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border rounded-[2px] p-6 shadow-xl relative overflow-hidden group hover:border-gray-700 transition-all`}>
+            <div className="flex justify-between items-center mb-4">
+                <div>
+                    <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase tracking-tighter italic`}>{format(month, 'MMMM')}</h2>
+                    <p className="text-[9px] font-black text-cyan-500 uppercase tracking-widest mt-0.5">
+                        {monthWorkingHours > 0 ? `${monthWorkingHours} hrs worked` : '0 hrs'}
+                    </p>
+                </div>
+                <div className={`w-8 h-8 ${isDarkMode ? 'bg-gray-900 text-gray-700' : 'bg-gray-50 text-gray-400'} rounded-[2px] flex items-center justify-center text-[10px] font-black`}>
+                    {format(month, 'MM')}
+                </div>
+            </div>
+
+            {/* Monthly Summary Counts */}
+            <div className={`grid grid-cols-5 gap-1 mb-5 py-2 px-1 rounded-[2px] ${isDarkMode ? 'bg-black/30 border-gray-800/80' : 'bg-gray-50 border-gray-200'} border text-center`}>
+                <div className="flex flex-col">
+                    <span className="text-[12px] font-black text-emerald-500 leading-tight">{mPresents}</span>
+                    <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Present</span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[12px] font-black text-red-500 leading-tight">{mAbsents}</span>
+                    <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Absent</span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[12px] font-black text-amber-500 leading-tight">{mWeekOffs}</span>
+                    <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Week Off</span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[12px] font-black text-blue-500 leading-tight">{mHolidays}</span>
+                    <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Holiday</span>
+                </div>
+                <div className="flex flex-col">
+                    <span className="text-[12px] font-black text-purple-500 leading-tight">{mLeaves}</span>
+                    <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Leave</span>
+                </div>
+            </div>
+
+            <div className="grid grid-cols-7 gap-2">
+                {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
+                    <div key={i} className={`text-center text-[9px] font-black ${isDarkMode ? 'text-gray-600' : 'text-gray-400'} pb-2`}>{d}</div>
+                ))}
+
+                {days.length > 0 && Array.from({ length: getDay(days[0]) }).map((_, i) => (
+                    <div key={`empty-${i}`} />
+                ))}
+
+                {days.map((day, dIdx) => {
+                    const status = getDayStatus(day);
+                    const isHighlight = isToday(day);
+
+                    let colorClass = isDarkMode ? "bg-[#1a1f24] text-gray-300 hover:bg-gray-800" : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-100";
+                    let dotColor = "";
+
+                    if (status.type === "Present") {
+                        const hours = status.workingHours || 0;
+                        const s = status.status;
+
+                        if (s === "Absent" || (hours > 0 && hours < 4)) {
+                            colorClass = "bg-red-500/20 text-red-500 border border-red-500/30";
+                            dotColor = "bg-red-500";
+                        } else if (s === "Half Day" || (hours >= 4 && hours < (target / 2))) {
+                            colorClass = "bg-orange-500/20 text-orange-400 border border-orange-500/30";
+                            dotColor = "bg-orange-500";
+                        } else if (s === "Early Leave" || (hours >= (target / 2) && hours < (target - 0.5))) {
+                            colorClass = "bg-pink-500/20 text-pink-400 border border-pink-500/30";
+                            dotColor = "bg-pink-500";
+                        } else if (s === "Short Leave" || (hours >= (target - 0.5) && hours < target)) {
+                            colorClass = "bg-lime-500/20 text-lime-400 border border-lime-500/30";
+                            dotColor = "bg-lime-500";
+                        } else if (s === "Overtime" || hours > (target + (5 / 60))) {
+                            colorClass = "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30";
+                            dotColor = "bg-indigo-500";
+                        } else if (s === "Forgot to Checkout") {
+                            colorClass = "bg-orange-900/40 text-orange-600 border border-orange-500/30";
+                            dotColor = "bg-orange-600";
+                        } else {
+                            colorClass = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]";
+                            dotColor = "bg-emerald-500";
+                        }
+                    } else if (status.type === "Leave") {
+                        if (status.name === "Early Leave" || status.status === "Early Leave") {
+                            colorClass = "bg-pink-500/20 text-pink-400 border border-pink-500/30 shadow-[0_0_10px_rgba(236,72,153,0.1)]";
+                            dotColor = "bg-pink-500";
+                        } else if (status.name === "Short Leave" || status.status === "Short Leave") {
+                            colorClass = "bg-lime-500/20 text-lime-400 border border-lime-500/30 shadow-[0_0_10px_rgba(132,204,22,0.1)]";
+                            dotColor = "bg-lime-500";
+                        } else {
+                            colorClass = "bg-purple-500/20 text-purple-400 border border-purple-500/30 shadow-[0_0_10px_rgba(168,85,247,0.1)]";
+                            dotColor = "bg-purple-500";
+                        }
+                    } else if (status.type === "Absent") {
+                        colorClass = "bg-red-500/20 text-red-500 border border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.1)]";
+                        dotColor = "bg-red-500";
+                    } else if (status.type === "Holiday") {
+                        colorClass = "bg-blue-500/10 text-blue-400 border border-blue-500/20";
+                        dotColor = "bg-blue-500";
+                    } else if (status.type === "Off") {
+                        colorClass = isDarkMode ? "bg-gray-800/30 text-gray-600 border border-gray-800/50" : "bg-gray-100/50 text-gray-400 border border-gray-200/50";
+                    } else if (status.type === "NA") {
+                        colorClass = "bg-transparent text-gray-800 dark:text-gray-200";
+                    }
+
+                    return (
+                        <div
+                            key={dIdx}
+                            className={`
+                                aspect-square flex flex-col items-center justify-center rounded-[2px] text-[10px] font-black transition-all relative
+                                ${colorClass}
+                                ${isHighlight ? 'ring-1 ring-cyan-500' : ''}
+                                group/day cursor-pointer hover:scale-110 active:scale-95
+                            `}
+                            onClick={() => onSelectDay(day, status)}
+                            title={status.name}
+                        >
+                            {format(day, 'd')}
+                            {dotColor && <div className={`w-1 h-1 rounded-full absolute bottom-1 ${dotColor}`} />}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+});
 
 const EmployeeAttendance = () => {
     const { theme } = useTheme();
@@ -183,14 +637,7 @@ const EmployeeAttendance = () => {
     const [location, setLocation] = useState(null);
     const [selectedDay, setSelectedDay] = useState(null);
     const [systemNotification, setSystemNotification] = useState(null);
-    const [currentTime, setCurrentTime] = useState(Date.now());
-
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setCurrentTime(Date.now());
-        }, 1000);
-        return () => clearInterval(timer);
-    }, []);
+    const [isWithinOneHour, setIsWithinOneHour] = useState(false);
 
     useEffect(() => {
         fetchAttendance();
@@ -273,17 +720,26 @@ const EmployeeAttendance = () => {
     };
 
     const todayStrKey = format(new Date(), "yyyy-MM-dd");
-    const todayRecord = attendanceData.find(a => format(new Date(a.date), "yyyy-MM-dd") === todayStrKey);
+    const todayRecord = useMemo(() => {
+        return (attendanceData || []).find(a => format(new Date(a.date), "yyyy-MM-dd") === todayStrKey);
+    }, [attendanceData, todayStrKey]);
 
-    const checkInTimestamp = todayRecord?.checkIn?.time ? new Date(todayRecord.checkIn.time).getTime() : null;
-    const elapsedSinceCheckIn = checkInTimestamp ? Math.max(0, currentTime - checkInTimestamp) : 0;
-    const oneHourMs = 60 * 60 * 1000;
-    const isWithinOneHour = Boolean(
-        todayRecord &&
-        todayRecord.checkIn?.time &&
-        !todayRecord.checkOut?.time &&
-        elapsedSinceCheckIn < oneHourMs
-    );
+    useEffect(() => {
+        if (todayRecord && todayRecord.checkIn?.time && !todayRecord.checkOut?.time) {
+            const checkInMs = new Date(todayRecord.checkIn.time).getTime();
+            const diff = Date.now() - checkInMs;
+            const oneHourMs = 60 * 60 * 1000;
+            if (diff < oneHourMs) {
+                setIsWithinOneHour(true);
+                const timer = setTimeout(() => setIsWithinOneHour(false), oneHourMs - diff);
+                return () => clearTimeout(timer);
+            } else {
+                setIsWithinOneHour(false);
+            }
+        } else {
+            setIsWithinOneHour(false);
+        }
+    }, [todayRecord?.checkIn?.time, todayRecord?.checkOut?.time]);
 
     const handleMarkAttendance = async (type) => {
         if (type === 'checkOut' && isWithinOneHour) {
@@ -415,248 +871,239 @@ const EmployeeAttendance = () => {
             }
         } catch (error) {
             console.error("Admin override error:", error);
-            toast.error("Network error");
-        } finally {
             setMarking(false);
         }
     };
 
-    const months = eachMonthOfInterval({
+    const months = useMemo(() => eachMonthOfInterval({
         start: startOfYear(new Date(year, 0, 1)),
         end: endOfYear(new Date(year, 0, 1))
-    });
+    }), [year]);
 
-    const StatusLegend = () => (
-        <div className={`flex flex-wrap gap-4 px-6 py-3 ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'} border rounded-[2px] shadow-inner mb-6`}>
-            <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-[#a855f7] rounded-[2px]" />
-                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Approved Leave (CL/ML)</span>
-            </div>
-            <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-red-500 rounded-[2px]" />
-                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Absent (&lt;4h)</span>
-            </div>
-            <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-orange-500 rounded-[2px]" />
-                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Half Day (h/2)</span>
-            </div>
-            <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-pink-500 rounded-[2px]" />
-                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Early Leave (1-2h)</span>
-            </div>
-            <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-lime-500 rounded-[2px]" />
-                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Short Leave (30m)</span>
-            </div>
-            <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-emerald-500 rounded-[2px]" />
-                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Present (9h)</span>
-            </div>
-            <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-indigo-500 rounded-[2px]" />
-                <span className={`text-[10px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-600'} uppercase tracking-widest`}>Overtime (9h+) ★</span>
-            </div>
-        </div>
-    );
-
-    const getDayStatus = (date) => {
-        const dateStrKey = format(date, "yyyy-MM-dd");
-
-        // Find all attendance records belonging to this date (matching by record date or punch timestamps)
-        const dayRecords = (attendanceData || []).filter(a => {
-            if (!a) return false;
-            if (a.date) {
-                return format(new Date(a.date), "yyyy-MM-dd") === dateStrKey || isSameDay(new Date(a.date), date);
-            }
-            if (a.checkIn?.time && (format(new Date(a.checkIn.time), "yyyy-MM-dd") === dateStrKey || isSameDay(new Date(a.checkIn.time), date))) return true;
-            if (a.checkOut?.time && (format(new Date(a.checkOut.time), "yyyy-MM-dd") === dateStrKey || isSameDay(new Date(a.checkOut.time), date))) return true;
-            return false;
+    // Precompute O(1) day status lookup map and monthly totals in a single pass
+    const { dayStatusMap, monthSummaries } = useMemo(() => {
+        const attendanceByDate = new Map();
+        (attendanceData || []).forEach(a => {
+            if (!a) return;
+            const keys = new Set();
+            if (a.date) keys.add(format(new Date(a.date), "yyyy-MM-dd"));
+            if (a.checkIn?.time) keys.add(format(new Date(a.checkIn.time), "yyyy-MM-dd"));
+            if (a.checkOut?.time) keys.add(format(new Date(a.checkOut.time), "yyyy-MM-dd"));
+            keys.forEach(k => {
+                if (!attendanceByDate.has(k)) attendanceByDate.set(k, []);
+                attendanceByDate.get(k).push(a);
+            });
         });
 
-        // Pick the record with actual punch data (checkIn / checkOut / workingHours), or fallback to first record
-        const punchedRecord = dayRecords.find(r => r.checkIn?.time || r.checkOut?.time || (r.workingHours && r.workingHours > 0));
-        const record = punchedRecord || dayRecords[0];
-
-        const dayRegularizations = (regularizations || []).filter(r => {
-            if (!r || !r.date) return false;
-            return format(new Date(r.date), "yyyy-MM-dd") === dateStrKey || isSameDay(new Date(r.date), date);
-        });
-        const approvedRegs = dayRegularizations.filter(r => r.status === "Approved");
-        const regularization = approvedRegs[0] || dayRegularizations[0];
-
-        // Aggregate timings across all approved regularizations for this day
-        const earliestRegFromTime = approvedRegs.reduce((min, r) => (!min || (r.fromTime && r.fromTime < min) ? r.fromTime : min), null);
-        const latestRegToTime = approvedRegs.reduce((max, r) => (!max || (r.toTime && r.toTime > max) ? r.toTime : max), null);
-        let totalApprovedRegHours = 0;
-        approvedRegs.forEach(r => {
-            if (r.fromTime && r.toTime) {
-                const [fH, fM] = r.fromTime.split(':').map(Number);
-                const [tH, tM] = r.toTime.split(':').map(Number);
-                const diff = (tH * 60 + tM) - (fH * 60 + fM);
-                if (diff > 0) totalApprovedRegHours += (diff / 60);
-            }
-        });
-        totalApprovedRegHours = parseFloat(totalApprovedRegHours.toFixed(2));
-
-        // Check if there is an approved leave for this date
-        const approvedLeave = (leaveRequests || []).find(l => {
-            const s = startOfDay(new Date(l.startDate));
-            const e = startOfDay(new Date(l.endDate));
-            const d = startOfDay(date);
-            return d >= s && d <= e;
+        const regsByDate = new Map();
+        (regularizations || []).forEach(r => {
+            if (!r?.date) return;
+            const k = format(new Date(r.date), "yyyy-MM-dd");
+            if (!regsByDate.has(k)) regsByDate.set(k, []);
+            regsByDate.get(k).push(r);
         });
 
-        if (approvedLeave || (record && (record.status === "Leave" || dayRecords.some(r => r.status === "Leave")))) {
-            const leaveRecord = dayRecords.find(r => r.status === "Leave" || (r.remarks && r.remarks.includes("Leave")));
-            const leaveName = approvedLeave?.leaveType?.name || leaveRecord?.remarks || record?.remarks || "Approved Leave";
-            
-            // Prioritize punchSource (punchedRecord or record) so timings are never shadowed by an empty leave record
-            const punchSource = punchedRecord || record;
-            let calculatedWh = punchSource?.workingHours || 0;
-            let checkInTime = punchSource?.checkIn?.time ? format(new Date(punchSource.checkIn.time), "HH:mm") : null;
-            let checkOutTime = punchSource?.checkOut?.time ? format(new Date(punchSource.checkOut.time), "HH:mm") : null;
+        const holidayByDate = new Map();
+        (holidays || []).forEach(h => {
+            if (!h?.date) return;
+            const k = format(new Date(h.date), "yyyy-MM-dd");
+            holidayByDate.set(k, h);
+        });
 
-            if (punchSource?.checkIn?.time && punchSource?.checkOut?.time && (!calculatedWh || calculatedWh === 0)) {
-                const dur = (new Date(punchSource.checkOut.time) - new Date(punchSource.checkIn.time)) / (1000 * 60 * 60);
-                if (!isNaN(dur) && dur > 0) calculatedWh = parseFloat(dur.toFixed(2));
-            }
+        const parsedLeaves = (leaveRequests || []).map(l => ({
+            ...l,
+            startMs: startOfDay(new Date(l.startDate)).getTime(),
+            endMs: startOfDay(new Date(l.endDate)).getTime(),
+        }));
 
-            // Also check regularization if present
-            if (approvedRegs.length > 0) {
-                const isRegCheckIn = punchSource?.checkIn?.address === 'Regularized' || !punchSource?.checkIn?.time;
-                const isRegCheckOut = punchSource?.checkOut?.address === 'Regularized' || !punchSource?.checkOut?.time;
+        const statusMap = new Map();
+        const today = startOfDay(new Date());
+        const todayMs = today.getTime();
+        const joiningMs = dateOfJoining ? startOfDay(new Date(dateOfJoining)).getTime() : null;
+        const targetHoursNum = parseTargetHours(workingHours);
 
-                if (earliestRegFromTime && (isRegCheckIn || !checkInTime)) {
-                    checkInTime = earliestRegFromTime;
+        const start = startOfYear(new Date(year, 0, 1));
+        const end = endOfYear(new Date(year, 0, 1));
+        const allDays = eachDayOfInterval({ start, end });
+
+        allDays.forEach(day => {
+            const dateStrKey = format(day, "yyyy-MM-dd");
+            const dayMs = startOfDay(day).getTime();
+            const dayRecords = attendanceByDate.get(dateStrKey) || [];
+            const punchedRecord = dayRecords.find(r => r.checkIn?.time || r.checkOut?.time || (r.workingHours && r.workingHours > 0));
+            const record = punchedRecord || dayRecords[0];
+
+            const dayRegularizations = regsByDate.get(dateStrKey) || [];
+            const approvedRegs = dayRegularizations.filter(r => r.status === "Approved");
+            const regularization = approvedRegs[0] || dayRegularizations[0];
+
+            let earliestRegFromTime = null;
+            let latestRegToTime = null;
+            let totalApprovedRegHours = 0;
+            approvedRegs.forEach(r => {
+                if (r.fromTime && (!earliestRegFromTime || r.fromTime < earliestRegFromTime)) earliestRegFromTime = r.fromTime;
+                if (r.toTime && (!latestRegToTime || r.toTime > latestRegToTime)) latestRegToTime = r.toTime;
+                if (r.fromTime && r.toTime) {
+                    const [fH, fM] = r.fromTime.split(':').map(Number);
+                    const [tH, tM] = r.toTime.split(':').map(Number);
+                    const diff = (tH * 60 + tM) - (fH * 60 + fM);
+                    if (diff > 0) totalApprovedRegHours += (diff / 60);
                 }
-                if (latestRegToTime && (isRegCheckOut || !checkOutTime)) {
-                    checkOutTime = latestRegToTime;
-                }
-                if (calculatedWh === 0 && totalApprovedRegHours > 0) {
-                    calculatedWh = totalApprovedRegHours;
-                }
-            }
+            });
+            totalApprovedRegHours = parseFloat(totalApprovedRegHours.toFixed(2));
 
-            return {
-                type: "Leave",
-                name: leaveName,
-                status: leaveName,
-                reason: approvedLeave?.reason || leaveRecord?.remarks || record?.remarks || "Approved Leave",
-                startDate: approvedLeave?.startDate,
-                endDate: approvedLeave?.endDate,
-                days: approvedLeave?.days,
-                checkIn: checkInTime,
-                checkOut: checkOutTime,
-                workingHours: calculatedWh,
-                checkInCentre: punchSource?.checkIn?.centreId?.centreName || punchSource?.centreId?.centreName || (regularization?.type || "Office"),
-                checkInLabel: punchSource?.checkIn?.address || regularization?.locationAddress || "",
-                checkOutCentre: punchSource?.checkOut?.centreId?.centreName || (regularization?.type || ""),
-                checkOutLabel: punchSource?.checkOut?.address || regularization?.locationAddress || "",
-                hasOfficePresence: Boolean(checkInTime || checkOutTime || (calculatedWh && calculatedWh > 0)),
-                regularization,
-                regularizations: dayRegularizations
-            };
-        }
+            const approvedLeave = parsedLeaves.find(l => dayMs >= l.startMs && dayMs <= l.endMs);
 
-        if (record) {
-            let calculatedWh = record.workingHours || 0;
-            let checkInTime = record.checkIn?.time ? format(new Date(record.checkIn.time), "HH:mm") : null;
-            let checkOutTime = record.checkOut?.time ? format(new Date(record.checkOut.time), "HH:mm") : null;
+            let result;
+            if (approvedLeave || (record && (record.status === "Leave" || dayRecords.some(r => r.status === "Leave")))) {
+                const leaveRecord = dayRecords.find(r => r.status === "Leave" || (r.remarks && r.remarks.includes("Leave")));
+                const leaveName = approvedLeave?.leaveType?.name || leaveRecord?.remarks || record?.remarks || "Approved Leave";
+                const punchSource = punchedRecord || record;
+                let calculatedWh = punchSource?.workingHours || 0;
+                let checkInTime = punchSource?.checkIn?.time ? format(new Date(punchSource.checkIn.time), "HH:mm") : null;
+                let checkOutTime = punchSource?.checkOut?.time ? format(new Date(punchSource.checkOut.time), "HH:mm") : null;
 
-            if (record.checkIn?.time && record.checkOut?.time && (!calculatedWh || calculatedWh === 0)) {
-                const dur = (new Date(record.checkOut.time) - new Date(record.checkIn.time)) / (1000 * 60 * 60);
-                if (!isNaN(dur) && dur > 0) calculatedWh = parseFloat(dur.toFixed(2));
-            }
-
-            // If regularization is approved:
-            if (approvedRegs.length > 0) {
-                const isRegCheckIn = record.checkIn?.address === 'Regularized' || !record.checkIn?.time || (record.remarks && record.remarks.includes('Regulariz'));
-                const isRegCheckOut = record.checkOut?.address === 'Regularized' || !record.checkOut?.time || (record.remarks && record.remarks.includes('Regulariz'));
-
-                if (earliestRegFromTime && (isRegCheckIn || !checkInTime)) {
-                    checkInTime = earliestRegFromTime;
-                }
-                if (latestRegToTime && (isRegCheckOut || !checkOutTime)) {
-                    checkOutTime = latestRegToTime;
+                if (punchSource?.checkIn?.time && punchSource?.checkOut?.time && (!calculatedWh || calculatedWh === 0)) {
+                    const dur = (new Date(punchSource.checkOut.time) - new Date(punchSource.checkIn.time)) / (1000 * 60 * 60);
+                    if (!isNaN(dur) && dur > 0) calculatedWh = parseFloat(dur.toFixed(2));
                 }
 
-                // If both physical and regularization exist with distinct valid times, show earliest in and latest out
-                if (record.checkIn?.time && earliestRegFromTime && record.checkIn.address !== 'Regularized') {
-                    const physIn = format(new Date(record.checkIn.time), "HH:mm");
-                    checkInTime = physIn < earliestRegFromTime ? physIn : earliestRegFromTime;
-                }
-                if (record.checkOut?.time && latestRegToTime && record.checkOut.address !== 'Regularized') {
-                    const physOut = format(new Date(record.checkOut.time), "HH:mm");
-                    checkOutTime = physOut > latestRegToTime ? physOut : latestRegToTime;
+                if (approvedRegs.length > 0) {
+                    const isRegCheckIn = punchSource?.checkIn?.address === 'Regularized' || !punchSource?.checkIn?.time;
+                    const isRegCheckOut = punchSource?.checkOut?.address === 'Regularized' || !punchSource?.checkOut?.time;
+                    if (earliestRegFromTime && (isRegCheckIn || !checkInTime)) checkInTime = earliestRegFromTime;
+                    if (latestRegToTime && (isRegCheckOut || !checkOutTime)) checkOutTime = latestRegToTime;
+                    if (calculatedWh === 0 && totalApprovedRegHours > 0) calculatedWh = totalApprovedRegHours;
                 }
 
-                if (calculatedWh === 0) {
-                    if (totalApprovedRegHours > 0) {
-                        calculatedWh = totalApprovedRegHours;
+                result = {
+                    type: "Leave",
+                    name: leaveName,
+                    status: leaveName,
+                    reason: approvedLeave?.reason || leaveRecord?.remarks || record?.remarks || "Approved Leave",
+                    startDate: approvedLeave?.startDate,
+                    endDate: approvedLeave?.endDate,
+                    days: approvedLeave?.days,
+                    checkIn: checkInTime,
+                    checkOut: checkOutTime,
+                    workingHours: calculatedWh,
+                    checkInCentre: punchSource?.checkIn?.centreId?.centreName || punchSource?.centreId?.centreName || (regularization?.type || "Office"),
+                    checkInLabel: punchSource?.checkIn?.address || regularization?.locationAddress || "",
+                    checkOutCentre: punchSource?.checkOut?.centreId?.centreName || (regularization?.type || ""),
+                    checkOutLabel: punchSource?.checkOut?.address || regularization?.locationAddress || "",
+                    hasOfficePresence: Boolean(checkInTime || checkOutTime || (calculatedWh && calculatedWh > 0)),
+                    regularization,
+                    regularizations: dayRegularizations
+                };
+            } else if (record) {
+                let calculatedWh = record.workingHours || 0;
+                let checkInTime = record.checkIn?.time ? format(new Date(record.checkIn.time), "HH:mm") : null;
+                let checkOutTime = record.checkOut?.time ? format(new Date(record.checkOut.time), "HH:mm") : null;
+
+                if (record.checkIn?.time && record.checkOut?.time && (!calculatedWh || calculatedWh === 0)) {
+                    const dur = (new Date(record.checkOut.time) - new Date(record.checkIn.time)) / (1000 * 60 * 60);
+                    if (!isNaN(dur) && dur > 0) calculatedWh = parseFloat(dur.toFixed(2));
+                }
+
+                if (approvedRegs.length > 0) {
+                    const isRegCheckIn = record.checkIn?.address === 'Regularized' || !record.checkIn?.time || (record.remarks && record.remarks.includes('Regulariz'));
+                    const isRegCheckOut = record.checkOut?.address === 'Regularized' || !record.checkOut?.time || (record.remarks && record.remarks.includes('Regulariz'));
+                    if (earliestRegFromTime && (isRegCheckIn || !checkInTime)) checkInTime = earliestRegFromTime;
+                    if (latestRegToTime && (isRegCheckOut || !checkOutTime)) checkOutTime = latestRegToTime;
+                    if (record.checkIn?.time && earliestRegFromTime && record.checkIn.address !== 'Regularized') {
+                        const physIn = format(new Date(record.checkIn.time), "HH:mm");
+                        checkInTime = physIn < earliestRegFromTime ? physIn : earliestRegFromTime;
+                    }
+                    if (record.checkOut?.time && latestRegToTime && record.checkOut.address !== 'Regularized') {
+                        const physOut = format(new Date(record.checkOut.time), "HH:mm");
+                        checkOutTime = physOut > latestRegToTime ? physOut : latestRegToTime;
+                    }
+                    if (calculatedWh === 0) calculatedWh = totalApprovedRegHours > 0 ? totalApprovedRegHours : targetHoursNum;
+                }
+
+                const calculatedStatus = computeStatusFromHours(record.status, calculatedWh, targetHoursNum);
+                result = {
+                    type: record.status === "Week Off" ? "Off" : "Present",
+                    name: record.status === "Week Off" ? "Week Off" : (approvedRegs.length > 0 ? "Present (Regularized)" : undefined),
+                    checkIn: checkInTime,
+                    checkOut: checkOutTime,
+                    status: calculatedStatus,
+                    workingHours: calculatedWh,
+                    checkInCentre: record.checkIn?.centreId?.centreName || record.centreId?.centreName || (regularization?.type || "Office"),
+                    checkInLabel: record.checkIn?.address || regularization?.locationAddress || "",
+                    checkOutCentre: record.checkOut?.centreId?.centreName || (regularization?.type || ""),
+                    checkOutLabel: record.checkOut?.address || regularization?.locationAddress || "",
+                    regularization,
+                    regularizations: dayRegularizations
+                };
+            } else if (approvedRegs.length > 0) {
+                let regHours = totalApprovedRegHours > 0 ? totalApprovedRegHours : targetHoursNum;
+                const regStatus = computeStatusFromHours(null, regHours, targetHoursNum);
+                result = {
+                    type: "Present",
+                    name: "Regularized",
+                    checkIn: earliestRegFromTime || null,
+                    checkOut: latestRegToTime || null,
+                    status: regStatus,
+                    workingHours: regHours,
+                    checkInCentre: regularization?.type || "Office",
+                    checkInLabel: regularization?.locationAddress || "Regularized",
+                    checkOutCentre: regularization?.type || "Office",
+                    checkOutLabel: regularization?.locationAddress || "Regularized",
+                    regularization,
+                    regularizations: dayRegularizations
+                };
+            } else {
+                const holiday = holidayByDate.get(dateStrKey);
+                if (holiday) {
+                    result = { type: "Holiday", name: holiday.name, description: holiday.description, regularization };
+                } else if (joiningMs && dayMs < joiningMs) {
+                    result = { type: "NA", name: "-", regularization };
+                } else {
+                    const dayName = format(day, "eeee").toLowerCase();
+                    const isWorkingDay = workingDays && workingDays[dayName];
+                    if (!isWorkingDay && dayName) {
+                        result = { type: "Off", name: "Weekly Off", regularization };
+                    } else if (dayMs < todayMs && isWorkingDay) {
+                        result = { type: "Absent", name: "Absent", regularization };
                     } else {
-                        calculatedWh = workingHours || 9;
+                        result = { type: "Upcoming", regularization };
                     }
                 }
             }
 
-            const calculatedStatus = computeStatusFromHours(record.status, calculatedWh, workingHours || 9);
-            return {
-                type: record.status === "Week Off" ? "Off" : "Present",
-                name: record.status === "Week Off" ? "Week Off" : (approvedRegs.length > 0 ? "Present (Regularized)" : undefined),
-                checkIn: checkInTime,
-                checkOut: checkOutTime,
-                status: calculatedStatus,
-                workingHours: calculatedWh,
-                checkInCentre: record.checkIn?.centreId?.centreName || record.centreId?.centreName || (regularization?.type || "Office"),
-                checkInLabel: record.checkIn?.address || regularization?.locationAddress || "",
-                checkOutCentre: record.checkOut?.centreId?.centreName || (regularization?.type || ""),
-                checkOutLabel: record.checkOut?.address || regularization?.locationAddress || "",
-                regularization,
-                regularizations: dayRegularizations
-            };
-        }
+            statusMap.set(dateStrKey, result);
+        });
 
-        if (approvedRegs.length > 0) {
-            let regHours = totalApprovedRegHours > 0 ? totalApprovedRegHours : (workingHours || 9);
-            let checkInStr = earliestRegFromTime || null;
-            let checkOutStr = latestRegToTime || null;
+        // Precalculate monthly counts
+        const summaries = Array.from({ length: 12 }, (_, mIdx) => {
+            const mStart = startOfMonth(new Date(year, mIdx, 1));
+            const mEnd = endOfMonth(mStart);
+            const mDays = eachDayOfInterval({ start: mStart, end: mEnd });
+            let mPresents = 0, mAbsents = 0, mWeekOffs = 0, mHolidays = 0, mLeaves = 0;
+            mDays.forEach(d => {
+                const s = statusMap.get(format(d, "yyyy-MM-dd"));
+                if (!s) return;
+                if (s.type === "Present" && s.status !== "Absent") mPresents++;
+                else if (s.type === "Leave") mLeaves++;
+                else if (s.type === "Absent" || s.status === "Absent") mAbsents++;
+                else if (s.type === "Holiday") mHolidays++;
+                else if (s.type === "Off" || s.type === "Week Off" || s.name === "Weekly Off") mWeekOffs++;
+            });
+            return { days: mDays, mPresents, mAbsents, mWeekOffs, mHolidays, mLeaves };
+        });
 
-            const regStatus = computeStatusFromHours(null, regHours, workingHours || 9);
+        return { dayStatusMap: statusMap, monthSummaries: summaries };
+    }, [attendanceData, leaveRequests, regularizations, holidays, workingDays, workingHours, dateOfJoining, year]);
 
-            return {
-                type: "Present",
-                name: "Regularized",
-                checkIn: checkInStr,
-                checkOut: checkOutStr,
-                status: regStatus,
-                workingHours: regHours,
-                checkInCentre: regularization?.type || "Office",
-                checkInLabel: regularization?.locationAddress || "Regularized",
-                checkOutCentre: regularization?.type || "Office",
-                checkOutLabel: regularization?.locationAddress || "Regularized",
-                regularization,
-                regularizations: dayRegularizations
-            };
-        }
+    const getDayStatus = useCallback((date) => {
+        const key = format(date, "yyyy-MM-dd");
+        return dayStatusMap.get(key) || { type: "Upcoming" };
+    }, [dayStatusMap]);
 
-        const holiday = holidays.find(h => isSameDay(new Date(h.date), date));
-        if (holiday) return { type: "Holiday", name: holiday.name, description: holiday.description, regularization };
-
-        // Before joining date, consider as N/A or just blank
-        if (dateOfJoining && date < startOfDay(new Date(dateOfJoining))) {
-            return { type: "NA", name: "-", regularization };
-        }
-
-        const dayName = format(date, "eeee").toLowerCase();
-        const isWorkingDay = workingDays && workingDays[dayName];
-        if (!isWorkingDay && dayName) return { type: "Off", name: "Weekly Off", regularization };
-
-        if (date < startOfDay(new Date()) && isWorkingDay) {
-            return { type: "Absent", name: "Absent", regularization };
-        }
-
-        return { type: "Upcoming", regularization };
-    };
+    const handleSelectDay = useCallback((day, status) => {
+        setSelectedDay({ day, status });
+    }, []);
 
     // --- Analytics Logic ---
     const stats = useMemo(() => {
@@ -689,7 +1136,9 @@ const EmployeeAttendance = () => {
         const days = eachDayOfInterval({ start, end });
 
         days.forEach(day => {
-            const status = getDayStatus(day);
+            const dateStrKey = format(day, "yyyy-MM-dd");
+            const status = dayStatusMap.get(dateStrKey);
+            if (!status) return;
             const mIndex = getMonth(day);
             const isCurrMonth = (mIndex === currentMonthIdx && year === currentYearNum);
 
@@ -748,320 +1197,13 @@ const EmployeeAttendance = () => {
             currentMonthPresents,
             currentMonthAbsents
         };
-    }, [attendanceData, leaveRequests, holidays, workingDays, dateOfJoining, year]);
+    }, [dayStatusMap, holidays, year]);
 
 
     const getWorkingDaysList = () => {
         if (!workingDays) return [];
         const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
         return days.filter(d => workingDays[d]).map(d => d.charAt(0).toUpperCase() + d.slice(1, 3));
-    };
-
-    const DayDetailsModal = ({ data, onClose }) => {
-        if (!data) return null;
-        const { day, status } = data;
-        const isDark = theme === 'dark';
-
-        // Lock background body scroll while modal is active
-        useEffect(() => {
-            const prevOverflow = document.body.style.overflow;
-            document.body.style.overflow = 'hidden';
-            return () => {
-                document.body.style.overflow = prevOverflow;
-            };
-        }, []);
-
-        return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden">
-                <div className="fixed inset-0 bg-black/70 backdrop-blur-md" onClick={onClose}></div>
-                <div className={`relative w-full max-w-lg max-h-[90vh] flex flex-col ${isDark ? 'bg-[#131619] border-gray-800 text-white' : 'bg-white border-gray-200 text-gray-900'} border rounded-3xl sm:rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300 my-auto`}>
-                    {/* Header - Fixed at top */}
-                    <div className="flex-shrink-0 px-6 py-5 sm:px-8 sm:py-6 border-b border-gray-800/50 flex justify-between items-center bg-gradient-to-r from-cyan-500/10 to-transparent">
-                        <div>
-                            <h2 className={`text-2xl sm:text-3xl font-black tracking-tighter uppercase italic ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                Day <span className="text-cyan-500">Details</span>
-                            </h2>
-                            <p className={`text-[10px] sm:text-xs font-bold uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'}`}>
-                                {format(day, 'EEEE, dd MMMM yyyy')}
-                            </p>
-                        </div>
-                        <button
-                            onClick={onClose}
-                            aria-label="Close modal"
-                            className="w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-gray-700/60 flex items-center justify-center hover:bg-red-500 hover:text-white hover:border-red-500 transition-all text-xs sm:text-sm font-bold active:scale-90"
-                        >
-                            ✕
-                        </button>
-                    </div>
-
-                    {/* Scrollable Content Body with smooth sleek scrollbar */}
-                    <div className="flex-1 overflow-y-auto custom-modal-scrollbar overscroll-contain pl-5 pr-4 sm:pl-8 sm:pr-6 py-5 sm:py-6 space-y-4 sm:space-y-6">
-                        {(status.type === "Present" || status.hasOfficePresence || status.checkIn || status.checkOut || (status.workingHours && status.workingHours > 0)) ? (
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                                    <div className={`p-3.5 sm:p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                        <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-1">Check In</p>
-                                        <p className={`text-xl sm:text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{status.checkIn || '--:--'}</p>
-                                    </div>
-                                    <div className={`p-3.5 sm:p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                        <p className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1">Check Out</p>
-                                        <p className={`text-xl sm:text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{status.checkOut || '--:--'}</p>
-                                    </div>
-                                    <div className={`col-span-2 p-3.5 sm:p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                        <div className="flex justify-between items-center flex-wrap gap-2">
-                                            <div>
-                                                <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-1">Working Hours</p>
-                                                <p className={`text-xl sm:text-2xl font-black tracking-tighter ${isDark ? 'text-white' : 'text-gray-900'}`}>{formatWorkingHours(status.workingHours)}</p>
-                                            </div>
-                                            <div className="text-right">
-                                                <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Status</p>
-                                                <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase ${
-                                                    status.name === 'Early Leave' || status.status === 'Early Leave' ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' :
-                                                    status.name === 'Short Leave' || status.status === 'Short Leave' ? 'bg-lime-500/20 text-lime-400 border border-lime-500/30' :
-                                                    status.status === 'Present' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                                                    status.status === 'Overtime' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
-                                                    status.status === 'Half Day' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
-                                                    status.status === 'Absent' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
-                                                    status.status === 'Forgot to Checkout' ? 'bg-orange-900/40 text-orange-400 border border-orange-500/30' :
-                                                    status.status === 'Week Off' ? 'bg-gray-500/20 text-gray-400 border border-gray-500/30' :
-                                                    status.status === 'Leave' || status.type === 'Leave' ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30' :
-                                                    'bg-cyan-500/20 text-cyan-400 border border-cyan-500/30'
-                                                }`}>
-                                                    {status.name || status.status}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    {(status.checkInCentre || status.checkOutCentre || status.checkInLabel || status.checkOutLabel) && (
-                                        <div className={`col-span-2 p-3.5 sm:p-4 rounded-2xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                            <div className="space-y-3 sm:space-y-4">
-                                                <div>
-                                                    <p className="text-[10px] font-black text-cyan-500 uppercase tracking-widest mb-1">Check In Location</p>
-                                                    <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} flex items-center gap-2 italic break-words`}>
-                                                        <FaBuilding className="text-cyan-500 flex-shrink-0" /> {status.checkInCentre || "Office"}
-                                                    </p>
-                                                    {status.checkInLabel && (
-                                                        <p className={`mt-1 text-[10px] font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-2 break-words`}>
-                                                            <FaMapMarkerAlt className="text-red-500 flex-shrink-0" /> {status.checkInLabel}
-                                                        </p>
-                                                    )}
-                                                </div>
-                                                {status.checkOut && (
-                                                    <div className={`pt-3 sm:pt-4 border-t ${isDark ? 'border-gray-800/50' : 'border-gray-100'}`}>
-                                                        <p className="text-[10px] font-black text-pink-500 uppercase tracking-widest mb-1">Check Out Location</p>
-                                                        <p className={`text-sm font-bold ${isDark ? 'text-white' : 'text-gray-900'} flex items-center gap-2 italic break-words`}>
-                                                            <FaBuilding className="text-pink-500 flex-shrink-0" /> {status.checkOutCentre || status.checkInCentre || "Office"}
-                                                        </p>
-                                                        {status.checkOutLabel && (
-                                                            <p className={`mt-1 text-[10px] font-bold ${isDark ? 'text-gray-500' : 'text-gray-400'} flex items-center gap-2 break-words`}>
-                                                                <FaMapMarkerAlt className="text-red-500 flex-shrink-0" /> {status.checkOutLabel}
-                                                            </p>
-                                                        )}
-                                                    </div>
-                                                )}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Approved Leave Details for Days with Office Presence */}
-                                {status.type === "Leave" && (
-                                    <div className={`p-4 sm:p-5 rounded-2xl border ${isDark ? 'bg-purple-500/10 border-purple-500/30' : 'bg-purple-50 border-purple-200'} space-y-3`}>
-                                        <div className="flex justify-between items-center">
-                                            <div className="flex items-center gap-2.5">
-                                                <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center flex-shrink-0">
-                                                    <FaCalendarCheck size={16} />
-                                                </div>
-                                                <div>
-                                                    <p className={`text-sm font-black uppercase tracking-wider ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                                        {status.name || "Approved Leave"}
-                                                    </p>
-                                                    <p className="text-[9px] font-bold uppercase tracking-widest text-purple-400">
-                                                        Approved Permission
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                                                Approved
-                                            </span>
-                                        </div>
-                                        {(status.reason || status.name) && (
-                                            <div className={`p-3.5 rounded-xl border ${isDark ? 'bg-black/40 border-gray-800' : 'bg-white border-purple-100'}`}>
-                                                <p className={`text-[9px] font-black uppercase tracking-widest mb-1 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>
-                                                    Approved Leave Details
-                                                </p>
-                                                <p className={`text-xs sm:text-sm font-medium italic ${isDark ? 'text-gray-200' : 'text-gray-700'} break-words`}>
-                                                    "{status.reason || status.name}"
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className={`p-8 sm:p-12 rounded-3xl border text-center ${isDark ? 'bg-black/40 border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
-                                <div className={`w-16 h-16 sm:w-20 sm:h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
-                                    status.type === 'Holiday' ? 'bg-blue-500/20 text-blue-400' :
-                                    status.type === 'Leave' ? 'bg-purple-500/20 text-purple-400' :
-                                    status.type === 'Absent' ? 'bg-red-500/20 text-red-400' :
-                                    'bg-gray-500/20 text-gray-400'
-                                }`}>
-                                    {status.type === 'Holiday' ? <FaCalendarCheck size={28} /> :
-                                     status.type === 'Leave' ? <FaCalendarCheck size={28} /> :
-                                     <FaBuilding size={28} />}
-                                </div>
-                                <h3 className={`text-xl sm:text-2xl font-black tracking-tighter uppercase italic ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                    {status.name || status.type}
-                                </h3>
-                                <p className={`text-[10px] font-bold uppercase tracking-[0.3em] ${
-                                    status.type === 'Leave' ? 'text-purple-400' :
-                                    status.type === 'Holiday' ? 'text-blue-400' :
-                                    isDark ? 'text-gray-500' : 'text-gray-400'
-                                }`}>
-                                    {status.type === 'Holiday' ? 'Scheduled Holiday' : status.type === 'Leave' ? 'Approved Leave' : 'No presence recorded'}
-                                </p>
-                                {status.type === 'Holiday' && status.description && (
-                                    <div className={`mt-4 sm:mt-6 p-3 sm:p-4 rounded-xl border ${isDark ? 'bg-blue-500/5 border-blue-500/20' : 'bg-blue-50/50 border-blue-100'}`}>
-                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-1 sm:mb-2 ${isDark ? 'text-blue-400' : 'text-blue-600'}`}>Reason / Description</p>
-                                        <p className={`text-xs sm:text-sm font-medium italic ${isDark ? 'text-gray-300' : 'text-gray-600'} break-words`}>
-                                            "{status.description}"
-                                        </p>
-                                    </div>
-                                )}
-                                {status.type === 'Leave' && (status.reason || status.name) && (
-                                    <div className={`mt-4 sm:mt-6 p-3 sm:p-4 rounded-xl border ${isDark ? 'bg-purple-500/5 border-purple-500/20' : 'bg-purple-50/50 border-purple-100'}`}>
-                                        <p className={`text-[9px] font-black uppercase tracking-widest mb-1 sm:mb-2 ${isDark ? 'text-purple-400' : 'text-purple-600'}`}>Approved Leave Details</p>
-                                        <p className={`text-xs sm:text-sm font-medium italic ${isDark ? 'text-gray-300' : 'text-gray-600'} break-words`}>
-                                            "{status.reason || status.name}"
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        )}
-
-                        {/* Regularization details */}
-                        {((status.regularizations && status.regularizations.length > 0) ? status.regularizations : (status.regularization ? [status.regularization] : [])).map((reg, rIdx) => (
-                            <div key={rIdx} className={`p-4 sm:p-6 rounded-2xl border ${reg.status === 'Approved'
-                                ? 'bg-emerald-500/5 border-emerald-500/20'
-                                : reg.status === 'Rejected'
-                                    ? 'bg-red-500/5 border-red-500/20'
-                                    : 'bg-orange-500/5 border-orange-500/20'
-                                } space-y-3 sm:space-y-4`}>
-                                <div className="flex justify-between items-center flex-wrap gap-2">
-                                    <h4 className={`text-xs font-black uppercase tracking-widest ${reg.status === 'Approved'
-                                        ? 'text-emerald-500'
-                                        : reg.status === 'Rejected'
-                                            ? 'text-red-500'
-                                            : 'text-orange-500'
-                                        }`}>
-                                        Regularization {status.regularizations?.length > 1 ? `#${rIdx + 1} ` : ''}{reg.status}
-                                    </h4>
-                                    <span className={`px-2.5 py-0.5 sm:px-3 sm:py-1 rounded-full text-[9px] font-black uppercase ${reg.status === 'Approved'
-                                        ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                                        : reg.status === 'Rejected'
-                                            ? 'bg-red-500/20 text-red-400 border border-red-500/30'
-                                            : 'bg-orange-500/20 text-orange-400 border border-orange-500/30'
-                                        }`}>
-                                        {reg.type}
-                                    </span>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-3 sm:gap-4 text-xs">
-                                    <div className="col-span-2">
-                                        <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Reason</span>
-                                        <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'} italic text-xs sm:text-sm break-words leading-relaxed`}>
-                                            "{reg.reason}"
-                                        </p>
-                                    </div>
-                                    {reg.fromTime && reg.toTime && (
-                                        <div className="col-span-2">
-                                            <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Regularized Timings</span>
-                                            <p className={`font-black ${isDark ? 'text-white' : 'text-gray-900'} text-xs sm:text-sm`}>
-                                                {reg.fromTime} - {reg.toTime}
-                                            </p>
-                                        </div>
-                                    )}
-                                    {reg.status !== 'Pending' && (
-                                        <>
-                                            <div className="col-span-2 sm:col-span-1">
-                                                <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Reviewed By</span>
-                                                <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'}`}>
-                                                    {reg.reviewedBy?.name || 'Manager'}
-                                                </p>
-                                            </div>
-                                            {reg.reviewRemark && (
-                                                <div className="col-span-2">
-                                                    <span className={`block text-[8px] font-black uppercase tracking-widest ${isDark ? 'text-gray-500' : 'text-gray-400'} mb-1`}>Reviewer Remarks</span>
-                                                    <p className={`font-bold ${isDark ? 'text-white' : 'text-gray-900'} italic break-words`}>
-                                                        "{reg.reviewRemark}"
-                                                    </p>
-                                                </div>
-                                            )}
-                                        </>
-                                    )}
-                                </div>
-                            </div>
-                        ))}
-
-                        {/* Admin / HR Manual Override as Week Off */}
-                        {isSuperAdminOrHR && status.status !== "Week Off" && (
-                            <div className="pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-amber-500/30">
-                                <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-3 sm:mb-4">
-                                    <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-2">
-                                        <FaBolt /> Admin & HR Override
-                                    </p>
-                                    <p className={`text-[10px] mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        As Superadmin / HR, you can mark this date as a Week Off for this employee upon their request.
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => handleAdminOverrideWeekOff(day)}
-                                    disabled={marking}
-                                    className="w-full py-3.5 sm:py-4 bg-amber-500 hover:bg-amber-600 text-black font-black rounded-2xl transition-all shadow-xl shadow-amber-500/20 active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
-                                >
-                                    {marking ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-black"></div> : <><FaCalendarCheck size={16} /> Mark as Week Off (Admin Override)</>}
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Mark as Week Off Option (For Employees: Current & Upcoming Week) */}
-                        {!isSuperAdminOrHR && (() => {
-                            const today = new Date();
-                            const todayStart = startOfDay(today);
-
-                            // Prevent marking for past days
-                            const isPastDay = day < todayStart;
-
-                            // Check if a Week Off is already defined for the week of the selected 'day'
-                            const weekStart = startOfWeek(day, { weekStartsOn: 1 });
-                            const weekEnd = endOfWeek(day, { weekStartsOn: 1 });
-                            const hasWeekOffInThisWeek = attendanceData.some(a => {
-                                const d = new Date(a.date);
-                                return d >= weekStart && d <= weekEnd && a.status === "Week Off";
-                            });
-
-                            if (!isPastDay && status.status !== "Week Off" && !hasWeekOffInThisWeek) {
-                                return (
-                                    <div className="pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-800/50">
-                                        <button
-                                            onClick={() => handleMarkWeekOff(day)}
-                                            disabled={marking}
-                                            className="w-full py-3.5 sm:py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-500/20 active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
-                                        >
-                                            {marking ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white"></div> : <><FaCalendarCheck size={16} /> Mark as Week Off</>}
-                                        </button>
-                                        <p className={`mt-2 text-[8px] font-bold text-center uppercase tracking-widest ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-                                            * ALLOWED FOR CURRENT & UPCOMING WEEKS
-                                        </p>
-                                    </div>
-                                );
-                            }
-                            return null;
-                        })()}
-                    </div>
-                </div>
-            </div>
-        );
     };
 
     return (
@@ -1302,173 +1444,36 @@ const EmployeeAttendance = () => {
                             <p className={`text-[9px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'} uppercase tracking-widest mt-1`}>Holidays: {stats.holidayCount}</p>
                         </div>
                     </div>
-                </div>
-
-                {/* 4. Calendar Grid */}
+                </div>                {/* 4. Calendar Grid */}
                 {loading ? (
                     <div className="flex justify-center p-32"><div className="animate-spin rounded-full h-16 w-16 border-t-2 border-cyan-500"></div></div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6">
-                        {months.map((month, mIdx) => {
-                            const days = eachDayOfInterval({
-                                start: startOfMonth(month),
-                                end: endOfMonth(month)
-                            });
-
-                            let mPresents = 0;
-                            let mAbsents = 0;
-                            let mWeekOffs = 0;
-                            let mHolidays = 0;
-                            let mLeaves = 0;
-
-                            days.forEach(d => {
-                                const status = getDayStatus(d);
-                                if (status.type === "Present" && status.status !== "Absent") {
-                                    mPresents++;
-                                } else if (status.type === "Leave") {
-                                    mLeaves++;
-                                } else if (status.type === "Absent" || status.status === "Absent") {
-                                    mAbsents++;
-                                } else if (status.type === "Holiday") {
-                                    mHolidays++;
-                                } else if (status.type === "Off" || status.type === "Week Off" || status.name === "Weekly Off") {
-                                    mWeekOffs++;
-                                }
-                            });
-
-                            return (
-                                <div key={mIdx} className={`${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-md'} border rounded-[2px] p-6 shadow-xl relative overflow-hidden group hover:border-gray-700 transition-all`}>
-                                    <div className="flex justify-between items-center mb-4">
-                                        <div>
-                                            <h2 className={`text-xl font-black ${isDarkMode ? 'text-white' : 'text-gray-900'} uppercase tracking-tighter italic`}>{format(month, 'MMMM')}</h2>
-                                            <p className="text-[9px] font-black text-cyan-500 uppercase tracking-widest mt-0.5">
-                                                {stats.monthsData[mIdx]?.workingHours > 0 ? `${stats.monthsData[mIdx].workingHours} hrs worked` : '0 hrs'}
-                                            </p>
-                                        </div>
-                                        <div className={`w-8 h-8 ${isDarkMode ? 'bg-gray-900 text-gray-700' : 'bg-gray-50 text-gray-400'} rounded-[2px] flex items-center justify-center text-[10px] font-black`}>
-                                            {format(month, 'MM')}
-                                        </div>
-                                    </div>
-
-                                    {/* Monthly Summary Counts */}
-                                    <div className={`grid grid-cols-5 gap-1 mb-5 py-2 px-1 rounded-[2px] ${isDarkMode ? 'bg-black/30 border-gray-800/80' : 'bg-gray-50 border-gray-200'} border text-center`}>
-                                        <div className="flex flex-col">
-                                            <span className="text-[12px] font-black text-emerald-500 leading-tight">{mPresents}</span>
-                                            <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Present</span>
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[12px] font-black text-red-500 leading-tight">{mAbsents}</span>
-                                            <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Absent</span>
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[12px] font-black text-amber-500 leading-tight">{mWeekOffs}</span>
-                                            <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Week Off</span>
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[12px] font-black text-blue-500 leading-tight">{mHolidays}</span>
-                                            <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Holiday</span>
-                                        </div>
-                                        <div className="flex flex-col">
-                                            <span className="text-[12px] font-black text-purple-500 leading-tight">{mLeaves}</span>
-                                            <span className={`text-[7px] font-black ${isDarkMode ? 'text-gray-400' : 'text-gray-500'} uppercase tracking-wider`}>Leave</span>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid grid-cols-7 gap-2">
-                                        {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((d, i) => (
-                                            <div key={i} className={`text-center text-[9px] font-black ${isDarkMode ? 'text-gray-600' : 'text-gray-400'} pb-2`}>{d}</div>
-                                        ))}
-
-                                        {Array.from({ length: getDay(days[0]) }).map((_, i) => (
-                                            <div key={`empty-${i}`} />
-                                        ))}
-
-                                        {days.map((day, dIdx) => {
-                                            const status = getDayStatus(day);
-                                            const isHighlight = isToday(day);
-
-                                            let colorClass = isDarkMode ? "bg-[#1a1f24] text-gray-300 hover:bg-gray-800" : "bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-100";
-                                            let dotColor = "";
-                                            let isOvertime = false;
-
-                                            if (status.type === "Present") {
-                                                const hours = status.workingHours || 0;
-                                                const s = status.status;
-                                                const target = parseTargetHours(workingHours);
-
-                                                if (s === "Absent" || (hours > 0 && hours < 4)) {
-                                                    colorClass = "bg-red-500/20 text-red-500 border border-red-500/30";
-                                                    dotColor = "bg-red-500";
-                                                } else if (s === "Half Day" || (hours >= 4 && hours < (target / 2))) {
-                                                    colorClass = "bg-orange-500/20 text-orange-400 border border-orange-500/30";
-                                                    dotColor = "bg-orange-500";
-                                                } else if (s === "Early Leave" || (hours >= (target / 2) && hours < (target - 0.5))) {
-                                                    colorClass = "bg-pink-500/20 text-pink-400 border border-pink-500/30";
-                                                    dotColor = "bg-pink-500";
-                                                } else if (s === "Short Leave" || (hours >= (target - 0.5) && hours < target)) {
-                                                    colorClass = "bg-lime-500/20 text-lime-400 border border-lime-500/30";
-                                                    dotColor = "bg-lime-500";
-                                                } else if (s === "Overtime" || hours > (target + (5 / 60))) {
-                                                    colorClass = "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30";
-                                                    dotColor = "bg-indigo-500";
-                                                    isOvertime = true;
-                                                } else if (s === "Forgot to Checkout") {
-                                                    colorClass = "bg-orange-900/40 text-orange-600 border border-orange-500/30";
-                                                    dotColor = "bg-orange-600";
-                                                } else {
-                                                    colorClass = "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-[0_0_10px_rgba(16,185,129,0.1)]";
-                                                    dotColor = "bg-emerald-500";
-                                                }
-                                            } else if (status.type === "Leave") {
-                                                if (status.name === "Early Leave" || status.status === "Early Leave") {
-                                                    colorClass = "bg-pink-500/20 text-pink-400 border border-pink-500/30 shadow-[0_0_10px_rgba(236,72,153,0.1)]";
-                                                    dotColor = "bg-pink-500";
-                                                } else if (status.name === "Short Leave" || status.status === "Short Leave") {
-                                                    colorClass = "bg-lime-500/20 text-lime-400 border border-lime-500/30 shadow-[0_0_10px_rgba(132,204,22,0.1)]";
-                                                    dotColor = "bg-lime-500";
-                                                } else {
-                                                    colorClass = "bg-purple-500/20 text-purple-400 border border-purple-500/30 shadow-[0_0_10px_rgba(168,85,247,0.1)]";
-                                                    dotColor = "bg-purple-500";
-                                                }
-                                            } else if (status.type === "Absent") {
-                                                colorClass = "bg-red-500/20 text-red-500 border border-red-500/30 shadow-[0_0_10px_rgba(239,68,68,0.1)]";
-                                                dotColor = "bg-red-500";
-                                            } else if (status.type === "Holiday") {
-                                                colorClass = "bg-blue-500/10 text-blue-400 border border-blue-500/20";
-                                                dotColor = "bg-blue-500";
-                                            } else if (status.type === "Off") {
-                                                colorClass = isDarkMode ? "bg-gray-800/30 text-gray-600 border border-gray-800/50" : "bg-gray-100/50 text-gray-400 border border-gray-200/50";
-                                            } else if (status.type === "NA") {
-                                                colorClass = "bg-transparent text-gray-800 dark:text-gray-200";
-                                            }
-
-                                            return (
-                                                <div
-                                                    key={dIdx}
-                                                    className={`
-                                                        aspect-square flex flex-col items-center justify-center rounded-[2px] text-[10px] font-black transition-all relative
-                                                        ${colorClass}
-                                                        ${isHighlight ? 'ring-1 ring-cyan-500' : ''}
-                                                        group/day cursor-pointer hover:scale-110 active:scale-95
-                                                    `}
-                                                    onClick={() => setSelectedDay({ day, status })}
-                                                    title={status.name}
-                                                >
-                                                    {format(day, 'd')}
-                                                    {dotColor && <div className={`w-1 h-1 rounded-full absolute bottom-1 ${dotColor}`} />}
-                                                </div>
-                                            );
-                                        })}
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        {months.map((month, mIdx) => (
+                            <CalendarMonthCard
+                                key={mIdx}
+                                month={month}
+                                mIdx={mIdx}
+                                monthSummary={monthSummaries[mIdx]}
+                                monthWorkingHours={stats.monthsData[mIdx]?.workingHours || 0}
+                                isDarkMode={isDarkMode}
+                                workingHours={workingHours}
+                                onSelectDay={handleSelectDay}
+                                getDayStatus={getDayStatus}
+                            />
+                        ))}
                     </div>
                 )}
                 {selectedDay && (
                     <DayDetailsModal
                         data={selectedDay}
                         onClose={() => setSelectedDay(null)}
+                        isDarkMode={isDarkMode}
+                        isSuperAdminOrHR={isSuperAdminOrHR}
+                        marking={marking}
+                        handleAdminOverrideWeekOff={handleAdminOverrideWeekOff}
+                        handleMarkWeekOff={handleMarkWeekOff}
+                        attendanceData={attendanceData}
                     />
                 )}
             </div>

@@ -7,13 +7,15 @@ import {
     FaUser, FaPhoneAlt, FaBuilding, FaBook, FaShoppingBag, FaTshirt, FaPenNib,
     FaArrowLeft, FaUsers, FaCheckSquare, FaSquare, FaPlus, FaIdCard, FaCalculator,
     FaBoxes, FaCheck, FaTimes, FaMapMarkerAlt, FaChartPie, FaLayerGroup, FaTags,
-    FaGraduationCap, FaNetworkWired, FaUniversity, FaCalendarAlt
+    FaGraduationCap, FaNetworkWired, FaUniversity, FaCalendarAlt,
+    FaTag, FaMoneyBillWave, FaReceipt
 } from 'react-icons/fa';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import MultiSelectFilter from '../../components/common/MultiSelectFilter';
 import Pagination from '../../components/common/Pagination';
 import { TableRowSkeleton } from '../../components/common/Skeleton';
+import BillGenerator from '../../components/Finance/BillGenerator';
 
 const StorePage = () => {
     const { theme } = useTheme();
@@ -26,6 +28,8 @@ const StorePage = () => {
     const [masterClasses, setMasterClasses] = useState([]);
     const [masterDepartments, setMasterDepartments] = useState([]);
     const [masterBoards, setMasterBoards] = useState([]);
+    const [masterExamTags, setMasterExamTags] = useState([]);
+    const [masterInventoryItems, setMasterInventoryItems] = useState([]);
     const [globalStats, setGlobalStats] = useState({
         totalActiveCentres: 0,
         totalActiveStudents: 0,
@@ -51,6 +55,7 @@ const StorePage = () => {
     const [filterClass, setFilterClass] = useState([]);
     const [filterDepartment, setFilterDepartment] = useState([]);
     const [filterBoard, setFilterBoard] = useState([]);
+    const [filterExamTag, setFilterExamTag] = useState([]);
     const [filterAllocationStatus, setFilterAllocationStatus] = useState([]);
 
     // Multi-select students inside drilled-down centre
@@ -62,19 +67,32 @@ const StorePage = () => {
 
     // Allocation Modal State
     const [isAllocationModalOpen, setIsAllocationModalOpen] = useState(false);
-    // Modal Target Type: 'centre_all' | 'centre_not_allotted' | 'selected_students' | 'single_student'
-    const [allocationTargetType, setAllocationTargetType] = useState('centre_all');
+    // Modal Target Type: 'selected_students' | 'single_student'
+    const [allocationTargetType, setAllocationTargetType] = useState('selected_students'); // 'selected_students' or 'single_student'
     const [modalTargetCentre, setModalTargetCentre] = useState(null);
     const [modalSingleStudent, setModalSingleStudent] = useState(null);
     const [modalSelectedStudentsList, setModalSelectedStudentsList] = useState([]);
 
+    // Form data inside modal
     const [allocationData, setAllocationData] = useState({
         items: [],
-        quantities: {} // { itemName: quantityPerStudent }
+        quantities: {},
+        itemTypes: {},
+        prices: {}
     });
-    const [customItemInput, setCustomItemInput] = useState("");
-    const [customItemsList, setCustomItemsList] = useState([]);
     const [submittingAllocation, setSubmittingAllocation] = useState(false);
+    
+    // Billing & Payment section states for paid items (same as PMO & PNTSE)
+    const [paymentForm, setPaymentForm] = useState({
+        paymentMethod: 'CASH',
+        receivedDate: new Date().toISOString().split('T')[0],
+        transactionId: '',
+        accountHolderName: '',
+        remarks: '',
+        discount: ''
+    });
+    const [activeBillData, setActiveBillData] = useState(null);
+    const [fetchingBill, setFetchingBill] = useState(false);
 
     useEffect(() => {
         fetchInitialData();
@@ -98,6 +116,8 @@ const StorePage = () => {
             setMasterClasses(data.masterClasses || []);
             setMasterDepartments(data.masterDepartments || []);
             setMasterBoards(data.masterBoards || []);
+            setMasterExamTags(data.masterExamTags || []);
+            setMasterInventoryItems(data.masterInventoryItems || []);
             if (data.globalStats) {
                 setGlobalStats(data.globalStats);
             }
@@ -183,6 +203,14 @@ const StorePage = () => {
         return Array.from(set).filter(Boolean).map(b => ({ value: b, label: b.toUpperCase() }));
     }, [masterBoards, currentCentreStudents]);
 
+    const availableExamTagOptions = useMemo(() => {
+        const set = new Set(masterExamTags);
+        currentCentreStudents.forEach(item => {
+            if (item.resolvedExamTag && item.resolvedExamTag !== "N/A") set.add(item.resolvedExamTag);
+        });
+        return Array.from(set).filter(Boolean).map(tag => ({ value: tag, label: tag.toUpperCase() }));
+    }, [masterExamTags, currentCentreStudents]);
+
     // Filtered students for drilled-down Centre View
     const filteredStudents = useMemo(() => {
         let list = currentCentreStudents;
@@ -226,6 +254,13 @@ const StorePage = () => {
             });
         }
 
+        if (filterExamTag.length > 0) {
+            list = list.filter(item => {
+                const studentTag = item.resolvedExamTag || "N/A";
+                return filterExamTag.includes(studentTag);
+            });
+        }
+
         if (filterAllocationStatus.length > 0) {
             list = list.filter(item => {
                 const hasAllocations = (item.student?.allocatedItems?.length || 0) > 0;
@@ -236,12 +271,12 @@ const StorePage = () => {
         }
 
         return list;
-    }, [currentCentreStudents, studentSearchQuery, filterSession, filterClass, filterDepartment, filterBoard, filterAllocationStatus]);
+    }, [currentCentreStudents, studentSearchQuery, filterSession, filterClass, filterDepartment, filterBoard, filterExamTag, filterAllocationStatus]);
 
     // Reset pagination when filter changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [studentSearchQuery, filterSession, filterClass, filterDepartment, filterBoard, filterAllocationStatus]);
+    }, [studentSearchQuery, filterSession, filterClass, filterDepartment, filterBoard, filterExamTag, filterAllocationStatus]);
 
     // Clear selection when changing centre
     useEffect(() => {
@@ -257,6 +292,7 @@ const StorePage = () => {
         setFilterClass([]);
         setFilterDepartment([]);
         setFilterBoard([]);
+        setFilterExamTag([]);
         setFilterAllocationStatus([]);
         setSelectedStudentIds([]);
         fetchCentreStudents(centreSummaryItem.centreName);
@@ -287,34 +323,74 @@ const StorePage = () => {
         );
     };
 
-    // Item Catalog
-    const standardItems = [
-        { id: 'academic_books', name: 'Academic Books', icon: <FaBook className="text-blue-500" /> },
-        { id: 'dress', name: 'Dress / Uniform', icon: <FaTshirt className="text-pink-500" /> },
-        { id: 'pens', name: 'Pens & Stationery', icon: <FaPenNib className="text-purple-500" /> },
-        { id: 'bags', name: 'Bags', icon: <FaShoppingBag className="text-orange-500" /> },
-        { id: 'id_card', name: 'ID Card', icon: <FaIdCard className="text-teal-500" /> },
-    ];
-
-    const availableItems = useMemo(() => {
-        const customMapped = customItemsList.map(c => ({
-            id: c.toLowerCase().replace(/\s+/g, '_'),
-            name: c,
-            icon: <FaBoxOpen className="text-cyan-500" />
-        }));
-        return [...standardItems, ...customMapped];
-    }, [customItemsList]);
-
-    // Trigger Modals
-    const handleOpenCentreAllocationModal = (centreSummaryItem) => {
-        setModalTargetCentre(centreSummaryItem);
-        setModalSingleStudent(null);
-        setModalSelectedStudentsList([]);
-        setAllocationTargetType('centre_all');
-        setAllocationData({ items: ['Academic Books'], quantities: { 'Academic Books': 1 } });
-        setIsAllocationModalOpen(true);
+    // Helper to assign icons based on item name keywords
+    const getInventoryItemIcon = (name = "") => {
+        const lower = name.toLowerCase();
+        if (lower.includes("book") || lower.includes("module") || lower.includes("study")) {
+            return <FaBook className="text-blue-500" />;
+        }
+        if (lower.includes("dress") || lower.includes("uniform") || lower.includes("shirt") || lower.includes("tshirt") || lower.includes("blazer")) {
+            return <FaTshirt className="text-pink-500" />;
+        }
+        if (lower.includes("pen") || lower.includes("stationery") || lower.includes("pencil") || lower.includes("notebook")) {
+            return <FaPenNib className="text-purple-500" />;
+        }
+        if (lower.includes("bag") || lower.includes("backpack")) {
+            return <FaShoppingBag className="text-orange-500" />;
+        }
+        if (lower.includes("id") || lower.includes("card") || lower.includes("lanyard")) {
+            return <FaIdCard className="text-teal-500" />;
+        }
+        return <FaBoxes className="text-emerald-500" />;
     };
 
+    // Refresh master inventory items directly from master data
+    const refreshMasterInventory = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${apiUrl}/master-data/inventory?status=Active`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.ok) {
+                const items = await res.json();
+                if (Array.isArray(items) && items.length > 0) {
+                    setMasterInventoryItems(items);
+                }
+            }
+        } catch (err) {
+            console.error("Failed to refresh inventory items:", err);
+        }
+    };
+
+    // Item Catalog dynamically loaded from Master Data Inventory
+    const availableItems = useMemo(() => {
+        let list = [];
+        if (masterInventoryItems && masterInventoryItems.length > 0) {
+            list = masterInventoryItems
+                .filter(it => it.status !== "Deactive" && it.status !== "Inactive")
+                .map(it => ({
+                    id: it._id || it.name.toLowerCase().replace(/\s+/g, '_'),
+                    name: it.name,
+                    code: it.code,
+                    defaultType: it.defaultType || "Free",
+                    defaultPrice: it.defaultPrice || 0,
+                    icon: getInventoryItemIcon(it.name)
+                }));
+        } else {
+            // Standard fallback items
+            list = [
+                { id: 'academic_books', name: 'Academic Books', defaultType: 'Free', defaultPrice: 0, icon: <FaBook className="text-blue-500" /> },
+                { id: 'dress', name: 'Dress / Uniform', defaultType: 'Free', defaultPrice: 0, icon: <FaTshirt className="text-pink-500" /> },
+                { id: 'pens', name: 'Pens & Stationery', defaultType: 'Free', defaultPrice: 0, icon: <FaPenNib className="text-purple-500" /> },
+                { id: 'bags', name: 'Bags', defaultType: 'Free', defaultPrice: 0, icon: <FaShoppingBag className="text-orange-500" /> },
+                { id: 'id_card', name: 'ID Card', defaultType: 'Free', defaultPrice: 0, icon: <FaIdCard className="text-teal-500" /> },
+            ];
+        }
+
+        return list;
+    }, [masterInventoryItems]);
+
+    // Trigger Modals
     const handleOpenSelectedStudentsAllocationModal = () => {
         if (selectedStudentIds.length === 0) {
             toast.warning("Please select at least one student to allocate");
@@ -327,8 +403,31 @@ const StorePage = () => {
         setModalSingleStudent(null);
         setModalSelectedStudentsList(selectedList);
         setAllocationTargetType('selected_students');
-        setAllocationData({ items: ['Academic Books'], quantities: { 'Academic Books': 1 } });
+
+        // Reset payment form
+        setPaymentForm({
+            paymentMethod: 'CASH',
+            receivedDate: new Date().toISOString().split('T')[0],
+            transactionId: '',
+            accountHolderName: '',
+            remarks: '',
+            discount: ''
+        });
+
+        const initialItem = availableItems[0]?.name;
+        const masterMatch = availableItems.find(it => it.name === initialItem);
+        if (initialItem && masterMatch) {
+            setAllocationData({ 
+                items: [initialItem], 
+                quantities: { [initialItem]: 1 },
+                itemTypes: { [initialItem]: masterMatch.defaultType || 'Free' },
+                prices: { [initialItem]: masterMatch.defaultPrice || 0 }
+            });
+        } else {
+            setAllocationData({ items: [], quantities: {}, itemTypes: {}, prices: {} });
+        }
         setIsAllocationModalOpen(true);
+        refreshMasterInventory();
     };
 
     const handleOpenSingleStudentAllocationModal = (studentItem) => {
@@ -336,8 +435,43 @@ const StorePage = () => {
         setModalTargetCentre(selectedCentre);
         setModalSelectedStudentsList([]);
         setAllocationTargetType('single_student');
-        setAllocationData({ items: [], quantities: {} });
+
+        // Reset payment form
+        setPaymentForm({
+            paymentMethod: 'CASH',
+            receivedDate: new Date().toISOString().split('T')[0],
+            transactionId: '',
+            accountHolderName: '',
+            remarks: '',
+            discount: ''
+        });
+
+        setAllocationData({ items: [], quantities: {}, itemTypes: {}, prices: {} });
         setIsAllocationModalOpen(true);
+        refreshMasterInventory();
+    };
+
+    // Fetch and view official Bill Receipt PDF
+    const handleViewBill = async (billNumber) => {
+        if (!billNumber) return;
+        try {
+            setFetchingBill(true);
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${apiUrl}/inventory/allocation/bill?billId=${encodeURIComponent(billNumber)}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok && data.data) {
+                setActiveBillData(data.data);
+            } else {
+                toast.error(data.message || "Failed to load bill receipt");
+            }
+        } catch (err) {
+            console.error("Fetch bill error:", err);
+            toast.error("Error retrieving bill receipt");
+        } finally {
+            setFetchingBill(false);
+        }
     };
 
     // Item selection inside modal
@@ -347,13 +481,23 @@ const StorePage = () => {
             if (exists) {
                 const newItems = prev.items.filter(i => i !== itemName);
                 const newQuantities = { ...prev.quantities };
+                const newItemTypes = { ...prev.itemTypes };
+                const newPrices = { ...prev.prices };
                 delete newQuantities[itemName];
-                return { ...prev, items: newItems, quantities: newQuantities };
+                delete newItemTypes[itemName];
+                delete newPrices[itemName];
+                return { ...prev, items: newItems, quantities: newQuantities, itemTypes: newItemTypes, prices: newPrices };
             } else {
+                const masterMatch = availableItems.find(it => it.name.toLowerCase() === itemName.toLowerCase());
+                const defaultType = masterMatch?.defaultType || 'Free';
+                const defaultPrice = masterMatch?.defaultPrice || 0;
+
                 return { 
                     ...prev, 
                     items: [...prev.items, itemName],
-                    quantities: { ...prev.quantities, [itemName]: 1 }
+                    quantities: { ...prev.quantities, [itemName]: 1 },
+                    itemTypes: { ...prev.itemTypes, [itemName]: defaultType },
+                    prices: { ...prev.prices, [itemName]: defaultPrice }
                 };
             }
         });
@@ -370,31 +514,12 @@ const StorePage = () => {
         });
     };
 
-    const handleAddCustomItem = () => {
-        if (!customItemInput.trim()) return;
-        const formatted = customItemInput.trim();
-        if (!customItemsList.includes(formatted) && !standardItems.some(s => s.name.toLowerCase() === formatted.toLowerCase())) {
-            setCustomItemsList(prev => [...prev, formatted]);
-            toggleModalItem(formatted);
-            setCustomItemInput("");
-        } else {
-            toast.info("Item already in catalog");
-        }
-    };
-
     // Calculate dynamic target students count for total allotment
     const targetStudentsCount = useMemo(() => {
         if (allocationTargetType === 'single_student') return 1;
         if (allocationTargetType === 'selected_students') return modalSelectedStudentsList.length;
-        if (!modalTargetCentre) return 0;
-
-        if (allocationTargetType === 'centre_all') {
-            return modalTargetCentre.activeStudentsCount || 0;
-        } else if (allocationTargetType === 'centre_not_allotted') {
-            return modalTargetCentre.notAllottedCount || 0;
-        }
         return 0;
-    }, [allocationTargetType, modalTargetCentre, modalSelectedStudentsList]);
+    }, [allocationTargetType, modalSelectedStudentsList]);
 
     // Submit Allocation
     const handleAllocationSubmit = async () => {
@@ -416,17 +541,42 @@ const StorePage = () => {
                 'Authorization': `Bearer ${token}`
             };
 
-            const preparedItems = allocationData.items.map(name => ({
-                itemName: name,
-                quantity: allocationData.quantities[name] || 1
-            }));
+            const preparedItems = allocationData.items.map(name => {
+                const masterMatch = availableItems.find(it => it.name.toLowerCase() === name.toLowerCase());
+                const itemType = masterMatch?.defaultType || allocationData.itemTypes[name] || 'Free';
+                const price = itemType === 'Paid' ? (Number(masterMatch?.defaultPrice) || 0) : 0;
+                return {
+                    itemName: name,
+                    quantity: allocationData.quantities[name] || 1,
+                    itemType,
+                    price
+                };
+            });
+
+            const targetCentreName = selectedCentre?.centreName || modalTargetCentre?.centreName;
 
             if (allocationTargetType === 'single_student') {
                 // Single student API call
+                const discountNum = Number(paymentForm.discount) || 0;
                 const payload = {
                     studentId: modalSingleStudent.student._id,
                     admissionId: modalSingleStudent.latestAdmission?._id,
-                    items: preparedItems
+                    centreName: targetCentreName,
+                    items: preparedItems,
+                    paymentMethod: paymentForm.paymentMethod,
+                    receivedDate: paymentForm.receivedDate,
+                    transactionId: paymentForm.transactionId,
+                    accountHolderName: paymentForm.accountHolderName,
+                    remarks: paymentForm.remarks,
+                    discount: discountNum,
+                    studentDetails: {
+                        session: modalSingleStudent.resolvedSession,
+                        class: modalSingleStudent.resolvedClass,
+                        department: modalSingleStudent.resolvedDepartment,
+                        board: modalSingleStudent.resolvedBoard,
+                        examTag: modalSingleStudent.resolvedExamTag,
+                        admissionNumber: modalSingleStudent.latestAdmission?.admissionNumber || modalSingleStudent.student?.studentsDetails?.[0]?.formNo || modalSingleStudent.student?.studentsDetails?.[0]?.rollNo
+                    }
                 };
 
                 const res = await fetch(`${apiUrl}/inventory/allocation`, {
@@ -437,8 +587,12 @@ const StorePage = () => {
                 const data = await res.json();
 
                 if (res.ok) {
-                    toast.success(`Successfully allocated items to ${modalSingleStudent.student.studentsDetails?.[0]?.studentName}`);
+                    const billMsg = data.billNumber ? ` (Bill No: ${data.billNumber})` : '';
+                    toast.success(`Successfully allocated items to ${modalSingleStudent.student.studentsDetails?.[0]?.studentName}${billMsg}`);
                     setIsAllocationModalOpen(false);
+                    if (data.billData) {
+                        setActiveBillData(data.billData);
+                    }
                     fetchInitialData();
                     if (selectedCentre) {
                         fetchCentreStudents(selectedCentre.centreName, true);
@@ -447,18 +601,28 @@ const StorePage = () => {
                     toast.error(data.message || "Failed to save allocation");
                 }
             } else {
-                // Bulk Allocation
-                let payload = { items: preparedItems };
-
-                if (allocationTargetType === 'selected_students') {
-                    payload.students = modalSelectedStudentsList.map(s => ({
+                // Bulk Allocation (Selected students)
+                const discountNum = Number(paymentForm.discount) || 0;
+                const payload = {
+                    students: modalSelectedStudentsList.map(s => ({
                         studentId: s.student._id,
-                        admissionId: s.latestAdmission?._id
-                    }));
-                } else if (allocationTargetType === 'centre_all' || allocationTargetType === 'centre_not_allotted') {
-                    payload.centreName = modalTargetCentre?.centreName;
-                    payload.scope = allocationTargetType;
-                }
+                        admissionId: s.latestAdmission?._id,
+                        session: s.resolvedSession,
+                        class: s.resolvedClass,
+                        department: s.resolvedDepartment,
+                        board: s.resolvedBoard,
+                        examTag: s.resolvedExamTag,
+                        admissionNumber: s.latestAdmission?.admissionNumber || s.student?.studentsDetails?.[0]?.formNo || s.student?.studentsDetails?.[0]?.rollNo
+                    })),
+                    centreName: targetCentreName,
+                    items: preparedItems,
+                    paymentMethod: paymentForm.paymentMethod,
+                    receivedDate: paymentForm.receivedDate,
+                    transactionId: paymentForm.transactionId,
+                    accountHolderName: paymentForm.accountHolderName,
+                    remarks: paymentForm.remarks,
+                    discount: discountNum
+                };
 
                 const res = await fetch(`${apiUrl}/inventory/allocation/bulk`, {
                     method: 'POST',
@@ -468,12 +632,12 @@ const StorePage = () => {
                 const data = await res.json();
 
                 if (res.ok) {
-                    toast.success(`Total Allotment complete! Distributed items across ${data.count || targetStudentsCount} active students.`);
+                    const billMsg = data.hasPaidItems ? ' Sequential billing numbers generated for paid items.' : '';
+                    toast.success(`Allotment complete! Distributed items across ${data.count || targetStudentsCount} active students.${billMsg}`);
                     setIsAllocationModalOpen(false);
                     setSelectedStudentIds([]);
-                    // Clear cache for updated centre and reload
-                    if (modalTargetCentre?.centreName) {
-                        const cKey = modalTargetCentre.centreName.trim().toLowerCase();
+                    if (targetCentreName) {
+                        const cKey = targetCentreName.trim().toLowerCase();
                         setCentreStudentsCache(prev => {
                             const updated = { ...prev };
                             delete updated[cKey];
@@ -770,31 +934,14 @@ const StorePage = () => {
                                                 </div>
                                             </div>
 
-                                            {/* Action Buttons */}
-                                            <div className="pt-4 border-t border-gray-800/40 flex flex-col gap-2 mt-2">
-                                                {/* Centre Total Allotment Button */}
-                                                <button
-                                                    onClick={() => handleOpenCentreAllocationModal(centreItem)}
-                                                    disabled={centreItem.activeStudentsCount === 0}
-                                                    className={`w-full py-2.5 px-3 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md ${
-                                                        centreItem.activeStudentsCount === 0 
-                                                        ? 'opacity-40 cursor-not-allowed bg-gray-800 text-gray-500' 
-                                                        : (isDarkMode 
-                                                            ? 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-[#0b0f14] shadow-cyan-500/10 active:scale-[0.98]' 
-                                                            : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-95 text-white shadow-blue-500/20 active:scale-[0.98]')
-                                                    }`}
-                                                >
-                                                    <FaCalculator />
-                                                    Centre Total Allotment ({centreItem.activeStudentsCount})
-                                                </button>
-
-                                                {/* View Centre Active Students Button */}
+                                            {/* Action Button */}
+                                            <div className="pt-4 border-t border-gray-800/40 mt-2">
                                                 <button
                                                     onClick={() => handleSelectCentre(centreItem)}
-                                                    className={`w-full py-2 px-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all border ${
+                                                    className={`w-full py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md ${
                                                         isDarkMode 
-                                                        ? 'bg-[#0b0f14] hover:bg-gray-800/60 border-gray-700/80 text-gray-300' 
-                                                        : 'bg-gray-50 hover:bg-gray-100 border-gray-200 text-gray-700'
+                                                        ? 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-[#0b0f14] shadow-cyan-500/10 active:scale-[0.98]' 
+                                                        : 'bg-gradient-to-r from-blue-600 to-cyan-600 hover:opacity-95 text-white shadow-blue-500/20 active:scale-[0.98]'
                                                     }`}
                                                 >
                                                     <FaUsers />
@@ -850,27 +997,11 @@ const StorePage = () => {
                                     </p>
                                 </div>
                             </div>
-
-                            {/* Quick Action for this Centre */}
-                            <div className="flex items-center gap-3 w-full lg:w-auto">
-                                <button
-                                    onClick={() => handleOpenCentreAllocationModal(selectedCentre)}
-                                    disabled={selectedCentre.activeStudentsCount === 0}
-                                    className={`flex-1 lg:flex-none py-2.5 px-4 rounded-xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 transition-all shadow-md ${
-                                        isDarkMode 
-                                        ? 'bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-[#0b0f14]' 
-                                        : 'bg-blue-600 hover:bg-blue-700 text-white'
-                                    }`}
-                                >
-                                    <FaCalculator />
-                                    Allot All Centre Students ({selectedCentre.activeStudentsCount})
-                                </button>
-                            </div>
                         </div>
 
-                        {/* Filters for Students inside Centre: Search, Active Session, Class, Department, Board, Allotment Status */}
+                        {/* Filters for Students inside Centre: Search, Active Session, Class, Department, Board, Exam Tag, Allotment Status */}
                         <div className={`p-6 rounded-2xl border ${isDarkMode ? 'bg-[#12171e] border-gray-800/80' : 'bg-white border-gray-100 shadow-sm'}`}>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-3">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3">
                                 {/* Search Student */}
                                 <div className="relative">
                                     <label className={`block text-[10px] font-bold mb-1.5 uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
@@ -926,6 +1057,15 @@ const StorePage = () => {
                                     selectedValues={filterBoard}
                                     onChange={setFilterBoard}
                                     placeholder="All Boards"
+                                />
+
+                                {/* Exam Tag Filter */}
+                                <MultiSelectFilter 
+                                    label="Filter by Exam Tag"
+                                    options={availableExamTagOptions}
+                                    selectedValues={filterExamTag}
+                                    onChange={setFilterExamTag}
+                                    placeholder="All Exam Tags"
                                 />
 
                                 {/* Status Filter */}
@@ -1070,6 +1210,12 @@ const StorePage = () => {
                                                                         <span>{item.resolvedSession}</span>
                                                                     </div>
                                                                 )}
+                                                                {item.resolvedExamTag && item.resolvedExamTag !== "N/A" && (
+                                                                    <div className="inline-flex items-center gap-1 text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 w-fit mt-0.5">
+                                                                        <FaTag className="text-[8px]" />
+                                                                        <span>{item.resolvedExamTag}</span>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         </td>
 
@@ -1105,21 +1251,40 @@ const StorePage = () => {
                                                         {/* Allocated Items Pills */}
                                                         <td className="p-4">
                                                             {hasAllocations ? (
-                                                                <div className="flex flex-wrap gap-1 max-w-xs">
-                                                                    {Object.entries(
-                                                                        item.student.allocatedItems.reduce((acc, curr) => {
-                                                                            acc[curr.itemName] = (acc[curr.itemName] || 0) + (curr.quantity || 1);
-                                                                            return acc;
-                                                                        }, {})
-                                                                    ).map(([name, qty], i) => (
-                                                                        <span 
+                                                                <div className="flex flex-wrap gap-1.5 max-w-xs">
+                                                                    {item.student.allocatedItems.map((alloc, i) => (
+                                                                        <div 
                                                                             key={i} 
-                                                                            className={`text-[10px] font-semibold px-2 py-0.5 rounded-md border ${
-                                                                                isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-gray-100 border-gray-200 text-gray-700'
+                                                                            className={`text-[10px] font-semibold px-2 py-1 rounded-md border flex flex-col gap-0.5 ${
+                                                                                isDarkMode ? 'bg-gray-800/80 border-gray-700 text-gray-200' : 'bg-gray-100 border-gray-200 text-gray-800'
                                                                             }`}
                                                                         >
-                                                                            {name} <strong className="text-cyan-500">x{qty}</strong>
-                                                                        </span>
+                                                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                                                <span className="font-bold">{alloc.itemName}</span>
+                                                                                <strong className="text-cyan-500">x{alloc.quantity || 1}</strong>
+                                                                                {alloc.itemType === 'Paid' ? (
+                                                                                    <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-amber-500/15 text-amber-400 border border-amber-500/30">
+                                                                                        PAID ₹{alloc.price || 0}
+                                                                                    </span>
+                                                                                ) : (
+                                                                                    <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                                                        FREE
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                            {alloc.billNumber && (
+                                                                                <button 
+                                                                                    type="button"
+                                                                                    onClick={() => handleViewBill(alloc.billNumber)}
+                                                                                    disabled={fetchingBill}
+                                                                                    className="flex items-center gap-1 text-[9px] font-mono text-cyan-400 hover:text-cyan-300 hover:underline mt-0.5 text-left cursor-pointer transition-colors"
+                                                                                    title="Click to view & print Bill Receipt"
+                                                                                >
+                                                                                    <FaReceipt className="text-[8px] shrink-0" />
+                                                                                    <span>{alloc.billNumber}</span>
+                                                                                </button>
+                                                                            )}
+                                                                        </div>
                                                                     ))}
                                                                 </div>
                                                             ) : (
@@ -1187,13 +1352,13 @@ const StorePage = () => {
                                         <h3 className="text-xl font-black tracking-tight">
                                             {allocationTargetType === 'single_student' 
                                                 ? 'Individual Item Allotment'
-                                                : `Centre Total Allotment: ${modalTargetCentre?.centreName || 'Selected Students'}`
+                                                : `Bulk Item Allotment: ${selectedCentre?.centreName || modalTargetCentre?.centreName || 'Selected Centre'}`
                                             }
                                         </h3>
                                         <p className="text-cyan-100 text-xs font-medium mt-0.5">
                                             {allocationTargetType === 'single_student'
-                                                ? `Student: ${modalSingleStudent?.student?.studentsDetails?.[0]?.studentName}`
-                                                : `Targeting Active Centre Students`
+                                                ? `Student: ${modalSingleStudent?.student?.studentsDetails?.[0]?.studentName || 'Student'}`
+                                                : `Targeting ${targetStudentsCount} Selected Active Students`
                                             }
                                         </p>
                                     </div>
@@ -1208,46 +1373,6 @@ const StorePage = () => {
 
                             {/* Modal Body */}
                             <div className="p-6 max-h-[75vh] overflow-y-auto space-y-6">
-                                {/* Scope Selector (if Centre Level) */}
-                                {allocationTargetType !== 'single_student' && allocationTargetType !== 'selected_students' && (
-                                    <div>
-                                        <label className={`block text-[11px] font-bold uppercase tracking-wider mb-2 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                            Select Target Scope
-                                        </label>
-                                        <div className="grid grid-cols-2 gap-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => setAllocationTargetType('centre_all')}
-                                                className={`p-3 rounded-xl border text-left transition-all ${
-                                                    allocationTargetType === 'centre_all'
-                                                    ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400' : 'bg-blue-50 border-blue-500 text-blue-700')
-                                                    : (isDarkMode ? 'bg-gray-800/40 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600')
-                                                }`}
-                                            >
-                                                <div className="font-extrabold text-xs">All Active Students</div>
-                                                <div className="text-[11px] font-bold opacity-80 mt-0.5">
-                                                    {modalTargetCentre?.activeStudentsCount || 0} Students
-                                                </div>
-                                            </button>
-
-                                            <button
-                                                type="button"
-                                                onClick={() => setAllocationTargetType('centre_not_allotted')}
-                                                className={`p-3 rounded-xl border text-left transition-all ${
-                                                    allocationTargetType === 'centre_not_allotted'
-                                                    ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500 text-cyan-400' : 'bg-blue-50 border-blue-500 text-blue-700')
-                                                    : (isDarkMode ? 'bg-gray-800/40 border-gray-700 text-gray-400' : 'bg-gray-50 border-gray-200 text-gray-600')
-                                                }`}
-                                            >
-                                                <div className="font-extrabold text-xs">Only Not Allotted</div>
-                                                <div className="text-[11px] font-bold opacity-80 mt-0.5">
-                                                    {modalTargetCentre?.notAllottedCount || 0} Students
-                                                </div>
-                                            </button>
-                                        </div>
-                                    </div>
-                                )}
-
                                 {/* Target Students Count Badge */}
                                 <div className={`p-4 rounded-xl border flex items-center justify-between ${
                                     isDarkMode ? 'bg-[#0b0f14] border-gray-800' : 'bg-cyan-50/60 border-cyan-200'
@@ -1256,10 +1381,10 @@ const StorePage = () => {
                                         <FaUsers className="text-cyan-500 text-base" />
                                         <div>
                                             <span className={`text-[11px] font-bold block ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                                Target Active Students for this Allotment
+                                                Target Active Students for Allotment
                                             </span>
                                             <span className="text-xs font-semibold text-gray-500">
-                                                {allocationTargetType === 'single_student' ? '1 Individual Student' : `${targetStudentsCount} active students in batch`}
+                                                {allocationTargetType === 'single_student' ? '1 Individual Student' : `${targetStudentsCount} active students selected`}
                                             </span>
                                         </div>
                                     </div>
@@ -1271,44 +1396,57 @@ const StorePage = () => {
                                 {/* Items Catalog Selection */}
                                 <div>
                                     <label className={`block text-[11px] font-bold uppercase tracking-wider mb-2.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                        Select Inventory Items & Quantity per Student
+                                        Select Inventory Items, Status (Free / Paid) & Quantity
                                     </label>
 
                                     <div className="space-y-2.5">
                                         {availableItems.map(item => {
                                             const isSelected = allocationData.items.includes(item.name);
                                             const qty = allocationData.quantities[item.name] || 1;
+                                            const isPaid = (item.defaultType || 'Free') === 'Paid';
+                                            const price = isPaid ? (Number(item.defaultPrice) || 0) : 0;
                                             const totalAllotment = targetStudentsCount * qty;
 
                                             return (
                                                 <div 
                                                     key={item.id}
-                                                    className={`p-3 rounded-2xl border transition-all flex items-center justify-between gap-3 ${
+                                                    className={`p-3 rounded-2xl border transition-all flex flex-col gap-2.5 ${
                                                         isSelected
                                                         ? (isDarkMode ? 'bg-cyan-500/10 border-cyan-500 shadow-md' : 'bg-blue-50 border-blue-500 shadow-sm')
                                                         : (isDarkMode ? 'bg-gray-800/30 border-gray-800 hover:border-gray-700' : 'bg-gray-50 border-gray-200 hover:border-gray-300')
                                                     }`}
                                                 >
-                                                    <div 
-                                                        className="flex items-center gap-3 cursor-pointer flex-1"
-                                                        onClick={() => toggleModalItem(item.name)}
-                                                    >
-                                                        <div className="text-xl p-2 rounded-xl bg-black/10 dark:bg-white/5 shrink-0">
-                                                            {item.icon}
+                                                    <div className="flex items-center justify-between gap-3">
+                                                        <div 
+                                                            className="flex items-center gap-3 cursor-pointer flex-1"
+                                                            onClick={() => toggleModalItem(item.name)}
+                                                        >
+                                                            <div className="text-xl p-2 rounded-xl bg-black/10 dark:bg-white/5 shrink-0">
+                                                                {item.icon}
+                                                            </div>
+                                                            <div className="flex-1">
+                                                                <div className="flex items-center gap-2">
+                                                                    <span className="text-xs font-black block">{item.name}</span>
+                                                                    {isPaid ? (
+                                                                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-amber-500/20 text-amber-400 border border-amber-500/40">
+                                                                            Paid • ₹{price}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="px-2 py-0.5 rounded text-[9px] font-black uppercase bg-emerald-500/20 text-emerald-400 border border-emerald-500/40">
+                                                                            Free
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                                <span className={`text-[10px] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                                    {isSelected 
+                                                                        ? `${qty} / student × ${targetStudentsCount} students = ${totalAllotment} total`
+                                                                        : 'Click to select item'
+                                                                    }
+                                                                </span>
+                                                            </div>
                                                         </div>
-                                                        <div>
-                                                            <span className="text-xs font-black block">{item.name}</span>
-                                                            <span className={`text-[10px] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                                                {isSelected 
-                                                                    ? `${qty} / student × ${targetStudentsCount} students = ${totalAllotment} total`
-                                                                    : 'Click to select item'
-                                                                }
-                                                            </span>
-                                                        </div>
-                                                    </div>
 
-                                                    {isSelected && (
-                                                        <div className="flex items-center gap-2">
+                                                        {isSelected && (
                                                             <div className="flex items-center bg-black/20 dark:bg-white/10 rounded-lg p-0.5 border border-white/10">
                                                                 <button 
                                                                     type="button"
@@ -1328,6 +1466,38 @@ const StorePage = () => {
                                                                     +
                                                                 </button>
                                                             </div>
+                                                        )}
+                                                    </div>
+
+                                                    {/* Fixed Status Display from Master Data Inventory */}
+                                                    {isSelected && (
+                                                        <div className="pt-2 border-t border-gray-700/20 flex flex-wrap items-center justify-between gap-2 text-xs">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={`text-[10px] font-bold uppercase tracking-wider ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Type:</span>
+                                                                {isPaid ? (
+                                                                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase bg-amber-500 text-white shadow-sm flex items-center gap-1">
+                                                                        PAID
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="px-2.5 py-1 rounded-lg text-[10px] font-extrabold uppercase bg-emerald-500 text-white shadow-sm flex items-center gap-1">
+                                                                        FREE
+                                                                    </span>
+                                                                )}
+                                                            </div>
+
+                                                            {isPaid && (
+                                                                <div className="flex items-center gap-1.5 animate-in fade-in duration-150">
+                                                                    <span className="text-xs font-black text-amber-500">₹</span>
+                                                                    <span className={`px-2.5 py-1 rounded-lg border text-xs font-black ${
+                                                                        isDarkMode 
+                                                                        ? 'bg-[#0b0f14] border-amber-500/50 text-amber-400' 
+                                                                        : 'bg-white border-amber-400 text-amber-700'
+                                                                    }`}>
+                                                                        {price}
+                                                                    </span>
+                                                                    <span className={`text-[10px] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>/ unit</span>
+                                                                </div>
+                                                            )}
                                                         </div>
                                                     )}
                                                 </div>
@@ -1336,62 +1506,267 @@ const StorePage = () => {
                                     </div>
                                 </div>
 
-                                {/* Custom Item Add */}
-                                <div className="flex gap-2">
-                                    <input 
-                                        type="text"
-                                        placeholder="Add custom item name (e.g. Study Module, Lab Kit)..."
-                                        value={customItemInput}
-                                        onChange={(e) => setCustomItemInput(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), handleAddCustomItem())}
-                                        className={`flex-1 px-3 py-2 rounded-xl border text-xs outline-none ${
-                                            isDarkMode ? 'bg-[#0b0f14] border-gray-700 text-white' : 'bg-gray-50 border-gray-200 text-gray-900'
-                                        }`}
-                                    />
-                                    <button 
-                                        type="button"
-                                        onClick={handleAddCustomItem}
-                                        className="px-3 py-2 rounded-xl bg-gray-700 hover:bg-gray-600 text-white font-bold text-xs flex items-center gap-1.5"
-                                    >
-                                        <FaPlus /> Add
-                                    </button>
-                                </div>
-
                                 {/* ══════════════════════════════════════════════════════════════ */}
                                 {/* LIVE TOTAL ALLOTMENT CALCULATION BREAKDOWN */}
                                 {/* ══════════════════════════════════════════════════════════════ */}
-                                {allocationData.items.length > 0 && (
-                                    <div className={`p-4 rounded-2xl border ${
-                                        isDarkMode ? 'bg-[#0b0f14] border-cyan-500/30' : 'bg-blue-50/60 border-blue-200'
-                                    }`}>
-                                        <div className="flex items-center gap-2 text-xs font-black text-cyan-500 mb-2">
-                                            <FaCalculator />
-                                            <span>TOTAL ALLOTMENT BREAKDOWN</span>
-                                        </div>
+                                {allocationData.items.length > 0 && (() => {
+                                    const hasPaidItems = allocationData.items.some(name => (allocationData.itemTypes?.[name] || 'Free') === 'Paid');
+                                    const perStudentTotalAmount = allocationData.items.reduce((sum, name) => {
+                                        const isPaid = (allocationData.itemTypes?.[name] || 'Free') === 'Paid';
+                                        if (!isPaid) return sum;
+                                        const qty = allocationData.quantities[name] || 1;
+                                        const unitPrice = Number(allocationData.prices?.[name]) || 0;
+                                        return sum + (qty * unitPrice);
+                                    }, 0);
+                                    const grandTotalAmount = perStudentTotalAmount * targetStudentsCount;
 
-                                        <div className="space-y-1 text-xs">
-                                            {allocationData.items.map((itemName, i) => {
-                                                const qty = allocationData.quantities[itemName] || 1;
-                                                const totalItemUnits = targetStudentsCount * qty;
-                                                return (
-                                                    <div key={i} className="flex justify-between items-center py-1 border-b border-gray-700/20 last:border-0">
-                                                        <span className="font-semibold text-gray-300">{itemName}:</span>
-                                                        <span className="font-mono">
-                                                            {targetStudentsCount} students × {qty} = <strong className="text-cyan-400">{totalItemUnits} Units</strong>
-                                                        </span>
-                                                    </div>
-                                                );
-                                            })}
+                                    return (
+                                        <div className={`p-4 rounded-2xl border ${
+                                            isDarkMode ? 'bg-[#0b0f14] border-cyan-500/30' : 'bg-blue-50/60 border-blue-200'
+                                        }`}>
+                                            <div className="flex items-center gap-2 text-xs font-black text-cyan-500 mb-2">
+                                                <FaCalculator />
+                                                <span>TOTAL ALLOTMENT BREAKDOWN</span>
+                                            </div>
 
-                                            <div className="pt-2 flex justify-between items-center font-extrabold text-sm border-t border-gray-700/50">
-                                                <span>Grand Total Items To Dispatch:</span>
-                                                <span className="text-base font-black text-cyan-400">
-                                                    {allocationData.items.reduce((acc, curr) => acc + (targetStudentsCount * (allocationData.quantities[curr] || 1)), 0)} Units
-                                                </span>
+                                            <div className="space-y-1.5 text-xs">
+                                                {allocationData.items.map((itemName, i) => {
+                                                    const qty = allocationData.quantities[itemName] || 1;
+                                                    const itemType = allocationData.itemTypes?.[itemName] || 'Free';
+                                                    const price = Number(allocationData.prices?.[itemName]) || 0;
+                                                    const totalItemUnits = targetStudentsCount * qty;
+
+                                                    return (
+                                                        <div key={i} className="flex justify-between items-center py-1 border-b border-gray-700/20 last:border-0">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="font-semibold text-gray-300">{itemName}</span>
+                                                                {itemType === 'Paid' ? (
+                                                                    <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                                                                        PAID ₹{price}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-[9px] font-extrabold px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                                        FREE
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="font-mono text-right">
+                                                                <span>{targetStudentsCount} × {qty} = <strong className="text-cyan-400">{totalItemUnits} Units</strong></span>
+                                                                {itemType === 'Paid' && (
+                                                                    <span className="text-amber-400 ml-2 font-bold">(₹{totalItemUnits * price})</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
+
+                                                <div className="pt-2 flex justify-between items-center font-extrabold text-sm border-t border-gray-700/50">
+                                                    <span>Grand Total Items:</span>
+                                                    <span className="text-base font-black text-cyan-400">
+                                                        {allocationData.items.reduce((acc, curr) => acc + (targetStudentsCount * (allocationData.quantities[curr] || 1)), 0)} Units
+                                                    </span>
+                                                </div>
+
+                                                {hasPaidItems && (() => {
+                                                    // Inventory item amounts are inclusive of 18% GST
+                                                    const discountAmountNum = Math.max(0, Math.min(grandTotalAmount, Number(paymentForm.discount) || 0));
+                                                    const grandTotalNetAmount = Math.max(0, Number((grandTotalAmount - discountAmountNum).toFixed(2)));
+                                                    const perStudentNetAmount = targetStudentsCount > 0 ? Number((grandTotalNetAmount / targetStudentsCount).toFixed(2)) : 0;
+
+                                                    const grandTotalBaseAmount = grandTotalNetAmount > 0 ? Number((grandTotalNetAmount / 1.18).toFixed(2)) : 0;
+                                                    const grandTotalGstPool = grandTotalNetAmount > 0 ? Number((grandTotalNetAmount - grandTotalBaseAmount).toFixed(2)) : 0;
+                                                    const grandTotalCgst = Number((grandTotalGstPool / 2).toFixed(2));
+                                                    const grandTotalSgst = Number((grandTotalGstPool - grandTotalCgst).toFixed(2));
+                                                    const perStudentBaseAmount = targetStudentsCount > 0 ? Number((grandTotalBaseAmount / targetStudentsCount).toFixed(2)) : 0;
+
+                                                    return (
+                                                        <div className="pt-3 border-t border-gray-700/40 space-y-3">
+                                                            {/* Payment Section Header */}
+                                                            <div className="flex items-center gap-2 text-xs font-black text-amber-400">
+                                                                <FaMoneyBillWave />
+                                                                <span>PAYMENT & BILLING DETAILS</span>
+                                                            </div>
+
+                                                            {/* Payment Input Fields */}
+                                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3.5 rounded-xl border bg-black/20 dark:bg-[#080c10] border-gray-700/50">
+                                                                {/* Mode of Payment */}
+                                                                <div>
+                                                                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                        Mode of Payment *
+                                                                    </label>
+                                                                    <select
+                                                                        value={paymentForm.paymentMethod}
+                                                                        onChange={(e) => setPaymentForm(prev => ({ ...prev, paymentMethod: e.target.value }))}
+                                                                        className={`w-full px-3 py-2 rounded-lg text-xs font-bold border focus:outline-none focus:ring-1 focus:ring-cyan-500 ${
+                                                                            isDarkMode ? 'bg-[#12171e] border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                                                        }`}
+                                                                    >
+                                                                        <option value="CASH">CASH</option>
+                                                                        <option value="UPI">UPI</option>
+                                                                        <option value="CARD">CARD</option>
+                                                                        <option value="BANK_TRANSFER">BANK TRANSFER</option>
+                                                                        <option value="CHEQUE">CHEQUE</option>
+                                                                    </select>
+                                                                </div>
+
+                                                                {/* Receiving Date */}
+                                                                <div>
+                                                                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                        Receiving Date *
+                                                                    </label>
+                                                                    <input
+                                                                        type="date"
+                                                                        value={paymentForm.receivedDate}
+                                                                        onChange={(e) => setPaymentForm(prev => ({ ...prev, receivedDate: e.target.value }))}
+                                                                        className={`w-full px-3 py-2 rounded-lg text-xs font-bold border focus:outline-none focus:ring-1 focus:ring-cyan-500 ${
+                                                                            isDarkMode ? 'bg-[#12171e] border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                                                        }`}
+                                                                    />
+                                                                </div>
+
+                                                                {/* Non-cash fields */}
+                                                                {paymentForm.paymentMethod !== 'CASH' && (
+                                                                    <>
+                                                                        <div>
+                                                                            <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                                {paymentForm.paymentMethod === 'CHEQUE' ? 'Cheque No. *' : 'Transaction ID / UTR / Ref *'}
+                                                                            </label>
+                                                                            <input
+                                                                                type="text"
+                                                                                placeholder={paymentForm.paymentMethod === 'CHEQUE' ? 'Enter Cheque Number' : 'Enter Transaction / UTR ID'}
+                                                                                value={paymentForm.transactionId}
+                                                                                onChange={(e) => setPaymentForm(prev => ({ ...prev, transactionId: e.target.value }))}
+                                                                                className={`w-full px-3 py-2 rounded-lg text-xs font-bold border focus:outline-none focus:ring-1 focus:ring-cyan-500 ${
+                                                                                    isDarkMode ? 'bg-[#12171e] border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                                                                }`}
+                                                                            />
+                                                                        </div>
+
+                                                                        <div>
+                                                                            <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                                {paymentForm.paymentMethod === 'CHEQUE' ? 'Payer / Account Name' : 'Remitter / Account Holder Name'}
+                                                                            </label>
+                                                                            <input
+                                                                                type="text"
+                                                                                placeholder="Payer / Remitter Name"
+                                                                                value={paymentForm.accountHolderName}
+                                                                                onChange={(e) => setPaymentForm(prev => ({ ...prev, accountHolderName: e.target.value }))}
+                                                                                className={`w-full px-3 py-2 rounded-lg text-xs font-bold border focus:outline-none focus:ring-1 focus:ring-cyan-500 ${
+                                                                                    isDarkMode ? 'bg-[#12171e] border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                                                                }`}
+                                                                            />
+                                                                        </div>
+                                                                    </>
+                                                                )}
+
+                                                                {/* Discount / Waiver Input (Same style as PMO & PNTSE) */}
+                                                                <div className="md:col-span-2">
+                                                                    <div className={`p-2.5 rounded-xl border ${
+                                                                        isDarkMode ? 'bg-amber-500/5 border-amber-500/30' : 'bg-amber-50/70 border-amber-200'
+                                                                    }`}>
+                                                                        <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5 ${
+                                                                            isDarkMode ? 'text-amber-400' : 'text-amber-700'
+                                                                        }`}>
+                                                                            <FaTag className="text-amber-400" /> Discount / Waiver (₹)
+                                                                        </label>
+                                                                        <input
+                                                                            type="text"
+                                                                            inputMode="numeric"
+                                                                            placeholder={`0 - ${grandTotalAmount} (e.g. 50 for ₹50 discount)`}
+                                                                            value={paymentForm.discount}
+                                                                            onChange={(e) => {
+                                                                                const val = e.target.value.replace(/[^0-9.]/g, '');
+                                                                                const num = Number(val);
+                                                                                if (val === '') {
+                                                                                    setPaymentForm(prev => ({ ...prev, discount: '' }));
+                                                                                } else if (num > grandTotalAmount) {
+                                                                                    setPaymentForm(prev => ({ ...prev, discount: String(grandTotalAmount) }));
+                                                                                } else {
+                                                                                    setPaymentForm(prev => ({ ...prev, discount: val }));
+                                                                                }
+                                                                            }}
+                                                                            className={`w-full px-3 py-2 rounded-lg text-xs font-bold border focus:outline-none focus:ring-1 focus:ring-amber-400 transition ${
+                                                                                isDarkMode 
+                                                                                ? 'bg-[#12171e] border-amber-500/40 text-amber-300 placeholder-gray-600' 
+                                                                                : 'bg-white border-amber-400 text-amber-900 placeholder-gray-400'
+                                                                            }`}
+                                                                        />
+                                                                        <div className="flex justify-between items-center text-[11px] text-gray-400 pt-1.5 font-mono">
+                                                                            <span>Gross: ₹{grandTotalAmount}</span>
+                                                                            <span className="text-amber-400 font-semibold">Discount: -₹{discountAmountNum}</span>
+                                                                            <span className="font-bold text-emerald-400">Net Payable: ₹{grandTotalNetAmount}</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                {/* Remarks */}
+                                                                <div className="md:col-span-2">
+                                                                    <label className={`block text-[10px] font-bold uppercase tracking-wider mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                                        Remarks / Notes
+                                                                    </label>
+                                                                    <input
+                                                                        type="text"
+                                                                        placeholder="Optional remarks or notes"
+                                                                        value={paymentForm.remarks}
+                                                                        onChange={(e) => setPaymentForm(prev => ({ ...prev, remarks: e.target.value }))}
+                                                                        className={`w-full px-3 py-2 rounded-lg text-xs border focus:outline-none focus:ring-1 focus:ring-cyan-500 ${
+                                                                            isDarkMode ? 'bg-[#12171e] border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'
+                                                                        }`}
+                                                                    />
+                                                                </div>
+                                                            </div>
+
+                                                            {/* GST Tax Breakdown Card */}
+                                                            <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-amber-500/5 border-amber-500/20 text-gray-300' : 'bg-amber-50 border-amber-200 text-gray-700'}`}>
+                                                                <div className="flex items-center justify-between text-xs font-bold mb-1.5">
+                                                                    <span className="text-amber-400 uppercase text-[11px] font-extrabold flex items-center gap-1.5">
+                                                                        <FaReceipt /> GST Breakdown (18% Inclusive)
+                                                                    </span>
+                                                                    <span className="text-[10px] text-gray-400">CGST 9% + SGST 9%</span>
+                                                                </div>
+
+                                                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-center text-xs pt-1 border-t border-amber-500/10 font-mono">
+                                                                    <div className="p-1.5 rounded bg-black/10 dark:bg-white/5">
+                                                                        <div className="text-[10px] text-gray-400 uppercase">Base (Without GST)</div>
+                                                                        <div className="font-bold text-white">₹{grandTotalBaseAmount}</div>
+                                                                        {targetStudentsCount > 1 && (
+                                                                            <div className="text-[9px] text-gray-500">₹{perStudentBaseAmount}/std</div>
+                                                                        )}
+                                                                    </div>
+                                                                    <div className="p-1.5 rounded bg-black/10 dark:bg-white/5">
+                                                                        <div className="text-[10px] text-gray-400 uppercase">CGST (9%)</div>
+                                                                        <div className="font-bold text-cyan-400">₹{grandTotalCgst}</div>
+                                                                    </div>
+                                                                    <div className="p-1.5 rounded bg-black/10 dark:bg-white/5">
+                                                                        <div className="text-[10px] text-gray-400 uppercase">SGST (9%)</div>
+                                                                        <div className="font-bold text-cyan-400">₹{grandTotalSgst}</div>
+                                                                    </div>
+                                                                    <div className="p-1.5 rounded bg-amber-500/15 border border-amber-500/30">
+                                                                        <div className="text-[10px] text-amber-300 uppercase font-black">
+                                                                            {discountAmountNum > 0 ? 'Net Total' : 'Gross Total'}
+                                                                        </div>
+                                                                        <div className="font-black text-amber-400">₹{grandTotalNetAmount}</div>
+                                                                        {discountAmountNum > 0 && (
+                                                                            <div className="text-[9px] text-gray-400 line-through">₹{grandTotalAmount}</div>
+                                                                        )}
+                                                                        {targetStudentsCount > 1 && (
+                                                                            <div className="text-[9px] text-amber-300 font-bold">₹{perStudentNetAmount}/std</div>
+                                                                        )}
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="mt-2 text-[10px] text-gray-400 flex items-center justify-between pt-1 border-t border-amber-500/10">
+                                                                    <span>Without-GST amount posted to Daily Collection & Transactions</span>
+                                                                    <span className="font-mono text-cyan-400 font-bold">Base: ₹{grandTotalBaseAmount}</span>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })()}
                                             </div>
                                         </div>
-                                    </div>
-                                )}
+                                    );
+                                })()}
 
                                 {/* Action Buttons */}
                                 <div className="flex gap-3 pt-2">
@@ -1422,7 +1797,7 @@ const StorePage = () => {
                                         ) : (
                                             <>
                                                 <FaCheck />
-                                                Confirm Total Allotment
+                                                Confirm Allotment
                                             </>
                                         )}
                                     </button>
@@ -1430,6 +1805,14 @@ const StorePage = () => {
                             </div>
                         </div>
                     </div>
+                )}
+
+                {/* Official Bill Receipt Generator Modal (PDF Print & Download) */}
+                {activeBillData && (
+                    <BillGenerator
+                        preloadedBillData={activeBillData}
+                        onClose={() => setActiveBillData(null)}
+                    />
                 )}
             </div>
         </Layout>

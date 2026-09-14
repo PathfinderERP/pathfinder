@@ -327,7 +327,38 @@ export const getTransactionReport = async (req, res) => {
                 monthlyRevenue: [{ $group: { _id: { $month: { date: "$reportDate", timezone: "+05:30" } }, revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $sort: { _id: 1 } }],
                 paymentMethods: [{ $group: { _id: "$paymentMethod", value: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }],
                 centreRevenue: needsAdmissionLookup ? [{ $group: { _id: "$effectiveCentre", revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $sort: { revenue: -1 } }] : [{ $match: { _id: "__SKIP__" } }],
-                courseRevenue: needsAdmissionLookup ? [{ $group: { _id: { $ifNull: ["$admissionInfo.course", "$boardCourseName"] }, revenue: { $sum: "$paidAmount" }, revenueWithoutGst: { $sum: "$revenueBase" }, count: { $sum: 1 } } }, { $lookup: { from: "courses", localField: "_id", foreignField: "_id", as: "courseDetails" } }, { $project: { name: { $ifNull: [{ $arrayElemAt: ["$courseDetails.courseName", 0] }, "$_id"] }, revenue: 1, revenueWithoutGst: 1, count: 1 } }, { $sort: { revenue: -1 } }] : [{ $match: { _id: "__SKIP__" } }]
+                courseRevenue: needsAdmissionLookup ? [
+                    {
+                        $lookup: {
+                            from: "allocations",
+                            localField: "billId",
+                            foreignField: "billNumber",
+                            as: "inventoryAllocation"
+                        }
+                    },
+                    {
+                        $group: {
+                            _id: {
+                                $cond: {
+                                    if: {
+                                        $or: [
+                                            { $gt: [{ $size: { $ifNull: ["$inventoryAllocation", []] } }, 0] },
+                                            { $regexMatch: { input: { $ifNull: ["$remarks", ""] }, regex: "Inventory Store Allotment", options: "i" } }
+                                        ]
+                                    },
+                                    then: { $ifNull: ["$boardCourseName", "Inventory Store Items"] },
+                                    else: { $ifNull: ["$admissionInfo.course", "$boardCourseName"] }
+                                }
+                            },
+                            revenue: { $sum: "$paidAmount" },
+                            revenueWithoutGst: { $sum: "$revenueBase" },
+                            count: { $sum: 1 }
+                        }
+                    },
+                    { $lookup: { from: "courses", localField: "_id", foreignField: "_id", as: "courseDetails" } },
+                    { $project: { name: { $ifNull: [{ $arrayElemAt: ["$courseDetails.courseName", 0] }, "$_id"] }, revenue: 1, revenueWithoutGst: 1, count: 1 } },
+                    { $sort: { revenue: -1 } }
+                ] : [{ $match: { _id: "__SKIP__" } }]
             }
         });
 
@@ -537,6 +568,52 @@ export const getTransactionReport = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: "allocations",
+                    localField: "billId",
+                    foreignField: "billNumber",
+                    as: "inventoryAllocation"
+                }
+            },
+            {
+                $addFields: {
+                    inventoryCourseName: {
+                        $cond: {
+                            if: {
+                                $or: [
+                                    { $gt: [{ $size: { $ifNull: ["$inventoryAllocation", []] } }, 0] },
+                                    { $regexMatch: { input: { $ifNull: ["$remarks", ""] }, regex: "Inventory Store Allotment", options: "i" } }
+                                ]
+                            },
+                            then: {
+                                $ifNull: [
+                                    "$boardCourseName",
+                                    {
+                                        $let: {
+                                            vars: { alloc: { $arrayElemAt: ["$inventoryAllocation", 0] } },
+                                            in: {
+                                                $reduce: {
+                                                    input: "$$alloc.items",
+                                                    initialValue: "",
+                                                    in: {
+                                                        $cond: {
+                                                            if: { $eq: ["$$value", ""] },
+                                                            then: { $concat: ["$$this.itemName", " (x", { $toString: "$$this.quantity" }, ")"] },
+                                                            else: { $concat: ["$$value", ", ", "$$this.itemName", " (x", { $toString: "$$this.quantity" }, ")"] }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                ]
+                            },
+                            else: null
+                        }
+                    }
+                }
+            },
+            {
                 $project: {
                     transactionId: "$transactionId",
                     // For CHEQUE payments: show ONLY the cheque cleared date (clearedOrRejectedDate / paidDate).
@@ -603,7 +680,15 @@ export const getTransactionReport = async (req, res) => {
                     },
 
                     centre: "$effectiveCentre",
-                    course: { $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName", "$admissionInfo.course", "$boardCourseName"] },
+                    course: {
+                        $ifNull: [
+                            "$inventoryCourseName",
+                            "$courseInfo.courseName",
+                            "$admissionInfo.boardCourseName",
+                            "$boardCourseName",
+                            "$admissionInfo.course"
+                        ]
+                    },
                     department: {
                         $cond: {
                             if: { $gt: [{ $size: { $ifNull: ["$admissionInfoPmo", []] } }, 0] },

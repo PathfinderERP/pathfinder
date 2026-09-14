@@ -328,8 +328,12 @@ export const updateRegularization = async (req, res) => {
 
 export const deleteRegularization = async (req, res) => {
     try {
-        const regularization = await Regularization.findByIdAndDelete(req.params.id);
+        const regularization = await Regularization.findById(req.params.id);
         if (!regularization) return res.status(404).json({ message: 'Regularization not found' });
+        if (regularization.status === 'Approved') {
+            return res.status(400).json({ message: 'Cannot delete an already approved regularization request' });
+        }
+        await Regularization.findByIdAndDelete(req.params.id);
         res.status(200).json({ message: 'Regularization deleted successfully' });
     } catch (error) {
         res.status(500).json({ message: error.message });

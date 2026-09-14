@@ -317,19 +317,7 @@ export const PERMISSION_MODULES = {
         sections: {
             store: { label: "Store", operations: ["view", "create", "edit", "delete"] },
             marketing: { label: "Marketing", operations: ["view", "create", "edit", "delete"] },
-            academics: { label: "Academics", operations: ["view", "create", "edit", "delete"] },
-            centres: {
-                label: "Centres",
-                operations: ["create", "edit", "delete"]
-            },
-            inventory: {
-                label: "Inventory",
-                operations: ["create", "edit", "delete"]
-            },
-            facilities: {
-                label: "Facilities",
-                operations: ["create", "edit", "delete"]
-            }
+            academics: { label: "Academics", operations: ["view", "create", "edit", "delete"] }
         }
     },
     // digitalPortal: {
@@ -472,6 +460,10 @@ export const PERMISSION_MODULES = {
             },
             schoolForTask: {
                 label: "School For Task",
+                operations: ["create", "edit", "delete"]
+            },
+            inventory: {
+                label: "Inventory",
                 operations: ["create", "edit", "delete"]
             }
         }
@@ -682,6 +674,38 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
             // If editBill is not explicitly in granularPermissions.financeFees yet,
             // default to true if the user has access to financeFees module
             return Object.keys(finSec).length > 0;
+        }
+
+        return true;
+    }
+
+    // Master Data - Inventory section resolution: accessible to anyone with masterData access or admin roles
+    if (module === 'masterData' && section === 'inventory') {
+        if (['superadmin', 'admin'].includes(cleanRoleStr)) {
+            if (hasGranularObject && granularPermissions?.masterData?.inventory) {
+                const invSec = granularPermissions.masterData.inventory;
+                if (operation === 'view') {
+                    if (invSec.view !== undefined) return invSec.view === true;
+                    return Object.values(invSec).some(v => v === true);
+                }
+                return invSec[operation] === true;
+            }
+            return true;
+        }
+
+        if (hasGranularObject) {
+            const mdSec = granularPermissions?.masterData;
+            if (!mdSec || typeof mdSec !== 'object') return false;
+            const invSec = mdSec.inventory;
+            if (invSec && typeof invSec === 'object') {
+                if (operation === 'view') {
+                    if (invSec.view !== undefined) return invSec.view === true;
+                    return Object.values(invSec).some(v => v === true);
+                }
+                return invSec[operation] === true;
+            }
+            // Default to true if user has masterData module access
+            return Object.keys(mdSec).length > 0;
         }
 
         return true;

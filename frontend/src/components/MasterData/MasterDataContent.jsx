@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { FaBuilding, FaTags, FaLayerGroup, FaChalkboardTeacher, FaMapMarkerAlt, FaMoneyBillWave, FaListAlt, FaSitemap, FaDatabase, FaCalendarAlt, FaCode, FaUsers, FaIdCard, FaGlobe, FaCommentDots, FaSchool } from 'react-icons/fa';
+import { FaBuilding, FaTags, FaLayerGroup, FaChalkboardTeacher, FaMapMarkerAlt, FaMoneyBillWave, FaListAlt, FaSitemap, FaDatabase, FaCalendarAlt, FaCode, FaUsers, FaIdCard, FaGlobe, FaCommentDots, FaSchool, FaBoxes } from 'react-icons/fa';
 
 const MasterDataContent = () => {
     const navigate = useNavigate();
@@ -9,11 +9,18 @@ const MasterDataContent = () => {
     const user = (() => {
         try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; }
     })();
-    const isSuperAdmin = typeof user.role === 'string' && user.role.toLowerCase().replace(/\s+/g, '') === 'superadmin';
+    const userRoles = Array.isArray(user.role) ? user.role : (Array.isArray(user.roles) ? user.roles : [user.role || '']);
+    const isSuperAdmin = userRoles.some(r => typeof r === 'string' && (r.toLowerCase().includes('superadmin') || r.toLowerCase() === 'admin'));
     const masterDataPerms = user.granularPermissions?.masterData || {};
 
     // Helper: can user see this section?
-    const canView = (sectionKey) => isSuperAdmin || !!masterDataPerms[sectionKey];
+    const canView = (sectionKey) => {
+        if (isSuperAdmin) return true;
+        if (masterDataPerms[sectionKey] !== undefined) return !!masterDataPerms[sectionKey];
+        // Default newly added inventory section to visible if user has masterData access
+        if (sectionKey === 'inventory' && Object.keys(masterDataPerms).length > 0) return true;
+        return false;
+    };
 
     const masterDataItems = [
         {
@@ -191,6 +198,14 @@ const MasterDataContent = () => {
             path: "/master-data/activity-purpose",
             color: "border-yellow-500",
             permissionSection: "activityPurpose"
+        },
+        {
+            title: "Inventory",
+            description: "Manage inventory items and store materials",
+            icon: <FaBoxes className="text-3xl text-emerald-400" />,
+            path: "/master-data/inventory",
+            color: "border-emerald-500",
+            permissionSection: "inventory"
         },
     ];
 

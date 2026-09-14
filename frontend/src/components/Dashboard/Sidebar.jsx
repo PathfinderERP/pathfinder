@@ -432,6 +432,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "School Data", path: "/master-data/school-data", permissionSection: "schoolData" },
                 { name: "School For Task", path: "/master-data/school-for-task", permissionSection: "schoolForTask" },
                 { name: "Activity Purpose", path: "/master-data/activity-purpose", permissionSection: "activityPurpose" },
+                { name: "Inventory", path: "/master-data/inventory", permissionSection: "inventory" },
             ],
         },
         {

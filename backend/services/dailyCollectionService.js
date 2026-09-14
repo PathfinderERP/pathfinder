@@ -515,7 +515,49 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             }
         },
         {
+            $lookup: {
+                from: "allocations",
+                localField: "billId",
+                foreignField: "billNumber",
+                as: "inventoryAllocation"
+            }
+        },
+        {
             $addFields: {
+                inventoryCourseName: {
+                    $cond: {
+                        if: {
+                            $or: [
+                                { $gt: [{ $size: { $ifNull: ["$inventoryAllocation", []] } }, 0] },
+                                { $regexMatch: { input: { $ifNull: ["$remarks", ""] }, regex: "Inventory Store Allotment", options: "i" } }
+                            ]
+                        },
+                        then: {
+                            $ifNull: [
+                                "$boardCourseName",
+                                {
+                                    $let: {
+                                        vars: { alloc: { $arrayElemAt: ["$inventoryAllocation", 0] } },
+                                        in: {
+                                            $reduce: {
+                                                input: "$$alloc.items",
+                                                initialValue: "",
+                                                in: {
+                                                    $cond: {
+                                                        if: { $eq: ["$$value", ""] },
+                                                        then: { $concat: ["$$this.itemName", " (x", { $toString: "$$this.quantity" }, ")"] },
+                                                        else: { $concat: ["$$value", ", ", "$$this.itemName", " (x", { $toString: "$$this.quantity" }, ")"] }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            ]
+                        },
+                        else: null
+                    }
+                },
                 studentName: {
                     $ifNull: [
                         { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
@@ -530,7 +572,13 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     ]
                 },
                 courseName: {
-                    $ifNull: ["$courseInfo.courseName", "$admissionInfo.boardCourseName", "$admissionInfo.course"]
+                    $ifNull: [
+                        "$inventoryCourseName",
+                        "$courseInfo.courseName",
+                        "$admissionInfo.boardCourseName",
+                        "$boardCourseName",
+                        "$admissionInfo.course"
+                    ]
                 },
                 mrDate: {
                     $cond: {

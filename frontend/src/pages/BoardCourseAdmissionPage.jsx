@@ -263,7 +263,7 @@ const BoardCourseAdmissionPage = () => {
             const visibleDepts = Array.isArray(departmentsData) ? departmentsData.filter(d => d.showInAdmission !== false) : [];
             setDepartments(visibleDepts);
 
-            if (studentRes.ok) {
+            if (studentRes.ok && studentData) {
                 setStudent(studentData);
                 if (!prefilledTag) {
                     prefilledTag = studentData?.sessionExamCourse?.[0]?.examTag || "";
@@ -294,6 +294,43 @@ const BoardCourseAdmissionPage = () => {
                     startingClass = studentData?.examSchema?.[0]?.class || studentData?.studentsDetails?.[0]?.lastClass || "";
                 }
                 setLastClass(startingClass);
+            } else if (counselData || (counselRes && counselRes.ok)) {
+                // Construct or use student from counselling data
+                const cDoc = counselData || (counselRes.ok ? await counselRes.clone().json().catch(() => null) : null);
+                if (cDoc) {
+                    if (cDoc.studentId && typeof cDoc.studentId === 'object' && cDoc.studentId._id) {
+                        setStudent(cDoc.studentId);
+                    } else {
+                        const fallbackStudent = {
+                            _id: cDoc.studentId?._id || cDoc.studentId || cDoc._id,
+                            studentsDetails: [{
+                                studentName: cDoc.studentName || "Student",
+                                mobileNum: cDoc.mobileNum || "",
+                                studentEmail: cDoc.studentEmail || "",
+                                centre: cDoc.centre || "Not Specified",
+                                programme: cDoc.programme || "CRP",
+                                lastClass: cDoc.lastClass || ""
+                            }],
+                            sessionExamCourse: [{
+                                examTag: cDoc.examTag?.name || cDoc.examTag || "",
+                                session: cDoc.academicSession || ""
+                            }]
+                        };
+                        setStudent(fallbackStudent);
+                    }
+                    if (cDoc.programme && !fetchedProgramme) {
+                        setProgramme(cDoc.programme);
+                    }
+                    if (cDoc.lastClass && !startingClass) {
+                        setLastClass(cDoc.lastClass);
+                    }
+                }
+                const activeSession = sessionsData.find(s => s.isGlobalActive)?.sessionName || "";
+                if (prefilledSession) {
+                    setAcademicSession(prefilledSession);
+                } else if (activeSession) {
+                    setAcademicSession(activeSession);
+                }
             } else {
                 const activeSession = sessionsData.find(s => s.isGlobalActive)?.sessionName || "";
                 if (prefilledSession) {
@@ -450,7 +487,8 @@ const BoardCourseAdmissionPage = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!student?._id) {
+        const effectiveStudentId = student?._id || counselData?.studentId?._id || counselData?.studentId || counselData?._id;
+        if (!effectiveStudentId) {
             return toast.error("Student profile not found. Cannot process admission.");
         }
         if (!selectedBoard) {
@@ -508,9 +546,10 @@ const BoardCourseAdmissionPage = () => {
                     "Authorization": `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    studentId: student?._id, // Must use actual Student Profile ID, NOT the Counselling ID from the URL params
-                    studentName: student?.studentsDetails?.[0]?.studentName,
-                    mobileNum: student?.studentsDetails?.[0]?.mobileNum,
+                    studentId: effectiveStudentId,
+                    counselId: counselData?._id,
+                    studentName: student?.studentsDetails?.[0]?.studentName || counselData?.studentName,
+                    mobileNum: student?.studentsDetails?.[0]?.mobileNum || counselData?.mobileNum,
                     boardId: selectedBoard._id,
                     selectedSubjectIds,
                     totalDurationMonths: Number(durationMonths),
@@ -651,21 +690,21 @@ const BoardCourseAdmissionPage = () => {
                 </div>
             </div>
 
-            {student && (
+            {(student || counselData) && (
                 <div className={`p-8 rounded-xl border mb-8 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                     <div className="flex items-center gap-6">
                         <div className={`w-16 h-16 rounded-xl flex items-center justify-center font-black text-2xl border ${isDarkMode ? 'border-gray-800 bg-gradient-to-br from-cyan-900 to-blue-900' : 'border-gray-200 bg-gradient-to-br from-cyan-500 to-blue-600 shadow-md text-white'}`}>
-                            {(student.studentsDetails?.[0]?.studentName || counselData?.studentName || "S").charAt(0)}
+                            {(student?.studentsDetails?.[0]?.studentName || counselData?.studentName || "S").charAt(0)}
                         </div>
                         <div className="flex-1">
                             <div className="flex justify-between items-start">
                                 <div>
                                     <h3 className="text-xl font-black uppercase">{counselData?.studentName || student?.studentsDetails?.[0]?.studentName}</h3>
                                     <div className="flex flex-wrap gap-4 mt-2">
-                                        <span className="text-[10px] font-black text-white px-2 py-0.5 rounded bg-cyan-600 tracking-wider">UID: {student.uid || (student._id || "").toString().slice(-8).toUpperCase()}</span>
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Centre: {counselData?.centre || student.studentsDetails?.[0]?.centre}</span>
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mobile: {counselData?.mobileNum || student.studentsDetails?.[0]?.mobileNum}</span>
-                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email: {student.studentsDetails?.[0]?.studentEmail || "N/A"}</span>
+                                        <span className="text-[10px] font-black text-white px-2 py-0.5 rounded bg-cyan-600 tracking-wider">UID: {student?.uid || (student?._id || counselData?.studentId?._id || counselData?.studentId || counselData?._id || "").toString().slice(-8).toUpperCase()}</span>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Centre: {counselData?.centre || student?.studentsDetails?.[0]?.centre}</span>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mobile: {counselData?.mobileNum || student?.studentsDetails?.[0]?.mobileNum}</span>
+                                        <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email: {counselData?.studentEmail || student?.studentsDetails?.[0]?.studentEmail || "N/A"}</span>
                                     </div>
                                 </div>
                                 <div className={`p-4 rounded-xl border-2 border-dashed transition-all duration-500 ${isDarkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50'} max-w-[60%]`}>
