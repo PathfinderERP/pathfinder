@@ -83,6 +83,7 @@ import postRoutes from "./routes/post.routes.js";
 import communityRoutes from "./routes/community.routes.js";
 import teacherRoutineRoutes from "./routes/Academics/teacherRoutine.routes.js";
 import teacherBookingRoutes from "./routes/Academics/teacherBooking.routes.js";
+import teacherTrainTimingRoutes from "./routes/Academics/teacherTrainTiming.routes.js";
 import categoryRoutes from "./routes/masterData/category.route.js";
 import pntseRoutes from "./routes/pntse/pntse.routes.js";
 import pmoRoutes from "./routes/pmo/pmo.routes.js";
@@ -179,6 +180,7 @@ app.use("/api/academics/hod", hodRoutes);
 app.use("/api/academics/coordinator", coordinatorRoutes);
 app.use("/api/academics/teacher-routine", teacherRoutineRoutes);
 app.use("/api/academics/teacher-booking", teacherBookingRoutes);
+app.use("/api/academics/train-timing", teacherTrainTimingRoutes);
 
 
 // HR Routes

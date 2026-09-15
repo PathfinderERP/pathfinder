@@ -121,6 +121,7 @@ import ConversionReportPage from "./pages/LeadManagement/ConversionReportPage";
 import Campaigns from "./pages/LeadManagement/Campaigns";
 import CampaignUploadLeads from "./pages/LeadManagement/CampaignUploadLeads";
 import TeacherStudentSchedule from "./pages/Academics/TeacherStudentSchedule";
+import TrainTimings from "./pages/Academics/TrainTimings";
 
 
 // HR Pages
@@ -360,6 +361,7 @@ function App() {
         {/* <Route path="/academics/exam-leader-board" element={<ProtectedRoute><ExamLeaderBoard /></ProtectedRoute>} /> */}
         <Route path="/academics/teacher-routine" element={<ProtectedRoute><TeacherRoutineSchedule /></ProtectedRoute>} />
         <Route path="/academics/students-schedule" element={<ProtectedRoute><TeacherStudentSchedule /></ProtectedRoute>} />
+        <Route path="/academics/train-timings" element={<ProtectedRoute requiredPermissionModule="academics" requiredPermissionSection="trainTimings"><TrainTimings /></ProtectedRoute>} />
         <Route path="/lead-management/teacher-schedule" element={<ProtectedRoute requiredPermissionModule="leadManagement" requiredPermissionSection="teacherSchedule"><TeacherSchedulePage /></ProtectedRoute>} />
         <Route path="/lead-management/campaigns" element={<ProtectedRoute><Campaigns /></ProtectedRoute>} />
         <Route path="/lead-management/campaigns/:campaignId/upload-leads" element={<ProtectedRoute><CampaignUploadLeads /></ProtectedRoute>} />

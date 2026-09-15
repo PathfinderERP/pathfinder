@@ -261,6 +261,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 // { name: "Exam Leader Board", path: "/academics/exam-leader-board", permissionSection: "examLeaderBoard" },
                 { name: "Teacher Routine Schedule", path: "/academics/teacher-routine", permissionSection: "teacherRoutine" },
                 { name: "Students Schedule", path: "/academics/students-schedule", permissionSection: "teacherRoutine" },
+                { name: "Train Timings", path: "/academics/train-timings", permissionSection: "trainTimings" },
             ]
         },
 

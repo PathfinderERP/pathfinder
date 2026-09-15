@@ -115,7 +115,8 @@ export const PERMISSION_MODULES = {
             upcomingClass: { label: "Upcoming Class", operations: ["create", "edit", "delete"] },
             ongoingClass: { label: "Ongoing Class", operations: ["create", "edit", "delete"] },
             previousClass: { label: "Previous Class", operations: ["create", "edit", "delete"] },
-            teacherRoutine: { label: "Teacher Routine Schedule", operations: ["create", "edit", "delete"] }
+            teacherRoutine: { label: "Teacher Routine Schedule", operations: ["create", "edit", "delete"] },
+            trainTimings: { label: "Train Timings", operations: ["create", "edit", "delete"] }
         }
     },
 

@@ -57,7 +57,10 @@ const LeadManagementContent = () => {
         totalScheduled: 0,
         recentActivity: [],
         scheduledList: [],
-        walkInsCountToday: 0
+        walkInsCountToday: 0,
+        contactedList: [],
+        remainingList: [],
+        walkInList: []
     });
 
     const [leadStats, setLeadStats] = useState({
@@ -168,12 +171,16 @@ const LeadManagementContent = () => {
                         const val = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
                         if (val) params.append(key, val);
                     });
-                } else if (value && !['fromDate', 'toDate'].includes(key)) {
-                    params.append(key, value);
+                } else if (value) {
+                    // Pass fromDate/toDate (lead creation date) with separate keys
+                    // to avoid conflict with follow-up activity date filters
+                    if (key === 'fromDate') params.append('createdFromDate', value);
+                    else if (key === 'toDate') params.append('createdToDate', value);
+                    else params.append(key, value);
                 }
             });
 
-            // ADD Dashboard specific date filters
+            // ADD Dashboard specific date filters (follow-up activity date range)
             if (dashboardFilters.fromDate) params.append('fromDate', dashboardFilters.fromDate);
             if (dashboardFilters.toDate) params.append('toDate', dashboardFilters.toDate);
             if (dashboardFilters.scheduledDate) params.append('scheduledDate', dashboardFilters.scheduledDate);
@@ -626,6 +633,22 @@ const LeadManagementContent = () => {
         } else {
             const label = statusValue === 'contacted' ? 'Contacted' : statusValue === 'remaining' ? 'Pending' : 'Walk In';
             handleFilterChange('followUpStatus', [{ value: statusValue, label }]);
+        }
+        // Also open the activity modal with the relevant follow-up data
+        let modalTitle = '';
+        let modalData = [];
+        if (statusValue === 'contacted') {
+            modalTitle = `Contacted Leads - Follow Up Till Date (${followUpStats.totalFollowUps})`;
+            modalData = followUpStats.recentActivity || [];
+        } else if (statusValue === 'remaining') {
+            modalTitle = `Uncontacted Leads (${leadStats.remainingCount})`;
+            modalData = followUpStats.remainingList || [];
+        } else if (statusValue === 'walkin') {
+            modalTitle = `Walk-In Leads (${leadStats.walkInCount || 0})`;
+            modalData = followUpStats.walkInList || [];
+        }
+        if (modalData.length > 0 || modalTitle) {
+            setActivityModal({ isOpen: true, title: modalTitle, data: modalData });
         }
     };
 
@@ -1476,7 +1499,7 @@ const LeadManagementContent = () => {
                             <div className="flex justify-between items-start relative z-10">
                                 <div>
                                     <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>Contacted Leads</p>
-                                    <h3 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.contactedCount}</h3>
+                                    <h3 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalFollowUps}</h3>
                                 </div>
                                 <div className={`p-2 rounded-[2px] bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]`}>
                                     <FaCheckCircle size={12} />

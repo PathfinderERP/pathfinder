@@ -104,8 +104,20 @@ export const getFollowUpStats = async (req, res) => {
         delete queryParams.followUpStatus;
         delete queryParams.leadResponsibility;
         queryParams.includeInvalid = true;
-        
+
+        // Map lead creation date range (sent as createdFromDate/createdToDate to
+        // avoid conflict with follow-up activity fromDate/toDate) into buildLeadQuery
+        if (queryParams.createdFromDate) {
+            queryParams.fromDate = queryParams.createdFromDate;
+            delete queryParams.createdFromDate;
+        }
+        if (queryParams.createdToDate) {
+            queryParams.toDate = queryParams.createdToDate;
+            delete queryParams.createdToDate;
+        }
+
         const baseMatch = await buildLeadQuery(queryParams, req.user);
+
 
         const leadOwnerMatch = { ...baseMatch };
         if (baseMatch.$and) {
@@ -315,6 +327,112 @@ export const getFollowUpStats = async (req, res) => {
                                 invalid: { $sum: { $cond: [{ $eq: ["$leadType", "INVALID LEAD"] }, 1, 0] } }
                             }
                         }
+                    ],
+                    "contactedList": [
+                        { $match: { ...baseMatch, followUps: { $exists: true, $not: { $size: 0 } } } },
+                        { $sort: { lastFollowUpDate: -1 } },
+                        { $limit: 500 },
+                        { $lookup: { from: "classes", localField: "className", foreignField: "_id", as: "classInfo" } },
+                        { $lookup: { from: "boards", localField: "board", foreignField: "_id", as: "boardInfo" } },
+                        { $lookup: { from: "courses", localField: "course", foreignField: "_id", as: "courseInfo" } },
+                        { $lookup: { from: "centreschemas", localField: "centre", foreignField: "_id", as: "centreInfo" } },
+                        {
+                            $project: {
+                                leadId: "$_id",
+                                leadName: "$name",
+                                phoneNumber: "$phoneNumber",
+                                email: "$email",
+                                status: "$leadType",
+                                time: "$lastFollowUpDate",
+                                updatedBy: "$leadResponsibility",
+                                feedback: { $ifNull: [{ $last: "$followUps.feedback" }, ""] },
+                                remarks: { $ifNull: [{ $last: "$followUps.remarks" }, ""] },
+                                callDuration: { $ifNull: [{ $last: "$followUps.callDuration" }, ""] },
+                                history: "$followUps",
+                                className: { $arrayElemAt: ["$classInfo.name", 0] },
+                                board: { $arrayElemAt: ["$boardInfo.boardCourse", 0] },
+                                course: { $arrayElemAt: ["$courseInfo.courseName", 0] },
+                                centreName: { $arrayElemAt: ["$centreInfo.centreName", 0] },
+                                source: "$source"
+                            }
+                        }
+                    ],
+                    "remainingList": [
+                        {
+                            $match: {
+                                ...baseMatch,
+                                $and: [
+                                    ...(baseMatch.$and || []),
+                                    { $or: [ { followUps: { $size: 0 } }, { followUps: { $exists: false } } ] }
+                                ]
+                            }
+                        },
+                        { $sort: { createdAt: -1 } },
+                        { $limit: 500 },
+                        { $lookup: { from: "classes", localField: "className", foreignField: "_id", as: "classInfo" } },
+                        { $lookup: { from: "boards", localField: "board", foreignField: "_id", as: "boardInfo" } },
+                        { $lookup: { from: "courses", localField: "course", foreignField: "_id", as: "courseInfo" } },
+                        { $lookup: { from: "centreschemas", localField: "centre", foreignField: "_id", as: "centreInfo" } },
+                        {
+                            $project: {
+                                leadId: "$_id",
+                                leadName: "$name",
+                                phoneNumber: "$phoneNumber",
+                                email: "$email",
+                                status: "$leadType",
+                                time: "$createdAt",
+                                updatedBy: "$leadResponsibility",
+                                feedback: "",
+                                remarks: "",
+                                history: "$followUps",
+                                className: { $arrayElemAt: ["$classInfo.name", 0] },
+                                board: { $arrayElemAt: ["$boardInfo.boardCourse", 0] },
+                                course: { $arrayElemAt: ["$courseInfo.courseName", 0] },
+                                centreName: { $arrayElemAt: ["$centreInfo.centreName", 0] },
+                                source: "$source"
+                            }
+                        }
+                    ],
+                    "walkInList": [
+                        {
+                            $match: {
+                                ...baseMatch,
+                                $and: [
+                                    ...(baseMatch.$and || []),
+                                    {
+                                        $or: [
+                                            { isWalkIn: true },
+                                            { source: { $regex: /^walk[- ]?in$/i } }
+                                        ]
+                                    }
+                                ]
+                            }
+                        },
+                        { $sort: { walkInDate: -1, createdAt: -1 } },
+                        { $limit: 500 },
+                        { $lookup: { from: "classes", localField: "className", foreignField: "_id", as: "classInfo" } },
+                        { $lookup: { from: "boards", localField: "board", foreignField: "_id", as: "boardInfo" } },
+                        { $lookup: { from: "courses", localField: "course", foreignField: "_id", as: "courseInfo" } },
+                        { $lookup: { from: "centreschemas", localField: "centre", foreignField: "_id", as: "centreInfo" } },
+                        {
+                            $project: {
+                                leadId: "$_id",
+                                leadName: "$name",
+                                phoneNumber: "$phoneNumber",
+                                email: "$email",
+                                status: "$leadType",
+                                time: { $ifNull: ["$walkInDate", "$createdAt"] },
+                                updatedBy: "$leadResponsibility",
+                                feedback: { $ifNull: [{ $last: "$followUps.feedback" }, ""] },
+                                remarks: { $ifNull: [{ $last: "$followUps.remarks" }, ""] },
+                                history: "$followUps",
+                                className: { $arrayElemAt: ["$classInfo.name", 0] },
+                                board: { $arrayElemAt: ["$boardInfo.boardCourse", 0] },
+                                course: { $arrayElemAt: ["$courseInfo.courseName", 0] },
+                                centreName: { $arrayElemAt: ["$centreInfo.centreName", 0] },
+                                source: "$source"
+                            }
+                        }
                     ]
                 }
             }
@@ -341,6 +459,10 @@ export const getFollowUpStats = async (req, res) => {
             walkInDate: { $gte: todayStart, $lte: todayEnd }
         });
 
+        const contactedList = stats[0].contactedList || [];
+        const remainingList = stats[0].remainingList || [];
+        const walkInList = stats[0].walkInList || [];
+
         res.status(200).json({
             totalFollowUps: aC.totalFollowUps || 0,
             hotLeads: aC.hotLeads || 0,
@@ -354,7 +476,10 @@ export const getFollowUpStats = async (req, res) => {
             totalPreviousPending: pC.totalPreviousPending || 0,
             previousPendingList,
             leadPopulation: lP,
-            walkInsCountToday
+            walkInsCountToday,
+            contactedList,
+            remainingList,
+            walkInList
         });
     } catch (err) {
         console.error("Dashboard follow-up stats error:", err);
