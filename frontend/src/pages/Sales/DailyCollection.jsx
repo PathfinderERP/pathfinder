@@ -1916,6 +1916,17 @@ const DailyCollection = () => {
 
                                     // Column Totals (excluding PHSPS Midnapore from total sums)
                                     const totalTarget = sortedData.reduce((sum, [centre]) => isPhspsMidnapore(centre) ? sum : sum + (centreTargets[centre] || 0), 0);
+                                    const totalBaseTarget = sortedData.reduce((sum, [centre]) => isPhspsMidnapore(centre) ? sum : sum + (centreTargetMeta[centre]?.baseTarget || 0), 0);
+                                    const totalShortfallAdded = sortedData.reduce((sum, [centre]) => {
+                                        if (isPhspsMidnapore(centre)) return sum;
+                                        const diff = centreTargetMeta[centre]?.shortfallAdded || 0;
+                                        return diff > 0 ? sum + diff : sum;
+                                    }, 0);
+                                    const totalSurplusAdjusted = sortedData.reduce((sum, [centre]) => {
+                                        if (isPhspsMidnapore(centre)) return sum;
+                                        const diff = centreTargetMeta[centre]?.shortfallAdded || 0;
+                                        return diff < 0 ? sum + Math.abs(diff) : sum;
+                                    }, 0);
                                     const totalPaymentMethods = paymentMethodsList.reduce((acc, method) => {
                                         acc[method] = sortedData.reduce((sum, [centre, data]) => isPhspsMidnapore(centre) ? sum : sum + (data[method] || 0), 0);
                                         return acc;
@@ -2041,7 +2052,27 @@ const DailyCollection = () => {
                                             <tfoot className={`${tableHeaderBgClass} font-bold ${cardTextClass} border-t-2 ${isDarkMode ? "border-gray-800" : "border-gray-300"}`}>
                                                 <tr>
                                                     <td className="px-4 py-4">TOTAL</td>
-                                                    <td className="px-4 py-4 text-right text-amber-500">{formatAmount(totalTarget)}</td>
+                                                    <td className="px-4 py-4 text-right text-amber-500">
+                                                        <div className="flex flex-col items-end">
+                                                            <span>{formatAmount(totalTarget)}</span>
+                                                            {totalShortfallAdded > 0 && (
+                                                                <span
+                                                                    className="text-[9px] font-bold text-orange-400 bg-orange-500/10 border border-orange-500/20 px-1 py-0.5 rounded mt-0.5"
+                                                                    title={`Total Base target: ${formatAmount(totalBaseTarget)} + Total Shortfall adjusted: ${formatAmount(totalShortfallAdded)}`}
+                                                                >
+                                                                    +{formatAmount(totalShortfallAdded)} adj
+                                                                </span>
+                                                            )}
+                                                            {totalSurplusAdjusted > 0 && (
+                                                                <span
+                                                                    className="text-[9px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-1 py-0.5 rounded mt-0.5"
+                                                                    title={`Total Base target: ${formatAmount(totalBaseTarget)} - Total Surplus adjusted: ${formatAmount(totalSurplusAdjusted)}`}
+                                                                >
+                                                                    -{formatAmount(totalSurplusAdjusted)} adj
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                     {paymentMethodsList.map(method => (
                                                         <td key={method} className="px-4 py-4 text-right text-gray-400">{formatAmount(totalPaymentMethods[method] || 0)}</td>
                                                     ))}
