@@ -919,7 +919,13 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             for (const d of weekDaysData) {
                 const rawTarget = d.effectiveBase + runningShortfall;
                 const finalTarget = Math.round(Math.max(0, rawTarget));
-                const shortfallAdded = Math.round(finalTarget - d.manualBase);
+                let shortfallAdded = 0;
+                if (finalTarget > d.manualBase) {
+                    shortfallAdded = Math.round(finalTarget - d.manualBase);
+                } else if (rawTarget < d.manualBase) {
+                    // When there is an accumulated surplus, reflect the surplus adjusted amount (negative)
+                    shortfallAdded = Math.round(rawTarget - d.manualBase);
+                }
 
                 daysResult[d.day] = {
                     finalTarget,
@@ -981,14 +987,24 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name))) {
                 const daysMap = computeCentreTargetsForMonth(c);
                 let rangeSum = 0;
+                let rangeBaseSum = 0;
+                let rangeShortfallAdded = 0;
                 daysInRange.forEach(dNum => {
                     const res = daysMap[dNum];
                     if (res) {
-                        rangeSum += res.baseTarget;
+                        rangeSum += res.finalTarget;
+                        rangeBaseSum += res.baseTarget;
+                        rangeShortfallAdded += (res.shortfallAdded || 0);
                     }
                 });
                 centreTargets[name] = rangeSum;
-                centreTargetMeta[name] = { baseTarget: rangeSum, shortfallAdded: 0, isWeekend: false, isRange: true };
+                centreTargetMeta[name] = {
+                    finalTarget: rangeSum,
+                    baseTarget: rangeBaseSum,
+                    shortfallAdded: rangeShortfallAdded,
+                    isWeekend: false,
+                    isRange: true
+                };
             }
         });
     } else {

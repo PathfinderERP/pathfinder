@@ -452,7 +452,7 @@ const LeadManagementContent = () => {
 
                 // If current user exists and is NOT a superAdmin, auto-select them in filters
                 // Managerial roles shouldn't be auto-filtered to themselves
-                const isManagerial = ['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge'].includes(currentUser.role?.toLowerCase()?.replace(/\s+/g, ''));
+                const isManagerial = ['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge', 'digital', 'marketing', 'areamanager', 'coordinator'].includes(currentUser.role?.toLowerCase()?.replace(/\s+/g, ''));
                 const currentLeadUser = formattedUsers.find(t => t.name === currentUser.name);
                 if (currentLeadUser && !isManagerial) {
                     setFilters(prev => ({
@@ -1343,14 +1343,14 @@ const LeadManagementContent = () => {
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Agent</label>
                             <CustomMultiSelect
                                 options={
-                                    ['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))
+                                    ['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge', 'digital', 'marketing', 'areamanager', 'coordinator'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))
                                         ? telecallers.map(t => ({ value: t.value || t.name, label: t.displayName || t.name }))
                                         : telecallers.filter(t => t.name === user?.name).map(t => ({ value: t.value || t.name, label: t.displayName || t.name }))
                                 }
                                 value={filters.leadResponsibility}
                                 onChange={(selected) => handleFilterChange('leadResponsibility', selected)}
                                 placeholder="Select Agent"
-                                isDisabled={!['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))}
+                                isDisabled={!['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge', 'digital', 'marketing', 'areamanager', 'coordinator'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>

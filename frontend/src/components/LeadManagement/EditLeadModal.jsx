@@ -442,7 +442,7 @@ const EditLeadModal = ({ lead, onClose, onSuccess, isDarkMode }) => {
 
                         <div className="md:col-span-2 space-y-1.5">
                             <label className={labelClasses}>Assign To *</label>
-                            {['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'assistantzonalmanager', 'assistantcenterincharge'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, '')) ? (
+                            {['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'zonalhead', 'assistantzonalmanager', 'assistantcenterincharge', 'digital', 'marketing', 'areamanager', 'coordinator'].includes(currentUser?.role?.toLowerCase()?.replace(/\s+/g, '')) ? (
                                 <CustomSearchSelect
                                     options={telecallers.map(t => ({ value: t.value || t.name, label: t.displayName || t.name }))}
                                     value={formData.leadResponsibility}
