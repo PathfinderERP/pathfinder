@@ -218,14 +218,12 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
         acc.cold += curr.cold || 0;
         acc.neutral += curr.neutral || 0;
         acc.invalid += curr.invalid || 0;
-        acc.todaysFollowUp += curr.todaysFollowUp || 0;
-        acc.previousFollowUp += curr.previousFollowUp || 0;
         acc.walkInCount += curr.walkInCount || 0;
         acc.admissionCount += curr.admissionCount || 0;
         acc.serviceCalls += curr.serviceCalls || 0;
         acc.totalCalls += curr.totalCalls || 0;
         return acc;
-    }, { hot: 0, warm: 0, cold: 0, neutral: 0, invalid: 0, todaysFollowUp: 0, previousFollowUp: 0, walkInCount: 0, admissionCount: 0, serviceCalls: 0, totalCalls: 0 });
+    }, { hot: 0, warm: 0, cold: 0, neutral: 0, invalid: 0, walkInCount: 0, admissionCount: 0, serviceCalls: 0, totalCalls: 0 });
 
     const handleExportSummary = async () => {
         try {
@@ -484,8 +482,6 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                         <th className={`p-4 font-semibold text-center text-blue-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Cold</th>
                                         <th className={`p-4 font-semibold text-center text-purple-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Neutral</th>
                                         <th className={`p-4 font-semibold text-center border-b ${isDarkMode ? 'text-gray-400 border-gray-800' : 'text-gray-500 border-gray-200'}`}>Inactive</th>
-                                        <th className={`p-4 font-semibold text-center text-teal-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Todays Follow Up</th>
-                                        <th className={`p-4 font-semibold text-center text-amber-600 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Previous Follow Up</th>
                                         <th className={`p-4 font-semibold text-center text-emerald-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Walk In</th>
                                         <th className={`p-4 font-semibold text-center text-indigo-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Admission</th>
                                         <th className={`p-4 font-semibold text-center text-cyan-500 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>Service Call</th>
@@ -545,20 +541,6 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                                     <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.invalid}</span>
                                                 )}
                                             </td>
-                                            <td className="p-4 text-center font-bold text-teal-500">
-                                                {row.todaysFollowUp > 0 ? (
-                                                    <span className="inline-block">{row.todaysFollowUp}</span>
-                                                ) : (
-                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.todaysFollowUp || 0}</span>
-                                                )}
-                                            </td>
-                                            <td className="p-4 text-center font-bold text-amber-600">
-                                                {row.previousFollowUp > 0 ? (
-                                                    <span className="inline-block">{row.previousFollowUp}</span>
-                                                ) : (
-                                                    <span className={`${isDarkMode ? 'text-gray-500' : 'text-gray-400'} opacity-40`}>{row.previousFollowUp || 0}</span>
-                                                )}
-                                            </td>
                                             <td className="p-4 text-center font-bold text-emerald-500">
                                                 {row.walkInCount > 0 ? (
                                                     <span onClick={() => handleCountClick(row, 'WALK_IN')} className="cursor-pointer hover:underline hover:scale-110 transition-all inline-block">{row.walkInCount}</span>
@@ -597,8 +579,6 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                         <td className="p-4 text-center text-blue-500 font-extrabold">{totals.cold}</td>
                                         <td className="p-4 text-center text-purple-500 font-extrabold">{totals.neutral}</td>
                                         <td className={`p-4 text-center font-extrabold ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{totals.invalid}</td>
-                                        <td className="p-4 text-center text-teal-500 font-extrabold">{totals.todaysFollowUp}</td>
-                                        <td className="p-4 text-center text-amber-600 font-extrabold">{totals.previousFollowUp}</td>
                                         <td className="p-4 text-center text-emerald-500 font-extrabold">{totals.walkInCount}</td>
                                         <td className="p-4 text-center text-indigo-500 font-extrabold">{totals.admissionCount}</td>
                                         <td className="p-4 text-center text-cyan-500 font-extrabold">{totals.serviceCalls}</td>
@@ -633,7 +613,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                             <div>
                                 <h3 className={`text-lg font-black uppercase tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                     <FaPhoneAlt className="text-cyan-500 shrink-0" />
-                                    {selectedUser.userName}'s {selectedLeadType === 'WALK_IN' ? 'WALK IN DETAILS' : selectedLeadType === 'ADMISSION' ? 'ADMISSION DETAILS' : (selectedLeadType !== 'ALL' ? `${selectedLeadType} LEAD CALL DETAILS` : 'TOTAL CALL DETAILS')}
+                                    {selectedUser.userName}'s {selectedLeadType === 'WALK_IN' ? 'WALK IN DETAILS' : selectedLeadType === 'ADMISSION' ? 'ADMISSION DETAILS' : selectedLeadType === 'PREVIOUS_FOLLOWUP' ? 'PREVIOUS FOLLOW UP DETAILS' : (selectedLeadType !== 'ALL' ? `${selectedLeadType} LEAD CALL DETAILS` : 'TOTAL CALL DETAILS')}
                                 </h3>
                                 <p className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mt-0.5">
                                     Centre: {selectedUser.centreName} | Role: {selectedUser.role.toUpperCase()}
@@ -739,7 +719,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
                                                             <td className={`p-4 text-xs max-w-[150px] truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`} title={call.remarks}>{call.remarks || '-'}</td>
                                                             <td className="p-4 text-xs font-semibold text-gray-500 whitespace-nowrap">
                                                                 {call.date ? (
-                                                                    selectedLeadType === 'WALK_IN' 
+                                                                    selectedLeadType === 'WALK_IN' || selectedLeadType === 'PREVIOUS_FOLLOWUP'
                                                                         ? new Date(call.date).toLocaleString('en-GB') 
                                                                         : new Date(call.date).toLocaleDateString('en-GB')
                                                                 ) : '-'}
