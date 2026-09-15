@@ -1053,6 +1053,52 @@ const LeadManagementContent = () => {
         }
     };
 
+    const handleExportAdmissionSegregation = async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const params = new URLSearchParams();
+
+            Object.entries(filters).forEach(([key, value]) => {
+                if (Array.isArray(value)) {
+                    if (value.length > 0) {
+                        value.forEach(v => {
+                            const val = (v && typeof v === 'object' && 'value' in v) ? v.value : v;
+                            if (val) params.append(key, val);
+                        });
+                    }
+                } else if (value) {
+                    params.append(key, value);
+                }
+            });
+            if (dashboardFilters.fromDate) params.append('followUpFromDate', dashboardFilters.fromDate);
+            if (dashboardFilters.toDate) params.append('followUpToDate', dashboardFilters.toDate);
+
+            toast.info("Generating Admission Segregation Report...", { autoClose: 2000 });
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/lead-management/export/admission-segregation?${params.toString()}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                const dateStr = new Date().toISOString().split('T')[0];
+                a.download = `Admission_Segregation_${dateStr}.xlsx`;
+                a.click();
+                URL.revokeObjectURL(url);
+                toast.success("Report downloaded successfully!");
+            } else {
+                const err = await response.json();
+                toast.error(err.message || "Failed to generate report");
+            }
+        } catch (error) {
+            console.error("Admission segregation export error:", error);
+            toast.error("Error generating report");
+        }
+    };
+
     const getLeadTypeColor = (type) => {
         switch (type) {
             case "HOT LEAD":
@@ -1605,9 +1651,13 @@ const LeadManagementContent = () => {
                                         </div>
                                     </div>
                                 </div>
-                                <div className={`p-2 rounded-[2px] bg-amber-500 text-black shadow-[0_0_10px_rgba(245,158,11,0.3)] shrink-0`}>
-                                    <FaLayerGroup size={12} />
-                                </div>
+                                <button
+                                    onClick={handleExportAdmissionSegregation}
+                                    title="Download Admission Segregation Report"
+                                    className={`p-2 rounded-[2px] bg-amber-500 text-black shadow-[0_0_10px_rgba(245,158,11,0.3)] shrink-0 hover:bg-amber-400 active:scale-90 transition-all cursor-pointer`}
+                                >
+                                    <FaDownload size={12} />
+                                </button>
                             </div>
                         </div>
                     </div>

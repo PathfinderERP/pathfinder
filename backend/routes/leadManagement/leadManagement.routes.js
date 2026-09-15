@@ -33,6 +33,7 @@ import { getSchoolJourney } from "../../controllers/leadManagement/getSchoolJour
 import { checkDuplicatePhone } from "../../controllers/leadManagement/checkDuplicatePhone.js";
 
 import { getConversionDetails } from "../../controllers/leadManagement/getConversionDetails.js";
+import { exportAdmissionSegregation } from "../../controllers/leadManagement/exportAdmissionSegregation.js";
 
 const router = express.Router();
 const upload = multer({ 
@@ -55,6 +56,7 @@ router.get("/stats/conversion-report", requireAuth, getLeadConversionReport);
 router.get("/stats/conversion-report/admitted-leads", requireAuth, getAdmittedLeadDetails);
 router.get("/export/excel", requireAuth, exportLeadsExcel);
 router.get("/export/telecaller-logs", requireAuth, exportTelecallerLogs);
+router.get("/export/admission-segregation", requireAuth, exportAdmissionSegregation);
 router.get("/analytics-all", requireAuth, getAllTelecallerAnalytics);
 router.get("/stats/centre-analysis", requireAuth, getCentreLeadAnalysis);
 router.get("/analytics/:telecallerId", requireAuth, getTelecallerAnalytics);
