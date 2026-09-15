@@ -212,6 +212,17 @@ const CentreRank = () => {
         return rankings.filter(r => isCentreAllowedByZone(r.centreId || r._id, r.centreName));
     }, [rankings, zoneCentreMatchInfo, isCentreAllowedByZone]);
 
+    const totals = React.useMemo(() => {
+        const totalAchieved = displayedRankings.reduce((sum, r) => sum + (Number(r.achieved) || 0), 0);
+        const totalTarget = displayedRankings.reduce((sum, r) => sum + (Number(r.target) || 0), 0);
+        const totalAchievementPercentage = totalTarget > 0 ? ((totalAchieved / totalTarget) * 100).toFixed(1) : "0.0";
+        return {
+            totalAchieved,
+            totalTarget,
+            totalAchievementPercentage
+        };
+    }, [displayedRankings]);
+
     const toggleCentreSelection = (centreId) => {
         setSelectedCentres(prev =>
             prev.includes(centreId) ? prev.filter(id => id !== centreId) : [...prev, centreId]
@@ -219,12 +230,13 @@ const CentreRank = () => {
     };
 
     const handleExport = () => {
-        if (!rankings || rankings.length === 0) {
+        const dataToExport = displayedRankings.length > 0 ? displayedRankings : rankings;
+        if (!dataToExport || dataToExport.length === 0) {
             toast.warn("No data to export");
             return;
         }
 
-        const exportData = rankings.map(r => ({
+        const exportData = dataToExport.map(r => ({
             "Rank": r.rank,
             "Center": r.centreName,
             "Achievement %": `${r.achievementPercentage}%`,
@@ -234,6 +246,17 @@ const CentreRank = () => {
             "Last Month Rank": r.lastMonthRank,
             "Best Achievement %": `${r.bestAchievementPercentage}%`
         }));
+
+        exportData.push({
+            "Rank": "TOTAL",
+            "Center": `ALL CENTRES (${dataToExport.length})`,
+            "Achievement %": `${totals.totalAchievementPercentage}%`,
+            "Achieved Amount (₹)": Math.round(totals.totalAchieved).toLocaleString("en-IN"),
+            "Target Amount (₹)": Math.round(totals.totalTarget).toLocaleString("en-IN"),
+            "Last Month %": "-",
+            "Last Month Rank": "-",
+            "Best Achievement %": "-"
+        });
 
         const workbook = XLSX.utils.book_new();
         const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -470,8 +493,67 @@ const CentreRank = () => {
                                     ))
                                 )}
                             </tbody>
+                            {!loading && displayedRankings.length > 0 && (
+                                <tfoot className={`border-t-2 ${isDarkMode ? 'bg-[#14181c] border-gray-700 text-white' : 'bg-gray-100/90 border-gray-300 text-gray-900'}`}>
+                                    <tr className="font-black">
+                                        <td className={`px-6 py-5 font-black text-sm uppercase tracking-widest ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                            TOTAL
+                                        </td>
+                                        <td className={`px-6 py-5 font-black uppercase tracking-wider text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                            ALL CENTRES ({displayedRankings.length})
+                                        </td>
+                                        <td className={`px-6 py-5 font-black text-xl text-center ${parseFloat(totals.totalAchievementPercentage) > 50 ? "text-green-500" : "text-blue-500"}`}>
+                                            {totals.totalAchievementPercentage}%
+                                        </td>
+                                        <td className="px-6 py-5 text-right">
+                                            <div className="inline-flex flex-col items-end">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Achieved:</span>
+                                                    <span className={`font-black text-base ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>
+                                                        ₹{Math.round(totals.totalAchieved).toLocaleString("en-IN")}
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 mt-0.5">
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Total Target:</span>
+                                                    <span className={`text-xs font-black uppercase tracking-wider ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                                                        ₹{Math.round(totals.totalTarget).toLocaleString("en-IN")}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td className="px-6 py-5 text-center text-gray-500 font-bold">—</td>
+                                        <td className="px-6 py-5 text-center text-gray-500 font-bold">—</td>
+                                        <td className="px-6 py-5 text-right text-gray-500 font-bold">—</td>
+                                    </tr>
+                                </tfoot>
+                            )}
                         </table>
                     </div>
+                    {!loading && displayedRankings.length > 0 && (
+                        <div className={`px-6 py-4 border-t flex flex-wrap items-center justify-between gap-4 text-xs font-bold ${isDarkMode ? 'bg-[#15191d] border-gray-800 text-gray-300' : 'bg-gray-50 border-gray-200 text-gray-600'}`}>
+                            <div className="flex items-center gap-6 flex-wrap">
+                                <div>
+                                    <span className="text-gray-400 uppercase tracking-wider text-[10px]">Total Centres: </span>
+                                    <span className={`font-black ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{displayedRankings.length}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400 uppercase tracking-wider text-[10px]">Total Target: </span>
+                                    <span className="font-black text-blue-500">₹{Math.round(totals.totalTarget).toLocaleString("en-IN")}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400 uppercase tracking-wider text-[10px]">Total Achieved: </span>
+                                    <span className={`font-black ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>₹{Math.round(totals.totalAchieved).toLocaleString("en-IN")}</span>
+                                </div>
+                                <div>
+                                    <span className="text-gray-400 uppercase tracking-wider text-[10px]">Overall Achievement: </span>
+                                    <span className={`font-black ${parseFloat(totals.totalAchievementPercentage) > 50 ? "text-green-500" : "text-blue-500"}`}>{totals.totalAchievementPercentage}%</span>
+                                </div>
+                            </div>
+                            <div className={`text-[11px] font-semibold uppercase tracking-wider ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                Performance Summary
+                            </div>
+                        </div>
+                    )}
                 </div>
             </div>
         </Layout>
