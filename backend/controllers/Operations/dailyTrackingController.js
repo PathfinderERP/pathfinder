@@ -366,20 +366,31 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
         }
     ]);
 
-    // Fetch backlog follow ups (nextFollowUpDate < startDate)
+    // Fetch calls made during dateFilter on leads that have previous follow-up history (at least one follow-up before startDate)
     const previousFollowUps = await LeadManagement.aggregate([
         {
             $match: {
                 centre: { $in: actualCenterIds },
-                nextFollowUpDate: { $lt: startDate },
-                leadResponsibility: { $exists: true, $ne: null }
+                followUps: {
+                    $all: [
+                        { $elemMatch: { date: dateFilter } },
+                        { $elemMatch: { date: { $lt: startDate, $type: "date" } } }
+                    ]
+                }
+            }
+        },
+        { $unwind: "$followUps" },
+        {
+            $match: {
+                "followUps.date": dateFilter,
+                ...(isRestrictIndividual && reqUser ? { "followUps.updatedBy": reqUser.name } : {})
             }
         },
         {
             $group: {
                 _id: {
                     centre: "$centre",
-                    userName: { $toLower: "$leadResponsibility" }
+                    userName: { $toLower: { $trim: { input: { $ifNull: ["$followUps.updatedBy", ""] } } } }
                 },
                 count: { $sum: 1 }
             }
@@ -3687,8 +3698,6 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
                 "Cold Leads": item.cold,
                 "Neutral Leads": item.neutral,
                 "Inactive/Invalid Leads": item.invalid,
-                "Todays Follow Up": item.todaysFollowUp,
-                "Previous Follow Up": item.previousFollowUp,
                 "Walk Ins": item.walkInCount,
                 "Admissions": item.admissionCount,
                 "Service Calls": item.serviceCalls || 0,
@@ -4050,15 +4059,22 @@ export const getDailyUserPreviousFollowUps = async (req, res) => {
         const { fromDate, toDate, centerId } = req.query;
 
         const { start: startDate, end: endDate } = parseDateRangeIST(fromDate, toDate);
+        const dateFilter = { $gte: startDate, $lte: endDate };
 
         const user = await User.findById(userId).select('name').lean();
         if (!user) {
             return res.status(404).json({ message: "User not found" });
         }
 
+        const userNameLower = (user.name || '').toLowerCase().trim();
+
         const query = {
-            leadResponsibility: user.name,
-            nextFollowUpDate: { $lt: startDate }
+            followUps: {
+                $all: [
+                    { $elemMatch: { date: dateFilter, updatedBy: new RegExp(`^${(user.name || '').trim()}$`, 'i') } },
+                    { $elemMatch: { date: { $lt: startDate, $type: "date" } } }
+                ]
+            }
         };
         if (centerId) {
             query.centre = centerId;
@@ -4071,18 +4087,36 @@ export const getDailyUserPreviousFollowUps = async (req, res) => {
             .populate('centre')
             .lean();
 
-        const data = leads.map(lead => ({
-            leadId: lead._id,
-            studentName: lead.name,
-            phoneNumber: lead.phoneNumber || '-',
-            className: lead.className?.name || '-',
-            boardName: lead.board?.boardName || '-',
-            schoolName: lead.schoolName || '-',
-            courseName: lead.course?.courseName || lead.courseText || '-',
-            leadType: lead.leadType || 'UNTAGGED',
-            remarks: lead.remarks || '',
-            date: lead.nextFollowUpDate || lead.createdAt
-        }));
+        const data = [];
+        leads.forEach(lead => {
+            const hasPriorFollowUp = (lead.followUps || []).some(f => f.date && new Date(f.date) < startDate);
+
+            if (hasPriorFollowUp) {
+                const matchingFollowups = (lead.followUps || []).filter(fu => {
+                    const fuDate = new Date(fu.date);
+                    const isDateMatch = fuDate >= startDate && fuDate <= endDate;
+                    const isUserMatch = (fu.updatedBy || '').toLowerCase().trim() === userNameLower;
+                    return isDateMatch && isUserMatch;
+                });
+
+                matchingFollowups.forEach(fu => {
+                    data.push({
+                        leadId: lead._id,
+                        studentName: lead.name,
+                        phoneNumber: lead.phoneNumber || lead.secondPhoneNumber || '-',
+                        className: lead.className?.name || '-',
+                        boardName: lead.board?.boardName || '-',
+                        schoolName: lead.schoolName || '-',
+                        courseName: lead.course?.courseName || lead.courseText || '-',
+                        leadType: fu.status || lead.leadType || 'UNTAGGED',
+                        remarks: fu.remarks || fu.feedback || '',
+                        date: fu.date
+                    });
+                });
+            }
+        });
+
+        data.sort((a, b) => new Date(b.date) - new Date(a.date));
 
         res.status(200).json(data);
     } catch (error) {
