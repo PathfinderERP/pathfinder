@@ -1,6 +1,7 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import XLSX from "xlsx";
 import mongoose from "mongoose";
+import { resolveAgentIdentifier, escapeRegex } from "../../utils/leadQueryHelper.js";
 
 export const exportTelecallerLogs = async (req, res) => {
     try {
@@ -49,10 +50,11 @@ export const exportTelecallerLogs = async (req, res) => {
             return { $expr: match };
         };
 
-        const timeMatch = buildTimeMatch();
+        const resolved = await resolveAgentIdentifier(telecallerName, req.user);
+        const matchCondition = resolved?.leadMatch || { leadResponsibility: { $regex: new RegExp(`^${escapeRegex(telecallerName)}$`, "i") } };
 
         const logs = await LeadManagement.aggregate([
-            { $match: { leadResponsibility: { $regex: new RegExp(`^${telecallerName}$`, "i") } } },
+            { $match: matchCondition },
             { $unwind: "$followUps" },
             {
                 $match: {

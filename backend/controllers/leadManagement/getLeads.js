@@ -12,6 +12,8 @@ import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import BoardCourseCounselling from "../../models/Admission/BoardCourseCounselling.js";
+import Campaign from "../../models/Campaign.js";
+import Class from "../../models/Master_data/Class.js";
 
 
 

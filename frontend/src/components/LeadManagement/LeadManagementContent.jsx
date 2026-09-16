@@ -442,7 +442,7 @@ const LeadManagementContent = () => {
                     return {
                         ...u,
                         displayName,
-                        value: isDuplicate ? displayName : u.name
+                        value: u._id || u.name
                     };
                 });
 
@@ -453,7 +453,7 @@ const LeadManagementContent = () => {
                 // If current user exists and is NOT a superAdmin, auto-select them in filters
                 // Managerial roles shouldn't be auto-filtered to themselves
                 const isManagerial = ['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge', 'digital', 'marketing', 'areamanager', 'coordinator'].includes(currentUser.role?.toLowerCase()?.replace(/\s+/g, ''));
-                const currentLeadUser = formattedUsers.find(t => t.name === currentUser.name);
+                const currentLeadUser = formattedUsers.find(t => (t._id && currentUser._id && t._id.toString() === currentUser._id.toString()) || t.name === currentUser.name);
                 if (currentLeadUser && !isManagerial) {
                     setFilters(prev => ({
                         ...prev,
@@ -638,10 +638,11 @@ const LeadManagementContent = () => {
         let modalTitle = '';
         let modalData = [];
         if (statusValue === 'contacted') {
-            modalTitle = `Contacted Leads - Follow Up Till Date (${followUpStats.totalFollowUps})`;
-            modalData = followUpStats.recentActivity || [];
+            const count = leadStats.contactedCount ?? followUpStats.totalFollowUps ?? 0;
+            modalTitle = `Contacted Leads (${count})`;
+            modalData = (followUpStats.contactedList && followUpStats.contactedList.length > 0) ? followUpStats.contactedList : (followUpStats.recentActivity || []);
         } else if (statusValue === 'remaining') {
-            modalTitle = `Uncontacted Leads (${leadStats.remainingCount})`;
+            modalTitle = `Uncontacted Leads (${leadStats.remainingCount || 0})`;
             modalData = followUpStats.remainingList || [];
         } else if (statusValue === 'walkin') {
             modalTitle = `Walk-In Leads (${leadStats.walkInCount || 0})`;
@@ -1545,7 +1546,7 @@ const LeadManagementContent = () => {
                             <div className="flex justify-between items-start relative z-10">
                                 <div>
                                     <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>Contacted Leads</p>
-                                    <h3 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{followUpStats.totalFollowUps}</h3>
+                                    <h3 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.contactedCount ?? followUpStats.totalFollowUps ?? 0}</h3>
                                 </div>
                                 <div className={`p-2 rounded-[2px] bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]`}>
                                     <FaCheckCircle size={12} />

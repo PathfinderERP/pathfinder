@@ -38,38 +38,93 @@ const normalizeValue = (val) => {
 };
 
 /**
+ * Safely escapes regex special characters
+ */
+export const escapeRegex = (str) => {
+    return String(str || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+};
+
+/**
+ * Splits comma-separated strings without breaking commas located inside parentheses
+ * (e.g. "Priyanka Das (DUMDUM, SHYAMBAZAR)" is kept intact, whereas "A, B" is split)
+ */
+export const splitCommasOutsideParens = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) {
+        return val.flatMap(v => splitCommasOutsideParens(v));
+    }
+    if (typeof val === 'object' && val.value !== undefined) {
+        val = val.value;
+    }
+    if (typeof val !== 'string') return [val];
+
+    const result = [];
+    let current = '';
+    let depth = 0;
+    for (let i = 0; i < val.length; i++) {
+        const char = val[i];
+        if (char === '(') depth++;
+        else if (char === ')') depth = Math.max(0, depth - 1);
+
+        if (char === ',' && depth === 0) {
+            if (current.trim()) result.push(current.trim());
+            current = '';
+        } else {
+            current += char;
+        }
+    }
+    if (current.trim()) result.push(current.trim());
+    return result;
+};
+
+/**
  * Resolves an agent identifier (which could be an ObjectId, a string like "Name (Centre Name)", or just a name string)
  * into matching conditions for LeadManagement queries.
  */
 export const resolveAgentIdentifier = async (val, currentUser = null) => {
     if (!val) return null;
-    
+    if (typeof val === 'object' && val.value !== undefined) {
+        val = val.value;
+    }
+    if (!val) return null;
+
     let user = null;
-    
+    const strVal = String(val).trim();
+
     // 1. Check if ObjectId
-    if (mongoose.Types.ObjectId.isValid(val)) {
+    if (val instanceof mongoose.Types.ObjectId || (/^[0-9a-fA-F]{24}$/.test(strVal) && mongoose.Types.ObjectId.isValid(strVal))) {
         user = await User.findById(val).populate('centres');
     }
-    
-    // 2. Check if "Name (Centre Name)" format
-    if (!user && typeof val === 'string') {
-        const match = val.match(/^(.+?)\s*\((.+?)\)$/);
+
+    // 2. Check if "Name (Centre Name(s))" format
+    if (!user && typeof strVal === 'string') {
+        const match = strVal.match(/^(.+?)\s*\((.+?)\)$/);
         if (match) {
             const userName = match[1].trim();
-            const centreName = match[2].trim();
-            const centreDoc = await CentreSchema.findOne({ centreName: { $regex: new RegExp(`^${centreName}$`, "i") } });
-            if (centreDoc) {
-                user = await User.findOne({
-                    name: { $regex: new RegExp(`^${userName}$`, "i") },
-                    centres: centreDoc._id,
-                    isActive: true
-                }).populate('centres');
+            const centrePart = match[2].trim();
+            const centreTokens = centrePart.split(/[,/]/).map(s => s.trim().toLowerCase()).filter(Boolean);
+
+            const candidates = await User.find({
+                name: { $regex: new RegExp(`^${escapeRegex(userName)}$`, "i") },
+                isActive: true
+            }).populate('centres');
+
+            if (candidates.length === 1) {
+                user = candidates[0];
+            } else if (candidates.length > 1) {
+                const matchedCandidate = candidates.find(cand => {
+                    const candCentres = (cand.centres || []).map(c => (c.centreName || c.name || "").trim().toLowerCase());
+                    return candCentres.some(cName =>
+                        centreTokens.some(tok => cName.includes(tok) || tok.includes(cName))
+                    );
+                });
+                user = matchedCandidate || candidates[0];
             }
         }
     }
-    
+
     // 3. Fallback: Treat as plain name string
-    if (!user && typeof val === 'string') {
+    if (!user && typeof strVal === 'string') {
         let currentDbUser = null;
         if (currentUser) {
             if (typeof currentUser.populate === 'function') {
@@ -79,23 +134,23 @@ export const resolveAgentIdentifier = async (val, currentUser = null) => {
             }
         }
 
-        if (currentDbUser && currentDbUser.name && currentDbUser.name.toLowerCase().trim() === val.toLowerCase().trim()) {
+        if (currentDbUser && currentDbUser.name && currentDbUser.name.toLowerCase().trim() === strVal.toLowerCase().trim()) {
             user = currentDbUser;
             if (user && typeof user.populate === 'function' && (!user.populated || !user.populated('centres'))) {
                 await user.populate('centres');
             }
         } else {
             const matchingUsers = await User.find({
-                name: { $regex: new RegExp(`^${val}$`, "i") },
+                name: { $regex: new RegExp(`^${escapeRegex(strVal)}$`, "i") },
                 isActive: true
             }).populate('centres');
-            
+
             if (matchingUsers.length > 0) {
                 if (matchingUsers.length === 1) {
                     user = matchingUsers[0];
                 } else if (currentUser) {
                     const currentUserCentreIds = (currentUser.centres || []).map(c => (c._id || c).toString());
-                    const sharedCenterUser = matchingUsers.find(u => 
+                    const sharedCenterUser = matchingUsers.find(u =>
                         (u.centres || []).some(c => currentUserCentreIds.includes((c._id || c).toString()))
                     );
                     user = sharedCenterUser || matchingUsers[0];
@@ -105,33 +160,33 @@ export const resolveAgentIdentifier = async (val, currentUser = null) => {
             }
         }
     }
-    
+
     if (user) {
-        const escapedName = user.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedName = escapeRegex(user.name);
         const centreIds = (user.centres || []).map(c => c._id || c);
-        
+
         // Check if there are other active users with this name
         const duplicateUsers = await User.find({
             name: { $regex: new RegExp(`^${escapedName}$`, "i") },
             isActive: true
         });
-        
+
         const isDuplicateName = duplicateUsers.length > 1;
         const nameRegex = new RegExp(`^${escapedName}(?:\\s*\\(.*\\))?$`, "i");
-        
+
         const leadMatch = {
             leadResponsibility: { $regex: nameRegex }
         };
-        
+
         const followUpMatch = {
             "followUps.updatedBy": { $regex: nameRegex }
         };
-        
+
         if (isDuplicateName && centreIds.length > 0) {
             leadMatch.centre = { $in: centreIds };
-            followUpMatch.centre = { $in: centreIds }; 
+            followUpMatch.centre = { $in: centreIds };
         }
-        
+
         return {
             user,
             name: user.name,
@@ -141,12 +196,12 @@ export const resolveAgentIdentifier = async (val, currentUser = null) => {
             followUpMatch
         };
     }
-    
+
     // If not found in User collection (e.g. legacy/unknown data), return direct name match regex
-    const escapedVal = String(val).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const escapedVal = escapeRegex(strVal);
     const nameRegex = new RegExp(`^${escapedVal}(?:\\s*\\(.*\\))?$`, "i");
     return {
-        name: String(val),
+        name: strVal,
         centreIds: [],
         isDuplicateName: false,
         leadMatch: {
@@ -157,6 +212,7 @@ export const resolveAgentIdentifier = async (val, currentUser = null) => {
         }
     };
 };
+
 
 export const buildLeadQuery = async (queryParams, user) => {
     const { 
@@ -344,15 +400,20 @@ export const buildLeadQuery = async (queryParams, user) => {
 
     // Responsibility filter (Telecaller names / IDs / unique display names)
     if (leadResponsibility && (!Array.isArray(leadResponsibility) || leadResponsibility.length > 0)) {
-        const raw = Array.isArray(leadResponsibility) ? leadResponsibility : (typeof leadResponsibility === 'string' && leadResponsibility.includes(',') ? leadResponsibility.split(',') : [leadResponsibility]);
+        const raw = splitCommasOutsideParens(leadResponsibility);
         const values = raw.map(v => normalizeValue(v)).filter(Boolean);
         const cleanValues = values.filter(v => v);
         if (cleanValues.length > 0) {
             const orConditions = [];
             for (const val of cleanValues) {
                 const resolved = await resolveAgentIdentifier(val, user);
-                if (resolved && resolved.leadMatch) {
-                    orConditions.push(resolved.leadMatch);
+                if (resolved) {
+                    if (resolved.leadMatch) {
+                        orConditions.push(resolved.leadMatch);
+                    }
+                    if (resolved.followUpMatch) {
+                        orConditions.push(resolved.followUpMatch);
+                    }
                 }
             }
             if (orConditions.length > 0) {
@@ -396,7 +457,7 @@ export const buildLeadQuery = async (queryParams, user) => {
     const isSuperAdmin = ['superadmin', 'super admin', 'digital'].includes(userRole);
 
     if (!isSuperAdmin) {
-        const userDoc = await User.findById(user.id).select('centres role name');
+        const userDoc = await User.findById(user?.id || user?._id).select('centres role name');
         if (!userDoc) throw new Error("User not found during query building");
 
         const userCentreIds = userDoc.centres || [];
@@ -432,11 +493,12 @@ export const buildLeadQuery = async (queryParams, user) => {
 
         // Handle Telecaller self-filtering logic
         if (query.leadResponsibility && !isPrivileged) {
-            const filterNames = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
+            const filterNames = splitCommasOutsideParens(leadResponsibility);
             const isFilteringSelf = filterNames.some(n => {
-                const normalizedFilter = (typeof n === 'object' ? n.value : n)?.toLowerCase()?.trim() || "";
+                const normalizedFilter = (typeof n === 'object' ? n.value : n)?.toString()?.toLowerCase()?.trim() || "";
                 const normalizedUser = userDoc.name?.toLowerCase()?.trim() || "";
-                return normalizedFilter === normalizedUser || normalizedFilter.includes(normalizedUser);
+                const userDocId = userDoc._id?.toString();
+                return normalizedFilter === normalizedUser || normalizedFilter === userDocId || normalizedFilter.includes(normalizedUser);
             });
             
             if (isFilteringSelf) {

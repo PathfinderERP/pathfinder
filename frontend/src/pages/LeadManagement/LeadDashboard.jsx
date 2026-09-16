@@ -100,7 +100,7 @@ const LeadDashboard = () => {
                     return {
                         ...u,
                         displayName,
-                        value: isDuplicate ? displayName : u.name
+                        value: u._id || u.name
                     };
                 });
 

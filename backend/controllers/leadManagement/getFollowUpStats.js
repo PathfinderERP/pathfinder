@@ -1,6 +1,6 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import User from "../../models/User.js";
-import { resolveAgentIdentifier, buildLeadQuery } from "../../utils/leadQueryHelper.js";
+import { resolveAgentIdentifier, buildLeadQuery, splitCommasOutsideParens } from "../../utils/leadQueryHelper.js";
 import mongoose from "mongoose";
 
 export const getFollowUpStats = async (req, res) => {
@@ -12,16 +12,15 @@ export const getFollowUpStats = async (req, res) => {
         const followUpUserQuery = { $or: [] };
 
         if (leadResponsibility) {
-            const rawIdentifiers = Array.isArray(leadResponsibility) ? leadResponsibility : [leadResponsibility];
-            const identifiers = rawIdentifiers.flatMap(val => typeof val === 'string' && val.includes(',') ? val.split(',') : [val]).filter(Boolean);
+            const identifiers = splitCommasOutsideParens(leadResponsibility).filter(Boolean);
             for (const val of identifiers) {
                 const resolved = await resolveAgentIdentifier(val, req.user);
                 if (resolved) {
                     if (resolved.leadMatch) {
                         leadResponsibilityQuery.$or.push(resolved.leadMatch);
-                        followUpUserQuery.$or.push(resolved.leadMatch);
                     }
                     if (resolved.followUpMatch) {
+                        leadResponsibilityQuery.$or.push(resolved.followUpMatch);
                         const fMatch = { ...resolved.followUpMatch };
                         if (fMatch["followUps.updatedBy"]) {
                             fMatch["followUp.updatedBy"] = fMatch["followUps.updatedBy"];
@@ -162,7 +161,9 @@ export const getFollowUpStats = async (req, res) => {
                         {
                             $project: {
                                 followUp: "$followUps",
-                                leadType: 1
+                                leadType: 1,
+                                centre: 1,
+                                leadResponsibility: 1
                             }
                         },
                         { $unwind: "$followUp" },
@@ -329,7 +330,7 @@ export const getFollowUpStats = async (req, res) => {
                         }
                     ],
                     "contactedList": [
-                        { $match: { ...baseMatch, followUps: { $exists: true, $not: { $size: 0 } } } },
+                        { $match: { ...leadOwnerMatch, followUps: { $exists: true, $not: { $size: 0 } } } },
                         { $sort: { lastFollowUpDate: -1 } },
                         { $limit: 500 },
                         { $lookup: { from: "classes", localField: "className", foreignField: "_id", as: "classInfo" } },
@@ -360,9 +361,9 @@ export const getFollowUpStats = async (req, res) => {
                     "remainingList": [
                         {
                             $match: {
-                                ...baseMatch,
+                                ...leadOwnerMatch,
                                 $and: [
-                                    ...(baseMatch.$and || []),
+                                    ...(leadOwnerMatch.$and || []),
                                     { $or: [ { followUps: { $size: 0 } }, { followUps: { $exists: false } } ] }
                                 ]
                             }
@@ -396,9 +397,9 @@ export const getFollowUpStats = async (req, res) => {
                     "walkInList": [
                         {
                             $match: {
-                                ...baseMatch,
+                                ...leadOwnerMatch,
                                 $and: [
-                                    ...(baseMatch.$and || []),
+                                    ...(leadOwnerMatch.$and || []),
                                     {
                                         $or: [
                                             { isWalkIn: true },

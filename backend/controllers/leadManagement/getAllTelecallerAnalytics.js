@@ -4,6 +4,7 @@ import Admission from "../../models/Admission/Admission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import Employee from "../../models/HR/Employee.js";
 import mongoose from "mongoose";
+import { resolveAgentIdentifier, escapeRegex } from "../../utils/leadQueryHelper.js";
 
 export const getAllTelecallerAnalytics = async (req, res) => {
     try {
@@ -101,21 +102,21 @@ export const getAllTelecallerAnalytics = async (req, res) => {
         // However, if we are specifically filtering the view by leadResponsibility...
         const specificLeadMatch = { ...baseLeadFilters };
         if (leadResponsibility) {
-            const escapedResp = leadResponsibility.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-            const respRegex = new RegExp(`^${escapedResp}$`, "i");
-            
+            const resolved = await resolveAgentIdentifier(leadResponsibility, user);
+            const leadCond = resolved?.leadMatch || { leadResponsibility: { $regex: new RegExp(`^${escapeRegex(leadResponsibility)}$`, "i") } };
+
             // If the filter is for the current user, we should be inclusive of their created leads
-            if (!isFullAccess && leadResponsibility.toLowerCase().trim() === user.name.toLowerCase().trim()) {
+            if (!isFullAccess && (resolved?.name || leadResponsibility).toLowerCase().trim() === user.name.toLowerCase().trim()) {
                 specificLeadMatch.$or = [
-                    { leadResponsibility: { $regex: respRegex } },
+                    leadCond,
                     { createdBy: user.id || user._id }
                 ];
             } else {
-                specificLeadMatch.leadResponsibility = { $regex: respRegex };
+                Object.assign(specificLeadMatch, leadCond);
             }
         } else if (!isFullAccess && !isPrivileged) {
             // If no specific leadResponsibility is requested and user is non-privileged, restrict to their own leads
-            const escapedName = user.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const escapedName = escapeRegex(user.name);
             const nameRegex = new RegExp(`^${escapedName}(?:\\s*\\(.*\\))?$`, "i");
             specificLeadMatch.$or = [
                 { leadResponsibility: { $regex: nameRegex } },

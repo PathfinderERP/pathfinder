@@ -1,5 +1,5 @@
 import LeadManagement from "../../models/LeadManagement.js";
-import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
+import { buildLeadQuery, splitCommasOutsideParens } from "../../utils/leadQueryHelper.js";
 
 export const getFollowUpLeads = async (req, res) => {
     try {
@@ -12,14 +12,10 @@ export const getFollowUpLeads = async (req, res) => {
             req.query.scheduledDate = req.query.date;
         }
         if (req.query.centre) {
-            req.query.centre = typeof req.query.centre === "string" 
-                ? req.query.centre.split(",").filter(Boolean) 
-                : req.query.centre;
+            req.query.centre = splitCommasOutsideParens(req.query.centre).filter(Boolean);
         }
         if (req.query.telecaller) {
-            req.query.leadResponsibility = typeof req.query.telecaller === "string" 
-                ? req.query.telecaller.split(",").filter(Boolean) 
-                : req.query.telecaller;
+            req.query.leadResponsibility = splitCommasOutsideParens(req.query.telecaller).filter(Boolean);
         }
 
         const query = await buildLeadQuery(req.query, req.user);

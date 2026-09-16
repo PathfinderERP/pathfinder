@@ -122,7 +122,7 @@ export default function ConversionReportPage() {
                     return {
                         ...u,
                         displayName,
-                        value: isDuplicate ? displayName : u.name
+                        value: u._id || u.name
                     };
                 });
                 formattedUsers.sort((a, b) => (a.displayName || "").localeCompare(b.displayName || ""));
