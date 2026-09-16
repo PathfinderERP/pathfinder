@@ -4,7 +4,26 @@ const teacherTrainTimingSchema = new mongoose.Schema({
     teacherId: {
         type: mongoose.Schema.Types.ObjectId,
         ref: "User",
-        required: true
+        required: false
+    },
+    teacherName: {
+        type: String,
+        trim: true,
+        default: ""
+    },
+    sex: {
+        type: String,
+        trim: true,
+        default: "M"
+    },
+    age: {
+        type: Number,
+        default: null
+    },
+    dateOfJourney: {
+        type: String,
+        trim: true,
+        default: ""
     },
     centreId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -13,9 +32,8 @@ const teacherTrainTimingSchema = new mongoose.Schema({
     },
     day: {
         type: String,
-        enum: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday", "All Days"],
         default: "Monday",
-        required: true
+        trim: true
     },
     date: {
         type: Date,
@@ -46,15 +64,30 @@ const teacherTrainTimingSchema = new mongoose.Schema({
         required: true,
         trim: true
     },
+    travelClass: {
+        type: String,
+        trim: true,
+        default: "AC"
+    },
+    boardingStation: {
+        type: String,
+        trim: true,
+        default: ""
+    },
+    phoneNo: {
+        type: String,
+        trim: true,
+        default: ""
+    },
     departureTime: {
         type: String,
-        required: true,
-        trim: true // e.g. "06:15 AM" or "06:15"
+        trim: true,
+        default: "" // e.g. "06:15 AM" or "06:15"
     },
     arrivalTime: {
         type: String,
-        required: true,
-        trim: true // e.g. "07:45 AM" or "07:45"
+        trim: true,
+        default: "" // e.g. "07:45 AM" or "07:45"
     },
     classStartTime: {
         type: String,
@@ -89,6 +122,8 @@ const teacherTrainTimingSchema = new mongoose.Schema({
 // Compound index for fast queries by teacher, centre, and day
 teacherTrainTimingSchema.index({ teacherId: 1, day: 1 });
 teacherTrainTimingSchema.index({ centreId: 1 });
+teacherTrainTimingSchema.index({ dateOfJourney: 1 });
 
 const TeacherTrainTiming = mongoose.model("TeacherTrainTiming", teacherTrainTimingSchema);
 export default TeacherTrainTiming;
+

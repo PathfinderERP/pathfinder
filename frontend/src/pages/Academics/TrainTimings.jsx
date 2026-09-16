@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import Layout from "../../components/Layout";
 import Select from "react-select";
+import * as XLSX from "xlsx";
 import {
   FaTrain,
   FaPlus,
   FaSearch,
   FaEdit,
   FaTrash,
-  FaFilter,
   FaSync,
   FaTimes,
   FaArrowRight,
@@ -15,52 +15,38 @@ import {
   FaUserTie,
   FaCalendarAlt,
   FaMapMarkerAlt,
-  FaInfoCircle,
-  FaExchangeAlt,
-  FaCheckCircle
+  FaPhoneAlt,
+  FaDownload,
+  FaUpload,
+  FaFileExcel,
+  FaCheck,
+  FaTicketAlt
 } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import usePermission from "../../hooks/usePermission";
-import ExcelImportExport from "../../components/common/ExcelImportExport";
 import { useTheme } from "../../context/ThemeContext";
 
 const API_URL = import.meta.env.VITE_API_URL;
 const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+const TRAVEL_CLASSES = ["AC", "SL", "3A", "2A", "1A", "2S", "CC", "EC"];
 
-const exportColumns = [
-  { header: "Teacher Name", key: "teacherName" },
-  { header: "Employee ID", key: "employeeId" },
-  { header: "Subject", key: "subject" },
-  { header: "Centre", key: "centreName" },
-  { header: "Day", key: "day" },
-  { header: "Journey Type", key: "journeyType" },
-  { header: "Train Name", key: "trainName" },
-  { header: "Train Number", key: "trainNumber" },
-  { header: "From Station", key: "fromStation" },
-  { header: "To Station", key: "toStation" },
-  { header: "Departure Time", key: "departureTime" },
-  { header: "Arrival Time", key: "arrivalTime" },
-  { header: "Class Start Time", key: "classStartTime" },
-  { header: "Class End Time", key: "classEndTime" },
-  { header: "Remarks", key: "remarks" }
-];
-
-const importMapping = {
-  "Teacher Name": "teacherName",
-  "Employee ID": "employeeId",
-  "Centre": "centreName",
-  "Day": "day",
-  "Journey Type": "journeyType",
-  "Train Name": "trainName",
-  "Train Number": "trainNumber",
-  "From Station": "fromStation",
-  "To Station": "toStation",
-  "Departure Time": "departureTime",
-  "Arrival Time": "arrivalTime",
-  "Class Start Time": "classStartTime",
-  "Class End Time": "classEndTime",
-  "Remarks": "remarks"
+// Helper to format date from Excel or input
+const formatDateValue = (val) => {
+  if (val === null || val === undefined || val === "") return "";
+  if (typeof val === "number") {
+    // Excel date serial number
+    try {
+      const date = new Date(Math.round((val - 25569) * 86400 * 1000));
+      const d = String(date.getDate()).padStart(2, "0");
+      const m = String(date.getMonth() + 1).padStart(2, "0");
+      const y = String(date.getFullYear()).slice(-2);
+      return `${d}-${m}-${y}`;
+    } catch (e) {
+      return String(val);
+    }
+  }
+  return String(val).trim();
 };
 
 const TrainTimings = () => {
@@ -77,7 +63,6 @@ const TrainTimings = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedDay, setSelectedDay] = useState("");
   const [selectedJourneyType, setSelectedJourneyType] = useState("");
-  const [selectedTeacherId, setSelectedTeacherId] = useState("");
   const [selectedCentreId, setSelectedCentreId] = useState("");
 
   // Pagination states
@@ -90,6 +75,12 @@ const TrainTimings = () => {
   const [editId, setEditId] = useState(null);
   const [deleteConfirmId, setDeleteConfirmId] = useState(null);
 
+  // Import Modal states
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importPreviewData, setImportPreviewData] = useState([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const fileInputRef = useRef(null);
+
   // Permissions
   const canCreate = usePermission("academics", "trainTimings", "create");
   const canEdit = usePermission("academics", "trainTimings", "edit");
@@ -98,23 +89,27 @@ const TrainTimings = () => {
   // Form State
   const initialFormState = {
     teacherId: "",
-    centreId: "",
-    day: "Monday",
-    date: "",
-    trainName: "",
-    trainNumber: "",
-    journeyType: "UP",
+    teacherName: "",
+    sex: "M",
+    age: "",
+    dateOfJourney: "",
     fromStation: "",
     toStation: "",
+    travelClass: "AC",
+    trainName: "",
+    trainNumber: "",
+    boardingStation: "",
+    phoneNo: "",
+    centreId: "",
+    day: "Monday",
+    journeyType: "UP",
     departureTime: "",
     arrivalTime: "",
-    classStartTime: "",
-    classEndTime: "",
     remarks: ""
   };
   const [formData, setFormData] = useState(initialFormState);
 
-  // Fetch initial dropdown data: Teachers & Centres
+  // Fetch dropdown data: Teachers & Centres
   const fetchDropdownData = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
@@ -149,7 +144,6 @@ const TrainTimings = () => {
       const params = new URLSearchParams();
       if (selectedDay) params.append("day", selectedDay);
       if (selectedJourneyType) params.append("journeyType", selectedJourneyType);
-      if (selectedTeacherId) params.append("teacherId", selectedTeacherId);
       if (selectedCentreId) params.append("centreId", selectedCentreId);
       if (searchTerm) params.append("search", searchTerm);
 
@@ -168,7 +162,7 @@ const TrainTimings = () => {
     } finally {
       setLoading(false);
     }
-  }, [selectedDay, selectedJourneyType, selectedTeacherId, selectedCentreId, searchTerm]);
+  }, [selectedDay, selectedJourneyType, selectedCentreId, searchTerm]);
 
   useEffect(() => {
     fetchDropdownData();
@@ -178,12 +172,7 @@ const TrainTimings = () => {
     fetchTimings();
   }, [fetchTimings]);
 
-  // Selected teacher detail lookup for the modal preview
-  const currentSelectedTeacher = useMemo(() => {
-    return teachers.find((t) => t._id === formData.teacherId) || null;
-  }, [teachers, formData.teacherId]);
-
-  // Reset & Open Modal
+  // Handle open create modal
   const handleOpenCreateModal = () => {
     setFormData(initialFormState);
     setIsEditing(false);
@@ -191,21 +180,26 @@ const TrainTimings = () => {
     setShowModal(true);
   };
 
+  // Handle open edit modal
   const handleOpenEditModal = (item) => {
     setFormData({
       teacherId: item.teacherId?._id || item.teacherId || "",
-      centreId: item.centreId?._id || item.centreId || "",
-      day: item.day || "Monday",
-      date: item.date ? item.date.split("T")[0] : "",
-      trainName: item.trainName || "",
-      trainNumber: item.trainNumber || "",
-      journeyType: item.journeyType || "UP",
+      teacherName: item.teacherName || item.teacherId?.name || "",
+      sex: item.sex || "M",
+      age: item.age || "",
+      dateOfJourney: item.dateOfJourney || (item.date ? item.date.split("T")[0] : ""),
       fromStation: item.fromStation || "",
       toStation: item.toStation || "",
+      travelClass: item.travelClass || "AC",
+      trainName: item.trainName || "",
+      trainNumber: item.trainNumber || "",
+      boardingStation: item.boardingStation || "",
+      phoneNo: item.phoneNo || item.teacherId?.mobNum || "",
+      centreId: item.centreId?._id || item.centreId || "",
+      day: item.day || "Monday",
+      journeyType: item.journeyType || "UP",
       departureTime: item.departureTime || "",
       arrivalTime: item.arrivalTime || "",
-      classStartTime: item.classStartTime || "",
-      classEndTime: item.classEndTime || "",
       remarks: item.remarks || ""
     });
     setIsEditing(true);
@@ -213,15 +207,34 @@ const TrainTimings = () => {
     setShowModal(true);
   };
 
-  // Form submit (Create or Update)
+  // Handle teacher select change in modal
+  const handleTeacherSelect = (opt) => {
+    if (opt && opt.teacher) {
+      const t = opt.teacher;
+      setFormData((prev) => ({
+        ...prev,
+        teacherId: t._id,
+        teacherName: t.name,
+        phoneNo: t.mobNum || prev.phoneNo
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        teacherId: "",
+        teacherName: ""
+      }));
+    }
+  };
+
+  // Submit create or edit
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!formData.teacherId) {
-      toast.warning("Please select a teacher");
+    if (!formData.teacherName.trim() && !formData.teacherId) {
+      toast.warning("Teacher or Passenger Name is required");
       return;
     }
-    if (!formData.trainName || !formData.fromStation || !formData.toStation) {
-      toast.warning("Train name, from station, and to station are required");
+    if (!formData.fromStation.trim() || !formData.toStation.trim() || !formData.trainName.trim()) {
+      toast.warning("Train Name, From Station, and To Station are required");
       return;
     }
 
@@ -243,15 +256,15 @@ const TrainTimings = () => {
 
       const data = await res.json();
       if (res.ok) {
-        toast.success(isEditing ? "Train timing updated successfully" : "Train timing allocated successfully");
+        toast.success(isEditing ? "Train schedule updated successfully" : "Train schedule saved successfully");
         setShowModal(false);
         fetchTimings();
       } else {
-        toast.error(data.message || "Failed to save train timing");
+        toast.error(data.message || "Failed to save train schedule");
       }
     } catch (err) {
       console.error("Submit Error:", err);
-      toast.error("Error saving train timing");
+      toast.error("Error saving train schedule");
     }
   };
 
@@ -277,56 +290,285 @@ const TrainTimings = () => {
     }
   };
 
-  // Bulk Import
-  const handleBulkImport = async (importedRecords) => {
+  // ==========================================
+  // EXPORT EXCEL (Matches Requisition Format)
+  // ==========================================
+  const handleExportExcel = () => {
     try {
+      if (timings.length === 0) {
+        toast.warn("No train schedule records to export");
+        return;
+      }
+
+      const rows = [
+        ["PATHFINDER EDUCATIONAL CENTRE"],
+        ["Requisition for  RAILWAY /BUS TICKET"],
+        ["Please Purchase the following Tickets."],
+        [], // empty row
+        ["SL", "NAME", "SEX", "AGE", "DATE OF JOURNEY", "FROM", "TO", "CLASS", "TRAIN NAME", "BORDING STN", "PHONE NO."]
+      ];
+
+      timings.forEach((item, index) => {
+        const sl = index + 1;
+        const name = item.teacherName || item.teacherId?.name || "";
+        const sex = item.sex || "M";
+        const age = item.age || "";
+        const doj = item.dateOfJourney || (item.date ? item.date.split("T")[0] : "");
+        const from = item.fromStation || "";
+        const to = item.toStation || "";
+        const cls = item.travelClass || "AC";
+        const trainName = item.trainNumber && !item.trainName.includes(item.trainNumber)
+          ? `${item.trainNumber}-${item.trainName}`
+          : item.trainName || "";
+        const boarding = item.boardingStation || "";
+        const phone = item.phoneNo || item.teacherId?.mobNum || "";
+
+        rows.push([sl, name, sex, age, doj, from, to, cls, trainName, boarding, phone]);
+      });
+
+      const ws = XLSX.utils.aoa_to_sheet(rows);
+
+      // Merge header title rows across 11 columns
+      ws["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } }
+      ];
+
+      // Set clean column widths
+      ws["!cols"] = [
+        { wch: 6 },  // SL
+        { wch: 25 }, // NAME
+        { wch: 8 },  // SEX
+        { wch: 8 },  // AGE
+        { wch: 18 }, // DATE OF JOURNEY
+        { wch: 18 }, // FROM
+        { wch: 18 }, // TO
+        { wch: 10 }, // CLASS
+        { wch: 28 }, // TRAIN NAME
+        { wch: 18 }, // BORDING STN
+        { wch: 16 }  // PHONE NO.
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Ticket Requisition");
+      const dateStr = new Date().toISOString().split("T")[0];
+      XLSX.writeFile(wb, `Pathfinder_Train_Ticket_Requisition_${dateStr}.xlsx`);
+      toast.success("Excel sheet exported successfully");
+    } catch (err) {
+      console.error("Export error:", err);
+      toast.error("Failed to export Excel file");
+    }
+  };
+
+  // ==========================================
+  // DOWNLOAD TEMPLATE (Matches Requisition Format)
+  // ==========================================
+  const handleDownloadTemplate = () => {
+    try {
+      const templateRows = [
+        ["PATHFINDER EDUCATIONAL CENTRE"],
+        ["Requisition for  RAILWAY /BUS TICKET"],
+        ["Please Purchase the following Tickets."],
+        [],
+        ["SL", "NAME", "SEX", "AGE", "DATE OF JOURNEY", "FROM", "TO", "CLASS", "TRAIN NAME", "BORDING STN", "PHONE NO."],
+        [1, "SUBRATA SARDAR", "M", 32, "03-10-26", "SEALDAH", "MALDA TOWN", "AC", "13189-BALURGHAT EXP.", "BANDEL", "9876543210"],
+        [2, "SABIR ALI", "M", 28, "03-10-26", "SEALDAH", "MALDA TOWN", "AC", "13189-BALURGHAT EXP.", "BANDEL", "9876543211"],
+        [3, "SABIR ALI", "M", 28, "04-10-26", "MALDA TOWN", "SEALDAH", "AC", "13189-BALURGHAT EXP.", "BANDEL", "9876543211"],
+        [4, "SUBRATA SARDAR", "M", 32, "04-10-26", "MALDA TOWN", "SEALDAH", "AC", "13189-BALURGHAT EXP.", "BANDEL", "9876543210"],
+        [5, "SAMUDRA CHATTERJEE", "M", 41, "10-10-26", "SEALDAH", "MALDA TOWN", "AC", "13189-BALURGHAT EXP.", "BANDEL", "9876543212"],
+        [6, "TUSHAR KANTO DEY", "M", 33, "10-10-26", "SEALDAH", "MALDA TOWN", "AC", "13189-BALURGHAT EXP.", "BANDEL", "9876543213"],
+        [7, "TUSHAR KANTO DEY", "M", 33, "11-10-26", "MALDA TOWN", "HOWRAH", "AC", "22302-VANDE BHARAT EXP.", "BANDEL", "9876543213"],
+        [8, "SAMUDRA CHATTERJEE", "M", 41, "11-10-26", "MALDA TOWN", "HOWRAH", "AC", "22302-VANDE BHARAT EXP.", "BANDEL", "9876543212"]
+      ];
+
+      const ws = XLSX.utils.aoa_to_sheet(templateRows);
+      ws["!merges"] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: 10 } },
+        { s: { r: 1, c: 0 }, e: { r: 1, c: 10 } },
+        { s: { r: 2, c: 0 }, e: { r: 2, c: 10 } }
+      ];
+
+      ws["!cols"] = [
+        { wch: 6 },
+        { wch: 25 },
+        { wch: 8 },
+        { wch: 8 },
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 18 },
+        { wch: 10 },
+        { wch: 28 },
+        { wch: 18 },
+        { wch: 16 }
+      ];
+
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Ticket Template");
+      XLSX.writeFile(wb, "Pathfinder_Train_Ticket_Requisition_Template.xlsx");
+      toast.success("Excel template downloaded successfully");
+    } catch (err) {
+      console.error("Template download error:", err);
+      toast.error("Failed to download template");
+    }
+  };
+
+  // ==========================================
+  // IMPORT EXCEL (Smart parser for both formats)
+  // ==========================================
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target.result;
+        const wb = XLSX.read(bstr, { type: "binary" });
+        const wsname = wb.SheetNames[0];
+        const ws = wb.Sheets[wsname];
+
+        // Parse sheet as raw 2D array of cells
+        const rawData = XLSX.utils.sheet_to_json(ws, { header: 1, defval: "" });
+
+        if (!rawData || rawData.length === 0) {
+          toast.error("The selected Excel sheet is empty");
+          return;
+        }
+
+        // Find header row: look for row containing "NAME", "FROM", "TO" or "TRAIN"
+        let headerRowIndex = -1;
+        for (let i = 0; i < Math.min(rawData.length, 10); i++) {
+          const rowStr = rawData[i].map((c) => String(c).toUpperCase().trim()).join(" ");
+          if (
+            (rowStr.includes("NAME") && (rowStr.includes("FROM") || rowStr.includes("TO"))) ||
+            rowStr.includes("TRAIN") ||
+            rowStr.includes("DATE OF JOURNEY")
+          ) {
+            headerRowIndex = i;
+            break;
+          }
+        }
+
+        if (headerRowIndex === -1) {
+          toast.error("Could not find header row. Please use the downloaded template.");
+          return;
+        }
+
+        const headers = rawData[headerRowIndex].map((h) => String(h).toUpperCase().trim());
+
+        // Find column index mappings
+        const getColIdx = (aliases) => {
+          return headers.findIndex((h) => aliases.some((a) => h === a || h.includes(a)));
+        };
+
+        const slIdx = getColIdx(["SL", "S.NO", "NO"]);
+        const nameIdx = getColIdx(["NAME", "TEACHER NAME", "PASSENGER"]);
+        const sexIdx = getColIdx(["SEX", "GENDER"]);
+        const ageIdx = getColIdx(["AGE"]);
+        const dojIdx = getColIdx(["DATE OF JOURNEY", "JOURNEY DATE", "DATE"]);
+        const fromIdx = getColIdx(["FROM", "FROM STATION", "SOURCE"]);
+        const toIdx = getColIdx(["TO", "TO STATION", "DESTINATION"]);
+        const classIdx = getColIdx(["CLASS", "TRAVEL CLASS"]);
+        const trainIdx = getColIdx(["TRAIN NAME", "TRAIN", "TRAIN NO"]);
+        const bordingIdx = getColIdx(["BORDING STN", "BOARDING STN", "BOARDING", "BORDING"]);
+        const phoneIdx = getColIdx(["PHONE NO.", "PHONE NO", "PHONE", "MOBILE", "CONTACT"]);
+
+        const parsedRows = [];
+        for (let r = headerRowIndex + 1; r < rawData.length; r++) {
+          const row = rawData[r];
+          if (!row || row.length === 0) continue;
+
+          const teacherName = nameIdx >= 0 ? String(row[nameIdx] || "").trim() : "";
+          const fromStation = fromIdx >= 0 ? String(row[fromIdx] || "").trim() : "";
+          const toStation = toIdx >= 0 ? String(row[toIdx] || "").trim() : "";
+
+          // Skip empty trailing rows
+          if (!teacherName && !fromStation && !toStation) continue;
+
+          const sl = slIdx >= 0 && row[slIdx] !== "" ? row[slIdx] : parsedRows.length + 1;
+          const sex = sexIdx >= 0 ? String(row[sexIdx] || "M").trim() : "M";
+          const age = ageIdx >= 0 ? row[ageIdx] : "";
+          const dateOfJourney = dojIdx >= 0 ? formatDateValue(row[dojIdx]) : "";
+          const travelClass = classIdx >= 0 ? String(row[classIdx] || "AC").trim() : "AC";
+          const trainName = trainIdx >= 0 ? String(row[trainIdx] || "Express").trim() : "Express";
+          const boardingStation = bordingIdx >= 0 ? String(row[bordingIdx] || "").trim() : "";
+          const phoneNo = phoneIdx >= 0 ? String(row[phoneIdx] || "").trim() : "";
+
+          parsedRows.push({
+            sl,
+            teacherName,
+            sex,
+            age,
+            dateOfJourney,
+            fromStation,
+            toStation,
+            travelClass,
+            trainName,
+            boardingStation,
+            phoneNo
+          });
+        }
+
+        if (parsedRows.length === 0) {
+          toast.warning("No data records found in Excel sheet");
+          return;
+        }
+
+        setImportPreviewData(parsedRows);
+      } catch (err) {
+        console.error("Excel Read Error:", err);
+        toast.error("Failed to read Excel file. Ensure valid format.");
+      }
+    };
+    reader.readAsBinaryString(file);
+  };
+
+  // Confirm and submit bulk import to backend
+  const handleConfirmImport = async () => {
+    if (!importPreviewData || importPreviewData.length === 0) {
+      toast.warning("No records to import");
+      return;
+    }
+
+    try {
+      setIsImporting(true);
       const token = localStorage.getItem("token");
+
       const res = await fetch(`${API_URL}/academics/train-timing/bulk-import`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify(importedRecords)
+        body: JSON.stringify({ timings: importPreviewData })
       });
+
       const data = await res.json();
       if (res.ok) {
-        toast.success(`Import completed! ${data.importedCount} records processed.`);
+        const count = data.importedCount || data.stats?.inserted || importPreviewData.length;
+        toast.success(`Import completed successfully! ${count} records inserted.`);
+        setShowImportModal(false);
+        setImportPreviewData([]);
+        if (fileInputRef.current) fileInputRef.current.value = "";
         fetchTimings();
       } else {
         toast.error(data.message || "Bulk import failed");
       }
     } catch (err) {
-      console.error("Bulk Import Error:", err);
-      toast.error("Error performing bulk import");
+      console.error("Import error:", err);
+      toast.error("Error importing records");
+    } finally {
+      setIsImporting(false);
     }
   };
-
-  // Prepare export data
-  const exportData = useMemo(() => {
-    return timings.map((item) => ({
-      teacherName: item.teacherId?.name || "N/A",
-      employeeId: item.teacherId?.employeeId || "N/A",
-      subject: Array.isArray(item.teacherId?.subject) ? item.teacherId.subject.join(", ") : (item.teacherId?.subject || "N/A"),
-      centreName: item.centreId?.centreName || "N/A",
-      day: item.day || "",
-      journeyType: item.journeyType || "",
-      trainName: item.trainName || "",
-      trainNumber: item.trainNumber || "",
-      fromStation: item.fromStation || "",
-      toStation: item.toStation || "",
-      departureTime: item.departureTime || "",
-      arrivalTime: item.arrivalTime || "",
-      classStartTime: item.classStartTime || "",
-      classEndTime: item.classEndTime || "",
-      remarks: item.remarks || ""
-    }));
-  }, [timings]);
 
   // Summary statistics
   const stats = useMemo(() => {
     const total = timings.length;
-    const uniqueTeachers = new Set(timings.map((t) => t.teacherId?._id || t.teacherId)).size;
+    const uniqueTeachers = new Set(
+      timings.map((t) => (t.teacherName || t.teacherId?.name || "").trim().toLowerCase()).filter(Boolean)
+    ).size;
     const upJourneys = timings.filter((t) => t.journeyType === "UP").length;
     const downJourneys = timings.filter((t) => t.journeyType === "DOWN").length;
     const roundTrips = timings.filter((t) => t.journeyType === "ROUND_TRIP").length;
@@ -342,11 +584,11 @@ const TrainTimings = () => {
     return timings.slice(start, start + itemsPerPage);
   }, [timings, currentPage, itemsPerPage]);
 
-  // React Select Options
+  // React Select Options for Teachers
   const teacherOptions = useMemo(() => {
     return teachers.map((t) => ({
       value: t._id,
-      label: `${t.name} [${t.employeeId || "No ID"}] ${t.subject ? `• ${Array.isArray(t.subject) ? t.subject.join(", ") : t.subject}` : ""}`,
+      label: `${t.name} [${t.employeeId || "No ID"}] ${t.mobNum ? `• ${t.mobNum}` : ""}`,
       teacher: t
     }));
   }, [teachers]);
@@ -397,29 +639,65 @@ const TrainTimings = () => {
               <div>
                 <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Train Timings & Allocation</h1>
                 <p className={`text-sm ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
-                  Allocate and track train travel, routes, and schedules for teachers across centres
+                  Pathfinder Educational Centre — Railway Ticket Requisition & Schedule
                 </p>
               </div>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <ExcelImportExport
-              data={exportData}
-              columns={exportColumns}
-              onImport={handleBulkImport}
-              fileName="Teacher_Train_Timings"
-              templateHeaders={exportColumns.map((c) => c.header)}
-              mapping={importMapping}
-              isDarkMode={isDarkMode}
-            />
+          <div className="flex flex-wrap items-center gap-2.5">
+            {/* Export Button */}
+            <button
+              onClick={handleExportExcel}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-medium text-sm transition-all shadow-sm ${
+                isDarkMode
+                  ? "bg-emerald-600/20 text-emerald-400 border border-emerald-500/30 hover:bg-emerald-600/30"
+                  : "bg-emerald-50 text-emerald-700 border border-emerald-200 hover:bg-emerald-100"
+              }`}
+              title="Export to Requisition Excel format"
+            >
+              <FaDownload className="text-xs" />
+              <span>Export</span>
+            </button>
 
+            {/* Import Button */}
+            <button
+              onClick={() => {
+                setImportPreviewData([]);
+                setShowImportModal(true);
+              }}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-medium text-sm transition-all shadow-sm ${
+                isDarkMode
+                  ? "bg-blue-600/20 text-blue-400 border border-blue-500/30 hover:bg-blue-600/30"
+                  : "bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100"
+              }`}
+              title="Import from Requisition Excel file"
+            >
+              <FaUpload className="text-xs" />
+              <span>Import</span>
+            </button>
+
+            {/* Template Download Button */}
+            <button
+              onClick={handleDownloadTemplate}
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-lg font-medium text-sm transition-all shadow-sm ${
+                isDarkMode
+                  ? "bg-slate-800 text-slate-300 border border-slate-700 hover:bg-slate-700"
+                  : "bg-slate-100 text-slate-700 border border-slate-200 hover:bg-slate-200"
+              }`}
+              title="Download Requisition Excel Template"
+            >
+              <FaFileExcel className="text-emerald-500 text-xs" />
+              <span>Template</span>
+            </button>
+
+            {/* Allocate Train / Add Ticket Button */}
             {canCreate && (
               <button
                 onClick={handleOpenCreateModal}
-                className="flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium shadow-md hover:shadow-lg transition-all"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white rounded-lg font-medium text-sm shadow-md hover:shadow-lg transition-all"
               >
-                <FaPlus className="text-sm" />
+                <FaPlus className="text-xs" />
                 <span>Allocate Train</span>
               </button>
             )}
@@ -437,7 +715,7 @@ const TrainTimings = () => {
                 <h3 className="text-2xl font-bold mt-1 text-blue-500">{stats.total}</h3>
               </div>
               <div className="p-3 rounded-lg bg-blue-500/10 text-blue-500">
-                <FaTrain className="text-xl" />
+                <FaTicketAlt className="text-xl" />
               </div>
             </div>
             <p className="text-xs text-slate-400 mt-2">Active journey records scheduled</p>
@@ -473,7 +751,7 @@ const TrainTimings = () => {
                 </div>
               </div>
               <div className="p-3 rounded-lg bg-purple-500/10 text-purple-400">
-                <FaExchangeAlt className="text-xl" />
+                <FaTrain className="text-xl" />
               </div>
             </div>
             <p className="text-xs text-slate-400 mt-2">Distribution by journey type</p>
@@ -505,9 +783,11 @@ const TrainTimings = () => {
                 type="text"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="Search teacher, employee ID, train, station..."
+                placeholder="Search teacher, train, station, phone..."
                 className={`w-full pl-9 pr-4 py-2 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                  isDarkMode ? "bg-slate-800/80 border-slate-700 text-white placeholder-slate-500" : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400"
+                  isDarkMode
+                    ? "bg-slate-800/80 border-slate-700 text-white placeholder-slate-500"
+                    : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400"
                 }`}
               />
               {searchTerm && (
@@ -572,15 +852,14 @@ const TrainTimings = () => {
               </select>
             </div>
 
-            {/* Action buttons */}
+            {/* Reset & Refresh */}
             <div className="md:col-span-2 flex items-center gap-2 justify-end">
-              {(searchTerm || selectedDay || selectedJourneyType || selectedTeacherId || selectedCentreId) && (
+              {(searchTerm || selectedDay || selectedJourneyType || selectedCentreId) && (
                 <button
                   onClick={() => {
                     setSearchTerm("");
                     setSelectedDay("");
                     setSelectedJourneyType("");
-                    setSelectedTeacherId("");
                     setSelectedCentreId("");
                   }}
                   className={`px-3 py-2 text-sm rounded-lg border flex items-center gap-1.5 transition-colors ${
@@ -605,26 +884,30 @@ const TrainTimings = () => {
           </div>
         </div>
 
-        {/* Timings Table */}
+        {/* Timings Table Matching Format */}
         <div className={`rounded-xl border overflow-hidden shadow-sm ${isDarkMode ? "bg-slate-900/50 border-slate-800" : "bg-white border-slate-200"}`}>
           <div className="overflow-x-auto">
             <table className="w-full text-left border-collapse text-sm">
               <thead>
                 <tr className={`border-b ${isDarkMode ? "bg-slate-800/60 border-slate-800 text-slate-300" : "bg-slate-100/70 border-slate-200 text-slate-700"}`}>
-                  <th className="py-3 px-4 font-semibold">Teacher Details</th>
-                  <th className="py-3 px-4 font-semibold">Day & Journey</th>
-                  <th className="py-3 px-4 font-semibold">Train Information</th>
-                  <th className="py-3 px-4 font-semibold">Route & Stations</th>
-                  <th className="py-3 px-4 font-semibold">Timings</th>
-                  <th className="py-3 px-4 font-semibold">Centre</th>
-                  <th className="py-3 px-4 font-semibold">Remarks</th>
+                  <th className="py-3 px-3 font-semibold text-center w-12">SL</th>
+                  <th className="py-3 px-4 font-semibold">NAME</th>
+                  <th className="py-3 px-3 font-semibold text-center">SEX</th>
+                  <th className="py-3 px-3 font-semibold text-center">AGE</th>
+                  <th className="py-3 px-4 font-semibold">DATE OF JOURNEY</th>
+                  <th className="py-3 px-4 font-semibold">FROM</th>
+                  <th className="py-3 px-4 font-semibold">TO</th>
+                  <th className="py-3 px-3 font-semibold text-center">CLASS</th>
+                  <th className="py-3 px-4 font-semibold">TRAIN NAME</th>
+                  <th className="py-3 px-4 font-semibold">BORDING STN</th>
+                  <th className="py-3 px-4 font-semibold">PHONE NO.</th>
                   <th className="py-3 px-4 font-semibold text-center">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-200 dark:divide-slate-800/60">
                 {loading ? (
                   <tr>
-                    <td colSpan="8" className="py-12 text-center text-slate-400">
+                    <td colSpan="12" className="py-12 text-center text-slate-400">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <FaSync className="animate-spin text-2xl text-blue-500" />
                         <span>Loading train timings...</span>
@@ -633,27 +916,25 @@ const TrainTimings = () => {
                   </tr>
                 ) : paginatedTimings.length === 0 ? (
                   <tr>
-                    <td colSpan="8" className="py-12 text-center text-slate-400">
+                    <td colSpan="12" className="py-12 text-center text-slate-400">
                       <div className="flex flex-col items-center justify-center gap-2">
                         <FaTrain className="text-4xl text-slate-500 mb-1 opacity-50" />
-                        <span className="font-medium text-base text-slate-300">No train timings found</span>
+                        <span className="font-medium text-base text-slate-300">No train timing records found</span>
                         <p className="text-xs text-slate-500">
                           {searchTerm || selectedDay || selectedJourneyType
                             ? "Try adjusting your filter search criteria"
-                            : "Click 'Allocate Train' above to assign train timings for a teacher"}
+                            : "Click 'Allocate Train' or 'Import' above to add train ticket requisitions"}
                         </p>
                       </div>
                     </td>
                   </tr>
                 ) : (
-                  paginatedTimings.map((item) => {
+                  paginatedTimings.map((item, index) => {
                     const teacher = item.teacherId;
-                    const journeyBadgeColor =
-                      item.journeyType === "UP"
-                        ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/30"
-                        : item.journeyType === "DOWN"
-                        ? "bg-sky-500/15 text-sky-500 border-sky-500/30"
-                        : "bg-purple-500/15 text-purple-500 border-purple-500/30";
+                    const teacherDisplayName = item.teacherName || teacher?.name || "N/A";
+                    const slNumber = (currentPage - 1) * itemsPerPage + index + 1;
+                    const phoneDisplay = item.phoneNo || teacher?.mobNum || "--";
+                    const travelClassDisplay = item.travelClass || "AC";
 
                     return (
                       <tr
@@ -662,111 +943,116 @@ const TrainTimings = () => {
                           isDarkMode ? "hover:bg-slate-800/40" : "hover:bg-slate-50/80"
                         }`}
                       >
-                        {/* Teacher Details */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-3">
-                            <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs uppercase shadow">
-                              {teacher?.name ? teacher.name.charAt(0) : "T"}
+                        {/* SL */}
+                        <td className="py-3 px-3 text-center font-mono text-xs text-slate-400 font-semibold">
+                          {slNumber}
+                        </td>
+
+                        {/* NAME */}
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white font-bold text-xs uppercase shadow shrink-0">
+                              {teacherDisplayName.charAt(0)}
                             </div>
                             <div>
-                              <div className="font-semibold text-sm leading-tight flex items-center gap-2">
-                                <span>{teacher?.name || "Unknown Teacher"}</span>
+                              <div className="font-semibold text-sm leading-tight">
+                                {teacherDisplayName}
                               </div>
-                              <div className="flex items-center gap-2 mt-0.5">
-                                <span className={`text-xs px-2 py-0.5 rounded font-mono font-medium ${
+                              {teacher?.employeeId && (
+                                <span className={`text-[10px] px-1.5 py-0.2 rounded font-mono font-medium ${
                                   isDarkMode ? "bg-slate-800 text-blue-400" : "bg-blue-50 text-blue-600"
                                 }`}>
-                                  ID: {teacher?.employeeId || "N/A"}
+                                  ID: {teacher.employeeId}
                                 </span>
-                                {teacher?.subject && (
-                                  <span className="text-xs text-slate-400">
-                                    • {Array.isArray(teacher.subject) ? teacher.subject.join(", ") : teacher.subject}
-                                  </span>
-                                )}
-                              </div>
+                              )}
                             </div>
                           </div>
                         </td>
 
-                        {/* Day & Journey */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex flex-col gap-1">
-                            <span className="font-medium text-sm flex items-center gap-1.5">
-                              <FaCalendarAlt className="text-xs text-slate-400" />
-                              {item.day || "Any Day"}
-                            </span>
-                            <span className={`inline-flex items-center text-xs font-semibold px-2 py-0.5 rounded-full border w-fit ${journeyBadgeColor}`}>
-                              {item.journeyType}
-                            </span>
-                          </div>
+                        {/* SEX */}
+                        <td className="py-3 px-3 text-center">
+                          <span className={`inline-block px-2 py-0.5 rounded text-xs font-bold ${
+                            item.sex === "F" || item.sex === "Female"
+                              ? "bg-pink-500/15 text-pink-400 border border-pink-500/30"
+                              : "bg-blue-500/15 text-blue-400 border border-blue-500/30"
+                          }`}>
+                            {item.sex === "Female" ? "F" : item.sex === "Male" ? "M" : (item.sex || "M")}
+                          </span>
                         </td>
 
-                        {/* Train Info */}
-                        <td className="py-3.5 px-4">
-                          <div className="font-medium text-sm text-slate-100 flex items-center gap-1.5">
-                            <FaTrain className="text-xs text-blue-400" />
-                            <span>{item.trainName}</span>
-                          </div>
-                          {item.trainNumber && (
-                            <div className="text-xs font-mono text-slate-400 mt-0.5">
-                              No: {item.trainNumber}
-                            </div>
-                          )}
+                        {/* AGE */}
+                        <td className="py-3 px-3 text-center font-mono text-xs text-slate-300">
+                          {item.age || "--"}
                         </td>
 
-                        {/* Route & Stations */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex items-center gap-2 text-sm font-medium">
-                            <span className={isDarkMode ? "text-slate-200" : "text-slate-700"}>
-                              {item.fromStation}
+                        {/* DATE OF JOURNEY */}
+                        <td className="py-3 px-4">
+                          <div className="flex flex-col">
+                            <span className="font-semibold text-xs text-blue-400">
+                              {item.dateOfJourney || (item.date ? item.date.split("T")[0] : "--")}
                             </span>
-                            <FaArrowRight className="text-xs text-blue-500 shrink-0" />
-                            <span className={isDarkMode ? "text-slate-200" : "text-slate-700"}>
-                              {item.toStation}
-                            </span>
-                          </div>
-                        </td>
-
-                        {/* Timings */}
-                        <td className="py-3.5 px-4">
-                          <div className="flex flex-col gap-0.5 text-xs">
-                            <div className="flex items-center gap-1.5 text-slate-300">
-                              <FaClock className="text-amber-400 text-xs" />
-                              <span>Dep: <strong className="font-semibold text-slate-100">{item.departureTime || "--:--"}</strong></span>
-                            </div>
-                            <div className="flex items-center gap-1.5 text-slate-400">
-                              <FaClock className="text-emerald-400 text-xs" />
-                              <span>Arr: <strong className="font-semibold text-slate-200">{item.arrivalTime || "--:--"}</strong></span>
-                            </div>
-                            {(item.classStartTime || item.classEndTime) && (
-                              <div className="text-[11px] text-indigo-400 mt-0.5">
-                                Class: {item.classStartTime || "--"} - {item.classEndTime || "--"}
-                              </div>
+                            {item.day && (
+                              <span className="text-[11px] text-slate-400">
+                                {item.day}
+                              </span>
                             )}
                           </div>
                         </td>
 
-                        {/* Centre */}
-                        <td className="py-3.5 px-4">
-                          {item.centreId?.centreName ? (
-                            <span className={`inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-md font-medium ${
-                              isDarkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-700"
-                            }`}>
-                              <FaMapMarkerAlt className="text-amber-500 text-xs" />
-                              {item.centreId.centreName}
+                        {/* FROM */}
+                        <td className="py-3 px-4 font-medium text-xs uppercase tracking-wide">
+                          {item.fromStation || "--"}
+                        </td>
+
+                        {/* TO */}
+                        <td className="py-3 px-4 font-medium text-xs uppercase tracking-wide">
+                          {item.toStation || "--"}
+                        </td>
+
+                        {/* CLASS */}
+                        <td className="py-3 px-3 text-center">
+                          <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-amber-500/15 text-amber-400 border border-amber-500/30 uppercase">
+                            {travelClassDisplay}
+                          </span>
+                        </td>
+
+                        {/* TRAIN NAME */}
+                        <td className="py-3 px-4">
+                          <div className="font-medium text-xs flex items-center gap-1.5 text-slate-200">
+                            <FaTrain className="text-blue-400 text-[11px] shrink-0" />
+                            <span>
+                              {item.trainNumber && !item.trainName.includes(item.trainNumber)
+                                ? `${item.trainNumber}-${item.trainName}`
+                                : item.trainName}
                             </span>
-                          ) : (
-                            <span className="text-xs text-slate-500">Not Specified</span>
+                          </div>
+                          {(item.departureTime || item.arrivalTime) && (
+                            <div className="text-[10px] text-slate-400 mt-0.5 flex items-center gap-1">
+                              <FaClock className="text-[9px]" />
+                              <span>{item.departureTime || "--"} → {item.arrivalTime || "--"}</span>
+                            </div>
                           )}
                         </td>
 
-                        {/* Remarks */}
-                        <td className="py-3.5 px-4 max-w-[150px] truncate text-xs text-slate-400">
-                          {item.remarks || "--"}
+                        {/* BORDING STN */}
+                        <td className="py-3 px-4 font-medium text-xs uppercase tracking-wide">
+                          {item.boardingStation || "--"}
+                        </td>
+
+                        {/* PHONE NO. */}
+                        <td className="py-3 px-4 text-xs font-mono text-slate-300">
+                          {phoneDisplay !== "--" ? (
+                            <span className="flex items-center gap-1.5">
+                              <FaPhoneAlt className="text-[10px] text-emerald-400 shrink-0" />
+                              {phoneDisplay}
+                            </span>
+                          ) : (
+                            "--"
+                          )}
                         </td>
 
                         {/* Actions */}
-                        <td className="py-3.5 px-4 text-center">
+                        <td className="py-3 px-4 text-center">
                           <div className="flex items-center justify-center gap-2">
                             {canEdit && (
                               <button
@@ -774,7 +1060,7 @@ const TrainTimings = () => {
                                 className={`p-1.5 rounded hover:scale-110 transition-transform ${
                                   isDarkMode ? "text-blue-400 hover:bg-blue-500/20" : "text-blue-600 hover:bg-blue-50"
                                 }`}
-                                title="Edit Allocation"
+                                title="Edit Requisition"
                               >
                                 <FaEdit className="text-sm" />
                               </button>
@@ -846,7 +1132,9 @@ const TrainTimings = () => {
           )}
         </div>
 
-        {/* Modal: Allocate / Edit Train Timing */}
+        {/* ========================================== */}
+        {/* MODAL: ALLOCATE / EDIT TRAIN TICKET        */}
+        {/* ========================================== */}
         {showModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm overflow-y-auto">
             <div className={`w-full max-w-2xl rounded-2xl border shadow-2xl overflow-hidden my-8 ${
@@ -860,10 +1148,10 @@ const TrainTimings = () => {
                   </div>
                   <div>
                     <h3 className="text-lg font-bold">
-                      {isEditing ? "Edit Train Allocation" : "Allocate Train Timing to Teacher"}
+                      {isEditing ? "Edit Train Allocation / Ticket" : "Allocate Train Ticket Requisition"}
                     </h3>
                     <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
-                      Select the teacher and specify the train number, stations, and timings
+                      Fill in teacher details, stations, train name, travel class, and journey date
                     </p>
                   </div>
                 </div>
@@ -877,77 +1165,133 @@ const TrainTimings = () => {
 
               {/* Modal Body */}
               <form onSubmit={handleSubmit} className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
-                {/* Teacher Selection */}
+                {/* Select Registered Teacher */}
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
-                    Select Teacher <span className="text-red-500">*</span>
+                    Select Teacher (Optional quick-fill)
                   </label>
                   <Select
                     options={teacherOptions}
                     value={teacherOptions.find((opt) => opt.value === formData.teacherId) || null}
-                    onChange={(opt) => setFormData((prev) => ({ ...prev, teacherId: opt ? opt.value : "" }))}
-                    placeholder="Search by Teacher Name or Employee ID..."
+                    onChange={handleTeacherSelect}
+                    placeholder="Search registered teacher..."
                     styles={customSelectStyles}
                     isClearable
                   />
                 </div>
 
-                {/* Teacher Details Preview Box */}
-                {currentSelectedTeacher && (
-                  <div className={`p-3 rounded-xl border flex items-center justify-between gap-4 ${
-                    isDarkMode ? "bg-blue-950/30 border-blue-800/50 text-blue-200" : "bg-blue-50/70 border-blue-200 text-blue-900"
-                  }`}>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold text-sm shadow">
-                        {currentSelectedTeacher.name.charAt(0)}
-                      </div>
-                      <div>
-                        <div className="font-semibold text-sm flex items-center gap-2">
-                          <span>{currentSelectedTeacher.name}</span>
-                          <span className="text-xs px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 font-mono font-bold">
-                            EMP ID: {currentSelectedTeacher.employeeId || "N/A"}
-                          </span>
-                        </div>
-                        <div className="text-xs opacity-80 mt-0.5">
-                          Subject: {Array.isArray(currentSelectedTeacher.subject) ? currentSelectedTeacher.subject.join(", ") : (currentSelectedTeacher.subject || "N/A")}
-                          {currentSelectedTeacher.mobNum && ` • Mobile: ${currentSelectedTeacher.mobNum}`}
-                        </div>
-                      </div>
-                    </div>
-                    <FaCheckCircle className="text-blue-400 text-lg shrink-0" />
-                  </div>
-                )}
-
-                {/* Centre & Day */}
+                {/* Teacher / Passenger Name & Phone */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
-                      Destination Centre
+                      NAME <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="e.g. SUBRATA SARDAR"
+                      value={formData.teacherName}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, teacherName: e.target.value }))}
+                      className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
+                      PHONE NO.
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 9876543210"
+                      value={formData.phoneNo}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, phoneNo: e.target.value }))}
+                      className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Sex & Age */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
+                      SEX
                     </label>
                     <select
-                      value={formData.centreId}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, centreId: e.target.value }))}
+                      value={formData.sex}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, sex: e.target.value }))}
                       className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
                       }`}
                     >
-                      <option value="">Select Centre (Optional)</option>
-                      {centres.map((c) => (
-                        <option key={c._id} value={c._id}>
-                          {c.centreName}
-                        </option>
-                      ))}
+                      <option value="M">Male (M)</option>
+                      <option value="F">Female (F)</option>
+                      <option value="Other">Other</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
-                      Day of Travel <span className="text-red-500">*</span>
+                      AGE
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="e.g. 32"
+                      value={formData.age}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, age: e.target.value }))}
+                      className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
+                      CLASS
+                    </label>
+                    <select
+                      value={formData.travelClass}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, travelClass: e.target.value }))}
+                      className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
+                      }`}
+                    >
+                      {TRAVEL_CLASSES.map((cls) => (
+                        <option key={cls} value={cls}>
+                          {cls}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* DATE OF JOURNEY & DAY */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
+                      DATE OF JOURNEY
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 03-10-26 or YYYY-MM-DD"
+                      value={formData.dateOfJourney}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, dateOfJourney: e.target.value }))}
+                      className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
+                      }`}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
+                      Day of Travel
                     </label>
                     <select
                       value={formData.day}
                       onChange={(e) => setFormData((prev) => ({ ...prev, day: e.target.value }))}
-                      required
                       className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
                       }`}
@@ -961,50 +1305,16 @@ const TrainTimings = () => {
                   </div>
                 </div>
 
-                {/* Journey Type Pill Selector */}
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-slate-300">
-                    Journey Type <span className="text-red-500">*</span>
-                  </label>
-                  <div className="grid grid-cols-3 gap-3">
-                    {["UP", "DOWN", "ROUND_TRIP"].map((type) => {
-                      const isSelected = formData.journeyType === type;
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setFormData((prev) => ({ ...prev, journeyType: type }))}
-                          className={`py-2 px-3 rounded-lg text-xs font-bold border transition-all text-center ${
-                            isSelected
-                              ? type === "UP"
-                                ? "bg-emerald-600 text-white border-emerald-500 shadow-md shadow-emerald-500/20"
-                                : type === "DOWN"
-                                ? "bg-sky-600 text-white border-sky-500 shadow-md shadow-sky-500/20"
-                                : "bg-purple-600 text-white border-purple-500 shadow-md shadow-purple-500/20"
-                              : isDarkMode
-                              ? "bg-slate-800/80 border-slate-700 text-slate-400 hover:bg-slate-800"
-                              : "bg-slate-100 border-slate-200 text-slate-600 hover:bg-slate-200"
-                          }`}
-                        >
-                          {type === "UP" && "UP (To Centre)"}
-                          {type === "DOWN" && "DOWN (Return)"}
-                          {type === "ROUND_TRIP" && "ROUND TRIP"}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Train Name & Train Number */}
+                {/* TRAIN NAME & TRAIN NUMBER */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
-                      Train Name <span className="text-red-500">*</span>
+                      TRAIN NAME <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Black Diamond Express / Local Train"
+                      placeholder="e.g. 13189-BALURGHAT EXP."
                       value={formData.trainName}
                       onChange={(e) => setFormData((prev) => ({ ...prev, trainName: e.target.value }))}
                       className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -1012,15 +1322,16 @@ const TrainTimings = () => {
                       }`}
                     />
                   </div>
+
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
-                      Train Number
+                      BORDING STN
                     </label>
                     <input
                       type="text"
-                      placeholder="e.g. 12341 or 31812"
-                      value={formData.trainNumber}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, trainNumber: e.target.value }))}
+                      placeholder="e.g. BANDEL"
+                      value={formData.boardingStation}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, boardingStation: e.target.value }))}
                       className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
                       }`}
@@ -1028,16 +1339,16 @@ const TrainTimings = () => {
                   </div>
                 </div>
 
-                {/* Stations: From & To */}
+                {/* FROM & TO */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
-                      From Station <span className="text-red-500">*</span>
+                      FROM <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Howrah / Sealdah"
+                      placeholder="e.g. SEALDAH"
                       value={formData.fromStation}
                       onChange={(e) => setFormData((prev) => ({ ...prev, fromStation: e.target.value }))}
                       className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -1047,12 +1358,12 @@ const TrainTimings = () => {
                   </div>
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
-                      To Station <span className="text-red-500">*</span>
+                      TO <span className="text-red-500">*</span>
                     </label>
                     <input
                       type="text"
                       required
-                      placeholder="e.g. Bardhaman / Kharagpur"
+                      placeholder="e.g. MALDA TOWN"
                       value={formData.toStation}
                       onChange={(e) => setFormData((prev) => ({ ...prev, toStation: e.target.value }))}
                       className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -1062,8 +1373,8 @@ const TrainTimings = () => {
                   </div>
                 </div>
 
-                {/* Timings: Departure & Arrival */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Timings: Departure & Arrival (Optional) */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
                       Departure Time
@@ -1090,35 +1401,24 @@ const TrainTimings = () => {
                       }`}
                     />
                   </div>
-                </div>
-
-                {/* Class Timings (Optional alignment) */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
-                      Class Start Time (Optional)
+                      Destination Centre
                     </label>
-                    <input
-                      type="time"
-                      value={formData.classStartTime}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, classStartTime: e.target.value }))}
+                    <select
+                      value={formData.centreId}
+                      onChange={(e) => setFormData((prev) => ({ ...prev, centreId: e.target.value }))}
                       className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                         isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
                       }`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1 text-slate-300">
-                      Class End Time (Optional)
-                    </label>
-                    <input
-                      type="time"
-                      value={formData.classEndTime}
-                      onChange={(e) => setFormData((prev) => ({ ...prev, classEndTime: e.target.value }))}
-                      className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        isDarkMode ? "bg-slate-800 border-slate-700 text-white" : "bg-slate-50 border-slate-200 text-slate-800"
-                      }`}
-                    />
+                    >
+                      <option value="">Select Centre (Optional)</option>
+                      {centres.map((c) => (
+                        <option key={c._id} value={c._id}>
+                          {c.centreName}
+                        </option>
+                      ))}
+                    </select>
                   </div>
                 </div>
 
@@ -1129,7 +1429,7 @@ const TrainTimings = () => {
                   </label>
                   <textarea
                     rows={2}
-                    placeholder="Add platform notes, connecting trains, or special instructions..."
+                    placeholder="Any special notes or purchase instructions..."
                     value={formData.remarks}
                     onChange={(e) => setFormData((prev) => ({ ...prev, remarks: e.target.value }))}
                     className={`w-full py-2.5 px-3 text-sm rounded-lg border focus:outline-none focus:ring-2 focus:ring-blue-500 ${
@@ -1138,7 +1438,7 @@ const TrainTimings = () => {
                   />
                 </div>
 
-                {/* Submit & Cancel Buttons */}
+                {/* Modal Footer */}
                 <div className="pt-4 border-t flex items-center justify-end gap-3 dark:border-slate-800">
                   <button
                     type="button"
@@ -1153,10 +1453,196 @@ const TrainTimings = () => {
                     type="submit"
                     className="px-5 py-2.5 text-sm rounded-lg font-medium bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white shadow-md hover:shadow-lg transition-all"
                   >
-                    {isEditing ? "Update Allocation" : "Allocate Train"}
+                    {isEditing ? "Update Allocation" : "Save Allocation"}
                   </button>
                 </div>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* ========================================== */}
+        {/* MODAL: IMPORT EXCEL & TEMPLATE DOWNLOAD    */}
+        {/* ========================================== */}
+        {showImportModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
+            <div className={`w-full max-w-4xl rounded-2xl border shadow-2xl overflow-hidden my-8 ${
+              isDarkMode ? "bg-slate-900 border-slate-700 text-slate-100" : "bg-white border-slate-200 text-slate-800"
+            }`}>
+              {/* Header */}
+              <div className="px-6 py-4 border-b flex items-center justify-between bg-gradient-to-r from-blue-600/10 to-emerald-600/10 dark:border-slate-800">
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-lg bg-emerald-600 text-white shadow-md">
+                    <FaFileExcel className="text-lg" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold">Import Train Ticket Requisitions</h3>
+                    <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                      Upload Pathfinder train ticket requisition Excel sheet (.xlsx, .xls)
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setShowImportModal(false)}
+                  className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                >
+                  <FaTimes className="text-base" />
+                </button>
+              </div>
+
+              {/* Body */}
+              <div className="p-6 space-y-5">
+                {/* Step 1: Download Template Banner */}
+                <div className={`p-4 rounded-xl border flex flex-col sm:flex-row items-center justify-between gap-4 ${
+                  isDarkMode ? "bg-slate-800/60 border-slate-700 text-slate-200" : "bg-emerald-50/70 border-emerald-200 text-emerald-900"
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 rounded-lg bg-emerald-500/20 text-emerald-400">
+                      <FaDownload className="text-lg" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-sm">Need the Excel Template?</h4>
+                      <p className="text-xs opacity-80 mt-0.5">
+                        Download the sample Excel format with pre-filled headers and sample rows.
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    onClick={handleDownloadTemplate}
+                    type="button"
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-medium text-xs shadow transition-all flex items-center gap-2 whitespace-nowrap shrink-0"
+                  >
+                    <FaFileExcel />
+                    <span>Download Template</span>
+                  </button>
+                </div>
+
+                {/* Step 2: Upload File Box */}
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-2 text-slate-300">
+                    Upload Requisition Excel File (.xlsx, .xls)
+                  </label>
+                  <div
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-all ${
+                      isDarkMode
+                        ? "border-slate-700 hover:border-blue-500 bg-slate-800/40 hover:bg-slate-800/80"
+                        : "border-slate-300 hover:border-blue-500 bg-slate-50 hover:bg-slate-100"
+                    }`}
+                  >
+                    <FaUpload className="text-3xl mx-auto mb-2 text-blue-500 opacity-80" />
+                    <p className="text-sm font-semibold">Click to choose or drag & drop Excel file</p>
+                    <p className="text-xs text-slate-400 mt-1">Supports both standard table and Pathfinder header requisition files</p>
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      onChange={handleFileChange}
+                      accept=".xlsx, .xls"
+                      className="hidden"
+                    />
+                  </div>
+                </div>
+
+                {/* Step 3: Preview Table */}
+                {importPreviewData.length > 0 && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <h4 className="text-sm font-bold flex items-center gap-2">
+                        <span>Preview Data:</span>
+                        <span className="px-2 py-0.5 rounded-full text-xs bg-blue-500/20 text-blue-400 font-mono">
+                          {importPreviewData.length} records detected
+                        </span>
+                      </h4>
+                      <button
+                        onClick={() => {
+                          setImportPreviewData([]);
+                          if (fileInputRef.current) fileInputRef.current.value = "";
+                        }}
+                        className="text-xs text-red-400 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+
+                    <div className={`max-h-60 overflow-y-auto rounded-lg border ${
+                      isDarkMode ? "border-slate-800 bg-slate-950/50" : "border-slate-200 bg-white"
+                    }`}>
+                      <table className="w-full text-left text-xs border-collapse">
+                        <thead className={`sticky top-0 ${isDarkMode ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-700"}`}>
+                          <tr>
+                            <th className="py-2 px-3">SL</th>
+                            <th className="py-2 px-3">NAME</th>
+                            <th className="py-2 px-2 text-center">SEX</th>
+                            <th className="py-2 px-2 text-center">AGE</th>
+                            <th className="py-2 px-3">DATE OF JOURNEY</th>
+                            <th className="py-2 px-3">FROM</th>
+                            <th className="py-2 px-3">TO</th>
+                            <th className="py-2 px-2 text-center">CLASS</th>
+                            <th className="py-2 px-3">TRAIN NAME</th>
+                            <th className="py-2 px-3">BORDING STN</th>
+                            <th className="py-2 px-3">PHONE NO.</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/40">
+                          {importPreviewData.slice(0, 50).map((row, idx) => (
+                            <tr key={idx} className={isDarkMode ? "hover:bg-slate-800/30" : "hover:bg-slate-50"}>
+                              <td className="py-2 px-3 font-mono text-slate-400">{row.sl || idx + 1}</td>
+                              <td className="py-2 px-3 font-semibold">{row.teacherName || "--"}</td>
+                              <td className="py-2 px-2 text-center">{row.sex || "M"}</td>
+                              <td className="py-2 px-2 text-center font-mono">{row.age || "--"}</td>
+                              <td className="py-2 px-3 text-blue-400">{row.dateOfJourney || "--"}</td>
+                              <td className="py-2 px-3">{row.fromStation || "--"}</td>
+                              <td className="py-2 px-3">{row.toStation || "--"}</td>
+                              <td className="py-2 px-2 text-center">{row.travelClass || "AC"}</td>
+                              <td className="py-2 px-3">{row.trainName || "--"}</td>
+                              <td className="py-2 px-3">{row.boardingStation || "--"}</td>
+                              <td className="py-2 px-3 font-mono">{row.phoneNo || "--"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {importPreviewData.length > 50 && (
+                      <p className="text-[11px] text-slate-400 mt-1 italic text-center">
+                        Showing first 50 rows of {importPreviewData.length} records
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Footer */}
+              <div className={`px-6 py-4 border-t flex items-center justify-end gap-3 ${
+                isDarkMode ? "bg-slate-800/40 border-slate-800" : "bg-slate-50 border-slate-200"
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => setShowImportModal(false)}
+                  className={`px-4 py-2 text-sm rounded-lg border font-medium ${
+                    isDarkMode ? "border-slate-700 text-slate-300 hover:bg-slate-800" : "border-slate-300 text-slate-600 hover:bg-slate-100"
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={importPreviewData.length === 0 || isImporting}
+                  onClick={handleConfirmImport}
+                  className="flex items-center gap-2 px-5 py-2 text-sm rounded-lg font-bold bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white shadow-md transition-all"
+                >
+                  {isImporting ? (
+                    <>
+                      <FaSync className="animate-spin text-xs" />
+                      <span>Importing...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FaCheck className="text-xs" />
+                      <span>Confirm & Import ({importPreviewData.length})</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         )}
