@@ -1337,14 +1337,20 @@ export const getDailyCenterDetails = async (req, res) => {
 
             // 3.1 Counselling Analysis (Union of direct counselling records and admissions)
             // For Normal: unique students admitted today or marked as counselled today by THIS user
-            const normalCounsellingLeads = await LeadManagement.find({
+            const userRegex = new RegExp(`^${(user.name || '').trim()}$`, "i");
+
+            const normalCounsellingQuery = {
                 isCounseled: true,
                 updatedAt: dateFilter,
                 $or: [
                     { createdBy: userId },
-                    { followUps: { $elemMatch: { updatedBy: user.name, date: dateFilter } } }
+                    { followUps: { $elemMatch: { updatedBy: userRegex, date: dateFilter } } }
                 ]
-            }).distinct('_id');
+            };
+            if (centerId) {
+                normalCounsellingQuery.centre = centerId;
+            }
+            const normalCounsellingLeads = await LeadManagement.find(normalCounsellingQuery).distinct('_id');
 
             const normalAdmittedStudents = await Admission.find({
                 createdBy: userId,
@@ -1390,11 +1396,14 @@ export const getDailyCenterDetails = async (req, res) => {
             const historyEnd = new Date(endDate);
             historyEnd.setHours(23, 59, 59, 999);
 
-            const userRegex = new RegExp(`^${(user.name || '').trim()}$`, "i");
-
-            const allLeadsHistory = await LeadManagement.find({
+            const allLeadsHistoryQuery = {
                 followUps: { $elemMatch: { updatedBy: userRegex, date: { $gte: historyStart, $lte: historyEnd } } }
-            }).select('name phoneNumber createdAt followUps').lean();
+            };
+            if (centerId) {
+                allLeadsHistoryQuery.centre = centerId;
+            }
+
+            const allLeadsHistory = await LeadManagement.find(allLeadsHistoryQuery).select('name phoneNumber createdAt followUps').lean();
 
             const allServiceCallsHistory = await StudentServiceCall.find({
                 centre: centerId,
@@ -2269,15 +2278,21 @@ export const exportCenterPerformanceExcel = async (req, res) => {
             const userId = user._id;
             const userName = user.name;
 
+            const userRegex = new RegExp(`^${(userName || '').trim()}$`, "i");
+
             // 1. Counselling
-            const normalCounselling = await LeadManagement.find({
+            const normalCounsellingQuery = {
                 isCounseled: true,
                 updatedAt: dateFilter,
                 $or: [
                     { createdBy: userId },
-                    { followUps: { $elemMatch: { updatedBy: userName, date: dateFilter } } }
+                    { followUps: { $elemMatch: { updatedBy: userRegex, date: dateFilter } } }
                 ]
-            }).distinct('_id');
+            };
+            if (centerId) {
+                normalCounsellingQuery.centre = centerId;
+            }
+            const normalCounselling = await LeadManagement.find(normalCounsellingQuery).distinct('_id');
 
             const normalAdmitted = await Admission.find({
                 createdBy: userId,
@@ -2299,9 +2314,13 @@ export const exportCenterPerformanceExcel = async (req, res) => {
             const admBoard = await BoardCourseAdmission.countDocuments({ createdBy: userId, createdAt: dateFilter });
 
             // 3. Calls (Optimized Bulk Query to match user activity counts)
-            const allLeadsHistory = await LeadManagement.find({
-                followUps: { $elemMatch: { updatedBy: userName, date: dateFilter } }
-            }).select('name phoneNumber createdAt followUps').lean();
+            const allLeadsHistoryQuery = {
+                followUps: { $elemMatch: { updatedBy: userRegex, date: dateFilter } }
+            };
+            if (centerId) {
+                allLeadsHistoryQuery.centre = centerId;
+            }
+            const allLeadsHistory = await LeadManagement.find(allLeadsHistoryQuery).select('name phoneNumber createdAt followUps').lean();
 
             const allServiceCallsHistory = await StudentServiceCall.find({
                 centre: centerId,
@@ -2339,7 +2358,6 @@ export const exportCenterPerformanceExcel = async (req, res) => {
             let dailyCalls = 0;
             const existingPhones = new Set();
             const existingNames = new Set();
-            const userRegex = new RegExp(`^${(userName || '').trim()}$`, "i");
 
             // 1. Process follow-ups for this range
             allLeadsHistory.forEach(lead => {
