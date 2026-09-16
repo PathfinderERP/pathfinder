@@ -12,6 +12,7 @@ import Employee from "../../models/HR/Employee.js";
 import PNTSEStudent from "../../models/PNTSEStudent.js";
 import PMOStudent from "../../models/PMOStudent.js";
 import StudentFollowUp from "../../models/StudentFollowUp.js";
+import Boards from "../../models/Master_data/Boards.js";
 import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import mongoose from "mongoose";
 import XLSX from "xlsx";
@@ -838,8 +839,8 @@ export const getDailyTracking = async (req, res) => {
             const pmoCallsUnique = pmoResult ? (pmoResult.unique || []).filter(Boolean).length : 0;
 
             const dailyCallsCount = leadCallsCount + serviceCallsTotal + pntseCallsTotal + pmoCallsTotal;
-            const uniqueCallsCount = leadUniqueCallsCount + serviceCallsUnique + pntseCallsUnique + pmoCallsUnique;
-            const sameNoCallsCount = Math.max(0, dailyCallsCount - uniqueCallsCount);
+            const uniqueCallsCount = leadUniqueCallsCount;
+            const sameNoCallsCount = Math.max(0, leadCallsCount - leadUniqueCallsCount);
 
             // --- Daily Walk-ins ---
             const walkInsQuery = {
@@ -1396,6 +1397,7 @@ export const getDailyCenterDetails = async (req, res) => {
             }).select('name phoneNumber createdAt followUps').lean();
 
             const allServiceCallsHistory = await StudentServiceCall.find({
+                centre: centerId,
                 $or: [
                     { user: userId },
                     { userName: userRegex }
@@ -1419,8 +1421,12 @@ export const getDailyCenterDetails = async (req, res) => {
             }).populate('studentId').lean();
 
             const allStudentFollowUpsHistory = await StudentFollowUp.find({
-                calledBy: userId,
-                callDate: { $gte: historyStart, $lte: historyEnd }
+                centre: centerId,
+                calledBy: { $in: [userId, userId.toString()] },
+                $or: [
+                    { callDate: { $gte: historyStart, $lte: historyEnd } },
+                    { createdAt: { $gte: historyStart, $lte: historyEnd } }
+                ]
             }).lean();
 
             const getCallsCountForDay = (dStart, dEnd) => {
@@ -1448,7 +1454,7 @@ export const getDailyCenterDetails = async (req, res) => {
 
                 // 2. Process service calls for this day
                 allServiceCallsHistory.forEach(sc => {
-                    const scDate = new Date(sc.createdAt);
+                    const scDate = new Date(sc.createdAt || sc.callDate);
                     if (scDate >= dStart && scDate <= dEnd) {
                         callDetailsCount++;
                         if (sc.studentPhone && sc.studentPhone !== '-') {
@@ -1669,7 +1675,7 @@ export const getDailyUserActivity = async (req, res) => {
         if (centerId) {
             followUpLeadsQuery.centre = centerId;
         }
-        const allFollowUpLeads = await LeadManagement.find(followUpLeadsQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText className board schoolName source').populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
+        const allFollowUpLeads = await LeadManagement.find(followUpLeadsQuery).select('name phoneNumber leadType isCounseled followUps createdAt updatedAt course courseText className board schoolName source').populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName boardCourse').lean();
 
         // 3. Counseling Analysis
         const normalCounsQuery = {
@@ -1822,7 +1828,7 @@ export const getDailyUserActivity = async (req, res) => {
                     updatedAt: lead.updatedAt,
                     courseName: lead.course?.courseName || lead.courseText || '-',
                     className: lead.className?.name || '-',
-                    boardName: lead.board?.boardName || '-',
+                    boardName: lead.board?.boardCourse || lead.board?.boardName || (typeof lead.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(lead.board) ? lead.board : '-'),
                     schoolName: lead.schoolName || '-',
                     followUpCount: lead.followUps?.length || 0,
                     source: lead.source || '-'
@@ -1872,12 +1878,91 @@ export const getDailyUserActivity = async (req, res) => {
             });
         });
 
+        // Process student follow-up calls (PNTSE & PMO) today
+        const studentFollowUpUserQuery = {
+            calledBy: { $in: [userId, userId.toString()] },
+            $or: [
+                { callDate: dateFilter },
+                { createdAt: dateFilter }
+            ]
+        };
+        if (centerId) {
+            studentFollowUpUserQuery.centre = centerId;
+        }
+        const allStudentFollowUpsToday = await StudentFollowUp.find(studentFollowUpUserQuery).lean();
+
+        if (allStudentFollowUpsToday.length > 0) {
+            const pntseIds = allStudentFollowUpsToday.filter(f => f.studentType === 'PNTSE').map(f => f.studentId).filter(Boolean);
+            const pmoIds = allStudentFollowUpsToday.filter(f => f.studentType === 'PMO').map(f => f.studentId).filter(Boolean);
+
+            const [pntseStudents, pmoStudents] = await Promise.all([
+                pntseIds.length > 0 ? PNTSEStudent.find({ _id: { $in: pntseIds } }).populate('class', 'name').populate('board', 'boardCourse boardName').lean() : [],
+                pmoIds.length > 0 ? PMOStudent.find({ _id: { $in: pmoIds } }).populate('class', 'name').populate('board', 'boardCourse boardName').lean() : []
+            ]);
+
+            const studentMap = {};
+            pntseStudents.forEach(s => { studentMap[s._id.toString()] = { ...s, type: 'PNTSE' }; });
+            pmoStudents.forEach(s => { studentMap[s._id.toString()] = { ...s, type: 'PMO' }; });
+
+            allStudentFollowUpsToday.forEach(fu => {
+                const student = studentMap[fu.studentId?.toString()] || {};
+                const sType = fu.studentType || 'PNTSE';
+                const callType = sType === 'PMO' ? 'PMO_CALL' : 'PNTSE_CALL';
+
+                let durationStr = '';
+                if (fu.callDuration != null && fu.callDuration > 0) {
+                    const m = Math.floor(fu.callDuration / 60);
+                    const s = fu.callDuration % 60;
+                    durationStr = ` (Duration: ${m > 0 ? `${m}m ` : ''}${s}s)`;
+                }
+
+                const feedbackText = fu.feedback || `${sType} Call`;
+                const remarksText = `${fu.notes || ''}${durationStr}`.trim();
+
+                let leadStatus = 'NEUTRAL';
+                const fbLower = (fu.feedback || '').toLowerCase();
+                if (fbLower.includes('not interested') || fbLower.includes('no response')) {
+                    leadStatus = 'COLD';
+                    coldCount++;
+                } else if (fbLower.includes('call back later')) {
+                    leadStatus = 'WARM';
+                    warmCount++;
+                } else if (fbLower.includes('foundation') || fbLower.includes('neet') || fbLower.includes('jee')) {
+                    leadStatus = 'HOT';
+                    hotCount++;
+                } else {
+                    leadStatus = 'NEUTRAL';
+                    neutralCount++;
+                }
+
+                callDetails.push({
+                    leadId: fu._id,
+                    studentName: student.name || 'Unknown Student',
+                    phoneNumber: student.mobile || student.secondaryMobile || '-',
+                    callType: callType,
+                    leadType: leadStatus,
+                    isCounseled: false,
+                    feedback: feedbackText,
+                    remarks: remarksText,
+                    nextFollowUpDate: fu.nextFollowUpDate || null,
+                    date: fu.callDate || fu.createdAt,
+                    updatedAt: fu.updatedAt || fu.callDate || fu.createdAt,
+                    courseName: student.course || student.stream || '-',
+                    className: student.class?.name || student.className || '-',
+                    boardName: student.board?.boardCourse || student.board?.boardName || (typeof student.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(student.board) ? student.board : (student.boardName || '-')),
+                    schoolName: student.school || student.schoolName || '-',
+                    followUpCount: 1,
+                    source: `${sType} Calling`
+                });
+            });
+        }
+
         const contactedLeadsCount = callDetails.length;
         const freshContactedCount = callDetails.filter(c => c.callType === 'FRESH').length;
 
         // Fetch all direct admissions and counselling today to populate them if they are not in lead list
         const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
-            Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').populate('class', 'name').populate('board', 'boardName').lean(),
+            Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').populate('class', 'name').populate('board', 'boardCourse boardName').lean(),
             BoardCourseAdmission.find(boardAdmStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean(),
             BoardCourseCounselling.find(boardCounsStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean()
         ]);
@@ -1894,7 +1979,7 @@ export const getDailyUserActivity = async (req, res) => {
             if (centerId) {
                 leadQuery.centre = centerId;
             }
-            const leads = await LeadManagement.find(leadQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
+            const leads = await LeadManagement.find(leadQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardCourse boardName').lean();
             leads.forEach(l => {
                 leadMapByPhone[l.phoneNumber] = l;
             });
@@ -1933,7 +2018,7 @@ export const getDailyUserActivity = async (req, res) => {
                 enrolledDate: adm.createdAt,
                 courseName: adm.course?.courseName || existingLead?.course?.courseName || existingLead?.courseText || '-',
                 className: adm.class?.name || adm.student?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
-                boardName: adm.board?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-',
+                boardName: adm.board?.boardCourse || adm.board?.boardName || (typeof studentDetails?.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(studentDetails.board) ? studentDetails.board : (existingLead?.board?.boardCourse || existingLead?.board?.boardName || '-')),
                 schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-',
                 followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0,
                 source: existingLead?.source || adm.student?.studentsDetails?.[0]?.source || '-'
@@ -1973,7 +2058,7 @@ export const getDailyUserActivity = async (req, res) => {
                 enrolledDate: adm.createdAt,
                 courseName: adm.boardCourseName || existingLead?.course?.courseName || existingLead?.courseText || '-',
                 className: adm.lastClass || adm.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
-                boardName: adm.boardId?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-',
+                boardName: adm.boardId?.boardCourse || adm.boardId?.boardName || (typeof studentDetails?.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(studentDetails.board) ? studentDetails.board : (existingLead?.board?.boardCourse || existingLead?.board?.boardName || '-')),
                 schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-',
                 followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0,
                 source: existingLead?.source || adm.studentId?.studentsDetails?.[0]?.source || '-'
@@ -2016,7 +2101,7 @@ export const getDailyUserActivity = async (req, res) => {
                 enrolledDate: hasAdmission ? couns.counselledDate : null,
                 courseName: couns.boardId?.boardName || couns.boardId?.boardCourse || existingLead?.course?.courseName || existingLead?.courseText || '-',
                 className: couns.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
-                boardName: couns.boardId?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-',
+                boardName: couns.boardId?.boardCourse || couns.boardId?.boardName || (typeof studentDetails?.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(studentDetails.board) ? studentDetails.board : (existingLead?.board?.boardCourse || existingLead?.board?.boardName || '-')),
                 schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-',
                 followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0,
                 source: existingLead?.source || couns.studentId?.studentsDetails?.[0]?.source || '-'
@@ -2219,11 +2304,21 @@ export const exportCenterPerformanceExcel = async (req, res) => {
             }).select('name phoneNumber createdAt followUps').lean();
 
             const allServiceCallsHistory = await StudentServiceCall.find({
+                centre: centerId,
                 $or: [
                     { user: userId },
                     { userName: new RegExp(`^${(userName || '').trim()}$`, "i") }
                 ],
                 createdAt: dateFilter
+            }).lean();
+
+            const allStudentFollowUpsHistory = await StudentFollowUp.find({
+                centre: centerId,
+                calledBy: { $in: [userId, userId.toString()] },
+                $or: [
+                    { callDate: dateFilter },
+                    { createdAt: dateFilter }
+                ]
             }).lean();
 
             const allNormalAdmissionsHistory = await Admission.find({
@@ -2244,12 +2339,13 @@ export const exportCenterPerformanceExcel = async (req, res) => {
             let dailyCalls = 0;
             const existingPhones = new Set();
             const existingNames = new Set();
+            const userRegex = new RegExp(`^${(userName || '').trim()}$`, "i");
 
             // 1. Process follow-ups for this range
             allLeadsHistory.forEach(lead => {
                 const todayFollowUps = (lead.followUps || []).filter(fu => {
                     const fuDate = new Date(fu.date);
-                    return fuDate >= startDate && fuDate <= endDate && fu.updatedBy === userName;
+                    return fuDate >= startDate && fuDate <= endDate && userRegex.test((fu.updatedBy || '').trim());
                 });
 
                 todayFollowUps.forEach(fu => {
@@ -2265,7 +2361,7 @@ export const exportCenterPerformanceExcel = async (req, res) => {
 
             // 2. Process service calls for this range
             allServiceCallsHistory.forEach(sc => {
-                const scDate = new Date(sc.createdAt);
+                const scDate = new Date(sc.createdAt || sc.callDate);
                 if (scDate >= startDate && scDate <= endDate) {
                     dailyCalls++;
                     if (sc.studentPhone && sc.studentPhone !== '-') {
@@ -2274,6 +2370,14 @@ export const exportCenterPerformanceExcel = async (req, res) => {
                     if (sc.studentName) {
                         existingNames.add(sc.studentName.toLowerCase());
                     }
+                }
+            });
+
+            // 3. Process PNTSE & PMO student follow-up calls for this range
+            allStudentFollowUpsHistory.forEach(fu => {
+                const fuDate = new Date(fu.callDate || fu.createdAt);
+                if (fuDate >= startDate && fuDate <= endDate) {
+                    dailyCalls++;
                 }
             });
 
@@ -2409,7 +2513,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
         if (centerId) {
             followUpLeadsQuery.centre = centerId;
         }
-        const allFollowUpLeads = await LeadManagement.find(followUpLeadsQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
+        const allFollowUpLeads = await LeadManagement.find(followUpLeadsQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardCourse boardName').lean();
 
         const callDetails = [];
 
@@ -2437,7 +2541,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
                     date: fu.date,
                     courseName: lead.course?.courseName || lead.courseText || '-',
                     className: lead.className?.name || '-',
-                    boardName: lead.board?.boardName || '-',
+                    boardName: lead.board?.boardCourse || lead.board?.boardName || (typeof lead.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(lead.board) ? lead.board : '-'),
                     schoolName: lead.schoolName || '-',
                     followUpCount: lead.followUps?.length || 0,
                     source: lead.source || '-'
@@ -2478,6 +2582,77 @@ export const exportUserCallingReportExcel = async (req, res) => {
             });
         });
 
+        // Process student follow-up calls (PNTSE & PMO) today
+        const studentFollowUpUserQuery = {
+            calledBy: { $in: [userId, userId.toString()] },
+            $or: [
+                { callDate: dateFilter },
+                { createdAt: dateFilter }
+            ]
+        };
+        if (centerId) {
+            studentFollowUpUserQuery.centre = centerId;
+        }
+        const allStudentFollowUpsToday = await StudentFollowUp.find(studentFollowUpUserQuery).lean();
+
+        if (allStudentFollowUpsToday.length > 0) {
+            const pntseIds = allStudentFollowUpsToday.filter(f => f.studentType === 'PNTSE').map(f => f.studentId).filter(Boolean);
+            const pmoIds = allStudentFollowUpsToday.filter(f => f.studentType === 'PMO').map(f => f.studentId).filter(Boolean);
+
+            const [pntseStudents, pmoStudents] = await Promise.all([
+                pntseIds.length > 0 ? PNTSEStudent.find({ _id: { $in: pntseIds } }).populate('class', 'name').populate('board', 'boardCourse boardName').lean() : [],
+                pmoIds.length > 0 ? PMOStudent.find({ _id: { $in: pmoIds } }).populate('class', 'name').populate('board', 'boardCourse boardName').lean() : []
+            ]);
+
+            const studentMap = {};
+            pntseStudents.forEach(s => { studentMap[s._id.toString()] = { ...s, type: 'PNTSE' }; });
+            pmoStudents.forEach(s => { studentMap[s._id.toString()] = { ...s, type: 'PMO' }; });
+
+            allStudentFollowUpsToday.forEach(fu => {
+                const student = studentMap[fu.studentId?.toString()] || {};
+                const sType = fu.studentType || 'PNTSE';
+                const callType = sType === 'PMO' ? 'PMO_CALL' : 'PNTSE_CALL';
+
+                let durationStr = '';
+                if (fu.callDuration != null && fu.callDuration > 0) {
+                    const m = Math.floor(fu.callDuration / 60);
+                    const s = fu.callDuration % 60;
+                    durationStr = ` (Duration: ${m > 0 ? `${m}m ` : ''}${s}s)`;
+                }
+
+                const feedbackText = fu.feedback || `${sType} Call`;
+                const remarksText = `${fu.notes || ''}${durationStr}`.trim();
+
+                let leadStatus = 'NEUTRAL';
+                const fbLower = (fu.feedback || '').toLowerCase();
+                if (fbLower.includes('not interested') || fbLower.includes('no response')) {
+                    leadStatus = 'COLD';
+                } else if (fbLower.includes('call back later')) {
+                    leadStatus = 'WARM';
+                } else if (fbLower.includes('foundation') || fbLower.includes('neet') || fbLower.includes('jee')) {
+                    leadStatus = 'HOT';
+                }
+
+                callDetails.push({
+                    centreName: (center?.centreName) || '-',
+                    studentName: student.name || 'Unknown Student',
+                    phoneNumber: student.mobile || student.secondaryMobile || '-',
+                    callType: callType,
+                    leadType: leadStatus,
+                    feedback: feedbackText,
+                    remarks: remarksText,
+                    nextFollowUpDate: fu.nextFollowUpDate || null,
+                    date: fu.callDate || fu.createdAt,
+                    courseName: student.course || student.stream || '-',
+                    className: student.class?.name || student.className || '-',
+                    boardName: student.board?.boardCourse || student.board?.boardName || (typeof student.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(student.board) ? student.board : (student.boardName || '-')),
+                    schoolName: student.school || student.schoolName || '-',
+                    followUpCount: 1,
+                    source: `${sType} Calling`
+                });
+            });
+        }
+
         // 4. Also fetch admissions/counsellings to align with front-end
         const normalAdmStudentQuery = { createdBy: userId, createdAt: dateFilter };
         const boardAdmStudentQuery = { createdBy: userId, createdAt: dateFilter };
@@ -2489,7 +2664,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
         }
 
         const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
-            Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').populate('class', 'name').populate('board', 'boardName').lean(),
+            Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').populate('class', 'name').populate('board', 'boardCourse boardName').lean(),
             BoardCourseAdmission.find(boardAdmStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean(),
             BoardCourseCounselling.find(boardCounsStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean()
         ]);
@@ -2506,7 +2681,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
             if (centerId) {
                 leadQuery.centre = centerId;
             }
-            const leads = await LeadManagement.find(leadQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName').lean();
+            const leads = await LeadManagement.find(leadQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardCourse boardName').lean();
             leads.forEach(l => {
                 leadMapByPhone[l.phoneNumber] = l;
             });
@@ -2536,12 +2711,12 @@ export const exportUserCallingReportExcel = async (req, res) => {
             if (isAdm) {
                 courseName = admOrCouns.course?.courseName || admOrCouns.boardCourseName || existingLead?.course?.courseName || existingLead?.courseText || '-';
                 className = admOrCouns.class?.name || admOrCouns.student?.examSchema?.[0]?.class || existingLead?.className?.name || '-';
-                boardName = admOrCouns.board?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-';
+                boardName = admOrCouns.board?.boardCourse || admOrCouns.board?.boardName || (typeof studentDetails?.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(studentDetails.board) ? studentDetails.board : (existingLead?.board?.boardCourse || existingLead?.board?.boardName || '-'));
                 schoolName = studentDetails?.schoolName || existingLead?.schoolName || '-';
             } else {
                 courseName = admOrCouns.boardId?.boardName || admOrCouns.boardId?.boardCourse || existingLead?.course?.courseName || existingLead?.courseText || '-';
                 className = admOrCouns.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-';
-                boardName = admOrCouns.boardId?.boardName || studentDetails?.board || existingLead?.board?.boardName || '-';
+                boardName = admOrCouns.boardId?.boardCourse || admOrCouns.boardId?.boardName || (typeof studentDetails?.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(studentDetails.board) ? studentDetails.board : (existingLead?.board?.boardCourse || existingLead?.board?.boardName || '-'));
                 schoolName = studentDetails?.schoolName || existingLead?.schoolName || '-';
             }
 

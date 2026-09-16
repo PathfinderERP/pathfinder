@@ -157,14 +157,21 @@ export const getLeads = async (req, res) => {
             counselledQuery.$and = counselledQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
         }
 
-        const counselledCount = await LeadManagement.countDocuments({
-            ...counselledQuery,
+        const counselledBaseQuery = { ...counselledQuery };
+        const counselledAnd = counselledBaseQuery.$and ? [...counselledBaseQuery.$and] : [];
+        if (counselledBaseQuery.$or) {
+            counselledAnd.push({ $or: counselledBaseQuery.$or });
+            delete counselledBaseQuery.$or;
+        }
+        counselledAnd.push({
             $or: [
                 { isCounseled: true },
                 { phoneNumber: { $in: allCounsellingPhoneNumbers } },
                 { secondPhoneNumber: { $in: allCounsellingPhoneNumbers } }
             ]
         });
+        counselledBaseQuery.$and = counselledAnd;
+        const counselledCount = await LeadManagement.countDocuments(counselledBaseQuery);
 
         const admittedLeadQuery = { ...statsQuery };
         delete admittedLeadQuery.isCounseled;

@@ -102,7 +102,7 @@ export const resolveAgentIdentifier = async (val, currentUser = null) => {
         if (match) {
             const userName = match[1].trim();
             const centrePart = match[2].trim();
-            const centreTokens = centrePart.split(/[,/]/).map(s => s.trim().toLowerCase()).filter(Boolean);
+            const centreTokens = centrePart.split(/[,/]/).map(s => s.trim().toLowerCase().replace(/\s+/g, '')).filter(Boolean);
 
             const candidates = await User.find({
                 name: { $regex: new RegExp(`^${escapeRegex(userName)}$`, "i") },
@@ -113,7 +113,7 @@ export const resolveAgentIdentifier = async (val, currentUser = null) => {
                 user = candidates[0];
             } else if (candidates.length > 1) {
                 const matchedCandidate = candidates.find(cand => {
-                    const candCentres = (cand.centres || []).map(c => (c.centreName || c.name || "").trim().toLowerCase());
+                    const candCentres = (cand.centres || []).map(c => (c.centreName || c.name || "").trim().toLowerCase().replace(/\s+/g, ''));
                     return candCentres.some(cName =>
                         centreTokens.some(tok => cName.includes(tok) || tok.includes(cName))
                     );
@@ -174,6 +174,17 @@ export const resolveAgentIdentifier = async (val, currentUser = null) => {
         const isDuplicateName = duplicateUsers.length > 1;
         const nameRegex = new RegExp(`^${escapedName}(?:\\s*\\(.*\\))?$`, "i");
 
+        const validCentreObjectIds = centreIds.map(c => {
+            const rawId = (c && c._id ? c._id : c)?.toString();
+            try {
+                if (mongoose.Types.ObjectId.isValid(rawId)) {
+                    return new mongoose.Types.ObjectId(rawId);
+                }
+            } catch (e) { }
+            return null;
+        }).filter(Boolean);
+        const allCentreIn = validCentreObjectIds;
+
         const leadMatch = {
             leadResponsibility: { $regex: nameRegex }
         };
@@ -182,9 +193,13 @@ export const resolveAgentIdentifier = async (val, currentUser = null) => {
             "followUps.updatedBy": { $regex: nameRegex }
         };
 
-        if (isDuplicateName && centreIds.length > 0) {
-            leadMatch.centre = { $in: centreIds };
-            followUpMatch.centre = { $in: centreIds };
+        const createdMatch = {
+            createdBy: user._id
+        };
+
+        if (isDuplicateName && allCentreIn.length > 0) {
+            leadMatch.centre = { $in: allCentreIn };
+            followUpMatch.centre = { $in: allCentreIn };
         }
 
         return {
@@ -193,7 +208,8 @@ export const resolveAgentIdentifier = async (val, currentUser = null) => {
             centreIds,
             isDuplicateName,
             leadMatch,
-            followUpMatch
+            followUpMatch,
+            createdMatch
         };
     }
 
@@ -414,6 +430,9 @@ export const buildLeadQuery = async (queryParams, user) => {
                     if (resolved.followUpMatch) {
                         orConditions.push(resolved.followUpMatch);
                     }
+                    if (resolved.createdMatch) {
+                        orConditions.push(resolved.createdMatch);
+                    }
                 }
             }
             if (orConditions.length > 0) {
@@ -470,59 +489,55 @@ export const buildLeadQuery = async (queryParams, user) => {
         });
         const isDuplicateName = duplicateUsers.length > 1;
 
-        let leadRespCondition;
-        if (isDuplicateName && userCentreIds.length > 0) {
-            leadRespCondition = {
-                leadResponsibility: { $regex: new RegExp(`^${escapedName}(?:\\s*\\(.*\\))?$`, "i") },
-                centre: { $in: userCentreIds }
-            };
-        } else {
-            leadRespCondition = {
-                leadResponsibility: { $regex: new RegExp(`^${escapedName}(?:\\s*\\(.*\\))?$`, "i") }
-            };
+        const stringUserCentreIds = userCentreIds.map(c => c.toString());
+        const objectUserCentreIds = userCentreIds.map(c => {
+            try { return new mongoose.Types.ObjectId(c); } catch (e) { return null; }
+        }).filter(Boolean);
+        const allUserCentreIn = [...new Set([...stringUserCentreIds, ...objectUserCentreIds])];
+
+        let leadRespCondition = {
+            leadResponsibility: { $regex: new RegExp(`^${escapedName}(?:\\s*\\(.*\\))?$`, "i") }
+        };
+        let followUpCondition = {
+            "followUps.updatedBy": { $regex: new RegExp(`^${escapedName}(?:\\s*\\(.*\\))?$`, "i") }
+        };
+        let createdCondition = {
+            createdBy: userDoc._id
+        };
+
+        if (isDuplicateName && allUserCentreIn.length > 0) {
+            leadRespCondition.centre = { $in: allUserCentreIn };
+            followUpCondition.centre = { $in: allUserCentreIn };
         }
 
         const orConditions = [
-            { createdBy: userDoc._id },
-            leadRespCondition
+            createdCondition,
+            leadRespCondition,
+            followUpCondition
         ];
 
-        if (isPrivileged && userCentreIds.length > 0) {
-            orConditions.push({ centre: { $in: userCentreIds } });
+        if (isPrivileged && allUserCentreIn.length > 0) {
+            orConditions.push({ centre: { $in: allUserCentreIn } });
         }
 
-        // Handle Telecaller self-filtering logic
-        if (query.leadResponsibility && !isPrivileged) {
-            const filterNames = splitCommasOutsideParens(leadResponsibility);
-            const isFilteringSelf = filterNames.some(n => {
-                const normalizedFilter = (typeof n === 'object' ? n.value : n)?.toString()?.toLowerCase()?.trim() || "";
-                const normalizedUser = userDoc.name?.toLowerCase()?.trim() || "";
-                const userDocId = userDoc._id?.toString();
-                return normalizedFilter === normalizedUser || normalizedFilter === userDocId || normalizedFilter.includes(normalizedUser);
-            });
-            
-            if (isFilteringSelf) {
-                delete query.leadResponsibility;
-                if (query.$or) {
-                    query.$or = query.$or.filter(cond => !cond.leadResponsibility);
-                    if (query.$or.length === 0) delete query.$or;
-                }
-            }
-        }
+        // Check if user already has an agent filter applied
+        const hasAgentFilter = Boolean(leadResponsibility && (!Array.isArray(leadResponsibility) || leadResponsibility.length > 0));
 
-        query.$and = query.$and || [];
-        query.$and.push({ $or: orConditions });
+        if (!hasAgentFilter) {
+            query.$and = query.$and || [];
+            query.$and.push({ $or: orConditions });
+        }
 
         // Centre restriction: if the user has assigned centres, they can ONLY see data for those centres.
-        if (userCentreIds.length > 0) {
+        if (allUserCentreIn.length > 0) {
             if (query.centre) {
                 const currentIn = query.centre.$in || [];
                 const restrictedIn = currentIn.filter(id => 
-                    userCentreIds.some(allowedId => allowedId.toString() === id.toString())
+                    allUserCentreIn.some(allowedId => allowedId.toString() === id.toString())
                 );
-                query.centre = { $in: restrictedIn.length > 0 ? restrictedIn : userCentreIds };
-            } else {
-                query.centre = { $in: userCentreIds };
+                query.centre = { $in: restrictedIn.length > 0 ? restrictedIn : allUserCentreIn };
+            } else if (!hasAgentFilter) {
+                query.centre = { $in: allUserCentreIn };
             }
         }
     }

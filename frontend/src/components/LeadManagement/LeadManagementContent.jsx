@@ -453,7 +453,8 @@ const LeadManagementContent = () => {
                 // If current user exists and is NOT a superAdmin, auto-select them in filters
                 // Managerial roles shouldn't be auto-filtered to themselves
                 const isManagerial = ['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge', 'digital', 'marketing', 'areamanager', 'coordinator'].includes(currentUser.role?.toLowerCase()?.replace(/\s+/g, ''));
-                const currentLeadUser = formattedUsers.find(t => (t._id && currentUser._id && t._id.toString() === currentUser._id.toString()) || t.name === currentUser.name);
+                const currentUserId = (currentUser._id || currentUser.id)?.toString();
+                const currentLeadUser = formattedUsers.find(t => (t._id && currentUserId && t._id.toString() === currentUserId) || (!currentUserId && t.name === currentUser.name));
                 if (currentLeadUser && !isManagerial) {
                     setFilters(prev => ({
                         ...prev,
@@ -638,7 +639,7 @@ const LeadManagementContent = () => {
         let modalTitle = '';
         let modalData = [];
         if (statusValue === 'contacted') {
-            const count = leadStats.contactedCount ?? followUpStats.totalFollowUps ?? 0;
+            const count = leadStats.contactedCount || 0;
             modalTitle = `Contacted Leads (${count})`;
             modalData = (followUpStats.contactedList && followUpStats.contactedList.length > 0) ? followUpStats.contactedList : (followUpStats.recentActivity || []);
         } else if (statusValue === 'remaining') {
@@ -1392,7 +1393,7 @@ const LeadManagementContent = () => {
                                 options={
                                     ['superadmin', 'super admin', 'admin', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge', 'digital', 'marketing', 'areamanager', 'coordinator'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, ''))
                                         ? telecallers.map(t => ({ value: t.value || t.name, label: t.displayName || t.name }))
-                                        : telecallers.filter(t => t.name === user?.name).map(t => ({ value: t.value || t.name, label: t.displayName || t.name }))
+                                        : telecallers.filter(t => (t._id && (user?._id || user?.id) && t._id.toString() === (user?._id || user?.id)?.toString()) || t.name === user?.name).map(t => ({ value: t.value || t.name, label: t.displayName || t.name }))
                                 }
                                 value={filters.leadResponsibility}
                                 onChange={(selected) => handleFilterChange('leadResponsibility', selected)}
@@ -1546,7 +1547,7 @@ const LeadManagementContent = () => {
                             <div className="flex justify-between items-start relative z-10">
                                 <div>
                                     <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-1 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>Contacted Leads</p>
-                                    <h3 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.contactedCount ?? followUpStats.totalFollowUps ?? 0}</h3>
+                                    <h3 className={`text-xl font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.contactedCount || 0}</h3>
                                 </div>
                                 <div className={`p-2 rounded-[2px] bg-emerald-500 text-black shadow-[0_0_10px_rgba(16,185,129,0.3)]`}>
                                     <FaCheckCircle size={12} />

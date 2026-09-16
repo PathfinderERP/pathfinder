@@ -19,6 +19,9 @@ export const getFollowUpStats = async (req, res) => {
                     if (resolved.leadMatch) {
                         leadResponsibilityQuery.$or.push(resolved.leadMatch);
                     }
+                    if (resolved.createdMatch) {
+                        leadResponsibilityQuery.$or.push(resolved.createdMatch);
+                    }
                     if (resolved.followUpMatch) {
                         leadResponsibilityQuery.$or.push(resolved.followUpMatch);
                         const fMatch = { ...resolved.followUpMatch };

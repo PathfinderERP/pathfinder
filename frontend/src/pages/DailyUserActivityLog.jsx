@@ -140,7 +140,7 @@ const DailyUserActivityLog = () => {
 
     // Extract unique options for filters dynamically from callDetails
     const uniqueClasses = Array.from(new Set((data?.callDetails || []).map(c => c.className || '-'))).sort();
-    const uniqueBoards = Array.from(new Set((data?.callDetails || []).map(c => c.boardName || '-'))).sort();
+    const uniqueBoards = Array.from(new Set((data?.callDetails || []).map(c => (c.boardName && !/^[0-9a-fA-F]{24}$/.test(c.boardName)) ? c.boardName : '-'))).sort();
     const uniqueSources = Array.from(new Set((data?.callDetails || []).map(c => c.source || '-'))).sort();
     const uniqueFeedbacks = Array.from(new Set((data?.callDetails || []).map(c => c.feedback || '-'))).sort();
 
@@ -160,7 +160,7 @@ const DailyUserActivityLog = () => {
         } else if (selectedSection === 'CONTACTED_UPLOADS') {
             matchSection = call.callType === 'CONTACTED_UPLOAD';
         } else if (selectedSection === 'CALLS') {
-            matchSection = call.callType === 'FOLLOW-UP';
+            matchSection = call.callType === 'FOLLOW-UP' || call.callType === 'SERVICE_CALL' || call.callType === 'PNTSE_CALL' || call.callType === 'PMO_CALL';
         } else if (selectedSection === 'COUNSELLED') {
             matchSection = call.counselledTick === true;
         } else if (selectedSection === 'ADMISSIONS') {
@@ -180,7 +180,8 @@ const DailyUserActivityLog = () => {
         }
 
         const matchClass = classFilter === 'ALL' || (call.className || '-') === classFilter;
-        const matchBoard = boardFilter === 'ALL' || (call.boardName || '-') === boardFilter;
+        const callBoard = (call.boardName && !/^[0-9a-fA-F]{24}$/.test(call.boardName)) ? call.boardName : '-';
+        const matchBoard = boardFilter === 'ALL' || callBoard === boardFilter;
         const matchSource = sourceFilter === 'ALL' || (call.source || '-') === sourceFilter;
         const matchFeedback = feedbackFilter === 'ALL' || (call.feedback || '-') === feedbackFilter;
 
@@ -414,7 +415,7 @@ const DailyUserActivityLog = () => {
                             <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4">
                                 {[
                                     { label: 'Fresh Calls', value: filteredCalls.filter(c => c.callType === 'FRESH' || c.callType === 'CONTACTED_UPLOAD').length, color: 'text-cyan-400', bg: 'bg-cyan-500/10', icon: <FaPhoneAlt />, section: 'FRESH', activeBorder: 'border-cyan-500 shadow-lg shadow-cyan-900/20 bg-cyan-950/10' },
-                                    { label: 'Followup counts', value: filteredCalls.filter(c => c.callType === 'FOLLOW-UP').length, color: 'text-sky-400', bg: 'bg-sky-500/10', icon: <FaPhoneAlt />, section: 'CALLS', activeBorder: 'border-sky-500 shadow-lg shadow-sky-900/20 bg-sky-950/10' },
+                                    { label: 'Followup counts', value: filteredCalls.filter(c => c.callType === 'FOLLOW-UP' || c.callType === 'SERVICE_CALL' || c.callType === 'PNTSE_CALL' || c.callType === 'PMO_CALL').length, color: 'text-sky-400', bg: 'bg-sky-500/10', icon: <FaPhoneAlt />, section: 'CALLS', activeBorder: 'border-sky-500 shadow-lg shadow-sky-900/20 bg-sky-950/10' },
                                     { label: 'Counselled', value: data.counselled.total, color: 'text-purple-400', bg: 'bg-purple-500/10', icon: <FaUsers />, section: 'COUNSELLED', activeBorder: 'border-purple-500 shadow-lg shadow-purple-900/20 bg-purple-950/10' },
                                     { label: 'Admissions', value: data.admissions.total, color: 'text-green-400', bg: 'bg-green-500/10', icon: <FaUserGraduate />, section: 'ADMISSIONS', activeBorder: 'border-green-500 shadow-lg shadow-green-900/20 bg-green-950/10' },
                                     { label: 'Collection', value: `₹${collectionTotal.toLocaleString('en-IN')}`, color: 'text-amber-400', bg: 'bg-amber-500/10', icon: <FaMoneyBillWave />, section: 'COLLECTION', activeBorder: 'border-amber-500 shadow-lg shadow-amber-900/20 bg-amber-950/10' },
@@ -673,7 +674,7 @@ const DailyUserActivityLog = () => {
                                             </td>
                                             <td className={`px-5 py-3 text-xs font-mono ${subText}`}>{call.phoneNumber}</td>
                                             <td className="px-5 py-3 text-xs font-bold text-gray-300">{call.className || '-'}</td>
-                                            <td className="px-5 py-3 text-xs font-bold text-gray-300">{call.boardName || '-'}</td>
+                                            <td className="px-5 py-3 text-xs font-bold text-gray-300">{(call.boardName && !/^[0-9a-fA-F]{24}$/.test(call.boardName)) ? call.boardName : '-'}</td>
                                             <td className="px-5 py-3 text-xs text-gray-400">{call.schoolName || '-'}</td>
                                             <td className="px-5 py-3 text-xs text-gray-400 font-medium">{call.source || '-'}</td>
                                             <td className={`px-5 py-3 text-xs font-bold ${isDark ? 'text-cyan-400' : 'text-cyan-700'} whitespace-nowrap`} title={call.courseName || ''}>
@@ -682,6 +683,12 @@ const DailyUserActivityLog = () => {
                                             <td className="px-5 py-3 text-center">
                                                 <span className={`px-2 py-1 rounded text-[10px] font-black uppercase tracking-tighter ${call.callType === 'FRESH' || call.callType === 'CONTACTED_UPLOAD'
                                                     ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/20'
+                                                    : call.callType === 'SERVICE_CALL'
+                                                        ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                                        : call.callType === 'PNTSE_CALL'
+                                                            ? 'bg-violet-500/10 text-violet-400 border border-violet-500/20'
+                                                            : call.callType === 'PMO_CALL'
+                                                                ? 'bg-pink-500/10 text-pink-400 border border-pink-500/20'
                                                     : call.callType === 'ADMISSION'
                                                         ? 'bg-green-500/10 text-green-400 border border-green-500/20'
                                                         : call.callType === 'BOARD-ADMIT'
@@ -690,7 +697,7 @@ const DailyUserActivityLog = () => {
                                                                 ? 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/20'
                                                                 : 'bg-purple-500/10 text-purple-400 border border-purple-500/20'
                                                     }`}>
-                                                    {call.callType === 'CONTACTED_UPLOAD' ? 'FRESH' : call.callType}
+                                                    {call.callType === 'CONTACTED_UPLOAD' ? 'FRESH' : call.callType === 'SERVICE_CALL' ? 'SERVICE' : call.callType === 'PNTSE_CALL' ? 'PNTSE' : call.callType === 'PMO_CALL' ? 'PMO' : call.callType}
                                                 </span>
                                             </td>
                                             <td className="px-5 py-3 text-center">
