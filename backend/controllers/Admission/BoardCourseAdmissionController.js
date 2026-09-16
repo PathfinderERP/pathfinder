@@ -2105,3 +2105,87 @@ export const updateBoardInstallmentDate = async (req, res) => {
     }
 };
 
+export const addBoardInstallments = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { numberOfMonths } = req.body;
+
+        const count = parseInt(numberOfMonths, 10);
+        if (!count || count < 1 || count > 24) {
+            return res.status(400).json({ message: "numberOfMonths must be between 1 and 24." });
+        }
+
+        const admission = await BoardCourseAdmission.findById(id).populate('studentId');
+        if (!admission) {
+            return res.status(404).json({ message: "Admission not found." });
+        }
+
+        if (admission.studentId && admission.studentId.status === 'Deactivated') {
+            return res.status(400).json({ message: "This student is deactivated. Updates are disabled." });
+        }
+
+        if (!admission.installments || admission.installments.length === 0) {
+            return res.status(400).json({ message: "No existing installments found. Cannot determine base month." });
+        }
+
+        // Sort installments by monthNumber to find the true last one
+        const sorted = [...admission.installments].sort((a, b) => a.monthNumber - b.monthNumber);
+        const lastInst = sorted[sorted.length - 1];
+
+        if (!lastInst.dueDate) {
+            return res.status(400).json({ message: "Last installment has no due date. Cannot determine next month." });
+        }
+
+        const lastDueDate = new Date(lastInst.dueDate);
+        const lastMonthNumber = lastInst.monthNumber;
+
+        // Carry over subjects & amounts from the last installment
+        const subjectsToCarry = lastInst.subjects && lastInst.subjects.length > 0
+            ? lastInst.subjects.map(s => ({ subjectId: s.subjectId, price: s.price }))
+            : [];
+        const standardAmount = lastInst.standardAmount || lastInst.payableAmount || 0;
+        const waiverAmount = lastInst.waiverAmount || 0;
+        const payableAmount = Math.max(0, standardAmount - waiverAmount);
+
+        for (let i = 1; i <= count; i++) {
+            // Calculate next month by adding i months to the last due date
+            const nextDate = new Date(Date.UTC(
+                lastDueDate.getUTCFullYear(),
+                lastDueDate.getUTCMonth() + i,
+                lastDueDate.getUTCDate() || 1,
+                12, 0, 0
+            ));
+
+            admission.installments.push({
+                monthNumber: lastMonthNumber + i,
+                dueDate: nextDate,
+                standardAmount,
+                subjects: subjectsToCarry,
+                waiverAmount,
+                adjustmentAmount: 0,
+                payableAmount,
+                paidAmount: 0,
+                status: "PENDING",
+                paymentTransactions: []
+            });
+        }
+
+        // Update totalDurationMonths to reflect the new count
+        admission.totalDurationMonths = lastMonthNumber + count;
+
+        await admission.save({ validateBeforeSave: false });
+
+        // Clear cache if applicable
+        try {
+            await deleteCache(`board-admission:${id}`);
+        } catch (_) { /* cache miss is fine */ }
+
+        res.status(200).json({
+            message: `${count} installment(s) added successfully.`,
+            admission
+        });
+    } catch (error) {
+        console.error("Add Board Installments Error:", error);
+        res.status(500).json({ message: "Server error", error: error.message });
+    }
+};

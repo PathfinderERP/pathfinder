@@ -85,7 +85,7 @@ export const PERMISSION_MODULES = {
             },
             boardCourseAdmission: {
                 label: "Board Course Admission",
-                operations: ["create", "edit", "delete"]
+                operations: ["create", "edit", "delete", "addInstallments"]
             }
         }
     },

@@ -5,6 +5,7 @@ import { FaPrint, FaSave, FaSync, FaCheckCircle, FaTrash, FaCheck, FaExclamation
 import BillGenerator from '../components/Finance/BillGenerator';
 import { useTheme } from '../context/ThemeContext';
 import RazorpaySMSModal from '../components/Finance/RazorpaySMSModal';
+import { usePermission } from '../hooks/usePermission';
 
 const ManageBoardAdmission = () => {
     const { id } = useParams();
@@ -34,6 +35,10 @@ const ManageBoardAdmission = () => {
     const [editMonth, setEditMonth] = useState(0);
     const [editYear, setEditYear] = useState(new Date().getFullYear());
     const [isSavingDate, setIsSavingDate] = useState(false);
+    const [showAddInstModal, setShowAddInstModal] = useState(false);
+    const [addInstCount, setAddInstCount] = useState(1);
+    const [isAddingInst, setIsAddingInst] = useState(false);
+    const canAddInstallments = usePermission('admissions', 'boardCourseAdmission', 'addInstallments');
 
     const MONTH_NAMES = [
         "January", "February", "March", "April", "May", "June",
@@ -642,6 +647,38 @@ const ManageBoardAdmission = () => {
         }
     };
 
+    const handleAddInstallments = async () => {
+        if (!addInstCount || addInstCount < 1) {
+            toast.error("Please enter at least 1 month.");
+            return;
+        }
+        setIsAddingInst(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/board-admission/add-installments/${id}`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ numberOfMonths: addInstCount })
+            });
+            if (response.ok) {
+                toast.success(`${addInstCount} installment(s) added successfully!`);
+                setShowAddInstModal(false);
+                setAddInstCount(1);
+                fetchData();
+            } else {
+                const data = await response.json();
+                toast.error(data.message || "Failed to add installments");
+            }
+        } catch {
+            toast.error("Failed to add installments");
+        } finally {
+            setIsAddingInst(false);
+        }
+    };
+
     const calculateCurrentMonthly = () => {
         if (!masterSubjects.length) return 0;
         return masterSubjects
@@ -704,10 +741,21 @@ const ManageBoardAdmission = () => {
                         {/* Left: Installments Tracker */}
                         <div className="lg:col-span-2 space-y-6">
                             <div className={`p-6 rounded-xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
-                                <h4 className="text-sm font-black uppercase mb-6 flex items-center gap-2">
-                                    <FaSync className="text-cyan-500" />
-                                    Installment Tracker
-                                </h4>
+                                <div className="flex items-center justify-between mb-6">
+                                    <h4 className="text-sm font-black uppercase flex items-center gap-2">
+                                        <FaSync className="text-cyan-500" />
+                                        Installment Tracker
+                                    </h4>
+                                    {canAddInstallments && admission?.studentId?.status !== 'Deactivated' && (
+                                        <button
+                                            onClick={() => setShowAddInstModal(true)}
+                                            className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black text-[11px] uppercase transition-all shadow-lg shadow-emerald-900/30"
+                                        >
+                                            <FaPlus className="text-[10px]" />
+                                            Add Installments
+                                        </button>
+                                    )}
+                                </div>
 
                                 <div className="relative space-y-4 pl-4 before:absolute before:inset-0 before:ml-[34px] before:w-[2px] before:bg-gray-800 before:z-0">
                                     {admission.installments.map((inst, index) => {
@@ -914,6 +962,102 @@ const ManageBoardAdmission = () => {
                                         )
                                     })}
                                 </div>
+
+                                {/* Add Installments Modal */}
+                                {showAddInstModal && (
+                                    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                                        <div className={`w-full max-w-sm rounded-2xl border shadow-2xl p-6 ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200'}`}>
+                                            <div className="flex items-center justify-between mb-5">
+                                                <div>
+                                                    <h3 className="text-base font-black uppercase text-emerald-500">Add Installments</h3>
+                                                    <p className={`text-[10px] font-bold uppercase mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                        New months added after the last installment
+                                                    </p>
+                                                </div>
+                                                <button
+                                                    onClick={() => { setShowAddInstModal(false); setAddInstCount(1); }}
+                                                    className={`p-2 rounded-lg transition-all ${isDarkMode ? 'hover:bg-gray-700 text-gray-400' : 'hover:bg-gray-100 text-gray-500'}`}
+                                                >
+                                                    <FaTimes />
+                                                </button>
+                                            </div>
+
+                                            {/* Preview: last month → new months */}
+                                            {(() => {
+                                                const sorted = [...admission.installments].sort((a, b) => a.monthNumber - b.monthNumber);
+                                                const last = sorted[sorted.length - 1];
+                                                const lastDate = last?.dueDate ? new Date(last.dueDate) : null;
+                                                const previews = [];
+                                                if (lastDate) {
+                                                    for (let i = 1; i <= Math.min(addInstCount, 6); i++) {
+                                                        const d = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth() + i, 1, 12, 0, 0));
+                                                        previews.push(d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
+                                                    }
+                                                }
+                                                return (
+                                                    <div className={`mb-5 p-3 rounded-lg border ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'}`}>
+                                                        <p className="text-[10px] font-black uppercase text-gray-500 mb-2">Preview</p>
+                                                        {lastDate && (
+                                                            <p className={`text-[11px] font-bold mb-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                                Last: <span className="text-amber-400">{lastDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}</span>
+                                                            </p>
+                                                        )}
+                                                        {previews.length > 0 && (
+                                                            <div className="flex flex-wrap gap-1 mt-1">
+                                                                {previews.map((m, i) => (
+                                                                    <span key={i} className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[10px] font-black uppercase">{m}</span>
+                                                                ))}
+                                                                {addInstCount > 6 && (
+                                                                    <span className="px-2 py-0.5 bg-gray-700 text-gray-400 rounded text-[10px] font-black">+{addInstCount - 6} more</span>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })()}
+
+                                            <div className="mb-5">
+                                                <label className="block text-[11px] font-black uppercase text-gray-500 mb-2">Number of Months to Add</label>
+                                                <input
+                                                    type="number"
+                                                    min={1}
+                                                    max={24}
+                                                    value={addInstCount}
+                                                    onChange={(e) => setAddInstCount(Math.max(1, Math.min(24, parseInt(e.target.value) || 1)))}
+                                                    className={`w-full p-3 rounded-lg border text-sm font-black transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
+                                                        isDarkMode
+                                                            ? 'bg-gray-800 border-gray-700 text-white'
+                                                            : 'bg-white border-gray-300 text-gray-800'
+                                                    }`}
+                                                />
+                                                <p className="text-[10px] text-gray-500 mt-1">Max 24 months at a time</p>
+                                            </div>
+
+                                            <div className="flex gap-3">
+                                                <button
+                                                    onClick={() => { setShowAddInstModal(false); setAddInstCount(1); }}
+                                                    className={`flex-1 py-3 rounded-lg font-black text-xs uppercase transition-all ${
+                                                        isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                                                    }`}
+                                                >
+                                                    Cancel
+                                                </button>
+                                                <button
+                                                    onClick={handleAddInstallments}
+                                                    disabled={isAddingInst}
+                                                    className="flex-1 py-3 rounded-lg font-black text-xs uppercase bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                                                >
+                                                    {isAddingInst ? (
+                                                        <span className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                                                    ) : (
+                                                        <FaPlus className="text-[10px]" />
+                                                    )}
+                                                    {isAddingInst ? 'Adding...' : `Add ${addInstCount} Month${addInstCount > 1 ? 's' : ''}`}
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </div>
 

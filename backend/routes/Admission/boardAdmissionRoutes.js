@@ -13,7 +13,8 @@ import {
     deleteBoardAdmission,
     reactivateBoardAdmission,
     repairCancelledBoardAdmissions,
-    updateBoardInstallmentDate
+    updateBoardInstallmentDate,
+    addBoardInstallments
 } from "../../controllers/Admission/BoardCourseAdmissionController.js";
 import {
     createBoardCourseCounselling,
@@ -40,6 +41,7 @@ router.post("/collect-ncrp-fees/:id", requireGranularPermission("admissions", "b
 router.post("/bulk-update", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), bulkUpdateBoardAdmissions);
 router.delete("/:id", requireGranularPermission("admissions", "boardCourseAdmission", "delete"), deleteBoardAdmission);
 router.put("/:id/reactivate", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), reactivateBoardAdmission);
+router.post("/add-installments/:id", requireGranularPermission("admissions", "boardCourseAdmission", "addInstallments"), addBoardInstallments);
 
 // Board Course Counselling Routes
 router.post("/counsel/create", requireGranularPermission("admissions", "boardCourseAdmission", "create"), createBoardCourseCounselling);
