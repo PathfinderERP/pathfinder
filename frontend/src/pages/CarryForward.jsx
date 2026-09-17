@@ -27,6 +27,8 @@ const CarryForward = () => {
     const [selectedClass, setSelectedClass] = useState("");
     const [selectedZones, setSelectedZones] = useState([]);      // array of { value, label }
     const [selectedCentres, setSelectedCentres] = useState([]);  // array of { value, label }
+    const [selectedDepartments, setSelectedDepartments] = useState([]); // array of { value, label }
+    const [selectedProgrammes, setSelectedProgrammes] = useState([]);   // array of { value, label }
     const [datePreset, setDatePreset] = useState("");
     const [showCustomDates, setShowCustomDates] = useState(false);
     const [fromDate, setFromDate] = useState("");
@@ -112,6 +114,9 @@ const CarryForward = () => {
     const [pendingSelectedZones, setPendingSelectedZones] = useState([]);
     const [pendingSelectedCentres, setPendingSelectedCentres] = useState([]);
     const [pendingSelectedClass, setPendingSelectedClass] = useState("");
+    const [pendingSelectedDepartments, setPendingSelectedDepartments] = useState([]);
+    const [pendingSelectedProgrammes, setPendingSelectedProgrammes] = useState([]);
+    const [dbDepartments, setDbDepartments] = useState([]);
 
     // Drill-down Student Modal State
     const [drillDownModalOpen, setDrillDownModalOpen] = useState(false);
@@ -121,14 +126,32 @@ const CarryForward = () => {
     const [drillDownPage, setDrillDownPage] = useState(1);
     const drillDownPageSize = 25;
 
+    // Remarks State for Drill-down Students
+    const [studentRemarksInput, setStudentRemarksInput] = useState({});
+    const [savingRemarkId, setSavingRemarkId] = useState(null);
+    const [remarksHistoryModal, setRemarksHistoryModal] = useState({ isOpen: false, student: null });
+
     // Fetch Pending Carry Forward Report
-    const fetchPendingReport = async (overrideSession) => {
+    const fetchPendingReport = async (overrideSession, overrideDepts, overrideProgs) => {
         setPendingLoading(true);
         try {
             const token = localStorage.getItem("token");
             const headers = { "Authorization": `Bearer ${token}` };
             const sess = overrideSession !== undefined ? overrideSession : selectedPendingSession;
-            const url = `${apiUrl}/carry-forward/pending-report${sess ? `?session=${encodeURIComponent(sess)}` : ''}`;
+            const depts = overrideDepts !== undefined ? overrideDepts : pendingSelectedDepartments;
+            const progs = overrideProgs !== undefined ? overrideProgs : pendingSelectedProgrammes;
+
+            let queryParts = [];
+            if (sess) queryParts.push(`session=${encodeURIComponent(sess)}`);
+            if (depts && depts.length > 0) {
+                queryParts.push(`departments=${encodeURIComponent(depts.map(d => d.value).join(','))}`);
+            }
+            if (progs && progs.length > 0) {
+                queryParts.push(`programmes=${encodeURIComponent(progs.map(p => p.value).join(','))}`);
+            }
+
+            const queryString = queryParts.length > 0 ? `?${queryParts.join('&')}` : '';
+            const url = `${apiUrl}/carry-forward/pending-report${queryString}`;
             const res = await fetch(url, { headers });
             if (res.ok) {
                 const data = await res.json();
@@ -147,18 +170,19 @@ const CarryForward = () => {
         }
     };
 
-    // Fetch Master Data (Zones, Centres, Classes) & Carry Forward Students
+    // Fetch Master Data (Zones, Centres, Classes, Departments) & Carry Forward Students
     const fetchData = async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
             const headers = { "Authorization": `Bearer ${token}` };
 
-            const [cfRes, classesRes, zonesRes, centresRes] = await Promise.all([
+            const [cfRes, classesRes, zonesRes, centresRes, deptsRes] = await Promise.all([
                 fetch(`${apiUrl}/carry-forward/students`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
                 fetch(`${apiUrl}/zone`, { headers }),
-                fetch(`${apiUrl}/centre`, { headers })
+                fetch(`${apiUrl}/centre`, { headers }),
+                fetch(`${apiUrl}/department`, { headers })
             ]);
 
             if (cfRes.ok) {
@@ -185,6 +209,12 @@ const CarryForward = () => {
                 setDbCentres(cntList.filter(c => c.status !== "deactive"));
             }
 
+            if (deptsRes && deptsRes.ok) {
+                const deptData = await deptsRes.json();
+                const dList = Array.isArray(deptData) ? deptData : (deptData.data || deptData.departments || []);
+                setDbDepartments(dList.filter(d => d.status !== "Inactive" && d.isActive !== false));
+            }
+
             // Also load pending report
             await fetchPendingReport();
 
@@ -203,7 +233,19 @@ const CarryForward = () => {
     // Handle Session Change for Pending Report
     const handlePendingSessionChange = (newSession) => {
         setSelectedPendingSession(newSession);
-        fetchPendingReport(newSession);
+        fetchPendingReport(newSession, pendingSelectedDepartments, pendingSelectedProgrammes);
+    };
+
+    const handlePendingDepartmentChange = (selected) => {
+        const next = selected || [];
+        setPendingSelectedDepartments(next);
+        fetchPendingReport(selectedPendingSession, next, pendingSelectedProgrammes);
+    };
+
+    const handlePendingProgrammeChange = (selected) => {
+        const next = selected || [];
+        setPendingSelectedProgrammes(next);
+        fetchPendingReport(selectedPendingSession, pendingSelectedDepartments, next);
     };
 
     // Filter available centres based on selected zones
@@ -243,6 +285,9 @@ const CarryForward = () => {
             label: z.name
         }));
     }, [dbZones]);
+
+    // Helper to normalize class string (e.g. "Class 6" -> "6")
+    const normalizeClassName = (str) => String(str || "").toLowerCase().trim().replace(/^class\s+/i, '');
 
     // Helper to exclude zagartala, phsps, franchise, rkm, howrah, and durgapur centres in Pending Carry Forward
     const isExcludedPendingCentre = (name) => {
@@ -285,6 +330,18 @@ const CarryForward = () => {
             id: String(c._id)
         }));
     }, [filteredPendingCentresList]);
+
+    const departmentOptions = useMemo(() => {
+        return (dbDepartments || []).map(d => ({
+            value: String(d._id),
+            label: d.departmentName || d.name || String(d._id)
+        }));
+    }, [dbDepartments]);
+
+    const programmeOptions = useMemo(() => [
+        { value: 'CRP', label: 'CRP' },
+        { value: 'NCRP', label: 'NCRP' }
+    ], []);
 
     // Pending Report - Filtered Centre Matrix
     const filteredPendingCentres = useMemo(() => {
@@ -401,6 +458,81 @@ const CarryForward = () => {
         setDrillDownSearch("");
     };
 
+    const handleRemarkInputChange = (studentKey, value) => {
+        setStudentRemarksInput(prev => ({
+            ...prev,
+            [studentKey]: value
+        }));
+    };
+
+    const handleAddRemark = async (student) => {
+        const studentKey = student._id || student.studentId;
+        const remarkText = (studentRemarksInput[studentKey] || "").trim();
+        if (!remarkText) {
+            toast.warn("Please enter a remark first");
+            return;
+        }
+
+        setSavingRemarkId(studentKey);
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${apiUrl}/carry-forward/remarks`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    studentId: student.studentId || student._id,
+                    admissionNumber: student.admissionNumber,
+                    session: selectedPendingSession || student.academicSession,
+                    remark: remarkText
+                })
+            });
+
+            const data = await res.json();
+            if (res.ok && data.success) {
+                toast.success("Remark added successfully");
+                const newHistory = data.data?.remarksHistory || [
+                    { remark: remarkText, addedBy: "Staff", createdAt: new Date().toISOString() },
+                    ...(student.remarksHistory || [])
+                ];
+
+                // Update in pendingReportData immutably
+                setPendingReportData(prev => {
+                    if (!prev || !prev.students) return prev;
+                    const updated = prev.students.map(s => {
+                        const match = (student.studentId && s.studentId === student.studentId) ||
+                                      (student._id && s._id === student._id) ||
+                                      (student.admissionNumber && s.admissionNumber === student.admissionNumber);
+                        if (match) {
+                            return {
+                                ...s,
+                                remarks: remarkText,
+                                remarksHistory: newHistory
+                            };
+                        }
+                        return s;
+                    });
+                    return { ...prev, students: updated };
+                });
+
+                // Clear input for this student
+                setStudentRemarksInput(prev => ({
+                    ...prev,
+                    [studentKey]: ""
+                }));
+            } else {
+                toast.error(data.message || "Failed to add remark");
+            }
+        } catch (err) {
+            console.error("Error saving remark:", err);
+            toast.error("Error saving remark");
+        } finally {
+            setSavingRemarkId(null);
+        }
+    };
+
     // Export Centre-Wise Matrix to Excel
     const handleExportPendingMatrix = () => {
         if (!filteredPendingCentres || filteredPendingCentres.length === 0) {
@@ -460,11 +592,14 @@ const CarryForward = () => {
             "WhatsApp": s.whatsappNumber || "—",
             "Email": s.email || "—",
             "Current Class": `Class ${s.currentClass}`,
+            "Department": s.departmentName || s.department || "—",
+            "Programme": s.programme || "—",
             "Target Promotion": s.currentClass === '10' ? "Class 11 (2-Yr JEE/NEET/Board)" : `Class ${parseInt(s.currentClass, 10) + 1}`,
             "Academic Session": s.academicSession || "—",
             "Enrolled Course": s.courseName || "General",
             "Centre": s.centre || "—",
             "Zone": s.zoneName || "—",
+            "Remarks": s.remarks || "—",
             "Admission Date": s.admissionDate ? new Date(s.admissionDate).toLocaleDateString() : "—"
         }));
 
@@ -531,11 +666,39 @@ const CarryForward = () => {
             );
         }
 
+        // Department filter (multi-select)
+        if (selectedDepartments && selectedDepartments.length > 0) {
+            const deptIds = new Set(selectedDepartments.map(d => String(d.value || d._id || d)));
+            const deptNames = new Set(selectedDepartments.map(d => String(d.label || d.name || d).toLowerCase().trim()));
+            result = result.filter(s => {
+                const sDId = s.department ? String(s.department) : "";
+                const sDName = s.departmentName ? String(s.departmentName).toLowerCase().trim() : "";
+                const sDepts = Array.isArray(s.departments) ? s.departments.map(String) : [];
+                return (sDId && deptIds.has(sDId)) ||
+                       (sDName && deptNames.has(sDName)) ||
+                       sDepts.some(id => deptIds.has(id));
+            });
+        }
+
+        // Programme filter (multi-select)
+        if (selectedProgrammes && selectedProgrammes.length > 0) {
+            const progVals = new Set(selectedProgrammes.map(p => String(p.value || p.label || p).toUpperCase().trim()));
+            result = result.filter(s => {
+                const sProg = s.programme ? String(s.programme).toUpperCase().trim() : "";
+                const sProgs = Array.isArray(s.programmes) ? s.programmes.map(p => String(p).toUpperCase().trim()) : [];
+                return (sProg && progVals.has(sProg)) || sProgs.some(p => progVals.has(p));
+            });
+        }
+
         // Class filter
         if (selectedClass) {
             const norm = (str) => String(str || "").toLowerCase().trim().replace(/^class\s+/i, '');
-            const targetClass = norm(selectedClass);
-            result = result.filter(s => norm(s.class) === targetClass);
+            if (selectedClass === 'other') {
+                result = result.filter(s => !['6', '7', '8', '9', '10'].includes(norm(s.class)));
+            } else {
+                const targetClass = norm(selectedClass);
+                result = result.filter(s => norm(s.class) === targetClass);
+            }
         }
 
         // Date range filter
@@ -557,12 +720,130 @@ const CarryForward = () => {
         }
 
         return result;
-    }, [students, searchTerm, selectedZones, selectedCentres, selectedClass, fromDate, toDate, dbZones]);
+    }, [students, searchTerm, selectedZones, selectedCentres, selectedDepartments, selectedProgrammes, selectedClass, fromDate, toDate, dbZones]);
+
+    // Class-wise breakup of carry forward students (reflects active Zone, Centre, Dept, Prog, Date, Search filters)
+    const carryForwardClassBreakup = useMemo(() => {
+        let list = students;
+
+        // Search filter
+        if (searchTerm.trim()) {
+            const q = searchTerm.toLowerCase().trim();
+            list = list.filter(s =>
+                (s.name && s.name.toLowerCase().includes(q)) ||
+                (s.mobile && s.mobile.includes(q)) ||
+                (s.email && s.email.toLowerCase().includes(q)) ||
+                (s.admissionNumber && s.admissionNumber.toLowerCase().includes(q)) ||
+                (s.centre && s.centre.toLowerCase().includes(q)) ||
+                (s._id && s._id.toString().toLowerCase().includes(q))
+            );
+        }
+
+        // Zone filter (multi-select)
+        if (selectedZones && selectedZones.length > 0) {
+            const zoneIds = new Set(selectedZones.map(z => String(z.value || z._id || z)));
+            const zoneNames = new Set(selectedZones.map(z => String(z.label || z.name || z).toLowerCase().trim()));
+            const allowedCentreNames = new Set();
+            dbZones.forEach(zone => {
+                if (zoneIds.has(String(zone._id)) || zoneNames.has(String(zone.name).toLowerCase().trim())) {
+                    (zone.centres || []).forEach(c => {
+                        if (c) {
+                            if (c._id) allowedCentreNames.add(String(c._id).toLowerCase());
+                            if (c.centreName) allowedCentreNames.add(String(c.centreName).toLowerCase().trim());
+                            if (c.enterCode) allowedCentreNames.add(String(c.enterCode).toLowerCase().trim());
+                        }
+                    });
+                }
+            });
+
+            list = list.filter(s => {
+                const sZId = s.zoneId ? String(s.zoneId) : "";
+                const sZName = s.zoneName ? String(s.zoneName).toLowerCase().trim() : "";
+                const sCentre = s.centre ? String(s.centre).toLowerCase().trim() : "";
+                return (sZId && zoneIds.has(sZId)) || 
+                       (sZName && zoneNames.has(sZName)) ||
+                       (sCentre && allowedCentreNames.has(sCentre));
+            });
+        }
+
+        // Centre filter (multi-select)
+        if (selectedCentres && selectedCentres.length > 0) {
+            const selectedCentreValues = new Set(selectedCentres.map(c => String(c.value || c.label || c.centreName || c).toLowerCase().trim()));
+            list = list.filter(s => 
+                s.centre && selectedCentreValues.has(String(s.centre).toLowerCase().trim())
+            );
+        }
+
+        // Department filter (multi-select)
+        if (selectedDepartments && selectedDepartments.length > 0) {
+            const deptIds = new Set(selectedDepartments.map(d => String(d.value || d._id || d)));
+            const deptNames = new Set(selectedDepartments.map(d => String(d.label || d.name || d).toLowerCase().trim()));
+            list = list.filter(s => {
+                const sDId = s.department ? String(s.department) : "";
+                const sDName = s.departmentName ? String(s.departmentName).toLowerCase().trim() : "";
+                const sDepts = Array.isArray(s.departments) ? s.departments.map(String) : [];
+                return (sDId && deptIds.has(sDId)) ||
+                       (sDName && deptNames.has(sDName)) ||
+                       sDepts.some(id => deptIds.has(id));
+            });
+        }
+
+        // Programme filter (multi-select)
+        if (selectedProgrammes && selectedProgrammes.length > 0) {
+            const progVals = new Set(selectedProgrammes.map(p => String(p.value || p.label || p).toUpperCase().trim()));
+            list = list.filter(s => {
+                const sProg = s.programme ? String(s.programme).toUpperCase().trim() : "";
+                const sProgs = Array.isArray(s.programmes) ? s.programmes.map(p => String(p).toUpperCase().trim()) : [];
+                return (sProg && progVals.has(sProg)) || sProgs.some(p => progVals.has(p));
+            });
+        }
+
+        // Date range filter
+        if (fromDate || toDate) {
+            const fromStr = fromDate ? String(fromDate).split('T')[0] : null;
+            const toStr = toDate ? String(toDate).split('T')[0] : null;
+            list = list.filter(s => {
+                const rawDate = s.admissionDate || s.createdAt;
+                if (!rawDate) return false;
+                try {
+                    const dStr = new Date(rawDate).toISOString().split('T')[0];
+                    if (fromStr && dStr < fromStr) return false;
+                    if (toStr && dStr > toStr) return false;
+                    return true;
+                } catch (e) {
+                    return true;
+                }
+            });
+        }
+
+        const norm = (str) => String(str || "").toLowerCase().trim().replace(/^class\s+/i, '');
+        const counts = {
+            class6: 0,
+            class7: 0,
+            class8: 0,
+            class9: 0,
+            class10: 0,
+            other: 0,
+            total: list.length
+        };
+
+        list.forEach(s => {
+            const c = norm(s.class);
+            if (c === '6') counts.class6++;
+            else if (c === '7') counts.class7++;
+            else if (c === '8') counts.class8++;
+            else if (c === '9') counts.class9++;
+            else if (c === '10') counts.class10++;
+            else counts.other++;
+        });
+
+        return counts;
+    }, [students, searchTerm, selectedZones, selectedCentres, selectedDepartments, selectedProgrammes, fromDate, toDate, dbZones]);
 
     // Reset pagination to page 1 on filter changes
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchTerm, selectedZones, selectedCentres, selectedClass, fromDate, toDate]);
+    }, [searchTerm, selectedZones, selectedCentres, selectedDepartments, selectedProgrammes, selectedClass, fromDate, toDate]);
 
     // Paginated subset
     const totalPages = Math.ceil(filteredStudents.length / pageSize) || 1;
@@ -828,7 +1109,7 @@ const CarryForward = () => {
 
                         {/* Filters & Actions Bar */}
                         <div className="bg-[#1a1f24] p-4 sm:p-5 rounded-2xl border border-gray-800 shadow-lg">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 items-end">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 items-end">
                                 {/* Academic Session Selector */}
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold text-cyan-400 uppercase tracking-wider block flex items-center gap-1.5">
@@ -869,6 +1150,32 @@ const CarryForward = () => {
                                         value={pendingSelectedCentres}
                                         onChange={(selected) => setPendingSelectedCentres(selected || [])}
                                         placeholder="All Centres"
+                                        isDarkMode={true}
+                                        maxShowTags={1}
+                                    />
+                                </div>
+
+                                {/* Department Multi-Select */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Department</label>
+                                    <CustomMultiSelect
+                                        options={departmentOptions}
+                                        value={pendingSelectedDepartments}
+                                        onChange={handlePendingDepartmentChange}
+                                        placeholder="All Departments"
+                                        isDarkMode={true}
+                                        maxShowTags={1}
+                                    />
+                                </div>
+
+                                {/* Programme Multi-Select */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Programme</label>
+                                    <CustomMultiSelect
+                                        options={programmeOptions}
+                                        value={pendingSelectedProgrammes}
+                                        onChange={handlePendingProgrammeChange}
+                                        placeholder="All Programmes"
                                         isDarkMode={true}
                                         maxShowTags={1}
                                     />
@@ -915,7 +1222,7 @@ const CarryForward = () => {
                             </div>
 
                             {/* Active Filter Badges */}
-                            {(pendingSelectedZones.length > 0 || pendingSelectedCentres.length > 0 || pendingSelectedClass || pendingSearch) && (
+                            {(pendingSelectedZones.length > 0 || pendingSelectedCentres.length > 0 || pendingSelectedDepartments.length > 0 || pendingSelectedProgrammes.length > 0 || pendingSelectedClass || pendingSearch) && (
                                 <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-gray-800 text-xs">
                                     <span className="text-gray-400 font-semibold text-[11px]">Filters:</span>
                                     {pendingSelectedZones.map(z => (
@@ -928,6 +1235,18 @@ const CarryForward = () => {
                                         <span key={c.value} className="px-2 py-0.5 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-lg flex items-center gap-1 text-[11px]">
                                             Centre: {c.label}
                                             <button onClick={() => setPendingSelectedCentres(p => p.filter(x => x.value !== c.value))} className="hover:text-white cursor-pointer ml-1">×</button>
+                                        </span>
+                                    ))}
+                                    {pendingSelectedDepartments.map(d => (
+                                        <span key={d.value} className="px-2 py-0.5 bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 rounded-lg flex items-center gap-1 text-[11px]">
+                                            Dept: {d.label}
+                                            <button onClick={() => handlePendingDepartmentChange(pendingSelectedDepartments.filter(x => x.value !== d.value))} className="hover:text-white cursor-pointer ml-1">×</button>
+                                        </span>
+                                    ))}
+                                    {pendingSelectedProgrammes.map(p => (
+                                        <span key={p.value} className="px-2 py-0.5 bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 rounded-lg flex items-center gap-1 text-[11px]">
+                                            Prog: {p.label}
+                                            <button onClick={() => handlePendingProgrammeChange(pendingSelectedProgrammes.filter(x => x.value !== p.value))} className="hover:text-white cursor-pointer ml-1">×</button>
                                         </span>
                                     ))}
                                     {pendingSelectedClass && (
@@ -946,8 +1265,11 @@ const CarryForward = () => {
                                         onClick={() => {
                                             setPendingSelectedZones([]);
                                             setPendingSelectedCentres([]);
+                                            setPendingSelectedDepartments([]);
+                                            setPendingSelectedProgrammes([]);
                                             setPendingSelectedClass("");
                                             setPendingSearch("");
+                                            fetchPendingReport(selectedPendingSession, [], []);
                                         }}
                                         className="text-red-400 hover:text-red-300 text-[11px] font-semibold underline cursor-pointer ml-1"
                                     >
@@ -1169,9 +1491,116 @@ const CarryForward = () => {
                 {/* ================= CARRY FORWARD STUDENTS TAB ================= */}
                 {activeTab === "carryForward" && (
                     <>
+                        {/* Top Summary Banner Cards (Class Breakup for Carry Forward Students) */}
+                        <div className={`grid grid-cols-2 sm:grid-cols-3 ${carryForwardClassBreakup.other > 0 ? 'lg:grid-cols-6' : 'lg:grid-cols-5'} gap-3 mb-6`}>
+                            {/* Class 6 */}
+                            <div 
+                                onClick={() => setSelectedClass(normalizeClassName(selectedClass) === '6' ? '' : '6')}
+                                className={`bg-gradient-to-br from-[#1a1f24] to-[#1f2733] p-4 rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] shadow-md ${
+                                    normalizeClassName(selectedClass) === '6' ? 'border-blue-400 bg-blue-500/20 ring-1 ring-blue-400' : 'border-blue-500/30 hover:border-blue-400/60'
+                                }`}
+                            >
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-blue-400">Class 6</span>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-500/20 text-blue-300 font-semibold">Class 6</span>
+                                </div>
+                                <div className="text-xl sm:text-2xl font-bold text-blue-300 mt-1">
+                                    {carryForwardClassBreakup.class6.toLocaleString()}
+                                </div>
+                                <span className="text-[10px] text-gray-400 mt-1 block">students</span>
+                            </div>
+
+                            {/* Class 7 */}
+                            <div 
+                                onClick={() => setSelectedClass(normalizeClassName(selectedClass) === '7' ? '' : '7')}
+                                className={`bg-gradient-to-br from-[#1a1f24] to-[#1d2b33] p-4 rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] shadow-md ${
+                                    normalizeClassName(selectedClass) === '7' ? 'border-cyan-400 bg-cyan-500/20 ring-1 ring-cyan-400' : 'border-cyan-500/30 hover:border-cyan-400/60'
+                                }`}
+                            >
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-cyan-400">Class 7</span>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 font-semibold">Class 7</span>
+                                </div>
+                                <div className="text-xl sm:text-2xl font-bold text-cyan-300 mt-1">
+                                    {carryForwardClassBreakup.class7.toLocaleString()}
+                                </div>
+                                <span className="text-[10px] text-gray-400 mt-1 block">students</span>
+                            </div>
+
+                            {/* Class 8 */}
+                            <div 
+                                onClick={() => setSelectedClass(normalizeClassName(selectedClass) === '8' ? '' : '8')}
+                                className={`bg-gradient-to-br from-[#1a1f24] to-[#1b2d2f] p-4 rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] shadow-md ${
+                                    normalizeClassName(selectedClass) === '8' ? 'border-teal-400 bg-teal-500/20 ring-1 ring-teal-400' : 'border-teal-500/30 hover:border-teal-400/60'
+                                }`}
+                            >
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-teal-400">Class 8</span>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-teal-500/20 text-teal-300 font-semibold">Class 8</span>
+                                </div>
+                                <div className="text-xl sm:text-2xl font-bold text-teal-300 mt-1">
+                                    {carryForwardClassBreakup.class8.toLocaleString()}
+                                </div>
+                                <span className="text-[10px] text-gray-400 mt-1 block">students</span>
+                            </div>
+
+                            {/* Class 9 */}
+                            <div 
+                                onClick={() => setSelectedClass(normalizeClassName(selectedClass) === '9' ? '' : '9')}
+                                className={`bg-gradient-to-br from-[#1a1f24] to-[#281f33] p-4 rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] shadow-md ${
+                                    normalizeClassName(selectedClass) === '9' ? 'border-purple-400 bg-purple-500/20 ring-1 ring-purple-400' : 'border-purple-500/30 hover:border-purple-400/60'
+                                }`}
+                            >
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-purple-400">Class 9</span>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold">Class 9</span>
+                                </div>
+                                <div className="text-xl sm:text-2xl font-bold text-purple-300 mt-1">
+                                    {carryForwardClassBreakup.class9.toLocaleString()}
+                                </div>
+                                <span className="text-[10px] text-gray-400 mt-1 block">students</span>
+                            </div>
+
+                            {/* Class 10 */}
+                            <div 
+                                onClick={() => setSelectedClass(normalizeClassName(selectedClass) === '10' ? '' : '10')}
+                                className={`bg-gradient-to-br from-[#1a1f24] to-[#2b1f2a] p-4 rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] shadow-md ${
+                                    normalizeClassName(selectedClass) === '10' ? 'border-rose-400 bg-rose-500/20 ring-1 ring-rose-400' : 'border-rose-500/30 hover:border-rose-400/60'
+                                }`}
+                            >
+                                <div className="flex justify-between items-center">
+                                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-400">Class 10</span>
+                                    <span className="text-[9px] px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 font-semibold">Class 10</span>
+                                </div>
+                                <div className="text-xl sm:text-2xl font-bold text-rose-300 mt-1">
+                                    {carryForwardClassBreakup.class10.toLocaleString()}
+                                </div>
+                                <span className="text-[10px] text-rose-400/80 mt-1 block font-medium">students</span>
+                            </div>
+
+                            {/* Class 11+ / Other (Only if other > 0) */}
+                            {carryForwardClassBreakup.other > 0 && (
+                                <div 
+                                    onClick={() => setSelectedClass(selectedClass === 'other' ? '' : 'other')}
+                                    className={`bg-gradient-to-br from-[#1a1f24] to-[#2b2a1f] p-4 rounded-2xl border cursor-pointer transition-all hover:scale-[1.02] shadow-md ${
+                                        selectedClass === 'other' ? 'border-amber-400 bg-amber-500/20 ring-1 ring-amber-400' : 'border-amber-500/30 hover:border-amber-400/60'
+                                    }`}
+                                >
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400">Class 11+ / Other</span>
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 font-semibold">Other</span>
+                                    </div>
+                                    <div className="text-xl sm:text-2xl font-bold text-amber-300 mt-1">
+                                        {carryForwardClassBreakup.other.toLocaleString()}
+                                    </div>
+                                    <span className="text-[10px] text-amber-400/80 mt-1 block font-medium">students</span>
+                                </div>
+                            )}
+                        </div>
+
                         {/* Filters & Search Row */}
                         <div className="bg-[#1a1f24] p-5 rounded-2xl border border-gray-800 mb-6 shadow-lg">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3 items-end">
                                 {/* Search input */}
                                 <div className="space-y-1.5">
                                     <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Search</label>
@@ -1211,6 +1640,32 @@ const CarryForward = () => {
                                         value={selectedCentres}
                                         onChange={(selected) => setSelectedCentres(selected || [])}
                                         placeholder="All Centres"
+                                        isDarkMode={true}
+                                        maxShowTags={1}
+                                    />
+                                </div>
+
+                                {/* Multi-Selection Department Filter */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Department</label>
+                                    <CustomMultiSelect
+                                        options={departmentOptions}
+                                        value={selectedDepartments}
+                                        onChange={(selected) => setSelectedDepartments(selected || [])}
+                                        placeholder="All Departments"
+                                        isDarkMode={true}
+                                        maxShowTags={1}
+                                    />
+                                </div>
+
+                                {/* Multi-Selection Programme Filter */}
+                                <div className="space-y-1.5">
+                                    <label className="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Programme</label>
+                                    <CustomMultiSelect
+                                        options={programmeOptions}
+                                        value={selectedProgrammes}
+                                        onChange={(selected) => setSelectedProgrammes(selected || [])}
+                                        placeholder="All Programmes"
                                         isDarkMode={true}
                                         maxShowTags={1}
                                     />
@@ -1286,7 +1741,7 @@ const CarryForward = () => {
                             )}
 
                             {/* Active Filter Badges */}
-                            {(selectedZones.length > 0 || selectedCentres.length > 0 || selectedClass || searchTerm || fromDate || toDate) && (
+                            {(selectedZones.length > 0 || selectedCentres.length > 0 || selectedDepartments.length > 0 || selectedProgrammes.length > 0 || selectedClass || searchTerm || fromDate || toDate) && (
                                 <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-gray-800/80 text-xs">
                                     <span className="text-gray-400 font-semibold">Active Filters:</span>
                                     {selectedZones.map(z => (
@@ -1299,6 +1754,18 @@ const CarryForward = () => {
                                         <span key={c.value} className="px-2.5 py-1 bg-purple-500/10 text-purple-300 border border-purple-500/30 rounded-lg flex items-center gap-1.5">
                                             Centre: {c.label}
                                             <button onClick={() => setSelectedCentres(p => p.filter(x => x.value !== c.value))} className="hover:text-white cursor-pointer">×</button>
+                                        </span>
+                                    ))}
+                                    {selectedDepartments.map(d => (
+                                        <span key={d.value} className="px-2.5 py-1 bg-indigo-500/10 text-indigo-300 border border-indigo-500/30 rounded-lg flex items-center gap-1.5">
+                                            Dept: {d.label}
+                                            <button onClick={() => setSelectedDepartments(p => p.filter(x => x.value !== d.value))} className="hover:text-white cursor-pointer">×</button>
+                                        </span>
+                                    ))}
+                                    {selectedProgrammes.map(p => (
+                                        <span key={p.value} className="px-2.5 py-1 bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 rounded-lg flex items-center gap-1.5">
+                                            Prog: {p.label}
+                                            <button onClick={() => setSelectedProgrammes(p => p.filter(x => x.value !== p.value))} className="hover:text-white cursor-pointer">×</button>
                                         </span>
                                     ))}
                                     {selectedClass && (
@@ -1328,6 +1795,8 @@ const CarryForward = () => {
                                         onClick={() => {
                                             setSelectedZones([]);
                                             setSelectedCentres([]);
+                                            setSelectedDepartments([]);
+                                            setSelectedProgrammes([]);
                                             setSelectedClass("");
                                             setSearchTerm("");
                                             setDatePreset("");
@@ -1436,6 +1905,20 @@ const CarryForward = () => {
                                                             <span className="px-2.5 py-1 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg text-xs font-semibold">
                                                                 {student.class || "—"}
                                                             </span>
+                                                            {(student.departmentName || student.programme) && (
+                                                                <div className="flex flex-wrap gap-1 mt-1.5">
+                                                                    {student.departmentName && (
+                                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-medium truncate max-w-[100px]" title={student.departmentName}>
+                                                                            {student.departmentName}
+                                                                        </span>
+                                                                    )}
+                                                                    {student.programme && (
+                                                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-bold">
+                                                                            {student.programme}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            )}
                                                         </td>
                                                         <td className="px-5 py-4 text-center">
                                                             <span className="inline-flex items-center justify-center w-7 h-7 bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full text-xs font-bold">
@@ -1913,15 +2396,17 @@ const CarryForward = () => {
                                                     <th className="px-4 py-3">Contact</th>
                                                     <th className="px-4 py-3">Centre / Zone</th>
                                                     <th className="px-3 py-3 text-center">Current Class</th>
+                                                    <th className="px-3 py-3 text-center">Dept / Prog</th>
                                                     <th className="px-4 py-3">Next Promotion Target</th>
                                                     <th className="px-4 py-3">Current Course</th>
+                                                    <th className="px-4 py-3 min-w-[240px]">Remarks</th>
                                                     <th className="px-4 py-3 text-right">Actions</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-gray-800/60">
                                                 {paginatedDrillDownStudents.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="9" className="p-12 text-center text-gray-500">
+                                                        <td colSpan="11" className="p-12 text-center text-gray-500">
                                                             <FaUserGraduate className="text-3xl mx-auto mb-2 opacity-30" />
                                                             <p>No students found matching the search criteria.</p>
                                                         </td>
@@ -1966,6 +2451,23 @@ const CarryForward = () => {
                                                                         Class {student.currentClass}
                                                                     </span>
                                                                 </td>
+                                                                <td className="px-3 py-3 text-center">
+                                                                    <div className="flex flex-col items-center gap-1">
+                                                                        {student.departmentName && (
+                                                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/10 text-indigo-300 border border-indigo-500/20 font-medium truncate max-w-[100px]" title={student.departmentName}>
+                                                                                {student.departmentName}
+                                                                            </span>
+                                                                        )}
+                                                                        {student.programme && (
+                                                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 font-bold">
+                                                                                {student.programme}
+                                                                            </span>
+                                                                        )}
+                                                                        {!student.departmentName && !student.programme && (
+                                                                            <span className="text-gray-500 text-xs">—</span>
+                                                                        )}
+                                                                    </div>
+                                                                </td>
                                                                 <td className="px-4 py-3">
                                                                     <span className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1.5 w-fit ${
                                                                         isClass10
@@ -1978,6 +2480,64 @@ const CarryForward = () => {
                                                                 </td>
                                                                 <td className="px-4 py-3 text-gray-300 truncate max-w-[150px]" title={student.courseName}>
                                                                     {student.courseName || "General Course"}
+                                                                </td>
+                                                                <td className="px-4 py-3 min-w-[240px]">
+                                                                    <div className="space-y-1.5">
+                                                                        {/* Existing latest remark */}
+                                                                        {student.remarks ? (
+                                                                            <div className="bg-[#171b20] border border-gray-700/70 rounded-lg p-2 text-xs text-gray-200 shadow-sm">
+                                                                                <div className="flex items-start justify-between gap-1.5">
+                                                                                    <span className="font-medium text-gray-200 break-words leading-relaxed">{student.remarks}</span>
+                                                                                    {student.remarksHistory && student.remarksHistory.length > 1 && (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => setRemarksHistoryModal({ isOpen: true, student })}
+                                                                                            className="text-[10px] text-cyan-400 hover:text-cyan-300 hover:underline shrink-0 font-semibold cursor-pointer whitespace-nowrap"
+                                                                                            title="Click to view full remark history"
+                                                                                        >
+                                                                                            History ({student.remarksHistory.length})
+                                                                                        </button>
+                                                                                    )}
+                                                                                </div>
+                                                                                {student.remarksHistory?.[0] && (
+                                                                                    <div className="text-[10px] text-gray-400 mt-1 flex items-center justify-between border-t border-gray-800/80 pt-1">
+                                                                                        <span>By {student.remarksHistory[0].addedBy || "Staff"}</span>
+                                                                                        <span>{student.remarksHistory[0].createdAt ? new Date(student.remarksHistory[0].createdAt).toLocaleDateString() : ""}</span>
+                                                                                    </div>
+                                                                                )}
+                                                                            </div>
+                                                                        ) : null}
+
+                                                                        {/* Remarks input box with Add button */}
+                                                                        <div className="flex items-center gap-1.5">
+                                                                            <input
+                                                                                type="text"
+                                                                                placeholder={student.remarks ? "Add another remark..." : "Type remarks..."}
+                                                                                value={studentRemarksInput[student._id || student.studentId] || ""}
+                                                                                onChange={(e) => handleRemarkInputChange(student._id || student.studentId, e.target.value)}
+                                                                                onKeyDown={(e) => {
+                                                                                    if (e.key === 'Enter') {
+                                                                                        e.preventDefault();
+                                                                                        handleAddRemark(student);
+                                                                                    }
+                                                                                }}
+                                                                                className="flex-1 bg-[#131619] border border-gray-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-500 transition-all"
+                                                                            />
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => handleAddRemark(student)}
+                                                                                disabled={savingRemarkId === (student._id || student.studentId) || !studentRemarksInput[student._id || student.studentId]?.trim()}
+                                                                                className="px-2.5 py-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-800 disabled:text-gray-600 text-white rounded-lg text-[11px] font-bold transition-all shadow-sm flex items-center gap-1 cursor-pointer disabled:cursor-not-allowed shrink-0"
+                                                                                title="Add remark"
+                                                                            >
+                                                                                {savingRemarkId === (student._id || student.studentId) ? (
+                                                                                    <FaSpinner className="animate-spin text-xs" />
+                                                                                ) : (
+                                                                                    "Add"
+                                                                                )}
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
                                                                 </td>
                                                                 <td className="px-4 py-3 text-right">
                                                                     <div className="flex items-center justify-end gap-1.5">
@@ -2045,6 +2605,49 @@ const CarryForward = () => {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Remarks History Modal */}
+                {remarksHistoryModal.isOpen && remarksHistoryModal.student && (
+                    <div className="fixed inset-0 bg-black/85 backdrop-blur-sm flex items-center justify-center z-[60] p-4">
+                        <div className="bg-[#1a1f24] rounded-2xl w-full max-w-lg border border-gray-700 shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
+                            <div className="p-4 bg-[#171b20] border-b border-gray-800 flex justify-between items-center">
+                                <div>
+                                    <h4 className="text-sm font-bold text-white flex items-center gap-2">
+                                        Remarks History
+                                    </h4>
+                                    <p className="text-xs text-cyan-400 mt-0.5">
+                                        {remarksHistoryModal.student.name} ({remarksHistoryModal.student.admissionNumber || "—"})
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setRemarksHistoryModal({ isOpen: false, student: null })}
+                                    className="text-gray-400 hover:text-white p-1.5 rounded-lg hover:bg-gray-800 transition-colors cursor-pointer"
+                                >
+                                    <FaTimes size={16} />
+                                </button>
+                            </div>
+                            <div className="p-4 overflow-y-auto space-y-2.5 flex-1 divide-y divide-gray-800/80">
+                                {(remarksHistoryModal.student.remarksHistory || []).map((h, hIdx) => (
+                                    <div key={hIdx} className="pt-2.5 first:pt-0">
+                                        <p className="text-xs text-gray-200 font-medium leading-relaxed break-words">{h.remark}</p>
+                                        <div className="flex items-center justify-between text-[10px] text-gray-400 mt-1">
+                                            <span>Added by: <strong className="text-gray-300 font-semibold">{h.addedBy || "Staff"}</strong></span>
+                                            <span>{h.createdAt ? new Date(h.createdAt).toLocaleString() : "—"}</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="p-3 bg-[#171b20] border-t border-gray-800 text-right">
+                                <button
+                                    onClick={() => setRemarksHistoryModal({ isOpen: false, student: null })}
+                                    className="px-4 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-200 rounded-lg text-xs font-semibold cursor-pointer transition-all"
+                                >
+                                    Close
+                                </button>
                             </div>
                         </div>
                     </div>
