@@ -9,6 +9,8 @@ import Centre from '../models/Master_data/Centre.js';
 import ClassModel from '../models/Master_data/Class.js';
 import Course from '../models/Master_data/Courses.js';
 import Session from '../models/Master_data/Session.js';
+import Department from '../models/Master_data/Department.js';
+import CarryForwardRemark from '../models/CarryForwardRemark.js';
 import { getActiveCarryForwardBalance } from '../utils/carryForwardHelper.js';
 
 /**
@@ -41,7 +43,7 @@ const getZoneCentreMaps = async () => {
  */
 export const getCarryForwardStudents = async (req, res) => {
     try {
-        const { search, class: classFilter, zones, centres, fromDate, toDate } = req.query;
+        const { search, class: classFilter, zones, centres, fromDate, toDate, departments, programmes } = req.query;
         const user = req.user || {};
         const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin" || user.role?.toLowerCase() === "superadmin";
 
@@ -49,8 +51,8 @@ export const getCarryForwardStudents = async (req, res) => {
 
         // 1. Fetch slim admissions for counting courses per student & caching latest centre
         const [normalAdmissions, boardAdmissions, pntseStudents, pmoStudents] = await Promise.all([
-            Admission.find({}, 'student admissionNumber centre course department academicSession totalFees totalPaidAmount paymentStatus admissionDate').lean(),
-            BoardCourseAdmission.find({}, 'studentId admissionNumber centre boardCourseName department academicSession totalFees totalPaidAmount paymentStatus admissionDate').lean(),
+            Admission.find({}, 'student admissionNumber centre course department programme academicSession totalFees totalPaidAmount paymentStatus admissionDate').populate('department', 'departmentName name').lean(),
+            BoardCourseAdmission.find({}, 'studentId admissionNumber centre boardCourseName department programme academicSession totalFees totalPaidAmount paymentStatus admissionDate').populate('department', 'departmentName name').lean(),
             PNTSEStudent.find({}, 'studentId rollNo centre course amountPaid createdAt').populate('centre', 'centreName').lean(),
             PMOStudent.find({}, 'studentId rollNo centre course amountPaid createdAt').populate('centre', 'centreName').lean()
         ]);
@@ -59,6 +61,10 @@ export const getCarryForwardStudents = async (req, res) => {
         const studentFirstAdmissionNo = {};
         const studentCentresFromAdm = {};
         const studentLatestAdmDate = {};
+        const studentDepartments = {};
+        const studentProgrammes = {};
+        const studentFirstDepartment = {};
+        const studentFirstProgramme = {};
 
         normalAdmissions.forEach(adm => {
             const sid = adm.student?.toString();
@@ -75,6 +81,18 @@ export const getCarryForwardStudents = async (req, res) => {
                     if (!studentLatestAdmDate[sid] || d > new Date(studentLatestAdmDate[sid])) {
                         studentLatestAdmDate[sid] = adm.admissionDate;
                     }
+                }
+                if (adm.department) {
+                    const dId = adm.department._id ? adm.department._id.toString() : adm.department.toString();
+                    const dName = adm.department.departmentName || adm.department.name || '';
+                    if (!studentDepartments[sid]) studentDepartments[sid] = [];
+                    studentDepartments[sid].push({ id: dId, name: dName });
+                    if (!studentFirstDepartment[sid]) studentFirstDepartment[sid] = { id: dId, name: dName };
+                }
+                if (adm.programme) {
+                    if (!studentProgrammes[sid]) studentProgrammes[sid] = [];
+                    studentProgrammes[sid].push(adm.programme);
+                    if (!studentFirstProgramme[sid]) studentFirstProgramme[sid] = adm.programme;
                 }
             }
         });
@@ -94,6 +112,18 @@ export const getCarryForwardStudents = async (req, res) => {
                     if (!studentLatestAdmDate[sid] || d > new Date(studentLatestAdmDate[sid])) {
                         studentLatestAdmDate[sid] = adm.admissionDate;
                     }
+                }
+                if (adm.department) {
+                    const dId = adm.department._id ? adm.department._id.toString() : adm.department.toString();
+                    const dName = adm.department.departmentName || adm.department.name || '';
+                    if (!studentDepartments[sid]) studentDepartments[sid] = [];
+                    studentDepartments[sid].push({ id: dId, name: dName });
+                    if (!studentFirstDepartment[sid]) studentFirstDepartment[sid] = { id: dId, name: dName };
+                }
+                if (adm.programme) {
+                    if (!studentProgrammes[sid]) studentProgrammes[sid] = [];
+                    studentProgrammes[sid].push(adm.programme);
+                    if (!studentFirstProgramme[sid]) studentFirstProgramme[sid] = adm.programme;
                 }
             }
         });
@@ -169,6 +199,12 @@ export const getCarryForwardStudents = async (req, res) => {
             const hasCarryForwardBalance = (s.carryForwardBalance || 0) > 0 || s.markedForCarryForward;
             const admDate = studentLatestAdmDate[s._id.toString()] || s.createdAt;
 
+            const sidStr = s._id.toString();
+            const firstDept = studentFirstDepartment[sidStr];
+            const deptsList = studentDepartments[sidStr] || [];
+            const progsList = studentProgrammes[sidStr] || [];
+            const firstProg = studentFirstProgramme[sidStr] || (progsList[0] || '');
+
             return {
                 _id: s._id,
                 name: details.studentName || "Unknown",
@@ -179,14 +215,19 @@ export const getCarryForwardStudents = async (req, res) => {
                 zoneName: zoneInfo.zoneName,
                 zoneId: zoneInfo.zoneId,
                 class: currentClass,
-                admissionNumber: studentFirstAdmissionNo[s._id.toString()] || "",
+                admissionNumber: studentFirstAdmissionNo[sidStr] || "",
                 admissionCount: admCount,
                 carryForwardBalance: s.carryForwardBalance || 0,
                 markedForCarryForward: !!s.markedForCarryForward,
                 hasMultipleCourses,
                 hasCarryForwardBalance,
                 admissionDate: admDate,
-                createdAt: s.createdAt
+                createdAt: s.createdAt,
+                department: firstDept?.id || '',
+                departmentName: firstDept?.name || '',
+                departments: deptsList.map(d => d.id),
+                programme: firstProg,
+                programmes: progsList
             };
         });
 
@@ -209,6 +250,30 @@ export const getCarryForwardStudents = async (req, res) => {
             const centreList = Array.isArray(centres) ? centres : centres.split(',').map(c => c.trim().toLowerCase()).filter(Boolean);
             if (centreList.length > 0) {
                 formatted = formatted.filter(s => centreList.includes((s.centre || "").toLowerCase().trim()));
+            }
+        }
+
+        if (departments) {
+            const deptList = Array.isArray(departments) 
+                ? departments 
+                : departments.split(',').map(d => d.trim()).filter(Boolean);
+            if (deptList.length > 0) {
+                formatted = formatted.filter(s => {
+                    return (s.department && deptList.includes(s.department)) ||
+                           (s.departments && s.departments.some(d => deptList.includes(d)));
+                });
+            }
+        }
+
+        if (programmes) {
+            const progList = Array.isArray(programmes) 
+                ? programmes.map(p => p.trim().toUpperCase()) 
+                : programmes.split(',').map(p => p.trim().toUpperCase()).filter(Boolean);
+            if (progList.length > 0) {
+                formatted = formatted.filter(s => {
+                    return (s.programme && progList.includes(s.programme.toUpperCase())) ||
+                           (s.programmes && s.programmes.some(p => progList.includes(p.toUpperCase())));
+                });
             }
         }
 
@@ -607,20 +672,43 @@ export const searchEnrolledStudent = async (req, res) => {
  */
 export const getPendingCarryForwardReport = async (req, res) => {
     try {
-        const { session: querySession, zones, centres, class: classFilter, search } = req.query;
+        const { session: querySession, zones, centres, class: classFilter, departments, programmes, search } = req.query;
         const user = req.user || {};
         const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin" || user.role?.toLowerCase() === "superadmin";
 
         // 1. Get Zone and Centre maps
         const { zones: dbZones, centreNameToZoneMap, centreIdToZoneMap } = await getZoneCentreMaps();
 
-        // 2. Resolve Master Classes & Courses
-        const [allDbClasses, allDbCourses, allDbCentres, dbSessions] = await Promise.all([
+        // 2. Resolve Master Classes, Courses, Centres, Sessions, Departments, and Active Students
+        const [allDbClasses, allDbCourses, allDbCentres, dbSessions, allDbDepartments, activeStudents, allRemarks] = await Promise.all([
             ClassModel.find({}).lean(),
-            Course.find({}).select('courseName class courseSession courseDuration').lean(),
+            Course.find({}).select('courseName class courseSession courseDuration department').lean(),
             Centre.find({ status: { $ne: 'deactive' } }).select('centreName enterCode _id').lean(),
-            Session.find({}).select('sessionName isGlobalActive').lean()
+            Session.find({}).select('sessionName isGlobalActive').lean(),
+            Department.find({}).select('departmentName _id').lean(),
+            Student.find({ status: { $ne: 'Deactivated' } })
+                .select('_id studentsDetails examSchema isEnrolled carryForwardBalance status department')
+                .lean(),
+            CarryForwardRemark.find({}).lean()
         ]);
+
+        const remarksMap = {};
+        (allRemarks || []).forEach(r => {
+            if (r.studentId) remarksMap[r.studentId.toString()] = r;
+            if (r.admissionNumber) remarksMap[r.admissionNumber.toString().trim().toLowerCase()] = r;
+        });
+
+        // Map of active students (strictly excluding deactivated students)
+        const activeStudentMap = {};
+        activeStudents.forEach(s => {
+            if (s.status && s.status.toLowerCase() === 'deactivated') return;
+            activeStudentMap[s._id.toString()] = s;
+        });
+
+        const departmentMap = {};
+        allDbDepartments.forEach(d => {
+            departmentMap[d._id.toString()] = d.departmentName;
+        });
 
         const classMap = {}; // classId -> className
         const classOrderMap = {}; // className -> number (e.g. '6' -> 6)
@@ -639,28 +727,26 @@ export const getPendingCarryForwardReport = async (req, res) => {
             return match ? parseInt(match[0], 10) : null;
         };
 
-        const courseMap = {}; // courseId -> { name, classNum, session }
+        const courseMap = {}; // courseId -> { name, classNum, session, department }
         allDbCourses.forEach(c => {
             courseMap[c._id.toString()] = {
                 name: c.courseName,
                 classNum: getNumericClass(c.class),
-                session: c.courseSession
+                session: c.courseSession,
+                department: c.department ? c.department.toString() : null
             };
         });
 
         // 3. Resolve Academic Sessions
-        // Dynamic Indian Financial Year (starts April 1st)
         const now = new Date();
-        const curMonth = now.getMonth(); // 0 = Jan, 3 = Apr
+        const curMonth = now.getMonth();
         const curYear = now.getFullYear();
         const fyStart = curMonth >= 3 ? curYear : curYear - 1;
         const currentFinancialYear = `${fyStart}-${fyStart + 1}`;
 
-        // Active sessions from Session Master
         const activeSessions = dbSessions.filter(s => s.isGlobalActive === true);
         let availableSessions = activeSessions.map(s => s.sessionName?.trim()).filter(Boolean);
 
-        // Fallback in case no session is explicitly marked isGlobalActive in master data:
         if (availableSessions.length === 0) {
             availableSessions = dbSessions.map(s => s.sessionName?.trim()).filter(Boolean);
         }
@@ -668,78 +754,31 @@ export const getPendingCarryForwardReport = async (req, res) => {
             availableSessions = [currentFinancialYear];
         }
 
-        // Always ensure the current financial year is present in availableSessions
         if (!availableSessions.includes(currentFinancialYear)) {
             availableSessions.push(currentFinancialYear);
         }
 
-        // Clean & sort sessions descending
         availableSessions = Array.from(new Set(availableSessions)).sort((a, b) => b.localeCompare(a));
 
-        // Selected base session: use query (if explicitly passed in availableSessions) or default to current financial year
         let targetSession = querySession ? querySession.trim() : null;
         if (!targetSession || !availableSessions.includes(targetSession)) {
             targetSession = availableSessions.includes(currentFinancialYear) ? currentFinancialYear : availableSessions[0];
         }
 
-        // 4. Fetch all normal and board course admissions
+        // 4. Fetch all active normal and board course admissions (excluding cancelled/deactivated)
         const [normalAdmissions, boardAdmissions] = await Promise.all([
-            Admission.find({ isCancelled: { $ne: true } })
-                .select('student admissionNumber centre class course academicSession createdAt paymentStatus totalFees totalPaidAmount')
+            Admission.find({ 
+                isCancelled: { $ne: true },
+                status: { $nin: ['DEACTIVATED', 'CANCELLED', 'REJECTED'] }
+            })
+                .select('student admissionNumber centre class course department programme academicSession createdAt totalFees totalPaidAmount')
                 .lean(),
-            BoardCourseAdmission.find({})
-                .select('studentId admissionNumber centre academicSession boardCourseName createdAt lastClass')
+            BoardCourseAdmission.find({
+                status: { $nin: ['DEACTIVATED', 'CANCELLED', 'REJECTED'] }
+            })
+                .select('studentId admissionNumber centre department programme academicSession boardCourseName createdAt lastClass')
                 .lean()
         ]);
-
-        // Map all admissions by Student ID
-        const studentHistory = {}; // sid -> { normal: [], board: [] }
-        normalAdmissions.forEach(adm => {
-            const sid = adm.student?.toString();
-            if (!sid) return;
-            if (!studentHistory[sid]) studentHistory[sid] = { normal: [], board: [] };
-
-            let classNum = getNumericClass(adm.class);
-            let sess = adm.academicSession;
-            let courseName = 'General';
-
-            if (adm.course) {
-                const cInfo = courseMap[adm.course.toString()];
-                if (cInfo) {
-                    courseName = cInfo.name;
-                    if (!classNum) classNum = cInfo.classNum;
-                    if (!sess) sess = cInfo.session;
-                }
-            }
-
-            studentHistory[sid].normal.push({
-                _id: adm._id,
-                admNo: adm.admissionNumber,
-                centre: adm.centre,
-                classNum,
-                className: classNum ? String(classNum) : (adm.class ? classMap[adm.class.toString()] || 'Unknown' : 'Unknown'),
-                session: sess || '',
-                courseName,
-                totalFees: adm.totalFees || 0,
-                totalPaidAmount: adm.totalPaidAmount || 0,
-                createdAt: adm.createdAt
-            });
-        });
-
-        boardAdmissions.forEach(b => {
-            const sid = b.studentId?.toString();
-            if (!sid) return;
-            if (!studentHistory[sid]) studentHistory[sid] = { normal: [], board: [] };
-
-            studentHistory[sid].board.push({
-                _id: b._id,
-                admNo: b.admissionNumber,
-                centre: b.centre,
-                boardCourseName: b.boardCourseName || 'Board Course',
-                session: b.academicSession || '',
-                createdAt: b.createdAt
-            });
-        });
 
         // Helper to exclude zagartala, phsps, franchise, rkm, howrah, and durgapur centres
         const isExcludedCentreName = (centreName) => {
@@ -753,56 +792,192 @@ export const getPendingCarryForwardReport = async (req, res) => {
                 /^durgapur$/i.test(str);
         };
 
-        // 5. Target classes to evaluate: 6, 7, 8, 9, 10
+        // 5. Deduplicate and unify students across Normal Admissions and Board Course Admissions
+        // Key is unique enrollment number (admissionNumber.trim().toUpperCase()) or studentId
+        const canonicalStudentMap = {};
+        const sidToKeyMap = {};
+        const admNoToKeyMap = {};
+
+        const getOrCreateStudentGroup = (sid, admNo) => {
+            const cleanAdmNo = (admNo || '').trim().toUpperCase();
+            let key = (cleanAdmNo ? admNoToKeyMap[cleanAdmNo] : null) || (sid ? sidToKeyMap[sid] : null);
+
+            if (!key) {
+                key = cleanAdmNo || (sid ? `SID_${sid}` : `TMP_${Math.random()}`);
+                canonicalStudentMap[key] = {
+                    key,
+                    sid: sid || null,
+                    admNo: cleanAdmNo || '',
+                    normal: [],
+                    board: [],
+                    studentDoc: (sid && activeStudentMap[sid]) ? activeStudentMap[sid] : null
+                };
+            }
+
+            if (cleanAdmNo) admNoToKeyMap[cleanAdmNo] = key;
+            if (sid) {
+                sidToKeyMap[sid] = key;
+                if (!canonicalStudentMap[key].sid) canonicalStudentMap[key].sid = sid;
+                if (!canonicalStudentMap[key].studentDoc && activeStudentMap[sid]) {
+                    canonicalStudentMap[key].studentDoc = activeStudentMap[sid];
+                }
+            }
+            if (cleanAdmNo && !canonicalStudentMap[key].admNo) {
+                canonicalStudentMap[key].admNo = cleanAdmNo;
+            }
+
+            return canonicalStudentMap[key];
+        };
+
+        // Populate Normal Admissions into unified student groups
+        normalAdmissions.forEach(adm => {
+            const sid = adm.student?.toString();
+            // Exclude deactivated students
+            if (sid && !activeStudentMap[sid]) return;
+
+            const group = getOrCreateStudentGroup(sid, adm.admissionNumber);
+
+            let classNum = getNumericClass(adm.class);
+            let sess = adm.academicSession;
+            let courseName = 'General';
+            let deptId = adm.department ? adm.department.toString() : null;
+
+            if (adm.course) {
+                const cInfo = courseMap[adm.course.toString()];
+                if (cInfo) {
+                    courseName = cInfo.name;
+                    if (!classNum) classNum = cInfo.classNum;
+                    if (!sess) sess = cInfo.session;
+                    if (!deptId && cInfo.department) deptId = cInfo.department;
+                }
+            }
+
+            const prog = adm.programme || group.studentDoc?.studentsDetails?.[0]?.programme || 'CRP';
+
+            group.normal.push({
+                _id: adm._id,
+                admNo: adm.admissionNumber,
+                centre: adm.centre,
+                classNum,
+                className: classNum ? String(classNum) : (adm.class ? classMap[adm.class.toString()] || 'Unknown' : 'Unknown'),
+                session: sess || '',
+                courseName,
+                department: deptId || group.studentDoc?.department?.toString() || null,
+                programme: prog,
+                totalFees: adm.totalFees || 0,
+                totalPaidAmount: adm.totalPaidAmount || 0,
+                createdAt: adm.createdAt
+            });
+        });
+
+        // Populate Board Course Admissions into unified student groups
+        boardAdmissions.forEach(b => {
+            const sid = b.studentId?.toString();
+            // Exclude deactivated students
+            if (sid && !activeStudentMap[sid]) return;
+
+            const group = getOrCreateStudentGroup(sid, b.admissionNumber);
+
+            let classNum = getNumericClass(b.lastClass);
+            if (!classNum && b.boardCourseName) {
+                const m = b.boardCourseName.match(/class\s*(\d+)/i);
+                if (m) classNum = parseInt(m[1], 10);
+            }
+            if (!classNum && group.studentDoc?.examSchema?.[0]?.class) {
+                classNum = getNumericClass(group.studentDoc.examSchema[0].class);
+            }
+
+            const deptId = b.department ? b.department.toString() : (group.studentDoc?.department?.toString() || null);
+            const prog = b.programme || group.studentDoc?.studentsDetails?.[0]?.programme || 'CRP';
+
+            group.board.push({
+                _id: b._id,
+                admNo: b.admissionNumber,
+                centre: b.centre,
+                classNum,
+                className: classNum ? String(classNum) : 'Board Course',
+                boardCourseName: b.boardCourseName || 'Board Course',
+                session: b.academicSession || '',
+                department: deptId,
+                programme: prog,
+                createdAt: b.createdAt
+            });
+        });
+
+        // 6. Target classes to evaluate: 6, 7, 8, 9, 10
         const TARGET_CLASSES = [6, 7, 8, 9, 10];
+        const baseTargetKeys = new Set();
+        const studentBaseInfo = {};
 
-        // Identify all students in target classes for the base session
-        const baseTargetStudentIds = new Set();
-        const studentBaseInfo = {}; // sid -> { baseClassNum, centre, admNo, date, courseName }
+        const selectedDeptList = departments 
+            ? (Array.isArray(departments) ? departments : String(departments).split(',')).map(d => d.trim()).filter(Boolean)
+            : [];
+        const selectedProgList = programmes
+            ? (Array.isArray(programmes) ? programmes : String(programmes).split(',')).map(p => p.trim().toUpperCase()).filter(Boolean)
+            : [];
 
-        Object.entries(studentHistory).forEach(([sid, hist]) => {
-            const baseAdms = hist.normal.filter(a =>
+        Object.values(canonicalStudentMap).forEach(group => {
+            const normalInSession = group.normal.filter(a =>
                 a.session === targetSession &&
                 a.classNum !== null &&
                 TARGET_CLASSES.includes(a.classNum)
             );
+            const boardInSession = group.board.filter(b =>
+                b.session === targetSession &&
+                b.classNum !== null &&
+                TARGET_CLASSES.includes(b.classNum)
+            );
 
-            if (baseAdms.length > 0) {
-                // Find highest target class in this session
-                const maxClass = Math.max(...baseAdms.map(a => a.classNum));
-                const latestAdm = baseAdms.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
-                const centreName = latestAdm.centre || '';
+            const allInSession = [...normalInSession, ...boardInSession];
+            if (allInSession.length === 0) return;
 
-                // Exclude zagartala, phsps, franchise centres
-                if (isExcludedCentreName(centreName)) return;
+            const maxClass = Math.max(...allInSession.map(x => x.classNum));
+            const latestAdm = allInSession.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))[0];
+            const centreName = latestAdm.centre || group.studentDoc?.studentsDetails?.[0]?.centre || '';
 
-                baseTargetStudentIds.add(sid);
-                studentBaseInfo[sid] = {
-                    baseClassNum: maxClass,
-                    className: String(maxClass),
-                    centre: latestAdm.centre,
-                    admNo: latestAdm.admNo,
-                    courseName: latestAdm.courseName,
-                    admissionDate: latestAdm.createdAt
-                };
+            if (isExcludedCentreName(centreName)) return;
+
+            const deptId = latestAdm.department || group.studentDoc?.department?.toString() || null;
+            const prog = (latestAdm.programme || group.studentDoc?.studentsDetails?.[0]?.programme || 'CRP').toUpperCase();
+
+            // Department filter
+            if (selectedDeptList.length > 0) {
+                if (!deptId || !selectedDeptList.includes(deptId.toString())) {
+                    return;
+                }
             }
+
+            // Programme filter
+            if (selectedProgList.length > 0) {
+                if (!selectedProgList.includes(prog)) {
+                    return;
+                }
+            }
+
+            baseTargetKeys.add(group.key);
+            studentBaseInfo[group.key] = {
+                key: group.key,
+                sid: group.sid,
+                baseClassNum: maxClass,
+                className: String(maxClass),
+                centre: centreName,
+                admNo: latestAdm.admNo || group.admNo,
+                courseName: latestAdm.courseName || latestAdm.boardCourseName || 'General',
+                admissionDate: latestAdm.createdAt,
+                department: deptId,
+                departmentName: deptId && departmentMap[deptId] ? departmentMap[deptId] : '—',
+                programme: prog,
+                studentDoc: group.studentDoc
+            };
         });
 
-        // Fetch student contact and basic profiles
-        const studentDocs = await Student.find({ _id: { $in: Array.from(baseTargetStudentIds) } })
-            .select('studentsDetails examSchema isEnrolled carryForwardBalance')
-            .lean();
-
-        const studentDocsMap = {};
-        studentDocs.forEach(s => { studentDocsMap[s._id.toString()] = s; });
-
-        // 6. Evaluate Carry Forward status for each student
+        // 7. Evaluate Carry Forward status for each unified student
         const pendingStudentsList = [];
-        const carriedForwardStudentIds = new Set();
+        const carriedForwardKeys = new Set();
 
-        baseTargetStudentIds.forEach(sid => {
-            const baseInfo = studentBaseInfo[sid];
-            const hist = studentHistory[sid] || { normal: [], board: [] };
+        baseTargetKeys.forEach(key => {
+            const baseInfo = studentBaseInfo[key];
+            const group = canonicalStudentMap[key];
             const currentClassNum = baseInfo.baseClassNum;
 
             let isCarriedForward = false;
@@ -812,15 +987,24 @@ export const getPendingCarryForwardReport = async (req, res) => {
                 // For Class 6, 7, 8, 9:
                 // Carried forward if they have an admission in an upper class (classNum > currentClassNum)
                 // OR in a subsequent academic session (e.g. 2027-2028 > 2026-2027)
-                const cfNormal = hist.normal.find(a => {
+                const cfNormal = group.normal.find(a => {
                     const hasHigherSession = a.session && a.session.localeCompare(targetSession) > 0;
                     const hasHigherClass = a.classNum && a.classNum > currentClassNum;
+                    return hasHigherSession || hasHigherClass;
+                });
+
+                const cfBoard = group.board.find(b => {
+                    const hasHigherSession = b.session && b.session.localeCompare(targetSession) > 0;
+                    const hasHigherClass = b.classNum && b.classNum > currentClassNum;
                     return hasHigherSession || hasHigherClass;
                 });
 
                 if (cfNormal) {
                     isCarriedForward = true;
                     cfDetails = { type: 'Normal', nextClass: cfNormal.className, session: cfNormal.session };
+                } else if (cfBoard) {
+                    isCarriedForward = true;
+                    cfDetails = { type: 'Board Course', nextClass: cfBoard.className, session: cfBoard.session };
                 }
             } else if (currentClassNum === 10) {
                 // For Class 10:
@@ -828,7 +1012,7 @@ export const getPendingCarryForwardReport = async (req, res) => {
                 // 1. Enrolled in Class 11 (2-Year JEE / NEET / WBJEE or any Class 11 normal course)
                 // 2. Enrolled in a Board Course (WBCHSE / CBSE) which serves Class 11/12
                 // 3. Enrolled in a higher academic session
-                const cfNormal11 = hist.normal.find(a => {
+                const cfNormal11 = group.normal.find(a => {
                     const isClass11 = a.classNum === 11 || (a.courseName && /(?:11|2\s*year|jee|neet)/i.test(a.courseName) && a.classNum !== 10);
                     const hasHigherSession = a.session && a.session.localeCompare(targetSession) > 0;
                     return isClass11 || hasHigherSession;
@@ -838,10 +1022,10 @@ export const getPendingCarryForwardReport = async (req, res) => {
                     isCarriedForward = true;
                     cfDetails = { type: 'Normal (Class 11 / 2-Year)', nextClass: '11', session: cfNormal11.session };
                 } else {
-                    // Check Board Course admission
-                    const cfBoard = hist.board.find(b => {
+                    const cfBoard = group.board.find(b => {
                         const bSess = b.session || '';
-                        return bSess.localeCompare(targetSession) >= 0;
+                        const isClass11Or12 = b.classNum === 11 || b.classNum === 12;
+                        return isClass11Or12 || bSess.localeCompare(targetSession) >= 0;
                     });
 
                     if (cfBoard) {
@@ -852,10 +1036,10 @@ export const getPendingCarryForwardReport = async (req, res) => {
             }
 
             if (isCarriedForward) {
-                carriedForwardStudentIds.add(sid);
+                carriedForwardKeys.add(key);
             } else {
                 // Student has NOT been carried forward yet (Pending)
-                const doc = studentDocsMap[sid] || {};
+                const doc = baseInfo.studentDoc || {};
                 const details = doc.studentsDetails?.[0] || {};
                 const centreName = baseInfo.centre || details.centre || '—';
                 if (isExcludedCentreName(centreName)) return;
@@ -863,9 +1047,13 @@ export const getPendingCarryForwardReport = async (req, res) => {
                 const centreKey = (centreName || '').trim().toLowerCase();
                 const zoneInfo = centreNameToZoneMap[centreKey] || centreIdToZoneMap[centreName] || { zoneId: '', zoneName: '—' };
 
+                const rDoc = (baseInfo.sid && remarksMap[baseInfo.sid.toString()]) ||
+                             (baseInfo.admNo && remarksMap[baseInfo.admNo.toString().trim().toLowerCase()]) ||
+                             (details.rollNo && remarksMap[details.rollNo.toString().trim().toLowerCase()]);
+
                 pendingStudentsList.push({
-                    _id: sid,
-                    studentId: sid,
+                    _id: baseInfo.sid || key,
+                    studentId: baseInfo.sid || key,
                     name: details.studentName || 'Unknown',
                     mobile: details.mobileNum || '',
                     whatsappNumber: details.whatsappNumber || '',
@@ -878,12 +1066,17 @@ export const getPendingCarryForwardReport = async (req, res) => {
                     academicSession: targetSession,
                     courseName: baseInfo.courseName,
                     admissionDate: baseInfo.admissionDate,
+                    department: baseInfo.department,
+                    departmentName: baseInfo.departmentName,
+                    programme: baseInfo.programme,
+                    remarks: rDoc?.latestRemark || '',
+                    remarksHistory: rDoc?.remarksHistory || [],
                     status: 'PENDING_CARRY_FORWARD'
                 });
             }
         });
 
-        // 7. Role-based centre filtering
+        // 8. Role-based centre filtering
         let allowedPendingStudents = pendingStudentsList.filter(s => !isExcludedCentreName(s.centre));
         let allowedAllStudentCentres = null;
 
@@ -894,11 +1087,9 @@ export const getPendingCarryForwardReport = async (req, res) => {
             allowedPendingStudents = allowedPendingStudents.filter(s => allowedNames.includes((s.centre || '').toLowerCase().trim()));
         }
 
-        // 8. Build Centre-Wise Breakdown Matrix
-        // Aggregate counts by Centre
-        const centreAggMap = {}; // centreKey -> { centreName, zoneName, zoneId, totalPending, totalEnrolled, carriedForward, class6, class7, class8, class9, class10 }
+        // 9. Build Centre-Wise Breakdown Matrix
+        const centreAggMap = {};
 
-        // Initialize with all active centres from the DB so centres with 0 pending are still visible
         allDbCentres.forEach(c => {
             const name = c.centreName || c.enterCode || '';
             const key = name.trim().toLowerCase();
@@ -924,14 +1115,14 @@ export const getPendingCarryForwardReport = async (req, res) => {
         });
 
         // Calculate total enrolled and carried forward per centre
-        baseTargetStudentIds.forEach(sid => {
-            const baseInfo = studentBaseInfo[sid];
+        baseTargetKeys.forEach(key => {
+            const baseInfo = studentBaseInfo[key];
             const centreName = baseInfo.centre || '—';
             if (isExcludedCentreName(centreName)) return;
-            const key = centreName.trim().toLowerCase();
-            if (!centreAggMap[key]) {
-                const zoneInfo = centreNameToZoneMap[key] || { zoneId: '', zoneName: '—' };
-                centreAggMap[key] = {
+            const cKey = centreName.trim().toLowerCase();
+            if (!centreAggMap[cKey]) {
+                const zoneInfo = centreNameToZoneMap[cKey] || { zoneId: '', zoneName: '—' };
+                centreAggMap[cKey] = {
                     centreId: '',
                     centreName,
                     zoneName: zoneInfo.zoneName,
@@ -947,9 +1138,9 @@ export const getPendingCarryForwardReport = async (req, res) => {
                 };
             }
 
-            centreAggMap[key].totalEnrolled++;
-            if (carriedForwardStudentIds.has(sid)) {
-                centreAggMap[key].carriedForwardCount++;
+            centreAggMap[cKey].totalEnrolled++;
+            if (carriedForwardKeys.has(key)) {
+                centreAggMap[cKey].carriedForwardCount++;
             }
         });
 
@@ -976,12 +1167,12 @@ export const getPendingCarryForwardReport = async (req, res) => {
             };
         }).sort((a, b) => b.totalPending - a.totalPending || a.centreName.localeCompare(b.centreName));
 
-        // 9. Calculate Overall KPI Totals
-        const allowedBaseTargetStudentIds = Array.from(baseTargetStudentIds).filter(sid => !isExcludedCentreName(studentBaseInfo[sid]?.centre));
-        const allowedCarriedForwardCount = Array.from(carriedForwardStudentIds).filter(sid => !isExcludedCentreName(studentBaseInfo[sid]?.centre)).length;
+        // 10. Calculate Overall KPI Totals
+        const allowedBaseTargetKeys = Array.from(baseTargetKeys).filter(k => !isExcludedCentreName(studentBaseInfo[k]?.centre));
+        const allowedCarriedForwardCount = Array.from(carriedForwardKeys).filter(k => !isExcludedCentreName(studentBaseInfo[k]?.centre)).length;
 
         const summaryTotals = {
-            totalEnrolled: allowedBaseTargetStudentIds.length,
+            totalEnrolled: allowedBaseTargetKeys.length,
             totalCarriedForward: allowedCarriedForwardCount,
             totalPending: allowedPendingStudents.length,
             class6Pending: allowedPendingStudents.filter(s => s.currentClass === '6').length,
@@ -989,12 +1180,12 @@ export const getPendingCarryForwardReport = async (req, res) => {
             class8Pending: allowedPendingStudents.filter(s => s.currentClass === '8').length,
             class9Pending: allowedPendingStudents.filter(s => s.currentClass === '9').length,
             class10Pending: allowedPendingStudents.filter(s => s.currentClass === '10').length,
-            overallConversionRate: allowedBaseTargetStudentIds.length > 0
-                ? `${((allowedCarriedForwardCount / allowedBaseTargetStudentIds.length) * 100).toFixed(1)}%`
+            overallConversionRate: allowedBaseTargetKeys.length > 0
+                ? `${((allowedCarriedForwardCount / allowedBaseTargetKeys.length) * 100).toFixed(1)}%`
                 : '0.0%'
         };
 
-        // 10. Apply Filters to the returned Students List
+        // 11. Apply Filters to the returned Students List
         let filteredStudents = allowedPendingStudents;
 
         if (zones) {
@@ -1025,7 +1216,9 @@ export const getPendingCarryForwardReport = async (req, res) => {
                 s.name.toLowerCase().includes(q) ||
                 s.mobile.includes(q) ||
                 s.admissionNumber.toLowerCase().includes(q) ||
-                s.centre.toLowerCase().includes(q)
+                s.centre.toLowerCase().includes(q) ||
+                (s.departmentName && s.departmentName.toLowerCase().includes(q)) ||
+                (s.programme && s.programme.toLowerCase().includes(q))
             );
         }
 
@@ -1044,6 +1237,81 @@ export const getPendingCarryForwardReport = async (req, res) => {
         res.status(500).json({
             success: false,
             message: "Error generating pending carry forward report",
+            error: error.message
+        });
+    }
+};
+
+/**
+ * POST /api/carry-forward/remarks
+ * Save or update remark for a student
+ */
+export const saveCarryForwardRemark = async (req, res) => {
+    try {
+        const { studentId, admissionNumber, session, remark } = req.body;
+        if (!remark || !remark.trim()) {
+            return res.status(400).json({ success: false, message: 'Remark is required' });
+        }
+
+        const user = req.user || {};
+        const userName = user.name || user.username || user.email || 'Staff';
+        const userId = user._id || user.id;
+
+        const cleanRemark = remark.trim();
+        const historyEntry = {
+            remark: cleanRemark,
+            addedBy: userName,
+            addedByUserId: userId,
+            createdAt: new Date()
+        };
+
+        const orConditions = [];
+        if (studentId) orConditions.push({ studentId: String(studentId) });
+        if (admissionNumber) orConditions.push({ admissionNumber: String(admissionNumber).trim() });
+
+        if (orConditions.length === 0) {
+            return res.status(400).json({ success: false, message: 'studentId or admissionNumber is required' });
+        }
+
+        let query = { $or: orConditions };
+        if (session) {
+            query.session = session;
+        }
+
+        let record = await CarryForwardRemark.findOne(query);
+
+        if (record) {
+            record.latestRemark = cleanRemark;
+            if (!record.remarksHistory) record.remarksHistory = [];
+            record.remarksHistory.unshift(historyEntry);
+            record.updatedBy = userName;
+            record.updatedByUserId = userId;
+            if (studentId && !record.studentId) record.studentId = String(studentId);
+            if (admissionNumber && !record.admissionNumber) record.admissionNumber = String(admissionNumber).trim();
+            if (session && !record.session) record.session = session;
+            await record.save();
+        } else {
+            record = await CarryForwardRemark.create({
+                studentId: studentId ? String(studentId) : undefined,
+                admissionNumber: admissionNumber ? String(admissionNumber).trim() : undefined,
+                session: session || '',
+                latestRemark: cleanRemark,
+                remarksHistory: [historyEntry],
+                updatedBy: userName,
+                updatedByUserId: userId
+            });
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: 'Remark saved successfully',
+            data: record
+        });
+    } catch (error) {
+        console.error('Error saving carry forward remark:', error);
+        return res.status(500).json({
+            success: false,
+            message: 'Error saving carry forward remark',
             error: error.message
         });
     }
