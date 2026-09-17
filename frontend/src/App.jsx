@@ -190,6 +190,7 @@ import CEOLeadAnalytics from "./pages/CEOLeadAnalytics";
 import Store from "./pages/Operations/Store";
 import MarketingOperations from "./pages/Operations/Marketing";
 import AcademicsOperations from "./pages/Operations/Academics";
+import ExamSchedule from "./pages/Operations/ExamSchedule";
 import DailyCenterTracking from "./pages/DailyCenterTracking";
 import DailyCenterTrackingDetails from "./pages/DailyCenterTrackingDetails";
 import DailyUserActivityLog from "./pages/DailyUserActivityLog";
@@ -334,6 +335,7 @@ function App() {
         <Route path="/operations/store" element={<ProtectedRoute><Store /></ProtectedRoute>} />
         <Route path="/operations/marketing" element={<ProtectedRoute><MarketingOperations /></ProtectedRoute>} />
         <Route path="/operations/academics" element={<ProtectedRoute><AcademicsOperations /></ProtectedRoute>} />
+        <Route path="/operations/exam-schedule" element={<ProtectedRoute><ExamSchedule /></ProtectedRoute>} />
         <Route path="/daily-center-tracking" element={<ProtectedRoute><DailyCenterTracking /></ProtectedRoute>} />
         <Route path="/daily-center-tracking/:centerId" element={<ProtectedRoute><DailyCenterTrackingDetails /></ProtectedRoute>} />
         <Route path="/daily-center-tracking/user/:userId" element={<ProtectedRoute><DailyUserActivityLog /></ProtectedRoute>} />
