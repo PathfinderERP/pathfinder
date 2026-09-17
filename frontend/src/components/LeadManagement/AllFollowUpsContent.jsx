@@ -11,7 +11,12 @@ import FollowUpActivityModal from "./FollowUpActivityModal";
 import AddFollowUpModal from "./AddFollowUpModal";
 
 // ── Date helpers ────────────────────────────────────────────────────────────
-const fmt = (d) => d.toISOString().split("T")[0];
+const fmt = (d) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
 
 const getPresetRange = (preset) => {
     const now = new Date();
@@ -31,7 +36,9 @@ const getPresetRange = (preset) => {
     const prevYearStart = new Date(y - 1, 0, 1);
     const prevYearEnd = new Date(y - 1, 11, 31);
     const today = fmt(now);
-    const yesterday = fmt(new Date(now.getTime() - 86400000));
+    const yesterdayDate = new Date(now);
+    yesterdayDate.setDate(now.getDate() - 1);
+    const yesterday = fmt(yesterdayDate);
 
     switch (preset) {
         case "today":        return { from: today, to: today };

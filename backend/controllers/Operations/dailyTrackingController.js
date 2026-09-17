@@ -138,12 +138,7 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
                 },
                 originalUserName: { $first: "$userName" },
                 totalCalls: { $sum: 1 },
-                serviceCalls: { $sum: 1 },
-                hot: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /hot/i } }, 1, 0] } },
-                warm: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /warm/i } }, 1, 0] } },
-                cold: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /cold/i } }, 1, 0] } },
-                neutral: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /neutral/i } }, 1, 0] } },
-                invalid: { $sum: { $cond: [{ $regexMatch: { input: "$status", regex: /invalid|inactive/i } }, 1, 0] } }
+                serviceCalls: { $sum: 1 }
             }
         }
     ]);
@@ -154,7 +149,7 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
 
     aggregatedCalls.forEach(item => {
         const key = makeKey(item._id?.centre, item._id?.userName);
-        callsMap.set(key, { ...item, serviceCalls: 0 });
+        callsMap.set(key, { ...item, serviceCalls: 0, pntseCalls: 0, pmoCalls: 0 });
     });
 
     aggregatedServiceCalls.forEach(sc => {
@@ -163,13 +158,20 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
             const existing = callsMap.get(key);
             existing.totalCalls += sc.totalCalls;
             existing.serviceCalls = (existing.serviceCalls || 0) + sc.totalCalls;
-            existing.hot += sc.hot;
-            existing.warm += sc.warm;
-            existing.cold += sc.cold;
-            existing.neutral += sc.neutral;
-            existing.invalid += sc.invalid;
         } else {
-            callsMap.set(key, { ...sc, serviceCalls: sc.totalCalls });
+            callsMap.set(key, {
+                _id: sc._id,
+                originalUserName: sc.originalUserName,
+                totalCalls: sc.totalCalls,
+                serviceCalls: sc.totalCalls,
+                pntseCalls: 0,
+                pmoCalls: 0,
+                hot: 0,
+                warm: 0,
+                cold: 0,
+                neutral: 0,
+                invalid: 0
+            });
         }
     });
 
@@ -229,7 +231,19 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
             existing.pntseCalls = (existing.pntseCalls || 0) + fu.pntseCalls;
             existing.pmoCalls = (existing.pmoCalls || 0) + fu.pmoCalls;
         } else {
-            callsMap.set(key, { ...fu, serviceCalls: 0 });
+            callsMap.set(key, {
+                _id: fu._id,
+                originalUserName: fu.originalUserName,
+                totalCalls: fu.totalCalls,
+                serviceCalls: 0,
+                pntseCalls: fu.pntseCalls || 0,
+                pmoCalls: fu.pmoCalls || 0,
+                hot: 0,
+                warm: 0,
+                cold: 0,
+                neutral: 0,
+                invalid: 0
+            });
         }
     });
 
@@ -418,6 +432,12 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
     aggregatedCalls.forEach(item => {
         if (item.originalUserName) allUserNames.add(item.originalUserName.toLowerCase().trim());
     });
+    aggregatedServiceCalls.forEach(item => {
+        if (item.originalUserName) allUserNames.add(item.originalUserName.toLowerCase().trim());
+    });
+    aggregatedFollowUps.forEach(item => {
+        if (item.originalUserName) allUserNames.add(item.originalUserName.toLowerCase().trim());
+    });
     todaysFollowUps.forEach(item => {
         if (item._id && item._id.userName) allUserNames.add(item._id.userName.toLowerCase().trim());
     });
@@ -580,6 +600,8 @@ const buildCallsReportData = async (dateFilter, startDate, endDate, centres, act
             employeeId: finalEmployeeId,
             totalCalls: aggCall.totalCalls || 0,
             serviceCalls: aggCall.serviceCalls || 0,
+            pntseCalls: aggCall.pntseCalls || 0,
+            pmoCalls: aggCall.pmoCalls || 0,
             hot: aggCall.hot || 0,
             warm: aggCall.warm || 0,
             cold: aggCall.cold || 0,
@@ -1859,19 +1881,12 @@ export const getDailyUserActivity = async (req, res) => {
         const allServiceCallsToday = await StudentServiceCall.find(serviceCallUserQuery).lean();
 
         allServiceCallsToday.forEach(sc => {
-            const status = (sc.status || 'NEUTRAL').toUpperCase();
-            if (status.includes('HOT')) hotCount++;
-            else if (status.includes('WARM')) warmCount++;
-            else if (status.includes('COLD')) coldCount++;
-            else if (status.includes('NEUTRAL')) neutralCount++;
-            else if (status.includes('INVALID')) invalidCount++;
-
             callDetails.push({
                 leadId: sc._id,
                 studentName: sc.studentName || 'Unknown Student',
                 phoneNumber: sc.studentPhone || '-',
                 callType: 'SERVICE_CALL',
-                leadType: (sc.status || 'NEUTRAL').toUpperCase(),
+                leadType: '-',
                 isCounseled: false,
                 feedback: sc.servicePurpose || 'Service Call',
                 remarks: sc.remarks || '',
@@ -1928,28 +1943,12 @@ export const getDailyUserActivity = async (req, res) => {
                 const feedbackText = fu.feedback || `${sType} Call`;
                 const remarksText = `${fu.notes || ''}${durationStr}`.trim();
 
-                let leadStatus = 'NEUTRAL';
-                const fbLower = (fu.feedback || '').toLowerCase();
-                if (fbLower.includes('not interested') || fbLower.includes('no response')) {
-                    leadStatus = 'COLD';
-                    coldCount++;
-                } else if (fbLower.includes('call back later')) {
-                    leadStatus = 'WARM';
-                    warmCount++;
-                } else if (fbLower.includes('foundation') || fbLower.includes('neet') || fbLower.includes('jee')) {
-                    leadStatus = 'HOT';
-                    hotCount++;
-                } else {
-                    leadStatus = 'NEUTRAL';
-                    neutralCount++;
-                }
-
                 callDetails.push({
                     leadId: fu._id,
                     studentName: student.name || 'Unknown Student',
                     phoneNumber: student.mobile || student.secondaryMobile || '-',
                     callType: callType,
-                    leadType: leadStatus,
+                    leadType: '-',
                     isCounseled: false,
                     feedback: feedbackText,
                     remarks: remarksText,
@@ -2488,7 +2487,7 @@ export const exportCenterPerformanceExcel = async (req, res) => {
 export const exportUserCallingReportExcel = async (req, res) => {
     try {
         const { userId } = req.params;
-        const { fromDate, toDate, centerId } = req.query;
+        const { fromDate, toDate, centerId, leadType, search } = req.query;
 
         const isRestrictCentres = checkRestrictCentres(req.user?.role);
         const isRestrictIndividual = checkRestrictIndividual(req.user?.role);
@@ -2533,7 +2532,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
         }
         const allFollowUpLeads = await LeadManagement.find(followUpLeadsQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardCourse boardName').lean();
 
-        const callDetails = [];
+        let callDetails = [];
 
         allFollowUpLeads.forEach(lead => {
             const todayFollowUps = (lead.followUps || []).filter(fu => {
@@ -2586,7 +2585,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 studentName: sc.studentName || 'Unknown Student',
                 phoneNumber: sc.studentPhone || '-',
                 callType: 'SERVICE_CALL',
-                leadType: (sc.status || 'NEUTRAL').toUpperCase(),
+                leadType: '-',
                 feedback: sc.servicePurpose || 'Service Call',
                 remarks: sc.remarks || '',
                 nextFollowUpDate: sc.nextFollowUpDate || null,
@@ -2641,22 +2640,12 @@ export const exportUserCallingReportExcel = async (req, res) => {
                 const feedbackText = fu.feedback || `${sType} Call`;
                 const remarksText = `${fu.notes || ''}${durationStr}`.trim();
 
-                let leadStatus = 'NEUTRAL';
-                const fbLower = (fu.feedback || '').toLowerCase();
-                if (fbLower.includes('not interested') || fbLower.includes('no response')) {
-                    leadStatus = 'COLD';
-                } else if (fbLower.includes('call back later')) {
-                    leadStatus = 'WARM';
-                } else if (fbLower.includes('foundation') || fbLower.includes('neet') || fbLower.includes('jee')) {
-                    leadStatus = 'HOT';
-                }
-
                 callDetails.push({
                     centreName: (center?.centreName) || '-',
                     studentName: student.name || 'Unknown Student',
                     phoneNumber: student.mobile || student.secondaryMobile || '-',
                     callType: callType,
-                    leadType: leadStatus,
+                    leadType: '-',
                     feedback: feedbackText,
                     remarks: remarksText,
                     nextFollowUpDate: fu.nextFollowUpDate || null,
@@ -2764,37 +2753,99 @@ export const exportUserCallingReportExcel = async (req, res) => {
         allBoardAdmissionsToday.forEach(adm => addExtra(adm, true, 'BOARD ADMISSION COMPLETED', 'Board Course Admission'));
         allBoardCounsellingsToday.forEach(couns => addExtra(couns, false, 'BOARD COUNSELLING COMPLETED', 'Board Course Counselling'));
 
+        // Filter by selected leadType / callType if provided
+        if (leadType && leadType !== 'ALL') {
+            if (leadType === 'SERVICE_CALL') {
+                callDetails = callDetails.filter(c => c.callType === 'SERVICE_CALL');
+            } else if (leadType === 'PNTSE_CALL') {
+                callDetails = callDetails.filter(c => c.callType === 'PNTSE_CALL');
+            } else if (leadType === 'PMO_CALL') {
+                callDetails = callDetails.filter(c => c.callType === 'PMO_CALL');
+            } else if (leadType === 'TODAYS_FOLLOWUP') {
+                callDetails = callDetails.filter(c => {
+                    if (!c.nextFollowUpDate) return false;
+                    const nfd = new Date(c.nextFollowUpDate);
+                    return nfd >= startDate && nfd <= endDate;
+                });
+            } else if (leadType === 'PREVIOUS_FOLLOWUP') {
+                callDetails = callDetails.filter(c => {
+                    if (!c.nextFollowUpDate) return false;
+                    const nfd = new Date(c.nextFollowUpDate);
+                    return nfd < startDate;
+                });
+            } else {
+                callDetails = callDetails.filter(c => {
+                    const key = (c.leadType || '').toUpperCase();
+                    if (leadType === 'HOT') return key.includes('HOT');
+                    if (leadType === 'WARM') return key.includes('WARM');
+                    if (leadType === 'COLD') return key.includes('COLD');
+                    if (leadType === 'NEUTRAL') return key.includes('NEUTRAL');
+                    if (leadType === 'INVALID') return key.includes('INVALID') || key.includes('INACTIVE');
+                    return key.includes(leadType.toUpperCase());
+                });
+            }
+        }
+
+        // Filter by search query if provided
+        if (search && search.trim()) {
+            const q = search.trim().toLowerCase();
+            callDetails = callDetails.filter(c => 
+                (c.studentName || '').toLowerCase().includes(q) ||
+                (c.phoneNumber || '').includes(q) ||
+                (c.feedback || '').toLowerCase().includes(q) ||
+                (c.remarks || '').toLowerCase().includes(q) ||
+                (c.className || '').toLowerCase().includes(q) ||
+                (c.boardName || '').toLowerCase().includes(q) ||
+                (c.schoolName || '').toLowerCase().includes(q) ||
+                (c.courseName || '').toLowerCase().includes(q)
+            );
+        }
+
         // Sort newest first
         callDetails.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+        const isNoLeadStatus = ['SERVICE_CALL', 'PNTSE_CALL', 'PMO_CALL'].includes(leadType);
+
         // Format for excel
-        const reportData = callDetails.map((call, idx) => ({
-            "Sl No": idx + 1,
-            "Centre": call.centreName,
-            "Student Name": call.studentName,
-            "Phone Number": call.phoneNumber,
-            "Class": call.className || '-',
-            "Board": call.boardName || '-',
-            "School": call.schoolName || '-',
-            "Source": call.source || '-',
-            "Course Name": call.courseName || '-',
-            "Call Type": call.callType,
-            "Lead Status": call.leadType,
-            "Total Follow-Ups": call.followUpCount || 0,
-            "Feedback": call.feedback,
-            "Remarks": call.remarks,
-            "Next Follow-Up Date": call.nextFollowUpDate ? new Date(call.nextFollowUpDate).toLocaleDateString('en-GB') : 'N/A',
-            "Call Date & Time": new Date(call.date).toLocaleString('en-GB')
-        }));
+        const reportData = callDetails.map((call, idx) => {
+            const row = {
+                "Sl No": idx + 1,
+                "Centre": call.centreName,
+                "Student Name": call.studentName,
+                "Phone Number": call.phoneNumber,
+                "Class": call.className || '-',
+                "Board": call.boardName || '-',
+                "School": call.schoolName || '-',
+                "Source": call.source || '-',
+                "Course Name": call.courseName || '-',
+                "Call Type": call.callType
+            };
+
+            if (!isNoLeadStatus) {
+                row["Lead Status"] = (['SERVICE_CALL', 'PNTSE_CALL', 'PMO_CALL'].includes(call.callType) || !call.leadType || call.leadType === '-') ? '-' : call.leadType;
+            }
+
+            row["Feedback"] = call.feedback || '-';
+            row["Remarks"] = call.remarks || '-';
+            row["Next Follow-Up Date"] = call.nextFollowUpDate ? new Date(call.nextFollowUpDate).toLocaleDateString('en-GB') : 'N/A';
+            row["Call Date & Time"] = call.date ? new Date(call.date).toLocaleString('en-GB') : 'N/A';
+
+            return row;
+        });
+
+        const sheetTitle = isNoLeadStatus 
+            ? (leadType === 'SERVICE_CALL' ? 'Service Calls' : leadType === 'PNTSE_CALL' ? 'PNTSE Calls' : 'PMO Calls')
+            : (leadType && leadType !== 'ALL' ? `${leadType} Calls` : 'Calling Report');
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(reportData);
-        XLSX.utils.book_append_sheet(wb, ws, "Calling Report");
+        XLSX.utils.book_append_sheet(wb, ws, sheetTitle.substring(0, 31));
 
         const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 
+        const typeSuffix = leadType && leadType !== 'ALL' ? `_${leadType}` : '';
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename=Calling_Report_${user.name.replace(/\s+/g, '_')}.xlsx`);
+        res.setHeader('Content-Disposition', `attachment; filename=Calling_Report_${user.name.replace(/\s+/g, '_')}${typeSuffix}.xlsx`);
         res.send(buffer);
 
     } catch (error) {
@@ -3894,6 +3945,8 @@ export const exportDailyCallsReportSummaryExcel = async (req, res) => {
                 "Walk Ins": item.walkInCount,
                 "Admissions": item.admissionCount,
                 "Service Calls": item.serviceCalls || 0,
+                "PNTSE Calls": item.pntseCalls || 0,
+                "PMO Calls": item.pmoCalls || 0,
                 "Total Calls": item.totalCalls
             };
         });
@@ -3958,7 +4011,7 @@ export const exportDailyCallsReportBulkExcel = async (req, res) => {
         const leads = await LeadManagement.find({
             centre: { $in: actualCenterIds },
             "followUps.date": dateFilter,
-            ...(isRestrictIndividual ? { "followUps.updatedBy": req.user.name } : {})
+            ...(isRestrictIndividual && req.user?.name ? { "followUps.updatedBy": req.user.name } : {})
         }).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardName boardCourse').lean();
 
         const users = await User.find().select('name role employeeId isActive').lean();
@@ -3968,7 +4021,9 @@ export const exportDailyCallsReportBulkExcel = async (req, res) => {
 
         const userMap = {};
         users.forEach(u => {
-            userMap[u.name.toLowerCase()] = { role: u.role, employeeId: u.employeeId };
+            if (u && u.name) {
+                userMap[u.name.toLowerCase()] = { role: u.role, employeeId: u.employeeId };
+            }
         });
 
         const callDetails = [];
@@ -3977,7 +4032,7 @@ export const exportDailyCallsReportBulkExcel = async (req, res) => {
             const matchingFollowups = (lead.followUps || []).filter(fu => {
                 const fuDate = new Date(fu.date);
                 const dateMatch = fuDate >= startDate && fuDate <= endDate;
-                const userMatch = !isRestrictIndividual || fu.updatedBy === req.user.name;
+                const userMatch = !isRestrictIndividual || (req.user?.name && fu.updatedBy === req.user.name);
                 return dateMatch && userMatch;
             });
 
@@ -3990,7 +4045,7 @@ export const exportDailyCallsReportBulkExcel = async (req, res) => {
                 const uName = fu.updatedBy || 'System';
                 const uDetails = userMap[uName.toLowerCase()] || {};
 
-                const isMatchLoggedInUser = req.user && uName.toLowerCase() === req.user.name.toLowerCase();
+                const isMatchLoggedInUser = req.user?.name && uName.toLowerCase() === req.user.name.toLowerCase();
                 const finalRole = isMatchLoggedInUser ? req.user.role : (uDetails.role || 'N/A');
                 const finalEmployeeId = isMatchLoggedInUser ? req.user.employeeId : (uDetails.employeeId || 'N/A');
 
@@ -4014,6 +4069,103 @@ export const exportDailyCallsReportBulkExcel = async (req, res) => {
                 });
             });
         });
+
+        // Also fetch StudentServiceCalls for bulk calling export
+        const serviceCallQuery = {
+            createdAt: dateFilter
+        };
+        if (actualCenterIds && actualCenterIds.length > 0) {
+            serviceCallQuery.centre = { $in: actualCenterIds };
+        }
+        if (isRestrictIndividual && req.user?.name) {
+            serviceCallQuery.userName = new RegExp(`^${req.user.name.trim()}$`, 'i');
+        }
+        const serviceCalls = await StudentServiceCall.find(serviceCallQuery).populate('centre').lean();
+        serviceCalls.forEach(sc => {
+            const uName = sc.userName || 'System';
+            const uDetails = userMap[uName.toLowerCase()] || {};
+            const isMatchLoggedInUser = req.user?.name && uName.toLowerCase() === req.user.name.toLowerCase();
+            const finalRole = isMatchLoggedInUser ? req.user.role : (uDetails.role || 'N/A');
+            const finalEmployeeId = isMatchLoggedInUser ? req.user.employeeId : (uDetails.employeeId || 'N/A');
+
+            callDetails.push({
+                centreName: sc.centre?.centreName || sc.centreName || '-',
+                studentName: sc.studentName || 'Unknown Student',
+                phoneNumber: sc.studentPhone || '-',
+                className: 'N/A',
+                board: 'N/A',
+                school: 'N/A',
+                courseName: '-',
+                handledBy: uName,
+                employeeId: finalEmployeeId,
+                role: finalRole,
+                callType: 'SERVICE_CALL',
+                leadType: '-',
+                feedback: sc.servicePurpose || 'Service Call',
+                remarks: sc.remarks || '',
+                nextFollowUpDate: sc.nextFollowUpDate || null,
+                date: sc.createdAt
+            });
+        });
+
+        // Also fetch StudentFollowUp (PNTSE & PMO) for bulk calling export
+        const studentFollowUpQuery = {
+            callDate: dateFilter
+        };
+        if (actualCenterIds && actualCenterIds.length > 0) {
+            studentFollowUpQuery.centre = { $in: actualCenterIds };
+        }
+        if (isRestrictIndividual && req.user?._id) {
+            studentFollowUpQuery.calledBy = req.user._id;
+        }
+        const studentFollowUps = await StudentFollowUp.find(studentFollowUpQuery)
+            .populate('calledBy', 'name email employeeId role')
+            .populate('centre', 'centreName')
+            .lean();
+
+        if (studentFollowUps.length > 0) {
+            const pntseIds = studentFollowUps.filter(f => f.studentType === 'PNTSE').map(f => f.studentId).filter(Boolean);
+            const pmoIds = studentFollowUps.filter(f => f.studentType === 'PMO').map(f => f.studentId).filter(Boolean);
+
+            const [pntseStudents, pmoStudents] = await Promise.all([
+                pntseIds.length > 0 ? PNTSEStudent.find({ _id: { $in: pntseIds } }).populate('centre').lean() : [],
+                pmoIds.length > 0 ? PMOStudent.find({ _id: { $in: pmoIds } }).populate('centre').lean() : []
+            ]);
+
+            const studentMap = {};
+            pntseStudents.forEach(s => { studentMap[s._id.toString()] = { ...s, type: 'PNTSE' }; });
+            pmoStudents.forEach(s => { studentMap[s._id.toString()] = { ...s, type: 'PMO' }; });
+
+            studentFollowUps.forEach(fu => {
+                const student = studentMap[fu.studentId?.toString()] || {};
+                const sType = fu.studentType || 'PNTSE';
+                const callType = sType === 'PMO' ? 'PMO_CALL' : 'PNTSE_CALL';
+
+                const uName = fu.calledBy?.name || 'System';
+                const uDetails = userMap[uName.toLowerCase()] || {};
+                const finalRole = fu.calledBy?.role || uDetails.role || 'N/A';
+                const finalEmployeeId = fu.calledBy?.employeeId || uDetails.employeeId || 'N/A';
+
+                callDetails.push({
+                    centreName: fu.centre?.centreName || student.centre?.centreName || '-',
+                    studentName: student.name || 'Unknown Student',
+                    phoneNumber: student.mobile || student.secondaryMobile || '-',
+                    className: student.class?.name || student.className || 'N/A',
+                    board: student.board?.boardCourse || student.board?.boardName || (typeof student.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(student.board) ? student.board : (student.boardName || 'N/A')),
+                    school: student.school || student.schoolName || 'N/A',
+                    courseName: student.course || student.stream || '-',
+                    handledBy: uName,
+                    employeeId: finalEmployeeId,
+                    role: finalRole,
+                    callType: callType,
+                    leadType: '-',
+                    feedback: fu.feedback || `${sType} Call`,
+                    remarks: fu.notes || '',
+                    nextFollowUpDate: fu.nextFollowUpDate || null,
+                    date: fu.callDate || fu.createdAt
+                });
+            });
+        }
 
         callDetails.sort((a, b) => new Date(b.date) - new Date(a.date));
 
@@ -4419,7 +4571,7 @@ export const getDailyUserServiceCalls = async (req, res) => {
                 className,
                 courseName,
                 callType: 'SERVICE_CALL',
-                leadType: (c.status || 'NEUTRAL').toUpperCase(),
+                leadType: '-',
                 servicePurpose: c.servicePurpose || 'Service Call',
                 feedback: c.servicePurpose || 'Service Call',
                 remarks: c.remarks || '',

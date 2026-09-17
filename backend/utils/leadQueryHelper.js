@@ -11,6 +11,14 @@ export const parseFlexibleDate = (dateStr) => {
     const str = String(dateStr).trim();
     if (!str) return null;
 
+    // Check YYYY-MM-DD or YYYY/MM/DD format
+    const ymdMatch = str.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})$/);
+    if (ymdMatch) {
+        const [_, year, month, day] = ymdMatch;
+        const parsed = new Date(parseInt(year, 10), parseInt(month, 10) - 1, parseInt(day, 10));
+        return isNaN(parsed.getTime()) ? null : parsed;
+    }
+
     // Check DD-MM-YYYY or DD/MM/YYYY format
     const dmyMatch = str.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
     if (dmyMatch) {
@@ -278,7 +286,10 @@ export const buildLeadQuery = async (queryParams, user) => {
         const end = parseFlexibleDate(toDate);
         if (start || end) {
             query.createdAt = {};
-            if (start) query.createdAt.$gte = start;
+            if (start) {
+                start.setHours(0, 0, 0, 0);
+                query.createdAt.$gte = start;
+            }
             if (end) {
                 end.setHours(23, 59, 59, 999);
                 query.createdAt.$lte = end;
@@ -292,7 +303,10 @@ export const buildLeadQuery = async (queryParams, user) => {
         const end = parseFlexibleDate(followUpToDate);
         if (start || end) {
             query.nextFollowUpDate = {};
-            if (start) query.nextFollowUpDate.$gte = start;
+            if (start) {
+                start.setHours(0, 0, 0, 0);
+                query.nextFollowUpDate.$gte = start;
+            }
             if (end) {
                 end.setHours(23, 59, 59, 999);
                 query.nextFollowUpDate.$lte = end;

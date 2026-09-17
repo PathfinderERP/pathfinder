@@ -22,6 +22,13 @@ import { CardSkeleton, TableRowSkeleton, FeedItemSkeleton } from "../common/Skel
 import LeadJourneyModal from "./LeadJourneyModal";
 import ConversionDetailsModal from "./ConversionDetailsModal";
 
+const formatLocalDate = (d = new Date()) => {
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
 const LeadManagementContent = () => {
     const navigate = useNavigate();
     const { theme, toggleTheme } = useTheme();
@@ -106,7 +113,7 @@ const LeadManagementContent = () => {
     const [dashboardFilters, setDashboardFilters] = useState({
         fromDate: "",
         toDate: "",
-        scheduledDate: new Date().toISOString().split('T')[0] // Default to today for scheduled
+        scheduledDate: formatLocalDate() // Default to today for scheduled
     });
 
     const [filters, setFilters] = useState({
@@ -593,9 +600,11 @@ const LeadManagementContent = () => {
 
     const applyDatePreset = (preset) => {
         const now = new Date();
-        const fmt = (d) => d.toISOString().split('T')[0];
+        const fmt = formatLocalDate;
         const today = fmt(now);
-        const yesterday = fmt(new Date(now.getTime() - 86400000));
+        const yesterdayDate = new Date(now);
+        yesterdayDate.setDate(now.getDate() - 1);
+        const yesterday = fmt(yesterdayDate);
         const dayOfWeek = now.getDay();
         const diffToMon = (dayOfWeek + 6) % 7;
         const thisWeekMon = new Date(now); thisWeekMon.setDate(now.getDate() - diffToMon);
@@ -799,7 +808,7 @@ const LeadManagementContent = () => {
         setDashboardFilters({
             fromDate: "",
             toDate: "",
-            scheduledDate: new Date().toISOString().split('T')[0]
+            scheduledDate: formatLocalDate()
         });
         setCurrentPage(1);
         toast.info("Analytics filters have been reset");
@@ -1086,7 +1095,7 @@ const LeadManagementContent = () => {
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
-                const dateStr = new Date().toISOString().split('T')[0];
+                const dateStr = formatLocalDate();
                 a.download = `Admission_Segregation_${dateStr}.xlsx`;
                 a.click();
                 URL.revokeObjectURL(url);
