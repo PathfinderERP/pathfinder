@@ -13,7 +13,13 @@ const ZoneManagement = () => {
     const [showModal, setShowModal] = useState(false);
     const [editingZone, setEditingZone] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
-    const [currentUser, setCurrentUser] = useState(null);
+    const [currentUser, setCurrentUser] = useState(() => {
+        try {
+            return JSON.parse(localStorage.getItem('user'));
+        } catch (e) {
+            return null;
+        }
+    });
 
     const [formData, setFormData] = useState({
         name: '',
@@ -33,16 +39,15 @@ const ZoneManagement = () => {
         isActive: true
     });
 
-    // Get current user from localStorage
-    useEffect(() => {
-        const user = JSON.parse(localStorage.getItem('user'));
-        setCurrentUser(user);
-    }, []);
-
     // Check permissions
-    const canCreate = currentUser?.role === 'superAdmin' || hasPermission(currentUser, 'masterData', 'zone', 'create');
-    const canEdit = currentUser?.role === 'superAdmin' || hasPermission(currentUser, 'masterData', 'zone', 'edit');
-    const canDelete = currentUser?.role === 'superAdmin' || hasPermission(currentUser, 'masterData', 'zone', 'delete');
+    const isSuperAdmin = currentUser?.role && (
+        Array.isArray(currentUser.role)
+            ? currentUser.role.some(r => typeof r === 'string' && r.toLowerCase().replace(/\s+/g, '') === 'superadmin')
+            : typeof currentUser.role === 'string' && currentUser.role.toLowerCase().replace(/\s+/g, '') === 'superadmin'
+    );
+    const canCreate = isSuperAdmin || hasPermission(currentUser, 'masterData', 'zone', 'create');
+    const canEdit = isSuperAdmin || hasPermission(currentUser, 'masterData', 'zone', 'edit');
+    const canDelete = isSuperAdmin || hasPermission(currentUser, 'masterData', 'zone', 'delete');
 
     // Fetch zones and centres
     useEffect(() => {

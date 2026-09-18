@@ -653,7 +653,7 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
     const cleanRoleStr = cleanRole(role);
 
     const granularPermissions = granularPermissionsOrUser?.granularPermissions ||
-        (typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
+        (granularPermissionsOrUser && typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
 
     const hasGranularObject = granularPermissions && typeof granularPermissions === 'object' && Object.keys(granularPermissions).length > 0;
 
@@ -903,7 +903,7 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     const normalizedRole = cleanRoleStr;
 
     const granularPermissions = granularPermissionsOrUser?.granularPermissions ||
-        (typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
+        (granularPermissionsOrUser && typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
 
     const hasGranularObject = granularPermissions && typeof granularPermissions === 'object' && Object.keys(granularPermissions).length > 0;
 
@@ -1032,7 +1032,7 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
 export const getAccessibleModules = (granularPermissionsOrUser) => {
     const role = getUserRole(granularPermissionsOrUser);
     const granularPermissions = granularPermissionsOrUser?.granularPermissions ||
-        (typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
+        (granularPermissionsOrUser && typeof granularPermissionsOrUser === 'object' && !granularPermissionsOrUser.role ? granularPermissionsOrUser : null);
     const hasGranularObject = granularPermissions && typeof granularPermissions === 'object' && Object.keys(granularPermissions).length > 0;
 
     if (role && (role.toLowerCase() === 'superadmin' || role.toLowerCase() === 'super admin')) {
