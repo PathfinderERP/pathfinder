@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import { hasPermission } from "../../config/permissions";
-import { FaSearch, FaCheckCircle, FaClock, FaTimes, FaSyncAlt, FaExclamationTriangle, FaFilter, FaDownload, FaRegFileAlt, FaFileInvoice } from "react-icons/fa";
+import { FaSearch, FaCheckCircle, FaClock, FaTimes, FaSyncAlt, FaExclamationTriangle, FaFilter, FaDownload, FaRegFileAlt, FaFileInvoice, FaEdit, FaCalendarAlt } from "react-icons/fa";
 import { toast } from "react-toastify";
 import Select from "react-select";
 import * as XLSX from "xlsx";
@@ -27,6 +27,19 @@ const ChequeManagement = () => {
     const [showClearModal, setShowClearModal] = useState(false);
     const [clearingId, setClearingId] = useState(null);
     const [clearDate, setClearDate] = useState(new Date().toISOString().split('T')[0]);
+
+    const [showEditClearanceDateModal, setShowEditClearanceDateModal] = useState(false);
+    const [editingCheque, setEditingCheque] = useState(null);
+    const [editClearDate, setEditClearDate] = useState("");
+    const [isUpdatingClearanceDate, setIsUpdatingClearanceDate] = useState(false);
+
+    const [showEditStatusModal, setShowEditStatusModal] = useState(false);
+    const [statusEditingCheque, setStatusEditingCheque] = useState(null);
+    const [targetStatus, setTargetStatus] = useState("PAID");
+    const [statusClearedDate, setStatusClearedDate] = useState(new Date().toISOString().split('T')[0]);
+    const [statusRejectDate, setStatusRejectDate] = useState(new Date().toISOString().split('T')[0]);
+    const [statusRejectReason, setStatusRejectReason] = useState("");
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
     const [selectedBillCheque, setSelectedBillCheque] = useState(null);
 
@@ -259,6 +272,144 @@ const ChequeManagement = () => {
         } catch (error) {
             console.error("Reject Error:", error);
             toast.error("Error rejecting cheque");
+        }
+    };
+
+    const handleOpenEditClearanceDate = (cheque) => {
+        setEditingCheque(cheque);
+        let dateVal = "";
+        if (cheque.clearedOrRejectedDate) {
+            const d = new Date(cheque.clearedOrRejectedDate);
+            if (!isNaN(d.getTime())) {
+                const year = d.getFullYear();
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const day = String(d.getDate()).padStart(2, '0');
+                dateVal = `${year}-${month}-${day}`;
+            }
+        }
+        if (!dateVal) {
+            dateVal = new Date().toISOString().split('T')[0];
+        }
+        setEditClearDate(dateVal);
+        setShowEditClearanceDateModal(true);
+    };
+
+    const handleUpdateClearanceDate = async () => {
+        if (!isSuperAdminOrAccounts) {
+            toast.error("Access Denied: Only Accounts and SuperAdmin users can edit clearance dates.");
+            return;
+        }
+        if (!editClearDate) {
+            toast.error("Please provide a valid clearance date.");
+            return;
+        }
+        if (!editingCheque) return;
+
+        setIsUpdatingClearanceDate(true);
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/finance/installment/update-clearance-date/${editingCheque.paymentId}`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ clearedDate: editClearDate })
+                }
+            );
+
+            if (response.ok) {
+                const data = await response.json();
+                toast.success(data.message || "Clearance date updated successfully!");
+                setShowEditClearanceDateModal(false);
+                setEditingCheque(null);
+                setEditClearDate("");
+                fetchCheques();
+            } else {
+                const err = await response.json();
+                toast.error(err.message || "Failed to update clearance date");
+            }
+        } catch (error) {
+            console.error("Update Clearance Date Error:", error);
+            toast.error("Error updating clearance date");
+        } finally {
+            setIsUpdatingClearanceDate(false);
+        }
+    };
+
+    const handleOpenEditStatus = (cheque) => {
+        setStatusEditingCheque(cheque);
+        const initialTarget = cheque.status === "PAID" ? "REJECTED" : "PAID";
+        setTargetStatus(initialTarget);
+
+        let dVal = new Date().toISOString().split('T')[0];
+        if (cheque.clearedOrRejectedDate) {
+            const d = new Date(cheque.clearedOrRejectedDate);
+            if (!isNaN(d.getTime())) {
+                dVal = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            }
+        }
+        setStatusClearedDate(dVal);
+        setStatusRejectDate(dVal);
+        setStatusRejectReason("");
+        setShowEditStatusModal(true);
+    };
+
+    const handleUpdateStatus = async () => {
+        if (!isSuperAdminOrAccounts) {
+            toast.error("Access Denied: Only Accounts and SuperAdmin users can edit cheque status.");
+            return;
+        }
+        if (!statusEditingCheque) return;
+
+        if (targetStatus === "PAID" && !statusClearedDate) {
+            toast.error("Please provide a cleared date");
+            return;
+        }
+        if (targetStatus === "REJECTED" && !statusRejectDate) {
+            toast.error("Please provide a rejection date");
+            return;
+        }
+
+        setIsUpdatingStatus(true);
+        try {
+            const token = localStorage.getItem("token");
+            const payload = {
+                status: targetStatus,
+                clearedDate: targetStatus === "PAID" ? statusClearedDate : undefined,
+                rejectedDate: targetStatus === "REJECTED" ? statusRejectDate : undefined,
+                reason: targetStatus === "REJECTED" ? statusRejectReason : undefined
+            };
+
+            const response = await fetch(
+                `${import.meta.env.VITE_API_URL}/finance/installment/update-status/${statusEditingCheque.paymentId || statusEditingCheque.id}`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify(payload)
+                }
+            );
+
+            if (response.ok) {
+                const data = await response.json();
+                toast.success(data.message || "Cheque status updated successfully!");
+                setShowEditStatusModal(false);
+                setStatusEditingCheque(null);
+                fetchCheques();
+            } else {
+                const err = await response.json();
+                toast.error(err.message || "Failed to update cheque status");
+            }
+        } catch (error) {
+            console.error("Update Status Error:", error);
+            toast.error("Error updating cheque status");
+        } finally {
+            setIsUpdatingStatus(false);
         }
     };
 
@@ -619,7 +770,23 @@ const ChequeManagement = () => {
                                             {cheque.depositedDate ? new Date(cheque.depositedDate).toLocaleDateString('en-IN') : "---"}
                                         </td>
                                         <td className={`font-bold text-xs p-6 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                                            {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "---"}
+                                            <div className="flex items-center gap-2">
+                                                <span>{cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "---"}</span>
+                                                {cheque.status === "PAID" && isSuperAdminOrAccounts && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenEditClearanceDate(cheque)}
+                                                        title="Edit Clearance Date"
+                                                        className={`p-1.5 rounded-lg border transition-all ${
+                                                            isDarkMode
+                                                                ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500 hover:text-white"
+                                                                : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-600 hover:text-white"
+                                                        }`}
+                                                    >
+                                                        <FaEdit className="text-[11px]" />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </td>
                                         <td className="p-6">
                                             {cheque.receiptFile ? (
@@ -635,7 +802,25 @@ const ChequeManagement = () => {
                                                 <span className="text-[10px] text-gray-500 font-bold uppercase">Not Deposited</span>
                                             )}
                                         </td>
-                                        <td className="p-6">{getStatusBadge(cheque.status)}</td>
+                                        <td className="p-6">
+                                            <div className="flex items-center gap-2">
+                                                {getStatusBadge(cheque.status)}
+                                                {(cheque.status === "PAID" || cheque.status === "REJECTED") && isSuperAdminOrAccounts && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenEditStatus(cheque)}
+                                                        title="Edit Cheque Status"
+                                                        className={`p-1.5 rounded-lg border transition-all ${
+                                                            isDarkMode
+                                                                ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
+                                                                : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
+                                                        }`}
+                                                    >
+                                                        <FaEdit className="text-[10px]" />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="p-6 text-center">
                                             {cheque.status === "PAID" ? (
                                                 <button
@@ -659,9 +844,9 @@ const ChequeManagement = () => {
                                                 <div className="flex justify-end gap-2">
                                                     <button
                                                         onClick={() => {
-                                                            setClearingId(cheque.paymentId);
-                                                            setClearDate(new Date().toISOString().split('T')[0]);
-                                                            setShowClearModal(true);
+                                                             setClearingId(cheque.paymentId);
+                                                             setClearDate(new Date().toISOString().split('T')[0]);
+                                                             setShowClearModal(true);
                                                         }}
                                                         className="px-4 py-2 bg-emerald-500/10 text-emerald-500 font-black text-[10px] uppercase rounded-lg hover:bg-emerald-500 hover:text-black transition-all border border-emerald-500/20"
                                                     >
@@ -676,6 +861,45 @@ const ChequeManagement = () => {
                                                         className="px-4 py-2 bg-red-500/10 text-red-500 font-black text-[10px] uppercase rounded-lg hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
                                                     >
                                                         Bounce
+                                                    </button>
+                                                </div>
+                                            ) : cheque.status === "PAID" && isSuperAdminOrAccounts ? (
+                                                <div className="flex justify-end gap-2">
+                                                    <button
+                                                        onClick={() => handleOpenEditStatus(cheque)}
+                                                        className={`px-3 py-1.5 border rounded-lg font-black text-[10px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm ${
+                                                            isDarkMode
+                                                                ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
+                                                                : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
+                                                        }`}
+                                                        title="Change Cheque Status"
+                                                    >
+                                                        <FaSyncAlt className="text-[10px]" /> Status
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleOpenEditClearanceDate(cheque)}
+                                                        className={`px-3 py-1.5 border rounded-lg font-black text-[10px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm ${
+                                                            isDarkMode
+                                                                ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500 hover:text-white"
+                                                                : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-600 hover:text-white"
+                                                        }`}
+                                                        title="Edit Clearance Date"
+                                                    >
+                                                        <FaEdit /> Date
+                                                    </button>
+                                                </div>
+                                            ) : cheque.status === "REJECTED" && isSuperAdminOrAccounts ? (
+                                                <div className="flex justify-end">
+                                                    <button
+                                                        onClick={() => handleOpenEditStatus(cheque)}
+                                                        className={`px-3 py-1.5 border rounded-lg font-black text-[10px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm ${
+                                                            isDarkMode
+                                                                ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
+                                                                : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
+                                                        }`}
+                                                        title="Change Cheque Status"
+                                                    >
+                                                        <FaSyncAlt className="text-[10px]" /> Change Status
                                                     </button>
                                                 </div>
                                             ) : (
@@ -844,6 +1068,236 @@ const ChequeManagement = () => {
                                     className="flex-1 py-3 bg-emerald-500 text-black font-black uppercase text-xs tracking-widest rounded-xl hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/20"
                                 >
                                     Confirm Clear
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit Clearance Date Modal */}
+                {showEditClearanceDateModal && editingCheque && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <div className={`border w-full max-w-md rounded-[2rem] overflow-hidden animate-in fade-in zoom-in duration-300 shadow-2xl ${isDarkMode ? "bg-[#131619] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"}`}>
+                            <div className={`p-8 border-b flex items-center gap-4 bg-gradient-to-r from-blue-500/10 to-transparent ${isDarkMode ? "border-gray-800" : "border-gray-200"}`}>
+                                <div className="w-12 h-12 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500 text-xl">
+                                    <FaCalendarAlt />
+                                </div>
+                                <div>
+                                    <h2 className={`text-xl font-black italic uppercase ${isDarkMode ? "text-white" : "text-gray-900"}`}>Edit Clearance Date</h2>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Update Cheque #{editingCheque.chequeNumber || "N/A"}</p>
+                                </div>
+                            </div>
+                            <div className="p-8 space-y-4">
+                                <div className={`p-4 rounded-xl border text-xs ${isDarkMode ? "bg-black/30 border-gray-800 text-gray-300" : "bg-gray-50 border-gray-200 text-gray-700"}`}>
+                                    <div className="flex justify-between py-1">
+                                        <span className="text-gray-500 font-bold uppercase text-[10px]">Student:</span>
+                                        <span className="font-black uppercase">{editingCheque.studentName} ({editingCheque.admissionNumber})</span>
+                                    </div>
+                                    <div className="flex justify-between py-1">
+                                        <span className="text-gray-500 font-bold uppercase text-[10px]">Bank & Centre:</span>
+                                        <span className="font-bold uppercase">{editingCheque.bankName || "N/A"} - {editingCheque.centre}</span>
+                                    </div>
+                                    <div className="flex justify-between py-1">
+                                        <span className="text-gray-500 font-bold uppercase text-[10px]">Amount:</span>
+                                        <span className="font-black text-emerald-500">₹{editingCheque.amount?.toLocaleString()}</span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">
+                                        New Clearance Date <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={editClearDate}
+                                        onChange={(e) => setEditClearDate(e.target.value)}
+                                        className={`w-full border rounded-xl py-2.5 px-4 font-bold text-xs outline-none focus:border-blue-500/50 transition-all uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-200 [color-scheme:dark]" : "bg-white border-gray-300 text-gray-800"}`}
+                                    />
+                                </div>
+                            </div>
+                            <div className={`p-8 border-t flex gap-4 ${isDarkMode ? "border-gray-800 bg-black/40" : "border-gray-200 bg-gray-50"}`}>
+                                <button
+                                    onClick={() => {
+                                        setShowEditClearanceDateModal(false);
+                                        setEditingCheque(null);
+                                        setEditClearDate("");
+                                    }}
+                                    disabled={isUpdatingClearanceDate}
+                                    className={`flex-1 py-3 font-black uppercase text-xs tracking-widest rounded-xl transition-all ${isDarkMode ? "bg-gray-800 text-gray-300 hover:bg-gray-700" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleUpdateClearanceDate}
+                                    disabled={isUpdatingClearanceDate}
+                                    className="flex-1 py-3 bg-blue-500 text-white font-black uppercase text-xs tracking-widest rounded-xl hover:bg-blue-600 transition-all shadow-lg shadow-blue-500/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isUpdatingClearanceDate ? (
+                                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                                    ) : (
+                                        "Update Date"
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Edit Cheque Status Modal */}
+                {showEditStatusModal && statusEditingCheque && (
+                    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+                        <div className={`border w-full max-w-lg rounded-[2rem] overflow-hidden animate-in fade-in zoom-in duration-300 shadow-2xl ${isDarkMode ? "bg-[#131619] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"}`}>
+                            <div className={`p-8 border-b flex items-center gap-4 bg-gradient-to-r from-purple-500/10 to-transparent ${isDarkMode ? "border-gray-800" : "border-gray-200"}`}>
+                                <div className="w-12 h-12 rounded-full bg-purple-500/20 flex items-center justify-center text-purple-500 text-xl">
+                                    <FaSyncAlt />
+                                </div>
+                                <div>
+                                    <h2 className={`text-xl font-black italic uppercase ${isDarkMode ? "text-white" : "text-gray-900"}`}>Edit Cheque Status</h2>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest">Update status for Cheque #{statusEditingCheque.chequeNumber || "N/A"}</p>
+                                </div>
+                            </div>
+
+                            <div className="p-8 space-y-5 max-h-[70vh] overflow-y-auto">
+                                {/* Cheque Summary */}
+                                <div className={`p-4 rounded-xl border text-xs space-y-1.5 ${isDarkMode ? "bg-black/30 border-gray-800 text-gray-300" : "bg-gray-50 border-gray-200 text-gray-700"}`}>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500 font-bold uppercase text-[10px]">Student:</span>
+                                        <span className="font-black uppercase">{statusEditingCheque.studentName} ({statusEditingCheque.admissionNumber || statusEditingCheque.admissionNo})</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500 font-bold uppercase text-[10px]">Bank & Centre:</span>
+                                        <span className="font-bold uppercase">{statusEditingCheque.bankName || "N/A"} - {statusEditingCheque.centre}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500 font-bold uppercase text-[10px]">Amount:</span>
+                                        <span className="font-black text-emerald-500 text-sm">₹{statusEditingCheque.amount?.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center pt-1 border-t border-gray-700/30">
+                                        <span className="text-gray-500 font-bold uppercase text-[10px]">Current Status:</span>
+                                        {getStatusBadge(statusEditingCheque.status)}
+                                    </div>
+                                </div>
+
+                                {/* Target Status Selection */}
+                                <div>
+                                    <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">
+                                        Select New Status <span className="text-red-500">*</span>
+                                    </label>
+                                    <div className="grid grid-cols-3 gap-2.5">
+                                        <button
+                                            type="button"
+                                            onClick={() => setTargetStatus("PAID")}
+                                            className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
+                                                targetStatus === "PAID"
+                                                    ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-black shadow-lg shadow-emerald-500/10"
+                                                    : isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
+                                            }`}
+                                        >
+                                            <FaCheckCircle className="text-base" />
+                                            <span className="text-[10px] uppercase font-bold tracking-wider">Cleared</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setTargetStatus("REJECTED")}
+                                            className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
+                                                targetStatus === "REJECTED"
+                                                    ? "bg-red-500/20 border-red-500 text-red-400 font-black shadow-lg shadow-red-500/10"
+                                                    : isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
+                                            }`}
+                                        >
+                                            <FaExclamationTriangle className="text-base" />
+                                            <span className="text-[10px] uppercase font-bold tracking-wider">Rejected</span>
+                                        </button>
+
+                                        <button
+                                            type="button"
+                                            onClick={() => setTargetStatus("PENDING_CLEARANCE")}
+                                            className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
+                                                targetStatus === "PENDING_CLEARANCE"
+                                                    ? "bg-amber-500/20 border-amber-500 text-amber-400 font-black shadow-lg shadow-amber-500/10"
+                                                    : isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
+                                            }`}
+                                        >
+                                            <FaClock className="text-base" />
+                                            <span className="text-[10px] uppercase font-bold tracking-wider">Pending</span>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Conditional Fields based on target status */}
+                                {targetStatus === "PAID" && (
+                                    <div className="space-y-3 pt-2">
+                                        <label className="text-[10px] font-black text-emerald-500 uppercase tracking-widest block">
+                                            Cleared Date <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={statusClearedDate}
+                                            onChange={(e) => setStatusClearedDate(e.target.value)}
+                                            className={`w-full border rounded-xl py-2.5 px-4 font-bold text-xs outline-none focus:border-emerald-500/50 transition-all uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-200 [color-scheme:dark]" : "bg-white border-gray-300 text-gray-800"}`}
+                                        />
+                                        <p className="text-[9px] text-gray-500 uppercase italic">Cheque will be marked Cleared/Paid and financial balance adjusted.</p>
+                                    </div>
+                                )}
+
+                                {targetStatus === "REJECTED" && (
+                                    <div className="space-y-3 pt-2">
+                                        <div>
+                                            <label className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1.5 block">
+                                                Rejection Date <span className="text-red-500">*</span>
+                                            </label>
+                                            <input
+                                                type="date"
+                                                value={statusRejectDate}
+                                                onChange={(e) => setStatusRejectDate(e.target.value)}
+                                                className={`w-full border rounded-xl py-2.5 px-4 font-bold text-xs outline-none focus:border-red-500/50 transition-all uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-200 [color-scheme:dark]" : "bg-white border-gray-300 text-gray-800"}`}
+                                            />
+                                        </div>
+                                        <div>
+                                            <label className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-1.5 block">
+                                                Reason for Rejection / Bounce
+                                            </label>
+                                            <textarea
+                                                value={statusRejectReason}
+                                                onChange={(e) => setStatusRejectReason(e.target.value)}
+                                                placeholder="e.g. Insufficient Funds, Signature Mismatch, Customer stopped payment..."
+                                                className={`w-full border rounded-xl p-3 font-bold text-xs uppercase tracking-wider outline-none focus:border-red-500/50 transition-all min-h-[80px] resize-none ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-200" : "bg-white border-gray-300 text-gray-800"}`}
+                                            />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {targetStatus === "PENDING_CLEARANCE" && (
+                                    <div className={`p-4 rounded-xl border text-xs text-amber-500/90 font-bold uppercase leading-relaxed ${isDarkMode ? "bg-amber-500/5 border-amber-500/20" : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+                                        ℹ Note: Reverting this cheque to "Pending Clearance" will reset clearance/rejection records and place it back into the pending processing queue.
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className={`p-8 border-t flex gap-4 ${isDarkMode ? "border-gray-800 bg-black/40" : "border-gray-200 bg-gray-50"}`}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowEditStatusModal(false);
+                                        setStatusEditingCheque(null);
+                                    }}
+                                    disabled={isUpdatingStatus}
+                                    className={`flex-1 py-3 font-black uppercase text-xs tracking-widest rounded-xl transition-all ${isDarkMode ? "bg-gray-800 text-gray-300 hover:bg-gray-700" : "bg-gray-200 text-gray-700 hover:bg-gray-300"}`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleUpdateStatus}
+                                    disabled={isUpdatingStatus}
+                                    className="flex-1 py-3 bg-purple-600 text-white font-black uppercase text-xs tracking-widest rounded-xl hover:bg-purple-500 transition-all shadow-lg shadow-purple-600/20 disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    {isUpdatingStatus ? (
+                                        <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                                    ) : (
+                                        "Update Status"
+                                    )}
                                 </button>
                             </div>
                         </div>

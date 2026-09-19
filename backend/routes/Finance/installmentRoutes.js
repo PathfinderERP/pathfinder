@@ -1,6 +1,6 @@
 import express from "express";
 import { searchStudent, getStudentFinancialDetails, getFeeDueList, getAllAdmissions, updateInstallmentSchedule } from "../../controllers/Finance/installmentController.js";
-import { getPendingCheques, clearCheque, rejectCheque } from "../../controllers/Finance/chequeController.js";
+import { getPendingCheques, clearCheque, rejectCheque, updateChequeClearanceDate, updateChequeStatus } from "../../controllers/Finance/chequeController.js";
 import { getFinancialAnalytics } from "../../controllers/Finance/getFinancialAnalytics.js";
 import authMiddleware from "../../middleware/authMiddleware.js";
 
@@ -12,7 +12,7 @@ router.use(authMiddleware);
 // Search for students
 router.get("/search", searchStudent);
 
-// Get all admissions with filters
+// All admissions with filters
 router.get("/all-admissions", getAllAdmissions);
 
 // Get detailed due list
@@ -25,6 +25,10 @@ router.get("/analytics", getFinancialAnalytics);
 router.get("/pending-cheques", getPendingCheques);
 router.post("/clear-cheque/:paymentId", clearCheque);
 router.post("/reject-cheque/:paymentId", rejectCheque);
+router.put("/update-clearance-date/:paymentId", updateChequeClearanceDate);
+router.post("/update-clearance-date/:paymentId", updateChequeClearanceDate);
+router.put("/update-status/:paymentId", updateChequeStatus);
+router.post("/update-status/:paymentId", updateChequeStatus);
 
 // Update installment schedule
 router.put("/update-schedule/:admissionId", updateInstallmentSchedule);

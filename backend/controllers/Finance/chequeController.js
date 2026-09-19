@@ -476,6 +476,487 @@ export const clearCheque = async (req, res) => {
     }
 };
 
+// Update clearance date of an already cleared cheque (Accounts and SuperAdmin only)
+export const updateChequeClearanceDate = async (req, res) => {
+    try {
+        if (!checkChequeApprovalRoleAccess(req.user)) {
+            return res.status(403).json({
+                message: "Access Denied: Editing clearance date can only be performed by Accounts and SuperAdmin roles."
+            });
+        }
+
+        const { paymentId } = req.params;
+        const { clearedDate } = req.body;
+
+        if (!clearedDate) {
+            return res.status(400).json({ message: "Cleared Date is required" });
+        }
+
+        const payment = await Payment.findById(paymentId);
+        if (!payment) {
+            return res.status(404).json({ message: "Payment record not found" });
+        }
+
+        if (payment.status !== "PAID") {
+            return res.status(400).json({ message: "Only cleared cheques can have their clearance date updated." });
+        }
+
+        // Try Normal Admission first, then Board Admission
+        let admission = await Admission.findById(payment.admission);
+        let isBoardAdmission = false;
+
+        if (!admission) {
+            admission = await BoardCourseAdmission.findById(payment.admission);
+            isBoardAdmission = true;
+        } else if (admission.admissionType === "BOARD") {
+            isBoardAdmission = true;
+        }
+
+        const userRoles = Array.isArray(req.user?.role) ? req.user.role : [req.user?.role || ''];
+        const isSuperAdmin = userRoles.some(r => {
+            const clean = (typeof r === 'string' ? r : '').toLowerCase().replace(/[\s\-_]+/g, '');
+            return clean === 'superadmin';
+        });
+
+        if (!isSuperAdmin && admission) {
+            const userCentres = await CentreSchema.find({
+                _id: { $in: req.user?.centres || [] }
+            }).select('centreName');
+            const authorizedCentreNames = userCentres.map(c => (c.centreName || '').trim().toLowerCase()).filter(Boolean);
+            const admCentre = (admission.centre || '').trim().toLowerCase();
+            if (admCentre && !authorizedCentreNames.includes(admCentre)) {
+                return res.status(403).json({
+                    message: "Access Denied: You are not authorized to edit cheques for this centre."
+                });
+            }
+        }
+
+        // 1. Update Payment record dates
+        const clearedDateIST = new Date(clearedDate + "T00:00:00+05:30");
+        const nowIST = new Date();
+        const todayISTStr = nowIST.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        const clearedDateStr = typeof clearedDate === "string" ? (clearedDate.includes("T") ? clearedDate.split("T")[0] : clearedDate) : clearedDate;
+
+        let newPaidDate;
+        if (clearedDateStr === todayISTStr) {
+            newPaidDate = nowIST;
+        } else {
+            newPaidDate = new Date(clearedDate + "T23:30:00+05:30");
+        }
+
+        payment.clearedOrRejectedDate = clearedDateIST;
+        payment.paidDate = newPaidDate;
+        await payment.save();
+
+        // 2. Update Admission installment paidDate if applicable
+        if (admission) {
+            if (isBoardAdmission) {
+                const inst = admission.installments?.find(i => 
+                    (payment.transactionId && i.paymentTransactions?.some(t => t.transactionId === payment.transactionId)) ||
+                    (payment.billingMonth && new Date(i.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) === payment.billingMonth) ||
+                    (payment.installmentId && i._id?.toString() === payment.installmentId.toString()) ||
+                    i.monthNumber === (payment.installmentNumber + 1) ||
+                    i.monthNumber === payment.installmentNumber
+                );
+                if (inst && inst.paymentTransactions) {
+                    const tx = inst.paymentTransactions.find(t => t.transactionId === payment.transactionId);
+                    if (tx) {
+                        tx.date = newPaidDate;
+                        await admission.save({ validateBeforeSave: false });
+                    }
+                }
+            } else {
+                if (payment.installmentNumber > 0) {
+                    const installment = (admission.paymentBreakdown || []).find(
+                        p => p.installmentNumber === payment.installmentNumber
+                    );
+                    if (installment) {
+                        installment.paidDate = newPaidDate;
+                        await admission.save({ validateBeforeSave: false });
+                    }
+                }
+            }
+        }
+
+        return res.status(200).json({
+            message: "Clearance date updated successfully",
+            paymentId: payment._id,
+            clearedOrRejectedDate: payment.clearedOrRejectedDate,
+            paidDate: payment.paidDate
+        });
+    } catch (error) {
+        console.error("Update Cheque Clearance Date Error:", error);
+        return res.status(500).json({ message: "Error updating clearance date", error: error.message });
+    }
+};
+
+// Update status of a cheque (Accounts and SuperAdmin only)
+export const updateChequeStatus = async (req, res) => {
+    try {
+        if (!checkChequeApprovalRoleAccess(req.user)) {
+            return res.status(403).json({
+                message: "Access Denied: Only Accounts and SuperAdmin roles can edit cheque status."
+            });
+        }
+
+        const { paymentId } = req.params;
+        const { status: targetStatus, clearedDate, rejectedDate, reason } = req.body;
+
+        const validStatuses = ["PAID", "REJECTED", "PENDING_CLEARANCE"];
+        if (!validStatuses.includes(targetStatus)) {
+            return res.status(400).json({
+                message: `Invalid status. Must be one of: ${validStatuses.join(", ")}`
+            });
+        }
+
+        const payment = await Payment.findById(paymentId);
+        if (!payment) {
+            return res.status(404).json({ message: "Payment record not found" });
+        }
+
+        // Try Normal Admission first, then Board Admission
+        let admission = await Admission.findById(payment.admission);
+        let isBoardAdmission = false;
+
+        if (!admission) {
+            admission = await BoardCourseAdmission.findById(payment.admission);
+            isBoardAdmission = true;
+        } else if (admission.admissionType === "BOARD") {
+            isBoardAdmission = true;
+        }
+
+        if (!admission) {
+            return res.status(404).json({ message: "Admission record not found" });
+        }
+
+        const userRoles = Array.isArray(req.user?.role) ? req.user.role : [req.user?.role || ''];
+        const isSuperAdmin = userRoles.some(r => {
+            const clean = (typeof r === 'string' ? r : '').toLowerCase().replace(/[\s\-_]+/g, '');
+            return clean === 'superadmin';
+        });
+
+        if (!isSuperAdmin && admission) {
+            const userCentres = await CentreSchema.find({
+                _id: { $in: req.user?.centres || [] }
+            }).select('centreName');
+            const authorizedCentreNames = userCentres.map(c => (c.centreName || '').trim().toLowerCase()).filter(Boolean);
+            const admCentre = (admission.centre || '').trim().toLowerCase();
+            if (admCentre && !authorizedCentreNames.includes(admCentre)) {
+                return res.status(403).json({
+                    message: "Access Denied: You are not authorized to process cheques for this centre."
+                });
+            }
+        }
+
+        const previousStatus = payment.status;
+
+        // 1. Changing to PAID (Cleared)
+        if (targetStatus === "PAID") {
+            const dateToUse = clearedDate || new Date().toISOString().split('T')[0];
+            const clearedDateIST = new Date(dateToUse + "T00:00:00+05:30");
+            const nowIST = new Date();
+            const todayISTStr = nowIST.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+            const clearedDateStr = typeof dateToUse === "string" ? (dateToUse.includes("T") ? dateToUse.split("T")[0] : dateToUse) : dateToUse;
+
+            let newPaidDate;
+            if (clearedDateStr === todayISTStr) {
+                newPaidDate = nowIST;
+            } else {
+                newPaidDate = new Date(dateToUse + "T23:30:00+05:30");
+            }
+
+            payment.status = "PAID";
+            payment.clearedOrRejectedDate = clearedDateIST;
+            payment.paidDate = newPaidDate;
+            payment.processedBy = req.user?.id || req.user?._id;
+
+            if (!payment.billId) {
+                let centre = await CentreSchema.findOne({ centreName: admission.centre });
+                const centreCode = centre?.enterCode || "GEN";
+                payment.billId = await generateBillId(centreCode, dateToUse || new Date());
+            }
+            payment.isReceivingSlip = false;
+
+            if (isBoardAdmission) {
+                const inst = admission.installments?.find(i => 
+                    (payment.transactionId && i.paymentTransactions?.some(t => t.transactionId === payment.transactionId)) ||
+                    (payment.billingMonth && new Date(i.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) === payment.billingMonth) ||
+                    (payment.installmentId && i._id?.toString() === payment.installmentId.toString()) ||
+                    i.monthNumber === (payment.installmentNumber + 1) ||
+                    i.monthNumber === payment.installmentNumber
+                );
+                if (inst) {
+                    inst.status = "PAID";
+                    inst.billId = payment.billId;
+                    if (!inst.paidAmount || inst.paidAmount < payment.paidAmount) {
+                        inst.paidAmount = payment.paidAmount || inst.payableAmount;
+                    }
+                    if (inst.paymentTransactions) {
+                        const existingTx = inst.paymentTransactions.find(t => t.transactionId === payment.transactionId);
+                        if (existingTx) {
+                            existingTx.date = newPaidDate;
+                        } else {
+                            inst.paymentTransactions.push({
+                                amount: payment.paidAmount,
+                                date: newPaidDate,
+                                paymentMethod: "CHEQUE",
+                                transactionId: payment.transactionId,
+                                bankName: payment.accountHolderName,
+                                accountHolderName: payment.accountHolderName,
+                                chequeDate: payment.chequeDate
+                            });
+                        }
+                    }
+                }
+
+                if (admission.monthlySubjectHistory && payment.billingMonth) {
+                    const hist = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
+                    if (hist) {
+                        hist.isPaid = true;
+                        hist.status = "PAID";
+                    }
+                }
+
+                admission.totalPaidAmount = (admission.installments || []).reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
+                if (admission.totalExpectedAmount && admission.totalPaidAmount >= (admission.totalExpectedAmount || 0) - 0.5) {
+                    admission.status = "COMPLETED";
+                }
+            } else {
+                if (payment.installmentNumber === 0) {
+                    admission.downPaymentStatus = "PAID";
+                    admission.downPaymentTransactionId = payment.transactionId;
+                } else {
+                    const installment = (admission.paymentBreakdown || []).find(
+                        p => p.installmentNumber === payment.installmentNumber
+                    );
+                    if (installment) {
+                        installment.status = "PAID";
+                        installment.paidDate = newPaidDate;
+                        installment.paidAmount = payment.paidAmount || installment.amount;
+                        installment.paymentMethod = "CHEQUE";
+                        installment.transactionId = payment.transactionId;
+                    }
+                }
+
+                admission.totalPaidAmount = (admission.paymentBreakdown || []).reduce(
+                    (sum, p) => sum + (p.status === "PAID" ? (p.paidAmount || 0) : 0),
+                    0
+                ) + (admission.downPaymentStatus === "PAID" ? (admission.downPayment || 0) : 0);
+
+                admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+                if (admission.totalPaidAmount >= admission.totalFees - 0.5) {
+                    admission.paymentStatus = "COMPLETED";
+                    admission.remainingAmount = 0;
+                } else if (admission.totalPaidAmount > 0) {
+                    admission.paymentStatus = "PARTIAL";
+                } else {
+                    admission.paymentStatus = "PENDING";
+                }
+            }
+        }
+        // 2. Changing to REJECTED (Bounced)
+        else if (targetStatus === "REJECTED") {
+            const dateToUse = rejectedDate || new Date().toISOString().split('T')[0];
+            const rejectMsg = reason || "Cheque rejected / bounced";
+
+            if (previousStatus === "PAID") {
+                await revertPaymentVariance(payment, admission, isBoardAdmission);
+            }
+
+            payment.status = "REJECTED";
+            payment.remarks = (payment.remarks ? payment.remarks + "; " : "") + `REJECTED: ${rejectMsg}`;
+            payment.processedBy = req.user?.id || req.user?._id;
+            payment.clearedOrRejectedDate = new Date(dateToUse);
+            payment.paidDate = null;
+
+            if (isBoardAdmission) {
+                const inst = admission.installments?.find(i => 
+                    (payment.transactionId && i.paymentTransactions?.some(t => t.transactionId === payment.transactionId)) ||
+                    (payment.billingMonth && new Date(i.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) === payment.billingMonth) ||
+                    (payment.installmentId && i._id?.toString() === payment.installmentId.toString()) ||
+                    i.monthNumber === (payment.installmentNumber + 1) ||
+                    i.monthNumber === payment.installmentNumber
+                );
+                if (inst) {
+                    if (payment.transactionId) {
+                        inst.paymentTransactions = (inst.paymentTransactions || []).filter(t => t.transactionId !== payment.transactionId);
+                    }
+                    inst.paidAmount = (inst.paymentTransactions || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+                    if (inst.paidAmount >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0) {
+                        inst.status = "PAID";
+                    } else if (inst.paidAmount > 0.5) {
+                        inst.status = "PARTIAL";
+                    } else {
+                        inst.status = "PENDING";
+                    }
+                }
+
+                if (admission.monthlySubjectHistory && payment.billingMonth) {
+                    const hist = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
+                    if (hist) {
+                        hist.isPaid = false;
+                        hist.status = "PENDING";
+                        hist.paidAmount = Math.max(0, (hist.paidAmount || 0) - (payment.paidAmount || 0));
+                    }
+                }
+
+                admission.totalPaidAmount = (admission.installments || []).reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
+                if (admission.totalExpectedAmount && admission.totalPaidAmount < admission.totalExpectedAmount - 0.5) {
+                    admission.status = "ACTIVE";
+                }
+            } else {
+                if (payment.installmentNumber === 0) {
+                    admission.downPaymentStatus = "REJECTED";
+                    admission.downPaymentTransactionId = null;
+                    admission.remarks = (admission.remarks ? admission.remarks + "; " : "") + `Down payment cheque rejected: ${rejectMsg}`;
+                }
+
+                const installment = (admission.paymentBreakdown || []).find(
+                    p => p.installmentNumber === payment.installmentNumber
+                );
+                if (installment) {
+                    installment.status = "REJECTED";
+                    installment.paidAmount = 0;
+                    installment.paymentMethod = null;
+                    installment.transactionId = null;
+                    installment.remarks = (installment.remarks ? installment.remarks + "; " : "") + `Cheque rejected: ${rejectMsg}`;
+                }
+
+                if (payment.transactionId) {
+                    const searchId = payment.transactionId;
+                    (admission.paymentBreakdown || []).forEach(p => {
+                        if (p.transactionId && p.transactionId.includes(searchId) && p.installmentNumber !== payment.installmentNumber) {
+                            p.status = "REJECTED";
+                            p.paidAmount = 0;
+                            p.paymentMethod = null;
+                            p.transactionId = null;
+                            p.remarks = (p.remarks ? p.remarks + "; " : "") + `Reverted due to rejection of source cheque ${searchId}`;
+                        }
+                    });
+                }
+
+                admission.totalPaidAmount = (admission.paymentBreakdown || []).reduce(
+                    (sum, p) => sum + (p.status === "PAID" ? (p.paidAmount || 0) : 0),
+                    0
+                ) + (admission.downPaymentStatus === "PAID" ? (admission.downPayment || 0) : 0);
+
+                admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+                if (admission.totalPaidAmount >= admission.totalFees - 0.5) {
+                    admission.paymentStatus = "COMPLETED";
+                    admission.remainingAmount = 0;
+                } else if (admission.totalPaidAmount > 0) {
+                    admission.paymentStatus = "PARTIAL";
+                } else {
+                    admission.paymentStatus = "PENDING";
+                }
+            }
+        }
+        // 3. Changing to PENDING_CLEARANCE
+        else if (targetStatus === "PENDING_CLEARANCE") {
+            if (previousStatus === "PAID") {
+                await revertPaymentVariance(payment, admission, isBoardAdmission);
+            }
+
+            payment.status = "PENDING_CLEARANCE";
+            payment.clearedOrRejectedDate = null;
+            payment.paidDate = null;
+            payment.processedBy = req.user?.id || req.user?._id;
+
+            if (isBoardAdmission) {
+                const inst = admission.installments?.find(i => 
+                    (payment.transactionId && i.paymentTransactions?.some(t => t.transactionId === payment.transactionId)) ||
+                    (payment.billingMonth && new Date(i.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) === payment.billingMonth) ||
+                    (payment.installmentId && i._id?.toString() === payment.installmentId.toString()) ||
+                    i.monthNumber === (payment.installmentNumber + 1) ||
+                    i.monthNumber === payment.installmentNumber
+                );
+                if (inst) {
+                    if (payment.transactionId) {
+                        inst.paymentTransactions = (inst.paymentTransactions || []).filter(t => t.transactionId !== payment.transactionId);
+                    }
+                    inst.paidAmount = (inst.paymentTransactions || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+                    if (inst.paidAmount >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0) {
+                        inst.status = "PAID";
+                    } else if (inst.paidAmount > 0.5) {
+                        inst.status = "PARTIAL";
+                    } else {
+                        inst.status = "PENDING";
+                    }
+                }
+
+                if (admission.monthlySubjectHistory && payment.billingMonth) {
+                    const hist = admission.monthlySubjectHistory.find(h => h.month === payment.billingMonth);
+                    if (hist) {
+                        hist.isPaid = false;
+                        hist.status = "PENDING";
+                        hist.paidAmount = Math.max(0, (hist.paidAmount || 0) - (payment.paidAmount || 0));
+                    }
+                }
+
+                admission.totalPaidAmount = (admission.installments || []).reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
+                if (admission.totalExpectedAmount && admission.totalPaidAmount < admission.totalExpectedAmount - 0.5) {
+                    admission.status = "ACTIVE";
+                }
+            } else {
+                if (payment.installmentNumber === 0) {
+                    admission.downPaymentStatus = "PENDING";
+                }
+
+                const installment = (admission.paymentBreakdown || []).find(
+                    p => p.installmentNumber === payment.installmentNumber
+                );
+                if (installment) {
+                    installment.status = "PENDING";
+                    installment.paidAmount = 0;
+                    installment.paymentMethod = null;
+                    installment.transactionId = null;
+                }
+
+                if (payment.transactionId) {
+                    const searchId = payment.transactionId;
+                    (admission.paymentBreakdown || []).forEach(p => {
+                        if (p.transactionId && p.transactionId.includes(searchId) && p.installmentNumber !== payment.installmentNumber) {
+                            p.status = "PENDING";
+                            p.paidAmount = 0;
+                            p.paymentMethod = null;
+                            p.transactionId = null;
+                        }
+                    });
+                }
+
+                admission.totalPaidAmount = (admission.paymentBreakdown || []).reduce(
+                    (sum, p) => sum + (p.status === "PAID" ? (p.paidAmount || 0) : 0),
+                    0
+                ) + (admission.downPaymentStatus === "PAID" ? (admission.downPayment || 0) : 0);
+
+                admission.remainingAmount = Math.max(0, admission.totalFees - admission.totalPaidAmount);
+                if (admission.totalPaidAmount >= admission.totalFees - 0.5) {
+                    admission.paymentStatus = "COMPLETED";
+                    admission.remainingAmount = 0;
+                } else if (admission.totalPaidAmount > 0) {
+                    admission.paymentStatus = "PARTIAL";
+                } else {
+                    admission.paymentStatus = "PENDING";
+                }
+            }
+        }
+
+        await payment.save();
+        await admission.save({ validateBeforeSave: false });
+
+        return res.status(200).json({
+            message: `Cheque status successfully updated to ${targetStatus === 'PAID' ? 'Cleared' : (targetStatus === 'REJECTED' ? 'Rejected' : 'Pending Clearance')}`,
+            paymentId: payment._id,
+            status: payment.status,
+            clearedOrRejectedDate: payment.clearedOrRejectedDate,
+            billId: payment.billId
+        });
+    } catch (error) {
+        console.error("Update Cheque Status Error:", error);
+        return res.status(500).json({ message: "Error updating cheque status", error: error.message });
+    }
+};
+
 // Reject a cheque (Bounce)
 export const rejectCheque = async (req, res) => {
     try {
