@@ -20,10 +20,14 @@ export const getStudentsForAttendance = async (req, res) => {
 
         // Gather all associated center names for filtering
         const centerNames = [];
-        if (schedule.centreId?.centreName) centerNames.push(schedule.centreId.centreName);
-        if (schedule.centreIds) {
+        if (schedule.centreId) {
+            const cName = schedule.centreId.centreName || schedule.centreId.centerName || schedule.centreId.name;
+            if (cName) centerNames.push(cName);
+        }
+        if (schedule.centreIds && Array.isArray(schedule.centreIds)) {
             schedule.centreIds.forEach(c => {
-                if (c.centreName) centerNames.push(c.centreName);
+                const cName = c?.centreName || c?.centerName || c?.name;
+                if (cName) centerNames.push(cName);
             });
         }
 
@@ -35,7 +39,8 @@ export const getStudentsForAttendance = async (req, res) => {
 
         // Only apply center filter if center names are available
         if (centerNames.length > 0) {
-            studentQuery["studentsDetails.centre"] = { $in: centerNames };
+            const centerRegexes = centerNames.map(cn => new RegExp(`^${cn.trim()}$`, "i"));
+            studentQuery["studentsDetails.centre"] = { $in: centerRegexes };
         }
 
         // Fetch students

@@ -2766,9 +2766,10 @@ const Classes = () => {
                                         <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centers</label>
                                         <Select
                                             isMulti
-                                            options={dropdownData.centres?.map(c => ({ value: c._id, label: c.centreName || c.name }))}
+                                            options={(editingClassData.classMode === 'Online' ? (dropdownData.allCentres && dropdownData.allCentres.length > 0 ? dropdownData.allCentres : dropdownData.centres) : dropdownData.centres)?.map(c => ({ value: c._id, label: c.centreName || c.name }))}
                                             value={editingClassData.centreIds?.map(id => {
-                                                const centre = dropdownData.centres?.find(c => c._id.toString() === id.toString());
+                                                const sourceCentres = editingClassData.classMode === 'Online' ? (dropdownData.allCentres && dropdownData.allCentres.length > 0 ? dropdownData.allCentres : dropdownData.centres) : dropdownData.centres;
+                                                const centre = sourceCentres?.find(c => c._id.toString() === id.toString());
                                                 return centre ? { value: centre._id, label: centre.centreName || centre.name } : null;
                                             }).filter(v => v)}
                                             onChange={(selected) => {
@@ -2786,7 +2787,7 @@ const Classes = () => {
                                         label="Instructor"
                                         name="teacherId"
                                         value={editingClassData.teacherId}
-                                        options={dropdownData.teachers || []}
+                                        options={editingClassData.classMode === 'Online' ? (dropdownData.allTeachers || dropdownData.teachers || []) : (dropdownData.teachers || [])}
                                         displayPath="name"
                                         valuePath="_id"
                                         onChange={(e) => setEditingClassData({ ...editingClassData, teacherId: e.target.value })}
@@ -2800,13 +2801,14 @@ const Classes = () => {
                                         <label className={`text-xs font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class Coordinator(s) (Optional)</label>
                                         <Select
                                             isMulti
-                                            options={(dropdownData.coordinators || []).filter(c => {
+                                            options={(editingClassData.classMode === 'Online' ? (dropdownData.allCoordinators || dropdownData.coordinators || []) : (dropdownData.coordinators || [])).filter(c => {
+                                                if (editingClassData.classMode === 'Online') return true;
                                                 if (editingClassData.centreIds?.length > 0) {
                                                     return c.centres?.some(ctrl => editingClassData.centreIds.includes((ctrl._id || ctrl).toString()));
                                                 }
                                                 return true;
                                             }).map(c => ({ value: c._id.toString(), label: c.name }))}
-                                            value={(dropdownData.coordinators || []).filter(c => editingClassData.coordinatorIds?.includes(c._id.toString())).map(c => ({ value: c._id.toString(), label: c.name }))}
+                                            value={(editingClassData.classMode === 'Online' ? (dropdownData.allCoordinators || dropdownData.coordinators || []) : (dropdownData.coordinators || [])).filter(c => editingClassData.coordinatorIds?.includes(c._id.toString())).map(c => ({ value: c._id.toString(), label: c.name }))}
                                             onChange={(selected) => {
                                                 const values = selected ? selected.map(opt => opt.value) : [];
                                                 setEditingClassData({
@@ -2964,7 +2966,7 @@ const Classes = () => {
                                             />
                                         </div>
                                         <div className={`grid grid-cols-2 md:grid-cols-4 gap-3 p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
-                                            {dropdownData.batches?.filter(b => {
+                                            {(editingClassData.classMode === 'Online' ? (dropdownData.allBatches && dropdownData.allBatches.length > 0 ? dropdownData.allBatches : dropdownData.batches) : dropdownData.batches)?.filter(b => {
                                                 const matchesSearch = (b.batchName || b.name || "").toLowerCase().includes(batchSearch.toLowerCase());
                                                 const matchesCentre = !editingClassData.centreIds || editingClassData.centreIds.length === 0 ||
                                                     (!b.centreId || editingClassData.centreIds.some(cid => cid.toString() === b.centreId?.toString()));

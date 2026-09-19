@@ -486,13 +486,14 @@ const AddClass = () => {
                             label="Teacher"
                             name="teacherId"
                             value={formData.teacherId}
-                            options={dropdownData.teachers}
+                            options={formData.classMode === 'Online' ? (dropdownData.allTeachers || dropdownData.teachers) : dropdownData.teachers}
                             displayPath="name"
                             onChange={handleChange}
                             placeholder="Select a teacher"
                             isDarkMode={isDarkMode}
                             required
                             filterFunc={(t) => {
+                                if (formData.classMode === 'Online') return true;
                                 if (formData.centreIds.length > 0) {
                                     return t.centres?.some(c => formData.centreIds.includes((c._id || c).toString()));
                                 }
@@ -506,13 +507,14 @@ const AddClass = () => {
                             </label>
                             <Select
                                 isMulti
-                                options={(dropdownData.coordinators || []).filter(c => {
+                                options={(formData.classMode === 'Online' ? (dropdownData.allCoordinators || dropdownData.coordinators) : (dropdownData.coordinators || [])).filter(c => {
+                                    if (formData.classMode === 'Online') return true;
                                     if (formData.centreIds?.length > 0) {
                                         return c.centres?.some(ctrl => formData.centreIds.includes((ctrl._id || ctrl).toString()));
                                     }
                                     return true;
                                 }).map(c => ({ value: c._id, label: c.name }))}
-                                value={(dropdownData.coordinators || []).filter(c => formData.coordinatorIds?.includes(c._id)).map(c => ({ value: c._id, label: c.name }))}
+                                value={(formData.classMode === 'Online' ? (dropdownData.allCoordinators || dropdownData.coordinators) : (dropdownData.coordinators || [])).filter(c => formData.coordinatorIds?.includes(c._id)).map(c => ({ value: c._id, label: c.name }))}
                                 onChange={(selected) => {
                                     const values = selected ? selected.map(opt => opt.value) : [];
                                     setFormData(prev => ({
@@ -559,8 +561,8 @@ const AddClass = () => {
                             </label>
                             <Select
                                 isMulti
-                                options={dropdownData.centres.map(c => ({ value: c._id, label: c.centreName || c.name }))}
-                                value={dropdownData.centres.filter(c => formData.centreIds.includes(c._id)).map(c => ({ value: c._id, label: c.centreName || c.name }))}
+                                options={(formData.classMode === 'Online' ? (dropdownData.allCentres && dropdownData.allCentres.length > 0 ? dropdownData.allCentres : dropdownData.centres) : dropdownData.centres).map(c => ({ value: c._id, label: c.centreName || c.name }))}
+                                value={(formData.classMode === 'Online' ? (dropdownData.allCentres && dropdownData.allCentres.length > 0 ? dropdownData.allCentres : dropdownData.centres) : dropdownData.centres).filter(c => formData.centreIds.includes(c._id)).map(c => ({ value: c._id, label: c.centreName || c.name }))}
                                 onChange={(selected) => {
                                     const values = selected ? selected.map(opt => opt.value) : [];
                                     setFormData(prev => ({ ...prev, centreIds: values }));
@@ -587,7 +589,7 @@ const AddClass = () => {
                                 </div>
                             </div>
                             <div className={`grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-gray-50 border-gray-200 shadow-inner'}`}>
-                                {dropdownData.batches
+                                {(formData.classMode === 'Online' ? (dropdownData.allBatches && dropdownData.allBatches.length > 0 ? dropdownData.allBatches : dropdownData.batches) : dropdownData.batches)
                                     .filter(b => {
                                         // Filter by centre
                                         const matchesCentre = formData.centreIds.length > 0 

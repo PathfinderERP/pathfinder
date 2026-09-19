@@ -1359,10 +1359,6 @@ export const createClassSchedule = async (req, res) => {
             if (!isHazra) {
                 return res.status(403).json({ message: "Only users assigned to Hazra centre can create Online classes." });
             }
-            // Lock Online class centre to Hazra H.O
-            const hazraCentre = await Centre.findOne({ centreName: { $regex: /^hazra/i } });
-            const hazraId = hazraCentre ? hazraCentre._id : new mongoose.Types.ObjectId(HAZRA_CENTRE_ID);
-            finalCentreIds = [hazraId];
         }
 
         // Center authorization check
@@ -1375,9 +1371,12 @@ export const createClassSchedule = async (req, res) => {
                 return res.status(400).json({ message: "At least one center must be selected" });
             }
 
-            const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
-            if (unauthorized.length > 0) {
-                return res.status(403).json({ message: "You are not authorized for one or more selected centers" });
+            // For Online classes, Hazra users/superAdmin can select multiple centres
+            if (classMode !== 'Online') {
+                const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
+                if (unauthorized.length > 0) {
+                    return res.status(403).json({ message: "You are not authorized for one or more selected centers" });
+                }
             }
         }
 
@@ -1478,6 +1477,8 @@ export const getClassSchedules = async (req, res) => {
         }
 
         // Center-based filtering for Non-SuperAdmins
+        const isHazra = await checkIsHazraUser(req.user);
+
         if (req.user && req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
 
@@ -1489,12 +1490,21 @@ export const getClassSchedules = async (req, res) => {
                         const authorizedCentres = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
                         if (authorizedCentres.length > 0) filterCentres = authorizedCentres;
                     }
+                    const centreConditions = [
+                        { centreIds: { $in: filterCentres } },
+                        { centreId: { $in: filterCentres } }
+                    ];
+                    // Online classes are strictly visible ONLY to Hazra-assigned users (or superAdmin)
+                    if (isHazra) {
+                        if (!centreId) {
+                            centreConditions.push({ classMode: 'Online' });
+                        } else {
+                            centreConditions.push({ classMode: 'Online', $or: [{ centreIds: { $in: filterCentres } }, { centreId: { $in: filterCentres } }] });
+                        }
+                    }
                     query.$and = query.$and || [];
                     query.$and.push({
-                        $or: [
-                            { centreIds: { $in: filterCentres } },
-                            { centreId: { $in: filterCentres } }
-                        ]
+                        $or: centreConditions
                     });
                 } else {
                     return res.status(200).json({ classes: [], total: 0, currentPage: parseInt(page), totalPages: 0 });
@@ -1507,12 +1517,21 @@ export const getClassSchedules = async (req, res) => {
                         const authorized = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
                         if (authorized.length > 0) filterCentres = authorized;
                     }
+                    const centreConditions = [
+                        { centreIds: { $in: filterCentres } },
+                        { centreId: { $in: filterCentres } }
+                    ];
+                    // Online classes are strictly visible ONLY to Hazra-assigned users (or superAdmin)
+                    if (isHazra) {
+                        if (!centreId) {
+                            centreConditions.push({ classMode: 'Online' });
+                        } else {
+                            centreConditions.push({ classMode: 'Online', $or: [{ centreIds: { $in: filterCentres } }, { centreId: { $in: filterCentres } }] });
+                        }
+                    }
                     query.$and = query.$and || [];
                     query.$and.push({
-                        $or: [
-                            { centreIds: { $in: filterCentres } },
-                            { centreId: { $in: filterCentres } }
-                        ]
+                        $or: centreConditions
                     });
                 } else {
                     return res.status(200).json({ classes: [], total: 0, currentPage: -1, totalPages: 0 });
@@ -1559,7 +1578,6 @@ export const getClassSchedules = async (req, res) => {
             }
         }
 
-        const isHazra = await checkIsHazraUser(req.user);
         if (!isHazra) {
             // Online classes are strictly visible ONLY to users assigned to Hazra centre (or superAdmin)
             query.classMode = { $ne: 'Online' };
@@ -1837,11 +1855,6 @@ export const updateClassSchedule = async (req, res) => {
             if (!isHazra) {
                 return res.status(403).json({ message: "Only users assigned to Hazra centre can edit Online classes." });
             }
-            if (classMode === 'Online') {
-                const hazraCentre = await Centre.findOne({ centreName: { $regex: /^hazra/i } });
-                const hazraId = hazraCentre ? hazraCentre._id : new mongoose.Types.ObjectId(HAZRA_CENTRE_ID);
-                finalCentreIds = [hazraId];
-            }
         }
 
         // Permission Check
@@ -1853,10 +1866,13 @@ export const updateClassSchedule = async (req, res) => {
         if (req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
             const userCentreStrs = userCentres.map(c => c.toString());
-            if (finalCentreIds.length > 0) {
-                const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
-                if (unauthorized.length > 0) {
-                    return res.status(403).json({ message: "You are not authorized for one or more selected centers" });
+            // For Online classes, Hazra users/superAdmin can select multiple centres
+            if (classMode !== 'Online' && currentClass.classMode !== 'Online') {
+                if (finalCentreIds.length > 0) {
+                    const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
+                    if (unauthorized.length > 0) {
+                        return res.status(403).json({ message: "You are not authorized for one or more selected centers" });
+                    }
                 }
             }
         }
@@ -2066,6 +2082,12 @@ export const getClassDropdownData = async (req, res) => {
         const masterSubjects = subjects; // Both are same now
         const courses = await Course.find();
         let teachers, coordinators, centres, batches;
+
+        const allCentres = await Centre.find().sort({ centreName: 1 });
+        const allBatches = await Batch.find().sort({ batchName: 1 });
+        const allTeachers = await User.find({ role: "teacher" }).populate('centres', 'centreName');
+        const allCoordinators = await User.find({ role: { $in: ["Class_Coordinator", "coordinator"] } }).populate('centres', 'centreName');
+
         if (req.user && req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
 
@@ -2080,19 +2102,19 @@ export const getClassDropdownData = async (req, res) => {
                 centres: { $in: userCentres }
             }).populate('centres', 'centreName');
 
-            centres = await Centre.find({ _id: { $in: userCentres } });
+            centres = await Centre.find({ _id: { $in: userCentres } }).sort({ centreName: 1 });
             // Fetch batches for these centres
-            batches = await Batch.find({ centreId: { $in: userCentres } });
+            batches = await Batch.find({ centreId: { $in: userCentres } }).sort({ batchName: 1 });
 
             // Fallback: If no batches found for assigned centres, return all batches
             if (!batches || batches.length === 0) {
-                batches = await Batch.find();
+                batches = allBatches;
             }
         } else {
-            teachers = await User.find({ role: "teacher" }).populate('centres', 'centreName');
-            coordinators = await User.find({ role: { $in: ["Class_Coordinator", "coordinator"] } }).populate('centres', 'centreName');
-            centres = await Centre.find();
-            batches = await Batch.find();
+            teachers = allTeachers;
+            coordinators = allCoordinators;
+            centres = allCentres;
+            batches = allBatches;
         }
         const exams = await ExamTag.find();
         const academicClasses = await AcademicsClass.find();
@@ -2104,6 +2126,10 @@ export const getClassDropdownData = async (req, res) => {
             courses,
             centres,
             batches,
+            allCentres,
+            allBatches,
+            allTeachers,
+            allCoordinators,
             exams,
             sessions,
             academicClasses,
@@ -2422,6 +2448,8 @@ export const exportClassSchedulesExcel = async (req, res) => {
             query.teacherId = userId;
         }
 
+        const isHazra = await checkIsHazraUser(req.user);
+
         if (req.user && req.user.role !== 'superAdmin') {
             const userCentres = req.user.centres || [];
             if (userCentres.length > 0) {
@@ -2431,12 +2459,20 @@ export const exportClassSchedulesExcel = async (req, res) => {
                     const authorized = selectedCentres.filter(id => userCentres.map(c => c.toString()).includes(id.toString()));
                     if (authorized.length > 0) filterCentres = authorized;
                 }
+                const centreConditions = [
+                    { centreId: { $in: filterCentres } },
+                    { centreIds: { $in: filterCentres } }
+                ];
+                if (isHazra) {
+                    if (!centreId) {
+                        centreConditions.push({ classMode: 'Online' });
+                    } else {
+                        centreConditions.push({ classMode: 'Online', $or: [{ centreIds: { $in: filterCentres } }, { centreId: { $in: filterCentres } }] });
+                    }
+                }
                 query.$and = query.$and || [];
                 query.$and.push({
-                    $or: [
-                        { centreId: { $in: filterCentres } },
-                        { centreIds: { $in: filterCentres } }
-                    ]
+                    $or: centreConditions
                 });
             } else if (userRole === 'admin') {
                 return res.status(200).json({ message: "No centers assigned" });
@@ -2480,7 +2516,6 @@ export const exportClassSchedulesExcel = async (req, res) => {
             }
         }
 
-        const isHazra = await checkIsHazraUser(req.user);
         if (!isHazra) {
             // Online classes are strictly visible ONLY to users assigned to Hazra centre (or superAdmin)
             query.classMode = { $ne: 'Online' };
@@ -2890,13 +2925,16 @@ export const bulkEndClass = async (req, res) => {
 
                 const classesToVerify = await ClassSchedule.find({ _id: { $in: ids } });
                 for (const cls of classesToVerify) {
-                    if (cls.classMode === 'Online' && !isHazra) {
-                        return res.status(403).json({ message: "Only users assigned to Hazra centre can end Online classes" });
-                    }
-                    const finalCentreIds = cls.centreIds || (cls.centreId ? [cls.centreId] : []);
-                    const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
-                    if (unauthorized.length > 0) {
-                        return res.status(403).json({ message: `You are not authorized for one or more centers of class ${cls.className}` });
+                    if (cls.classMode === 'Online') {
+                        if (!isHazra) {
+                            return res.status(403).json({ message: "Only users assigned to Hazra centre can end Online classes" });
+                        }
+                    } else {
+                        const finalCentreIds = cls.centreIds || (cls.centreId ? [cls.centreId] : []);
+                        const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
+                        if (unauthorized.length > 0) {
+                            return res.status(403).json({ message: `You are not authorized for one or more centers of class ${cls.className}` });
+                        }
                     }
                 }
             }
@@ -3071,13 +3109,16 @@ export const bulkStartClass = async (req, res) => {
 
                 const classesToVerify = await ClassSchedule.find({ _id: { $in: ids } });
                 for (const cls of classesToVerify) {
-                    if (cls.classMode === 'Online' && !isHazra) {
-                        return res.status(403).json({ message: "Only users assigned to Hazra centre can start Online classes" });
-                    }
-                    const finalCentreIds = cls.centreIds || (cls.centreId ? [cls.centreId] : []);
-                    const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
-                    if (unauthorized.length > 0) {
-                        return res.status(403).json({ message: `You are not authorized for one or more centers of class ${cls.className}` });
+                    if (cls.classMode === 'Online') {
+                        if (!isHazra) {
+                            return res.status(403).json({ message: "Only users assigned to Hazra centre can start Online classes" });
+                        }
+                    } else {
+                        const finalCentreIds = cls.centreIds || (cls.centreId ? [cls.centreId] : []);
+                        const unauthorized = finalCentreIds.filter(cid => !userCentreStrs.includes(cid.toString()));
+                        if (unauthorized.length > 0) {
+                            return res.status(403).json({ message: `You are not authorized for one or more centers of class ${cls.className}` });
+                        }
                     }
                 }
             }
