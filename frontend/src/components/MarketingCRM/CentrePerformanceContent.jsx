@@ -1111,13 +1111,16 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                             <tr className={`border-b text-[10px] font-black uppercase tracking-widest ${
                                                 isDarkMode ? 'border-gray-800 text-gray-300 bg-[#0b0e11]' : 'border-gray-100 text-gray-600 bg-gray-50'
                                             }`}>
+                                                <th className="p-3">#</th>
                                                 <th className="p-3">Student Name</th>
                                                 <th className="p-3">Phone</th>
                                                 <th className="p-3">School Name</th>
                                                 <th className="p-3">Target Class/Course</th>
                                                 <th className="p-3 text-center">Admission Status</th>
-                                                <th className="p-3">Admitted Course & Down Payment</th>
+                                                <th className="p-3">Admitted Course &amp; Down Payment</th>
                                                 <th className="p-3 text-center">Lead Type</th>
+                                                <th className="p-3 text-center">Follow-up</th>
+                                                <th className="p-3">Remarks</th>
                                                 <th className="p-3 font-mono">Date</th>
                                             </tr>
                                         </thead>
@@ -1135,6 +1138,11 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
 
                                                 return (
                                                     <tr key={lead.id || lIdx} className={`${isDarkMode ? 'hover:bg-[#181d22]' : 'hover:bg-purple-50/50'} transition-colors`}>
+                                                        <td className="p-3 text-center">
+                                                            <span className={`text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center mx-auto ${
+                                                                isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'
+                                                            }`}>{lIdx + 1}</span>
+                                                        </td>
                                                         <td className="p-3 font-black text-purple-400">{lead.name}</td>
                                                         <td className={`p-3 font-mono ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{lead.phone}</td>
                                                         <td className="p-3 font-bold text-amber-400">{lead.schoolName}</td>
@@ -1168,6 +1176,44 @@ const CentrePerformanceContent = ({ isDarkMode, availableCenters = [] }) => {
                                                                 {lead.leadType}
                                                             </span>
                                                         </td>
+
+                                                        {/* Follow-up Status */}
+                                                        <td className="p-3 text-center">
+                                                            {lead.isCalled ? (
+                                                                <div className="flex flex-col items-center gap-0.5">
+                                                                    <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 whitespace-nowrap">
+                                                                        ✓ Called ({lead.followUpCount})
+                                                                    </span>
+                                                                    {lead.lastCalledBy && (
+                                                                        <span className={`text-[9px] font-semibold ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                                            by {lead.lastCalledBy}
+                                                                        </span>
+                                                                    )}
+                                                                    {lead.lastFollowUpDate && (
+                                                                        <span className={`text-[9px] font-mono ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                                            {lead.lastFollowUpDate}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase bg-red-500/10 text-red-400 border border-red-500/20 whitespace-nowrap">
+                                                                    ✗ Not Called
+                                                                </span>
+                                                            )}
+                                                        </td>
+
+                                                        {/* Remarks */}
+                                                        <td className="p-3 max-w-[180px]">
+                                                            {lead.lastRemarks ? (
+                                                                <p className={`text-[11px] font-medium leading-snug line-clamp-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}
+                                                                   title={lead.lastRemarks}>
+                                                                    {lead.lastRemarks}
+                                                                </p>
+                                                            ) : (
+                                                                <span className="text-gray-500 font-mono text-[11px]">—</span>
+                                                            )}
+                                                        </td>
+
                                                         <td className="p-3 font-mono text-[11px] text-gray-400">{lead.createdAt}</td>
                                                     </tr>
                                                 );

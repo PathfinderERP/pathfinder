@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
 import { useTheme } from "../context/ThemeContext";
-import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaThLarge, FaList, FaWalking, FaComments, FaUserPlus, FaPhoneAlt, FaRupeeSign, FaFileExcel } from 'react-icons/fa';
+import { FaBuilding, FaUsers, FaChartLine, FaClipboardList, FaSearch, FaFilter, FaCheckCircle, FaTimesCircle, FaThLarge, FaList, FaWalking, FaComments, FaUserPlus, FaPhoneAlt, FaRupeeSign, FaFileExcel, FaUserClock, FaSpinner } from 'react-icons/fa';
 import { toast } from "react-toastify";
 import DailyTrackingDetailsModal from '../components/Dashboard/DailyTrackingDetailsModal';
 import ActiveCentresCallsReportModal from '../components/Dashboard/ActiveCentresCallsReportModal';
@@ -29,7 +29,10 @@ const DailyCenterTracking = () => {
     const [customStartDate, setCustomStartDate] = useState("");
     const [customEndDate, setCustomEndDate] = useState("");
     const [leadTypeFilter, setLeadTypeFilter] = useState("");
-    const [viewMode, setViewMode] = useState("card"); // "card" or "table"
+    const [viewMode, setViewMode] = useState("card"); // "card", "table", or "userWise"
+    const [userWiseCalls, setUserWiseCalls] = useState([]);
+    const [userWiseLoading, setUserWiseLoading] = useState(false);
+    const [userWiseSearch, setUserWiseSearch] = useState("");
     const navigate = useNavigate();
 
     const [showDetailsModal, setShowDetailsModal] = useState(false);
@@ -325,6 +328,57 @@ const DailyCenterTracking = () => {
         if (dateRange === "Custom Range" && (!customStartDate || !customEndDate)) return;
         fetchCenters();
     }, [dateRange, customStartDate, customEndDate, canView, leadTypeFilter, selectedRoles, selectedAgents, selectedZones]);
+
+    const fetchUserWiseCalls = async () => {
+        try {
+            setUserWiseLoading(true);
+            const token = localStorage.getItem("token");
+            const apiUrl = import.meta.env.VITE_API_URL;
+
+            const params = new URLSearchParams();
+            if (dateRange === "Custom Range") {
+                if (customStartDate && customEndDate) {
+                    params.append("fromDate", customStartDate);
+                    params.append("toDate", customEndDate);
+                } else {
+                    return;
+                }
+            } else {
+                const { start, end } = getDateRangeLimits(dateRange);
+                params.append("fromDate", start);
+                params.append("toDate", end);
+            }
+
+            // Apply selected centre filter (use selectedCenters state which is declared before this function)
+            if (selectedCenters && selectedCenters.length > 0) {
+                params.append("centerIds", selectedCenters.map(sc => sc.value).join(","));
+            }
+
+            const response = await fetch(`${apiUrl}/operations/daily-tracking/calls-report?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await response.json();
+            if (response.ok) {
+                setUserWiseCalls(Array.isArray(data) ? data : []);
+            } else {
+                toast.error(data.message || "Failed to fetch user-wise call data");
+                setUserWiseCalls([]);
+            }
+        } catch (error) {
+            console.error("Error fetching user-wise calls:", error);
+            toast.error("Error fetching user-wise call data");
+            setUserWiseCalls([]);
+        } finally {
+            setUserWiseLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (viewMode !== 'userWise') return;
+        if (!canView && user.role !== 'superAdmin' && user.role !== 'superadmin') return;
+        if (dateRange === "Custom Range" && (!customStartDate || !customEndDate)) return;
+        fetchUserWiseCalls();
+    }, [viewMode, dateRange, customStartDate, customEndDate, canView, selectedCenters, selectedZones, selectedRoles, selectedAgents]);
 
     const allowedCenterNamesInSelectedZones = new Set();
     const allowedCenterIdsInSelectedZones = new Set();
@@ -994,13 +1048,235 @@ const DailyCenterTracking = () => {
                             >
                                 <FaList /> Table
                             </button>
+                            <button
+                                onClick={() => setViewMode('userWise')}
+                                className={`flex items-center gap-2 px-4 py-1.5 rounded transition-all text-sm font-medium ${viewMode === 'userWise'
+                                        ? (isDarkMode ? 'bg-violet-600 text-white' : 'bg-violet-500 text-white')
+                                        : (isDarkMode ? 'text-gray-400 hover:text-gray-200' : 'text-gray-500 hover:text-gray-700')
+                                    }`}
+                            >
+                                <FaUserClock /> User Wise Calls
+                            </button>
                         </div>
                     </div>
+
+                    {/* User Wise Search bar - only visible in userWise mode */}
+                    {viewMode === 'userWise' && (
+                        <div className={`px-5 py-3 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`}>
+                            <div className="relative max-w-xs">
+                                <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs" />
+                                <input
+                                    type="text"
+                                    placeholder="Search user or center..."
+                                    value={userWiseSearch}
+                                    onChange={e => setUserWiseSearch(e.target.value)}
+                                    className={`w-full pl-8 pr-3 py-1.5 text-xs rounded border outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 text-white placeholder-gray-500' : 'bg-gray-50 border-gray-200 text-gray-900 placeholder-gray-400'}`}
+                                />
+                            </div>
+                        </div>
+                    )}
 
                     {loading ? (
                         <div className="p-8 text-center text-gray-500">Loading centers...</div>
                     ) : filteredCenters.length === 0 ? (
                         <div className="p-8 text-center text-gray-500">No centers found.</div>
+                    ) : viewMode === 'userWise' ? (
+                        /* ── USER WISE CALLS VIEW ─────────────────────────────────────────── */
+                        userWiseLoading ? (
+                            <div className="p-12 flex flex-col items-center justify-center gap-3">
+                                <FaSpinner className="animate-spin text-violet-500 text-3xl" />
+                                <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Loading user-wise call data...</p>
+                            </div>
+                        ) : (() => {
+                            // Group records by centreName, filter by search
+                            const searchLower = userWiseSearch.toLowerCase().trim();
+
+                            // Build a filtered + sorted version
+                            const grouped = {};
+                            userWiseCalls.forEach(row => {
+                                const cName = row.centreName || 'Unknown';
+                                const matchesCentre = !searchLower || cName.toLowerCase().includes(searchLower);
+                                const matchesUser = !searchLower || (row.userName || '').toLowerCase().includes(searchLower);
+                                if (!matchesCentre && !matchesUser) return;
+
+                                // If zone/centre filters are applied, only show centres in filteredCenters
+                                const isInFiltered = filteredCenters.some(fc => fc.name === cName);
+                                if (!isInFiltered) return;
+
+                                if (!grouped[cName]) grouped[cName] = [];
+                                grouped[cName].push(row);
+                            });
+
+                            const centreNames = Object.keys(grouped).sort();
+
+                            if (centreNames.length === 0) {
+                                return (
+                                    <div className="p-12 text-center">
+                                        <FaUserClock className={`mx-auto text-4xl mb-3 ${isDarkMode ? 'text-gray-600' : 'text-gray-300'}`} />
+                                        <p className={`text-sm font-medium ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                            {userWiseCalls.length === 0 ? 'No user-wise call data found for the selected filters.' : 'No results match your search.'}
+                                        </p>
+                                    </div>
+                                );
+                            }
+
+                            return (
+                                <div className="p-5 space-y-8">
+                                    {centreNames.map(cName => {
+                                        const rows = grouped[cName];
+                                        // Sort users by totalCalls desc
+                                        const sortedRows = [...rows].sort((a, b) => (b.totalCalls || 0) - (a.totalCalls || 0));
+                                        const centreTotal = {
+                                            totalCalls: sortedRows.reduce((s, r) => s + (r.totalCalls || 0), 0),
+                                            hot: sortedRows.reduce((s, r) => s + (r.hot || 0), 0),
+                                            warm: sortedRows.reduce((s, r) => s + (r.warm || 0), 0),
+                                            cold: sortedRows.reduce((s, r) => s + (r.cold || 0), 0),
+                                            neutral: sortedRows.reduce((s, r) => s + (r.neutral || 0), 0),
+                                            invalid: sortedRows.reduce((s, r) => s + (r.invalid || 0), 0),
+                                            serviceCalls: sortedRows.reduce((s, r) => s + (r.serviceCalls || 0), 0),
+                                            pntseCalls: sortedRows.reduce((s, r) => s + (r.pntseCalls || 0), 0),
+                                            pmoCalls: sortedRows.reduce((s, r) => s + (r.pmoCalls || 0), 0),
+                                            walkInCount: sortedRows.reduce((s, r) => s + (r.walkInCount || 0), 0),
+                                            admissionCount: sortedRows.reduce((s, r) => s + (r.admissionCount || 0), 0),
+                                        };
+
+                                        const centreStatus = filteredCenters.find(fc => fc.name === cName);
+                                        return (
+                                            <div key={cName} className={`rounded border overflow-hidden ${isDarkMode ? 'border-gray-800 bg-[#131619]' : 'border-gray-200 bg-white shadow-sm'}`}>
+                                                {/* Centre header */}
+                                                <div className={`px-4 py-3 flex items-center justify-between ${isDarkMode ? 'bg-[#1a1f24] border-b border-gray-800' : 'bg-gray-50 border-b border-gray-100'}`}>
+                                                    <div className="flex items-center gap-3">
+                                                        <div className={`w-8 h-8 rounded flex items-center justify-center font-bold text-sm ${isDarkMode ? 'bg-violet-500/20 text-violet-400' : 'bg-violet-100 text-violet-700'}`}>
+                                                            {cName.charAt(0)}
+                                                        </div>
+                                                        <div>
+                                                            <h3 className={`font-bold text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cName}</h3>
+                                                            <p className={`text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{sortedRows.length} user{sortedRows.length !== 1 ? 's' : ''} · {centreTotal.totalCalls} total calls</p>
+                                                        </div>
+                                                    </div>
+                                                    {centreStatus && (
+                                                        <span className={`text-[10px] font-semibold px-2 py-0.5 rounded flex items-center gap-1 ${
+                                                            centreStatus.status === 'Active'
+                                                                ? (isDarkMode ? 'bg-green-500/10 text-green-400' : 'bg-green-100 text-green-700')
+                                                                : (isDarkMode ? 'bg-red-500/10 text-red-400' : 'bg-red-100 text-red-700')
+                                                        }`}>
+                                                            {centreStatus.status === 'Active' ? <FaCheckCircle /> : <FaTimesCircle />}
+                                                            {centreStatus.status}
+                                                        </span>
+                                                    )}
+                                                </div>
+
+                                                {/* Table */}
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left border-collapse text-xs">
+                                                        <thead>
+                                                            <tr className={`uppercase tracking-wider ${isDarkMode ? 'bg-[#0f1214] text-gray-500' : 'bg-gray-50 text-gray-500'}`}>
+                                                                <th className="px-4 py-2.5 font-semibold min-w-[160px]">#  User</th>
+                                                                <th className="px-4 py-2.5 font-semibold">Role</th>
+                                                                <th className="px-4 py-2.5 font-semibold text-center">Total Calls</th>
+                                                                <th className="px-4 py-2.5 font-semibold text-center text-red-500">Hot</th>
+                                                                <th className="px-4 py-2.5 font-semibold text-center text-orange-500">Warm</th>
+                                                                <th className="px-4 py-2.5 font-semibold text-center text-blue-500">Cold</th>
+                                                                <th className="px-4 py-2.5 font-semibold text-center text-gray-400">Neutral</th>
+                                                                <th className="px-4 py-2.5 font-semibold text-center text-slate-400">Invalid</th>
+                                                                <th className="px-4 py-2.5 font-semibold text-center text-teal-500">Service</th>
+                                                                <th className="px-4 py-2.5 font-semibold text-center text-purple-500">PNTSE</th>
+                                                                <th className="px-4 py-2.5 font-semibold text-center text-indigo-500">PMO</th>
+                                                                <th className="px-4 py-2.5 font-semibold text-center text-cyan-500">Walk-Ins</th>
+                                                                <th className="px-4 py-2.5 font-semibold text-center text-green-500">Admissions</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {sortedRows.map((row, idx) => (
+                                                                <tr key={`${row.userId || row.userName}_${idx}`}
+                                                                    className={`border-t transition-colors ${
+                                                                        isDarkMode
+                                                                            ? 'border-gray-800/60 hover:bg-[#1a1f24]'
+                                                                            : 'border-gray-50 hover:bg-violet-50/40'
+                                                                    }`}>
+                                                                    <td className="px-4 py-2.5">
+                                                                        <div className="flex items-center gap-2">
+                                                                            <span className={`text-[10px] font-bold w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${
+                                                                                isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-500'
+                                                                            }`}>{idx + 1}</span>
+                                                                            <div>
+                                                                                <p className={`font-semibold leading-tight ${isDarkMode ? 'text-gray-100' : 'text-gray-900'}`}>{row.userName || 'N/A'}</p>
+                                                                                {row.employeeId && row.employeeId !== 'N/A' && (
+                                                                                    <p className={`text-[10px] ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>{row.employeeId}</p>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5">
+                                                                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-semibold capitalize ${
+                                                                            isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-600'
+                                                                        }`}>{row.role || 'N/A'}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 text-center">
+                                                                        <span className={`font-extrabold text-sm ${
+                                                                            (row.totalCalls || 0) > 0
+                                                                                ? (isDarkMode ? 'text-white' : 'text-gray-900')
+                                                                                : (isDarkMode ? 'text-gray-600' : 'text-gray-300')
+                                                                        }`}>{row.totalCalls || 0}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 text-center">
+                                                                        <span className={(row.hot || 0) > 0 ? 'font-bold text-red-500' : (isDarkMode ? 'text-gray-700' : 'text-gray-300')}>{row.hot || 0}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 text-center">
+                                                                        <span className={(row.warm || 0) > 0 ? 'font-bold text-orange-500' : (isDarkMode ? 'text-gray-700' : 'text-gray-300')}>{row.warm || 0}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 text-center">
+                                                                        <span className={(row.cold || 0) > 0 ? 'font-bold text-blue-500' : (isDarkMode ? 'text-gray-700' : 'text-gray-300')}>{row.cold || 0}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 text-center">
+                                                                        <span className={(row.neutral || 0) > 0 ? 'font-bold text-gray-400' : (isDarkMode ? 'text-gray-700' : 'text-gray-300')}>{row.neutral || 0}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 text-center">
+                                                                        <span className={(row.invalid || 0) > 0 ? 'font-bold text-slate-400' : (isDarkMode ? 'text-gray-700' : 'text-gray-300')}>{row.invalid || 0}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 text-center">
+                                                                        <span className={(row.serviceCalls || 0) > 0 ? 'font-bold text-teal-500' : (isDarkMode ? 'text-gray-700' : 'text-gray-300')}>{row.serviceCalls || 0}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 text-center">
+                                                                        <span className={(row.pntseCalls || 0) > 0 ? 'font-bold text-purple-500' : (isDarkMode ? 'text-gray-700' : 'text-gray-300')}>{row.pntseCalls || 0}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 text-center">
+                                                                        <span className={(row.pmoCalls || 0) > 0 ? 'font-bold text-indigo-500' : (isDarkMode ? 'text-gray-700' : 'text-gray-300')}>{row.pmoCalls || 0}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 text-center">
+                                                                        <span className={(row.walkInCount || 0) > 0 ? 'font-bold text-cyan-500' : (isDarkMode ? 'text-gray-700' : 'text-gray-300')}>{row.walkInCount || 0}</span>
+                                                                    </td>
+                                                                    <td className="px-4 py-2.5 text-center">
+                                                                        <span className={(row.admissionCount || 0) > 0 ? 'font-bold text-green-500' : (isDarkMode ? 'text-gray-700' : 'text-gray-300')}>{row.admissionCount || 0}</span>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                            {/* Centre total row */}
+                                                            <tr className={`border-t-2 font-bold text-xs ${
+                                                                isDarkMode ? 'border-violet-900/50 bg-violet-900/10 text-violet-300' : 'border-violet-200 bg-violet-50 text-violet-700'
+                                                            }`}>
+                                                                <td className="px-4 py-2.5 font-extrabold uppercase tracking-wider" colSpan={2}>Centre Total</td>
+                                                                <td className="px-4 py-2.5 text-center font-extrabold text-sm">{centreTotal.totalCalls}</td>
+                                                                <td className="px-4 py-2.5 text-center">{centreTotal.hot}</td>
+                                                                <td className="px-4 py-2.5 text-center">{centreTotal.warm}</td>
+                                                                <td className="px-4 py-2.5 text-center">{centreTotal.cold}</td>
+                                                                <td className="px-4 py-2.5 text-center">{centreTotal.neutral}</td>
+                                                                <td className="px-4 py-2.5 text-center">{centreTotal.invalid}</td>
+                                                                <td className="px-4 py-2.5 text-center">{centreTotal.serviceCalls}</td>
+                                                                <td className="px-4 py-2.5 text-center">{centreTotal.pntseCalls}</td>
+                                                                <td className="px-4 py-2.5 text-center">{centreTotal.pmoCalls}</td>
+                                                                <td className="px-4 py-2.5 text-center">{centreTotal.walkInCount}</td>
+                                                                <td className="px-4 py-2.5 text-center">{centreTotal.admissionCount}</td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            );
+                        })()
                     ) : (
                         viewMode === 'table' ? (
                             <div className="overflow-x-auto">
@@ -1063,6 +1339,7 @@ const DailyCenterTracking = () => {
                                 </table>
                             </div>
                         ) : (
+                            /* card view below */
                             <div className="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                                 {filteredCenters.map((center) => (
                                     <div key={center.id} className={`rounded p-5 border transition-all hover:shadow-lg ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-gray-700' : 'bg-white border-gray-200 hover:border-gray-300'

@@ -646,6 +646,18 @@ export const getCentrePerformance = async (req, res) => {
                 downPaymentPaid = 0;
             }
 
+            const followUpsArr = l.followUps || [];
+            const followUpCount = followUpsArr.length;
+            const isCalled = followUpCount > 0;
+            // Get the most recent follow-up
+            const lastFollowUp = followUpsArr.length > 0
+                ? followUpsArr.reduce((latest, fu) => {
+                    const d = fu.date ? new Date(fu.date) : new Date(0);
+                    const ld = latest.date ? new Date(latest.date) : new Date(0);
+                    return d > ld ? fu : latest;
+                }, followUpsArr[0])
+                : null;
+
             centreLeadsMap.get(cKey).push({
                 id: l._id,
                 name: l.name || "N/A",
@@ -660,7 +672,13 @@ export const getCentrePerformance = async (req, res) => {
                 createdAt: l.createdAt ? new Date(l.createdAt).toISOString().split('T')[0] : "",
                 admissionStatus,
                 admittedCourse,
-                downPaymentPaid
+                downPaymentPaid,
+                followUpCount,
+                isCalled,
+                lastFollowUpDate: lastFollowUp?.date ? new Date(lastFollowUp.date).toISOString().split('T')[0] : null,
+                lastFeedback: lastFollowUp?.feedback || null,
+                lastRemarks: lastFollowUp?.remarks || lastFollowUp?.feedback || null,
+                lastCalledBy: lastFollowUp?.updatedBy || null
             });
         });
 
