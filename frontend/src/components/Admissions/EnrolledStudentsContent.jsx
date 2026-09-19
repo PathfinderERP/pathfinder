@@ -207,6 +207,7 @@ const EnrolledStudentsContent = () => {
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState("");
     const [filterStatus, setFilterStatus] = useState([]);
+    const [filterZone, setFilterZone] = useState([]);
     const [filterCentre, setFilterCentre] = useState([]);
     const [filterDepartment, setFilterDepartment] = useState([]);
     const [filterCourse, setFilterCourse] = useState([]);
@@ -240,6 +241,7 @@ const EnrolledStudentsContent = () => {
     const [masterSessions, setMasterSessions] = useState([]);
     const [masterExamTags, setMasterExamTags] = useState([]);
     const [masterBoards, setMasterBoards] = useState([]);
+    const [masterZones, setMasterZones] = useState([]);
     const [batches, setBatches] = useState([]);
 
     // Service Calling & Journey States
@@ -338,7 +340,7 @@ const EnrolledStudentsContent = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [deptRes, courseRes, classRes, sessionRes, employeeRes, accountRes, tagRes, batchRes, boardRes] = await Promise.all([
+            const [deptRes, courseRes, classRes, sessionRes, employeeRes, accountRes, tagRes, batchRes, boardRes, zoneRes] = await Promise.all([
                 fetch(`${apiUrl}/department`, { headers }),
                 fetch(`${apiUrl}/course`, { headers }),
                 fetch(`${apiUrl}/class`, { headers }),
@@ -347,7 +349,8 @@ const EnrolledStudentsContent = () => {
                 fetch(`${apiUrl}/master-data/account`, { headers }),
                 fetch(`${apiUrl}/examTag`, { headers }),
                 fetch(`${apiUrl}/batch/list`, { headers }),
-                fetch(`${apiUrl}/board`, { headers })
+                fetch(`${apiUrl}/board`, { headers }),
+                fetch(`${apiUrl}/zone`, { headers })
             ]);
 
             if (deptRes.ok) {
@@ -372,6 +375,11 @@ const EnrolledStudentsContent = () => {
             }
             if (boardRes && boardRes.ok) {
                 setMasterBoards(await boardRes.json());
+            }
+            if (zoneRes && zoneRes.ok) {
+                const zData = await zoneRes.json();
+                const zList = Array.isArray(zData) ? zData : (zData.data || zData.zones || []);
+                setMasterZones(zList.filter(z => z.isActive !== false));
             }
         } catch (error) {
             console.error("Error fetching master data:", error);
@@ -579,7 +587,7 @@ const EnrolledStudentsContent = () => {
     // Reset selected IDs when any filter or view mode changes
     useEffect(() => {
         setSelectedAdmissionIds([]);
-    }, [viewMode, searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy, startDate, endDate, filterBatch]);
+    }, [viewMode, searchQuery, filterStatus, filterZone, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy, startDate, endDate, filterBatch]);
 
     const toggleSelection = (admissionId) => {
         if (!admissionId) return;
@@ -950,7 +958,7 @@ const EnrolledStudentsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterBatch]);
+    }, [searchQuery, filterStatus, filterZone, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterBatch]);
 
     // Filter students
     useEffect(() => {
@@ -999,6 +1007,29 @@ const EnrolledStudentsContent = () => {
                     filterStatus.includes(admission.paymentStatus)
                 )
             );
+        }
+
+        if (filterZone.length > 0) {
+            const selectedZoneCentres = new Set();
+            masterZones.forEach(zone => {
+                if (filterZone.includes(zone.name) || filterZone.includes(zone._id)) {
+                    (zone.centres || []).forEach(c => {
+                        if (c?.centreName) selectedZoneCentres.add(c.centreName.trim().toLowerCase());
+                        if (c?.name) selectedZoneCentres.add(c.name.trim().toLowerCase());
+                        if (c?.enterCode) selectedZoneCentres.add(c.enterCode.trim().toLowerCase());
+                        if (typeof c === 'string') selectedZoneCentres.add(c.trim().toLowerCase());
+                        if (c?._id) selectedZoneCentres.add(c._id.toString().toLowerCase());
+                    });
+                }
+            });
+
+            result = result.filter(item => {
+                const student = item.student?.studentsDetails?.[0] || {};
+                return item.admissions.some(admission => {
+                    const centre = (admission.centre || student.centre || admission.department?.departmentName || "").trim().toLowerCase();
+                    return selectedZoneCentres.has(centre);
+                });
+            });
         }
 
         if (filterCentre.length > 0) {
@@ -1251,7 +1282,7 @@ const EnrolledStudentsContent = () => {
         });
 
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, followUpStartDate, followUpEndDate, students, viewMode, allowedCentres, isSuperAdmin, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterBatch]);
+    }, [searchQuery, filterStatus, filterZone, masterZones, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, followUpStartDate, followUpEndDate, students, viewMode, allowedCentres, isSuperAdmin, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterBatch]);
 
     const filteredAdmissions = filteredStudents.flatMap(s =>
         s.admissions.filter(a => {
@@ -1327,6 +1358,7 @@ const EnrolledStudentsContent = () => {
     const handleRefresh = () => {
         setSearchQuery("");
         setFilterStatus([]);
+        setFilterZone([]);
         setFilterCentre([]);
         setFilterDepartment([]);
         setFilterCourse([]);
@@ -1352,9 +1384,29 @@ const EnrolledStudentsContent = () => {
         toast.info("Refreshed data and filters");
     };
 
+    const zoneOptions = React.useMemo(() => {
+        return masterZones.map(z => ({
+            value: z.name,
+            label: z.name.toUpperCase()
+        }));
+    }, [masterZones]);
+
     const uniqueCentres = React.useMemo(() => {
-        return ["BLANK", ...allowedCentres];
-    }, [allowedCentres]);
+        let list = allowedCentres;
+        if (filterZone.length > 0) {
+            const allowedInZones = new Set();
+            masterZones.forEach(zone => {
+                if (filterZone.includes(zone.name) || filterZone.includes(zone._id)) {
+                    (zone.centres || []).forEach(c => {
+                        const cName = c?.centreName || c?.name || (typeof c === 'string' ? c : '');
+                        if (cName) allowedInZones.add(cName.trim().toLowerCase());
+                    });
+                }
+            });
+            list = list.filter(c => allowedInZones.has(c.trim().toLowerCase()));
+        }
+        return ["BLANK", ...list];
+    }, [allowedCentres, filterZone, masterZones]);
 
     const uniqueCourses = React.useMemo(() => {
         const coursesSet = new Set(masterCourses.map(c => c.courseName));
@@ -2246,6 +2298,17 @@ const EnrolledStudentsContent = () => {
                                 ]}
                                 selectedValues={filterStatus}
                                 onChange={setFilterStatus}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
+                                label="Zone"
+                                placeholder="ALL ZONES"
+                                options={zoneOptions}
+                                selectedValues={filterZone}
+                                onChange={setFilterZone}
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>
