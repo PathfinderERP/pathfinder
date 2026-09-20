@@ -52,6 +52,7 @@ const UpcomingClass = () => {
 
     const [showFilters, setShowFilters] = useState(false);
     const [canEdit, setCanEdit] = useState(false);
+    const [dropdownLoading, setDropdownLoading] = useState(false);
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
 
