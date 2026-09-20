@@ -11,6 +11,7 @@ import XLSX from "xlsx";
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
+import attachAdmissionStatus from "../../utils/admissionStatusHelper.js";
 
 // Create PNTSE Student
 export const createPNTSEStudent = async (req, res) => {
@@ -295,93 +296,120 @@ export const createPNTSEStudent = async (req, res) => {
 
 
 
+const parseList = (val) => {
+    if (!val) return [];
+    if (Array.isArray(val)) return val.filter(Boolean);
+    return String(val).split(',').map(s => s.trim()).filter(Boolean);
+};
+
+export const buildPntseQuery = async (params = {}, user = {}) => {
+    const { search, centre, class: classId, session, examTag, status, zone, startDate, endDate, dateType, school, course, board } = params;
+
+    const query = {};
+    const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
+    let assignedCentres = null;
+    if (!isSuperAdmin) {
+        assignedCentres = (user.centres || []).map(c => (c._id || c).toString());
+    }
+
+    const zoneIds = parseList(zone);
+    const centreIds = parseList(centre);
+
+    if (zoneIds.length > 0) {
+        const zones = await Zone.find({ _id: { $in: zoneIds } }).select("centres").lean();
+        let zoneCentres = [];
+        zones.forEach(z => {
+            (z.centres || []).forEach(c => {
+                const cStr = (c._id || c).toString();
+                if (!zoneCentres.includes(cStr)) zoneCentres.push(cStr);
+            });
+        });
+
+        if (centreIds.length > 0) {
+            let validCentres = centreIds.filter(c => zoneCentres.includes(c));
+            if (assignedCentres) {
+                validCentres = validCentres.filter(c => assignedCentres.includes(c));
+            }
+            query.centre = { $in: validCentres };
+        } else {
+            let targetCentres = zoneCentres;
+            if (assignedCentres) {
+                targetCentres = targetCentres.filter(c => assignedCentres.includes(c));
+            }
+            query.centre = { $in: targetCentres };
+        }
+    } else if (centreIds.length > 0) {
+        let validCentres = centreIds;
+        if (assignedCentres) {
+            validCentres = validCentres.filter(c => assignedCentres.includes(c));
+        }
+        query.centre = { $in: validCentres };
+    } else if (assignedCentres) {
+        query.centre = { $in: assignedCentres };
+    }
+
+    if (search) {
+        query.$or = [
+            { name: { $regex: search, $options: 'i' } },
+            { mobile: { $regex: search, $options: 'i' } },
+            { secondaryMobile: { $regex: search, $options: 'i' } },
+            { rollNo: { $regex: search, $options: 'i' } },
+            { email: { $regex: search, $options: 'i' } },
+            { school: { $regex: search, $options: 'i' } }
+        ];
+    }
+
+    const classIds = parseList(classId);
+    if (classIds.length > 0) query.class = { $in: classIds };
+
+    const sessionIds = parseList(session);
+    if (sessionIds.length > 0) query.session = { $in: sessionIds };
+
+    const examTagIds = parseList(examTag);
+    if (examTagIds.length > 0) query.examTag = { $in: examTagIds };
+
+    const boardIds = parseList(board);
+    if (boardIds.length > 0) query.board = { $in: boardIds };
+
+    const statusList = parseList(status);
+    if (statusList.length > 0) query.status = { $in: statusList };
+
+    const schoolList = parseList(school);
+    if (schoolList.length > 0) {
+        query.school = { $in: schoolList.map(s => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) };
+    }
+
+    const courseList = parseList(course);
+    if (courseList.length > 0) {
+        query.course = { $in: courseList };
+    }
+
+    if (startDate || endDate) {
+        const cleanDateStr = (d) => {
+            if (!d) return null;
+            return typeof d === "string" ? (d.includes("T") ? d.split("T")[0] : d) : new Date(d).toISOString().split("T")[0];
+        };
+        const sStr = startDate ? cleanDateStr(startDate) : null;
+        const eStr = endDate ? cleanDateStr(endDate) : null;
+
+        if (dateType === 'examDate') {
+            query.examDate = {};
+            if (sStr) query.examDate.$gte = sStr;
+            if (eStr) query.examDate.$lte = eStr;
+        } else {
+            query.createdAt = {};
+            if (sStr) query.createdAt.$gte = new Date(`${sStr}T00:00:00+05:30`);
+            if (eStr) query.createdAt.$lte = new Date(`${eStr}T23:59:59.999+05:30`);
+        }
+    }
+
+    return query;
+};
+
 // Get all PNTSE Students with filtering and search
 export const getPNTSEStudents = async (req, res) => {
     try {
-        const { search, centre, class: classId, session, examTag, status, zone, startDate, endDate, dateType } = req.query;
-
-        const query = {};
-
-        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
-        let assignedCentres = null;
-        if (!isSuperAdmin) {
-            assignedCentres = (req.user.centres || []).map(c => c.toString());
-        }
-
-        if (zone) {
-            const zoneDoc = await Zone.findById(zone).select("centres").lean();
-            const zoneCentres = (zoneDoc?.centres || []).map(c => c.toString());
-            if (centre) {
-                if (zoneCentres.includes(centre.toString())) {
-                    if (assignedCentres) {
-                        query.centre = assignedCentres.includes(centre.toString()) ? centre : { $in: [] };
-                    } else {
-                        query.centre = centre;
-                    }
-                } else {
-                    query.centre = { $in: [] };
-                }
-            } else {
-                let targetCentres = zoneCentres;
-                if (assignedCentres) {
-                    targetCentres = targetCentres.filter(c => assignedCentres.includes(c));
-                }
-                query.centre = { $in: targetCentres };
-            }
-        } else if (centre) {
-            if (assignedCentres) {
-                query.centre = assignedCentres.includes(centre.toString()) ? centre : { $in: assignedCentres };
-            } else {
-                query.centre = centre;
-            }
-        } else if (assignedCentres) {
-            query.centre = { $in: assignedCentres };
-        }
-
-        if (search) {
-            query.$or = [
-                { name: { $regex: search, $options: 'i' } },
-                { mobile: { $regex: search, $options: 'i' } },
-                { secondaryMobile: { $regex: search, $options: 'i' } },
-                { rollNo: { $regex: search, $options: 'i' } },
-                { school: { $regex: search, $options: 'i' } }
-            ];
-        }
-
-        if (classId) query.class = classId;
-        if (session) query.session = session;
-        if (examTag) query.examTag = examTag;
-        if (req.query.board) query.board = req.query.board;
-        if (status) query.status = status;
-
-        if (req.query.school) {
-            const raw = Array.isArray(req.query.school) ? req.query.school : String(req.query.school).split(',');
-            const list = raw.map(s => s.trim()).filter(Boolean);
-            if (list.length === 1) {
-                query.school = { $regex: new RegExp(`^${list[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') };
-            } else if (list.length > 1) {
-                query.school = { $in: list.map(s => new RegExp(`^${s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) };
-            }
-        }
-
-        if (startDate || endDate) {
-            const cleanDateStr = (d) => {
-                if (!d) return null;
-                return typeof d === "string" ? (d.includes("T") ? d.split("T")[0] : d) : new Date(d).toISOString().split("T")[0];
-            };
-            const sStr = startDate ? cleanDateStr(startDate) : null;
-            const eStr = endDate ? cleanDateStr(endDate) : null;
-
-            if (dateType === 'examDate') {
-                query.examDate = {};
-                if (sStr) query.examDate.$gte = sStr;
-                if (eStr) query.examDate.$lte = eStr;
-            } else {
-                query.createdAt = {};
-                if (sStr) query.createdAt.$gte = new Date(`${sStr}T00:00:00+05:30`);
-                if (eStr) query.createdAt.$lte = new Date(`${eStr}T23:59:59.999+05:30`);
-            }
-        }
+        const query = await buildPntseQuery(req.query, req.user);
 
         const students = await PNTSEStudent.find(query)
             .populate('class')
@@ -392,9 +420,66 @@ export const getPNTSEStudents = async (req, res) => {
             .populate('paymentId')
             .sort({ createdAt: -1 });
 
-        res.status(200).json(students);
+        let enrichedStudents = await attachAdmissionStatus(students);
+
+        const admissionStatusList = parseList(req.query.admissionStatus);
+        if (admissionStatusList.length > 0) {
+            const lowerTargets = admissionStatusList.map(s => s.toLowerCase());
+            enrichedStudents = enrichedStudents.filter(s =>
+                lowerTargets.includes((s.admissionStatus || 'None').toLowerCase())
+            );
+        }
+
+        res.status(200).json(enrichedStudents);
     } catch (err) {
         console.error(err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Bulk Update Attendance for PNTSE Students (based on selected IDs or filter query)
+export const bulkUpdateAttendance = async (req, res) => {
+    try {
+        const { studentIds, status, filters, search } = req.body;
+        if (!['Present', 'Absent'].includes(status)) {
+            return res.status(400).json({ message: "Invalid status. Must be 'Present' or 'Absent'." });
+        }
+
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        let assignedCentres = null;
+        if (!isSuperAdmin) {
+            assignedCentres = (req.user.centres || []).map(c => (c._id || c).toString());
+        }
+
+        let query = {};
+        if (Array.isArray(studentIds) && studentIds.length > 0) {
+            query._id = { $in: studentIds };
+            if (assignedCentres) {
+                query.centre = { $in: assignedCentres };
+            }
+        } else {
+            const queryParams = { ...(filters || {}), search: search || filters?.search };
+            query = await buildPntseQuery(queryParams, req.user);
+
+            const admissionStatusList = parseList(queryParams.admissionStatus);
+            if (admissionStatusList.length > 0) {
+                const candidateStudents = await PNTSEStudent.find(query, "_id rollNo studentId").lean();
+                const enriched = await attachAdmissionStatus(candidateStudents);
+                const lowerTargets = admissionStatusList.map(s => s.toLowerCase());
+                const matchingIds = enriched
+                    .filter(s => lowerTargets.includes((s.admissionStatus || 'None').toLowerCase()))
+                    .map(s => s._id);
+                query._id = { $in: matchingIds };
+            }
+        }
+
+        const updateResult = await PNTSEStudent.updateMany(query, { $set: { status } });
+        res.status(200).json({
+            message: `Successfully marked ${updateResult.modifiedCount} student(s) as ${status}.`,
+            modifiedCount: updateResult.modifiedCount
+        });
+    } catch (err) {
+        console.error("Bulk attendance error:", err);
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };

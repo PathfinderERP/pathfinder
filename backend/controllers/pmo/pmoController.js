@@ -14,6 +14,7 @@ import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import LeadManagement from "../../models/LeadManagement.js";
 import CampaignLead from "../../models/CampaignLead.js";
+import attachAdmissionStatus from "../../utils/admissionStatusHelper.js";
 
 // Helper function to find existing enrollment number across all courses
 const findExistingEnrollment = async (mobile, email) => {
@@ -459,7 +460,17 @@ export const getPMOStudents = async (req, res) => {
             .populate('paymentId')
             .sort({ createdAt: -1 });
 
-        res.status(200).json(students);
+        let enrichedStudents = await attachAdmissionStatus(students);
+
+        const admissionStatusList = parseList(req.query.admissionStatus);
+        if (admissionStatusList.length > 0) {
+            const lowerTargets = admissionStatusList.map(s => s.toLowerCase());
+            enrichedStudents = enrichedStudents.filter(s =>
+                lowerTargets.includes((s.admissionStatus || 'None').toLowerCase())
+            );
+        }
+
+        res.status(200).json(enrichedStudents);
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Server error", error: err.message });

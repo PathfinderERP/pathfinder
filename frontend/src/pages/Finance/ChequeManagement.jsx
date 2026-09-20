@@ -1,7 +1,12 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../components/Layout";
 import { hasPermission } from "../../config/permissions";
-import { FaSearch, FaCheckCircle, FaClock, FaTimes, FaSyncAlt, FaExclamationTriangle, FaFilter, FaDownload, FaRegFileAlt, FaFileInvoice, FaEdit, FaCalendarAlt } from "react-icons/fa";
+import {
+    FaSearch, FaCheckCircle, FaClock, FaTimes, FaSyncAlt,
+    FaExclamationTriangle, FaFilter, FaDownload, FaRegFileAlt,
+    FaFileInvoice, FaEdit, FaCalendarAlt, FaMoneyCheckAlt,
+    FaBuilding, FaArrowRight, FaEye, FaUniversity
+} from "react-icons/fa";
 import { toast } from "react-toastify";
 import Select from "react-select";
 import * as XLSX from "xlsx";
@@ -18,7 +23,14 @@ const ChequeManagement = () => {
     const [filterStatus, setFilterStatus] = useState("all");
     const [cheques, setCheques] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [stats, setStats] = useState({ cleared: 0, pending: 0, bounced: 0, totalAmount: 0 });
+
+    // Modal state for KPI card drilldown
+    const [cardModalType, setCardModalType] = useState(null); // 'TOTAL' | 'CLEARED' | 'PENDING' | 'NOT_DEPOSITED' | null
+    const [modalSearchTerm, setModalSearchTerm] = useState("");
+    const [modalCentreFilter, setModalCentreFilter] = useState("");
+    const [modalCurrentPage, setModalCurrentPage] = useState(1);
+    const [modalItemsPerPage, setModalItemsPerPage] = useState(10);
+
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectingId, setRejectingId] = useState(null);
     const [rejectReason, setRejectReason] = useState("");
@@ -168,7 +180,6 @@ const ChequeManagement = () => {
             if (response.ok) {
                 const data = await response.json();
                 setCheques(data);
-                calculateStats(data);
             } else {
                 toast.error("Failed to load cheques");
             }
@@ -180,15 +191,150 @@ const ChequeManagement = () => {
         }
     };
 
-    const calculateStats = (data) => {
-        const statsObj = data.reduce((acc, c) => {
-            if (c.status === "PAID") acc.cleared++;
-            else if (c.status === "PENDING_CLEARANCE") acc.pending++;
-            else if (c.status === "REJECTED") acc.bounced++;
-            acc.totalAmount += (c.amount || 0);
+    // Dynamically calculated stats based on current filtered cheques
+    const stats = React.useMemo(() => {
+        return cheques.reduce((acc, c) => {
+            const amt = Number(c.amount) || 0;
+            acc.totalAmount += amt;
+            acc.totalCount += 1;
+
+            if (c.status === "PAID") {
+                acc.clearedAmount += amt;
+                acc.clearedCount += 1;
+            } else if (c.status === "PENDING_CLEARANCE") {
+                acc.pendingAmount += amt;
+                acc.pendingCount += 1;
+            } else if (c.status === "REJECTED") {
+                acc.bouncedAmount += amt;
+                acc.bouncedCount += 1;
+            }
+
+            if (!c.isDeposited) {
+                acc.notDepositedCount += 1;
+                acc.notDepositedAmount += amt;
+            } else {
+                acc.depositedCount += 1;
+                acc.depositedAmount += amt;
+            }
+
             return acc;
-        }, { cleared: 0, pending: 0, bounced: 0, totalAmount: 0 });
-        setStats(statsObj);
+        }, {
+            totalAmount: 0,
+            totalCount: 0,
+            clearedAmount: 0,
+            clearedCount: 0,
+            pendingAmount: 0,
+            pendingCount: 0,
+            bouncedAmount: 0,
+            bouncedCount: 0,
+            notDepositedCount: 0,
+            notDepositedAmount: 0,
+            depositedCount: 0,
+            depositedAmount: 0
+        });
+    }, [cheques]);
+
+    const availableCentres = React.useMemo(() => {
+        const fromMeta = (metadata.centres || []).map(c => c.centreName).filter(Boolean);
+        const fromCheques = (cheques || []).map(c => c.centre).filter(Boolean);
+        return [...new Set([...fromMeta, ...fromCheques])].sort((a, b) => a.localeCompare(b));
+    }, [metadata.centres, cheques]);
+
+    const openCardModal = (type) => {
+        setCardModalType(type);
+        setModalSearchTerm("");
+        setModalCentreFilter(filters.centre && filters.centre.length === 1 ? filters.centre[0] : "");
+        setModalCurrentPage(1);
+    };
+
+    const getModalData = () => {
+        let items = [];
+        let title = "";
+        let description = "";
+        let badgeColor = "";
+        let icon = null;
+
+        if (cardModalType === "TOTAL") {
+            items = cheques;
+            title = "Total Cheques Details";
+            description = "All cheques in current filter selection";
+            badgeColor = "text-blue-400 bg-blue-500/10 border-blue-500/20";
+            icon = <FaMoneyCheckAlt className="text-blue-400" />;
+        } else if (cardModalType === "CLEARED") {
+            items = cheques.filter(c => c.status === "PAID");
+            title = "Cleared Cheques Details";
+            description = "Cheques that have been cleared (PAID)";
+            badgeColor = "text-emerald-400 bg-emerald-500/10 border-emerald-500/20";
+            icon = <FaCheckCircle className="text-emerald-400" />;
+        } else if (cardModalType === "PENDING") {
+            items = cheques.filter(c => c.status === "PENDING_CLEARANCE");
+            title = "Pending Cheques Details";
+            description = "Cheques currently in process (PENDING_CLEARANCE)";
+            badgeColor = "text-amber-400 bg-amber-500/10 border-amber-500/20";
+            icon = <FaClock className="text-amber-400" />;
+        } else if (cardModalType === "NOT_DEPOSITED") {
+            items = cheques.filter(c => !c.isDeposited);
+            title = "Undeposited Cheques Details";
+            description = "Cheques not deposited yet from Cheque Deposit Entry";
+            badgeColor = "text-rose-400 bg-rose-500/10 border-rose-500/20";
+            icon = <FaBuilding className="text-rose-400" />;
+        }
+
+        let filteredItems = items;
+
+        if (modalCentreFilter) {
+            filteredItems = filteredItems.filter(c =>
+                (c.centre || "").trim().toLowerCase() === modalCentreFilter.trim().toLowerCase()
+            );
+        }
+
+        if (modalSearchTerm.trim()) {
+            const term = modalSearchTerm.toLowerCase();
+            filteredItems = filteredItems.filter(c => {
+                const chNo = (c.chequeNumber || "").toLowerCase();
+                const sName = (c.studentName || "").toLowerCase();
+                const admNo = (c.admissionNumber || "").toLowerCase();
+                const bank = (c.bankName || "").toLowerCase();
+                const centre = (c.centre || "").toLowerCase();
+                return chNo.includes(term) || sName.includes(term) || admNo.includes(term) || bank.includes(term) || centre.includes(term);
+            });
+        }
+
+        const totalModalAmount = filteredItems.reduce((sum, c) => sum + (Number(c.amount) || 0), 0);
+
+        return { items, filteredItems, title, description, badgeColor, icon, totalModalAmount };
+    };
+
+    const exportModalToExcel = () => {
+        const { filteredItems, title } = getModalData();
+        if (!filteredItems || filteredItems.length === 0) {
+            toast.info("No data to export");
+            return;
+        }
+
+        const dataToExport = filteredItems.map(c => ({
+            "Cheque No": c.chequeNumber || "N/A",
+            "Cheque Date": c.chequeDate ? new Date(c.chequeDate).toLocaleDateString('en-IN') : "N/A",
+            "Student Name": c.studentName || "N/A",
+            "Admission No": c.admissionNumber || "N/A",
+            "Centre": c.centre || "N/A",
+            "Course": c.courseName || "N/A",
+            "Bank": c.bankName || "N/A",
+            "Amount (INR)": c.amount || 0,
+            "Status": c.status === "PAID" ? "CLEARED" : (c.status === "PENDING_CLEARANCE" ? "IN PROCESS" : c.status),
+            "Deposit Status": c.isDeposited ? "Deposited" : "Not Deposited",
+            "Deposit Date": c.depositedDate ? new Date(c.depositedDate).toLocaleDateString('en-IN') : "N/A",
+            "Deposit Account": c.depositAccount || "N/A",
+            "Cleared/Rejected Date": c.clearedOrRejectedDate ? new Date(c.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A"
+        }));
+
+        const ws = XLSX.utils.json_to_sheet(dataToExport);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Cheques");
+        const excelBuffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+        const data = new Blob([excelBuffer], { type: "application/octet-stream" });
+        saveAs(data, `${title.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success("Exported successfully!");
     };
 
     const handleClearCheque = async () => {
@@ -207,9 +353,9 @@ const ChequeManagement = () => {
                 `${import.meta.env.VITE_API_URL}/finance/installment/clear-cheque/${clearingId}`,
                 {
                     method: "POST",
-                    headers: { 
+                    headers: {
                         "Content-Type": "application/json",
-                        Authorization: `Bearer ${token}` 
+                        Authorization: `Bearer ${token}`
                     },
                     body: JSON.stringify({ clearedDate: clearDate })
                 }
@@ -489,15 +635,15 @@ const ChequeManagement = () => {
         }),
         option: (base, state) => ({
             ...base,
-            background: state.isSelected 
-                ? "#10b981" 
-                : state.isFocused 
+            background: state.isSelected
+                ? "#10b981"
+                : state.isFocused
                     ? (isDarkMode ? "rgba(16, 185, 129, 0.1)" : "rgba(16, 185, 129, 0.05)")
                     : "transparent",
-            color: state.isSelected 
-                ? "white" 
-                : state.isFocused 
-                    ? "#10b981" 
+            color: state.isSelected
+                ? "white"
+                : state.isFocused
+                    ? "#10b981"
                     : (isDarkMode ? "#9ca3af" : "#374151"),
             fontSize: "10px",
             fontWeight: "bold",
@@ -585,6 +731,117 @@ const ChequeManagement = () => {
                     >
                         <FaSyncAlt className={loading ? "animate-spin" : ""} /> Refresh
                     </button>
+                </div>
+
+                {/* KPI Summary Cards */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    {/* Card 1: Total Cheque Amount */}
+                    <div
+                        onClick={() => openCardModal("TOTAL")}
+                        className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer shadow-xl hover:-translate-y-1 ${isDarkMode
+                                ? "bg-[#131619] border-gray-800 hover:border-blue-500/50 hover:shadow-blue-500/10"
+                                : "bg-white border-gray-200 hover:border-blue-400 hover:shadow-blue-500/10"
+                            }`}
+                        title="Click to view all cheques in filtered selection"
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-xl group-hover:scale-110 transition-transform shadow-inner">
+                                <FaMoneyCheckAlt />
+                            </div>
+                            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-blue-500/10 text-blue-400 border-blue-500/20">
+                                {stats.totalCount} Cheques
+                            </span>
+                        </div>
+                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Cheque Amount</p>
+                        <h3 className={`text-2xl font-black italic tracking-tight mb-3 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                            ₹{stats.totalAmount.toLocaleString('en-IN')}
+                        </h3>
+                        <div className="flex items-center justify-between pt-3 border-t border-gray-800/40 text-[10px] font-bold text-blue-400/80 group-hover:text-blue-400">
+                            <span>Click to view details</span>
+                            <FaArrowRight className="group-hover:translate-x-1 transition-transform" size={10} />
+                        </div>
+                    </div>
+
+                    {/* Card 2: Cleared Amount */}
+                    <div
+                        onClick={() => openCardModal("CLEARED")}
+                        className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer shadow-xl hover:-translate-y-1 ${isDarkMode
+                                ? "bg-[#131619] border-gray-800 hover:border-emerald-500/50 hover:shadow-emerald-500/10"
+                                : "bg-white border-gray-200 hover:border-emerald-400 hover:shadow-emerald-500/10"
+                            }`}
+                        title="Click to view cleared cheques"
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-xl group-hover:scale-110 transition-transform shadow-inner">
+                                <FaCheckCircle />
+                            </div>
+                            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
+                                {stats.clearedCount} Cleared
+                            </span>
+                        </div>
+                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Cleared Amount</p>
+                        <h3 className="text-2xl font-black italic tracking-tight text-emerald-500 mb-3">
+                            ₹{stats.clearedAmount.toLocaleString('en-IN')}
+                        </h3>
+                        <div className="flex items-center justify-between pt-3 border-t border-gray-800/40 text-[10px] font-bold text-emerald-400/80 group-hover:text-emerald-400">
+                            <span>Click to view details</span>
+                            <FaArrowRight className="group-hover:translate-x-1 transition-transform" size={10} />
+                        </div>
+                    </div>
+
+                    {/* Card 3: Pending Amount */}
+                    <div
+                        onClick={() => openCardModal("PENDING")}
+                        className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer shadow-xl hover:-translate-y-1 ${isDarkMode
+                                ? "bg-[#131619] border-gray-800 hover:border-yellow-500/50 hover:shadow-yellow-500/10"
+                                : "bg-white border-gray-200 hover:border-yellow-400 hover:shadow-yellow-500/10"
+                            }`}
+                        title="Click to view pending cheques"
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-yellow-400 text-xl group-hover:scale-110 transition-transform shadow-inner">
+                                <FaClock />
+                            </div>
+                            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-yellow-500/10 text-yellow-400 border-yellow-500/20">
+                                {stats.pendingCount} In Process
+                            </span>
+                        </div>
+                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Pending Amount</p>
+                        <h3 className="text-2xl font-black italic tracking-tight text-yellow-500 mb-3">
+                            ₹{stats.pendingAmount.toLocaleString('en-IN')}
+                        </h3>
+                        <div className="flex items-center justify-between pt-3 border-t border-gray-800/40 text-[10px] font-bold text-yellow-400/80 group-hover:text-yellow-400">
+                            <span>Click to view details</span>
+                            <FaArrowRight className="group-hover:translate-x-1 transition-transform" size={10} />
+                        </div>
+                    </div>
+
+                    {/* Card 4: Cheque Deposit Count (Not Deposited) */}
+                    <div
+                        onClick={() => openCardModal("NOT_DEPOSITED")}
+                        className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer shadow-xl hover:-translate-y-1 ${isDarkMode
+                                ? "bg-[#131619] border-gray-800 hover:border-rose-500/50 hover:shadow-rose-500/10"
+                                : "bg-white border-gray-200 hover:border-rose-400 hover:shadow-rose-500/10"
+                            }`}
+                        title="Click to view cheques not yet deposited from cheque deposit entry"
+                    >
+                        <div className="flex items-center justify-between mb-4">
+                            <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 text-xl group-hover:scale-110 transition-transform shadow-inner">
+                                <FaBuilding />
+                            </div>
+                            <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-rose-500/10 text-rose-400 border-rose-500/20">
+                                ₹{stats.notDepositedAmount.toLocaleString('en-IN')}
+                            </span>
+                        </div>
+                        <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Cheque Not Deposit Count</p>
+                        <h3 className="text-2xl font-black italic tracking-tight text-rose-400 mb-3">
+                            {stats.notDepositedCount} <span className="text-xs font-bold text-gray-500 not-italic">Not Deposited</span>
+                        </h3>
+                        <div className="flex items-center justify-between pt-3 border-t border-gray-800/40 text-[10px] font-bold text-rose-400/80 group-hover:text-rose-400">
+                            <span>Click to view details</span>
+                            <FaArrowRight className="group-hover:translate-x-1 transition-transform" size={10} />
+                        </div>
+                    </div>
                 </div>
 
                 {/* Main Filter Section */}
@@ -718,198 +975,193 @@ const ChequeManagement = () => {
                 <div className={`border rounded-[2rem] overflow-hidden shadow-2xl ${isDarkMode ? "bg-[#131619] border-gray-800" : "bg-white border-gray-200"}`}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse min-w-max">
-                        <thead>
-                            <tr className={`border-b text-[10px] font-black text-gray-500 uppercase tracking-widest ${isDarkMode ? "bg-gray-900/50 border-gray-800" : "bg-gray-50 border-gray-200"}`}>
-                                <th className="p-6">Cheque Info</th>
-                                <th className="p-6">Student Details</th>
-                                <th className="p-6">Bank Name</th>
-                                <th className="p-6">Amount</th>
-                                <th className="p-6">Cheque Date</th>
-                                <th className="p-6">Cheque Deposit Date</th>
-                                <th className="p-6">Cleared/Rejected Date</th>
-                                <th className="p-6">Receipt</th>
-                                <th className="p-6">Status</th>
-                                <th className="p-6 text-center">Bill</th>
-                                <th className="p-6">Processed By</th>
-                                <th className="p-6 text-right">Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
-                            {loading ? (
-                                <tr>
-                                    <td colSpan="12" className="p-20 text-center">
-                                        <div className="animate-spin h-10 w-10 border-t-2 border-emerald-500 rounded-full mx-auto"></div>
-                                    </td>
+                            <thead>
+                                <tr className={`border-b text-[10px] font-black text-gray-500 uppercase tracking-widest ${isDarkMode ? "bg-gray-900/50 border-gray-800" : "bg-gray-50 border-gray-200"}`}>
+                                    <th className="p-6">Cheque Info</th>
+                                    <th className="p-6">Student Details</th>
+                                    <th className="p-6">Bank Name</th>
+                                    <th className="p-6">Amount</th>
+                                    <th className="p-6">Cheque Date</th>
+                                    <th className="p-6">Cheque Deposit Date</th>
+                                    <th className="p-6">Cleared/Rejected Date</th>
+                                    <th className="p-6">Receipt</th>
+                                    <th className="p-6">Status</th>
+                                    <th className="p-6 text-center">Bill</th>
+                                    <th className="p-6">Processed By</th>
+                                    <th className="p-6 text-right">Actions</th>
                                 </tr>
-                            ) : currentItems.length === 0 ? (
-                                <tr>
-                                    <td colSpan="12" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
-                                        No cheques found in records
-                                    </td>
-                                </tr>
-                            ) : (
-                                currentItems.map((cheque) => (
-                                    <tr key={cheque.paymentId} className={`transition-colors group ${isDarkMode ? "hover:bg-emerald-500/[0.02] border-gray-800" : "hover:bg-emerald-500/[0.05] border-gray-200"}`}>
-                                        <td className="p-6">
-                                            <div className="text-cyan-500 font-black"># {cheque.chequeNumber || "N/A"}</div>
-                                            <div className="text-[9px] text-gray-500 font-bold uppercase mt-1">Ref: {cheque.paymentId.slice(-6)}</div>
-                                        </td>
-                                        <td className="p-6">
-                                            <div className={`font-bold uppercase ${isDarkMode ? "text-white" : "text-gray-900"}`}>{cheque.studentName}</div>
-                                            <div className="text-[10px] text-emerald-500/70 font-bold uppercase">{cheque.admissionNumber}</div>
-                                        </td>
-                                        <td className="p-6">
-                                            <div className={`font-bold text-xs uppercase ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>{cheque.bankName || "N/A"}</div>
-                                            <div className="text-[9px] text-gray-500 uppercase mt-1">{cheque.centre}</div>
-                                        </td>
-                                        <td className={`font-black text-lg p-6 ${isDarkMode ? "text-white" : "text-gray-900"}`}>₹{cheque.amount.toLocaleString()}</td>
-                                        <td className={`font-bold text-xs p-6 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                                            {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "N/A"}
-                                        </td>
-                                        <td className={`font-bold text-xs p-6 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                                            {cheque.depositedDate ? new Date(cheque.depositedDate).toLocaleDateString('en-IN') : "---"}
-                                        </td>
-                                        <td className={`font-bold text-xs p-6 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
-                                            <div className="flex items-center gap-2">
-                                                <span>{cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "---"}</span>
-                                                {cheque.status === "PAID" && isSuperAdminOrAccounts && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleOpenEditClearanceDate(cheque)}
-                                                        title="Edit Clearance Date"
-                                                        className={`p-1.5 rounded-lg border transition-all ${
-                                                            isDarkMode
-                                                                ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500 hover:text-white"
-                                                                : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-600 hover:text-white"
-                                                        }`}
-                                                    >
-                                                        <FaEdit className="text-[11px]" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="p-6">
-                                            {cheque.receiptFile ? (
-                                                <a
-                                                    href={cheque.receiptFile}
-                                                    target="_blank"
-                                                    rel="noreferrer"
-                                                    className="px-3 py-1.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg hover:bg-cyan-500 hover:text-black font-black text-[9px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5"
-                                                >
-                                                    <FaRegFileAlt /> View Slip
-                                                </a>
-                                            ) : (
-                                                <span className="text-[10px] text-gray-500 font-bold uppercase">Not Deposited</span>
-                                            )}
-                                        </td>
-                                        <td className="p-6">
-                                            <div className="flex items-center gap-2">
-                                                {getStatusBadge(cheque.status)}
-                                                {(cheque.status === "PAID" || cheque.status === "REJECTED") && isSuperAdminOrAccounts && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => handleOpenEditStatus(cheque)}
-                                                        title="Edit Cheque Status"
-                                                        className={`p-1.5 rounded-lg border transition-all ${
-                                                            isDarkMode
-                                                                ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
-                                                                : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
-                                                        }`}
-                                                    >
-                                                        <FaEdit className="text-[10px]" />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                        <td className="p-6 text-center">
-                                            {cheque.status === "PAID" ? (
-                                                <button
-                                                    onClick={() => setSelectedBillCheque(cheque)}
-                                                    className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500 hover:text-black font-black text-[9px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm"
-                                                    title="View / Download Bill"
-                                                >
-                                                    <FaFileInvoice /> {cheque.billId || "View Bill"}
-                                                </button>
-                                            ) : (
-                                                <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">---</span>
-                                            )}
-                                        </td>
-                                        <td className="p-6">
-                                            <div className="text-gray-500 font-black text-[10px] uppercase italic">
-                                                {cheque.status === "PAID" ? (cheque.processedBy || "System") : "---"}
-                                            </div>
-                                        </td>
-                                        <td className="p-6 text-right">
-                                            {cheque.status === "PENDING_CLEARANCE" && canManageCheques ? (
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => {
-                                                             setClearingId(cheque.paymentId);
-                                                             setClearDate(new Date().toISOString().split('T')[0]);
-                                                             setShowClearModal(true);
-                                                        }}
-                                                        className="px-4 py-2 bg-emerald-500/10 text-emerald-500 font-black text-[10px] uppercase rounded-lg hover:bg-emerald-500 hover:text-black transition-all border border-emerald-500/20"
-                                                    >
-                                                        Clear
-                                                    </button>
-                                                    <button
-                                                        onClick={() => {
-                                                            setRejectingId(cheque.paymentId);
-                                                            setRejectDate(new Date().toISOString().split('T')[0]);
-                                                            setShowRejectModal(true);
-                                                        }}
-                                                        className="px-4 py-2 bg-red-500/10 text-red-500 font-black text-[10px] uppercase rounded-lg hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
-                                                    >
-                                                        Bounce
-                                                    </button>
-                                                </div>
-                                            ) : cheque.status === "PAID" && isSuperAdminOrAccounts ? (
-                                                <div className="flex justify-end gap-2">
-                                                    <button
-                                                        onClick={() => handleOpenEditStatus(cheque)}
-                                                        className={`px-3 py-1.5 border rounded-lg font-black text-[10px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm ${
-                                                            isDarkMode
-                                                                ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
-                                                                : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
-                                                        }`}
-                                                        title="Change Cheque Status"
-                                                    >
-                                                        <FaSyncAlt className="text-[10px]" /> Status
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleOpenEditClearanceDate(cheque)}
-                                                        className={`px-3 py-1.5 border rounded-lg font-black text-[10px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm ${
-                                                            isDarkMode
-                                                                ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500 hover:text-white"
-                                                                : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-600 hover:text-white"
-                                                        }`}
-                                                        title="Edit Clearance Date"
-                                                    >
-                                                        <FaEdit /> Date
-                                                    </button>
-                                                </div>
-                                            ) : cheque.status === "REJECTED" && isSuperAdminOrAccounts ? (
-                                                <div className="flex justify-end">
-                                                    <button
-                                                        onClick={() => handleOpenEditStatus(cheque)}
-                                                        className={`px-3 py-1.5 border rounded-lg font-black text-[10px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm ${
-                                                            isDarkMode
-                                                                ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
-                                                                : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
-                                                        }`}
-                                                        title="Change Cheque Status"
-                                                    >
-                                                        <FaSyncAlt className="text-[10px]" /> Change Status
-                                                    </button>
-                                                </div>
-                                            ) : (
-                                                <span className="text-[10px] text-gray-500 font-bold uppercase">---</span>
-                                            )}
+                            </thead>
+                            <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan="12" className="p-20 text-center">
+                                            <div className="animate-spin h-10 w-10 border-t-2 border-emerald-500 rounded-full mx-auto"></div>
                                         </td>
                                     </tr>
-                                ))
-                            )}
-                        </tbody>
+                                ) : currentItems.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="12" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
+                                            No cheques found in records
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    currentItems.map((cheque) => (
+                                        <tr key={cheque.paymentId} className={`transition-colors group ${isDarkMode ? "hover:bg-emerald-500/[0.02] border-gray-800" : "hover:bg-emerald-500/[0.05] border-gray-200"}`}>
+                                            <td className="p-6">
+                                                <div className="text-cyan-500 font-black"># {cheque.chequeNumber || "N/A"}</div>
+                                                <div className="text-[9px] text-gray-500 font-bold uppercase mt-1">Ref: {cheque.paymentId.slice(-6)}</div>
+                                            </td>
+                                            <td className="p-6">
+                                                <div className={`font-bold uppercase ${isDarkMode ? "text-white" : "text-gray-900"}`}>{cheque.studentName}</div>
+                                                <div className="text-[10px] text-emerald-500/70 font-bold uppercase">{cheque.admissionNumber}</div>
+                                            </td>
+                                            <td className="p-6">
+                                                <div className={`font-bold text-xs uppercase ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>{cheque.bankName || "N/A"}</div>
+                                                <div className="text-[9px] text-gray-500 uppercase mt-1">{cheque.centre}</div>
+                                            </td>
+                                            <td className={`font-black text-lg p-6 ${isDarkMode ? "text-white" : "text-gray-900"}`}>₹{cheque.amount.toLocaleString()}</td>
+                                            <td className={`font-bold text-xs p-6 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                                                {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "N/A"}
+                                            </td>
+                                            <td className={`font-bold text-xs p-6 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                                                {cheque.depositedDate ? new Date(cheque.depositedDate).toLocaleDateString('en-IN') : "---"}
+                                            </td>
+                                            <td className={`font-bold text-xs p-6 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                                                <div className="flex items-center gap-2">
+                                                    <span>{cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "---"}</span>
+                                                    {cheque.status === "PAID" && isSuperAdminOrAccounts && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenEditClearanceDate(cheque)}
+                                                            title="Edit Clearance Date"
+                                                            className={`p-1.5 rounded-lg border transition-all ${isDarkMode
+                                                                    ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500 hover:text-white"
+                                                                    : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-600 hover:text-white"
+                                                                }`}
+                                                        >
+                                                            <FaEdit className="text-[11px]" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="p-6">
+                                                {cheque.receiptFile ? (
+                                                    <a
+                                                        href={cheque.receiptFile}
+                                                        target="_blank"
+                                                        rel="noreferrer"
+                                                        className="px-3 py-1.5 bg-cyan-500/10 text-cyan-400 border border-cyan-500/20 rounded-lg hover:bg-cyan-500 hover:text-black font-black text-[9px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5"
+                                                    >
+                                                        <FaRegFileAlt /> View Slip
+                                                    </a>
+                                                ) : (
+                                                    <span className="text-[10px] text-gray-500 font-bold uppercase">Not Deposited</span>
+                                                )}
+                                            </td>
+                                            <td className="p-6">
+                                                <div className="flex items-center gap-2">
+                                                    {getStatusBadge(cheque.status)}
+                                                    {(cheque.status === "PAID" || cheque.status === "REJECTED") && isSuperAdminOrAccounts && (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => handleOpenEditStatus(cheque)}
+                                                            title="Edit Cheque Status"
+                                                            className={`p-1.5 rounded-lg border transition-all ${isDarkMode
+                                                                    ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
+                                                                    : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
+                                                                }`}
+                                                        >
+                                                            <FaEdit className="text-[10px]" />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                            <td className="p-6 text-center">
+                                                {cheque.status === "PAID" ? (
+                                                    <button
+                                                        onClick={() => setSelectedBillCheque(cheque)}
+                                                        className="px-3 py-1.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-lg hover:bg-emerald-500 hover:text-black font-black text-[9px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm"
+                                                        title="View / Download Bill"
+                                                    >
+                                                        <FaFileInvoice /> {cheque.billId || "View Bill"}
+                                                    </button>
+                                                ) : (
+                                                    <span className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">---</span>
+                                                )}
+                                            </td>
+                                            <td className="p-6">
+                                                <div className="text-gray-500 font-black text-[10px] uppercase italic">
+                                                    {cheque.status === "PAID" ? (cheque.processedBy || "System") : "---"}
+                                                </div>
+                                            </td>
+                                            <td className="p-6 text-right">
+                                                {cheque.status === "PENDING_CLEARANCE" && canManageCheques ? (
+                                                    <div className="flex justify-end gap-2">
+                                                        <button
+                                                            onClick={() => {
+                                                                setClearingId(cheque.paymentId);
+                                                                setClearDate(new Date().toISOString().split('T')[0]);
+                                                                setShowClearModal(true);
+                                                            }}
+                                                            className="px-4 py-2 bg-emerald-500/10 text-emerald-500 font-black text-[10px] uppercase rounded-lg hover:bg-emerald-500 hover:text-black transition-all border border-emerald-500/20"
+                                                        >
+                                                            Clear
+                                                        </button>
+                                                        <button
+                                                            onClick={() => {
+                                                                setRejectingId(cheque.paymentId);
+                                                                setRejectDate(new Date().toISOString().split('T')[0]);
+                                                                setShowRejectModal(true);
+                                                            }}
+                                                            className="px-4 py-2 bg-red-500/10 text-red-500 font-black text-[10px] uppercase rounded-lg hover:bg-red-500 hover:text-white transition-all border border-red-500/20"
+                                                        >
+                                                            Bounce
+                                                        </button>
+                                                    </div>
+                                                ) : cheque.status === "PAID" && isSuperAdminOrAccounts ? (
+                                                    <div className="flex justify-end gap-2">
+                                                        <button
+                                                            onClick={() => handleOpenEditStatus(cheque)}
+                                                            className={`px-3 py-1.5 border rounded-lg font-black text-[10px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm ${isDarkMode
+                                                                    ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
+                                                                    : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
+                                                                }`}
+                                                            title="Change Cheque Status"
+                                                        >
+                                                            <FaSyncAlt className="text-[10px]" /> Status
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleOpenEditClearanceDate(cheque)}
+                                                            className={`px-3 py-1.5 border rounded-lg font-black text-[10px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm ${isDarkMode
+                                                                    ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500 hover:text-white"
+                                                                    : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-600 hover:text-white"
+                                                                }`}
+                                                            title="Edit Clearance Date"
+                                                        >
+                                                            <FaEdit /> Date
+                                                        </button>
+                                                    </div>
+                                                ) : cheque.status === "REJECTED" && isSuperAdminOrAccounts ? (
+                                                    <div className="flex justify-end">
+                                                        <button
+                                                            onClick={() => handleOpenEditStatus(cheque)}
+                                                            className={`px-3 py-1.5 border rounded-lg font-black text-[10px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm ${isDarkMode
+                                                                    ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
+                                                                    : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
+                                                                }`}
+                                                            title="Change Cheque Status"
+                                                        >
+                                                            <FaSyncAlt className="text-[10px]" /> Change Status
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    <span className="text-[10px] text-gray-500 font-bold uppercase">---</span>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
                         </table>
                     </div>
 
@@ -1187,11 +1439,10 @@ const ChequeManagement = () => {
                                         <button
                                             type="button"
                                             onClick={() => setTargetStatus("PAID")}
-                                            className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
-                                                targetStatus === "PAID"
+                                            className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${targetStatus === "PAID"
                                                     ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-black shadow-lg shadow-emerald-500/10"
                                                     : isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
-                                            }`}
+                                                }`}
                                         >
                                             <FaCheckCircle className="text-base" />
                                             <span className="text-[10px] uppercase font-bold tracking-wider">Cleared</span>
@@ -1200,11 +1451,10 @@ const ChequeManagement = () => {
                                         <button
                                             type="button"
                                             onClick={() => setTargetStatus("REJECTED")}
-                                            className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
-                                                targetStatus === "REJECTED"
+                                            className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${targetStatus === "REJECTED"
                                                     ? "bg-red-500/20 border-red-500 text-red-400 font-black shadow-lg shadow-red-500/10"
                                                     : isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
-                                            }`}
+                                                }`}
                                         >
                                             <FaExclamationTriangle className="text-base" />
                                             <span className="text-[10px] uppercase font-bold tracking-wider">Rejected</span>
@@ -1213,11 +1463,10 @@ const ChequeManagement = () => {
                                         <button
                                             type="button"
                                             onClick={() => setTargetStatus("PENDING_CLEARANCE")}
-                                            className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${
-                                                targetStatus === "PENDING_CLEARANCE"
+                                            className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${targetStatus === "PENDING_CLEARANCE"
                                                     ? "bg-amber-500/20 border-amber-500 text-amber-400 font-black shadow-lg shadow-amber-500/10"
                                                     : isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
-                                            }`}
+                                                }`}
                                         >
                                             <FaClock className="text-base" />
                                             <span className="text-[10px] uppercase font-bold tracking-wider">Pending</span>
@@ -1321,6 +1570,237 @@ const ChequeManagement = () => {
                         onClose={() => setSelectedBillCheque(null)}
                     />
                 )}
+
+                {/* Card Drilldown Modal */}
+                {cardModalType && (() => {
+                    const modalData = getModalData();
+                    const totalPages = Math.ceil(modalData.filteredItems.length / modalItemsPerPage) || 1;
+                    const startIndex = (modalCurrentPage - 1) * modalItemsPerPage;
+                    const paginatedItems = modalData.filteredItems.slice(startIndex, startIndex + modalItemsPerPage);
+
+                    return (
+                        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-black/85 backdrop-blur-md">
+                            <div className={`border w-full max-w-7xl max-h-[92vh] rounded-[2rem] overflow-hidden flex flex-col shadow-2xl animate-in fade-in zoom-in-95 duration-200 ${isDarkMode ? "bg-[#131619] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"
+                                }`}>
+                                {/* Modal Header */}
+                                <div className={`p-6 md:p-8 border-b flex items-center justify-between gap-4 bg-gradient-to-r from-emerald-500/5 via-transparent to-transparent ${isDarkMode ? "border-gray-800" : "border-gray-200"
+                                    }`}>
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-12 h-12 rounded-2xl bg-gray-800/80 border border-gray-700 flex items-center justify-center text-xl shadow-inner">
+                                            {modalData.icon}
+                                        </div>
+                                        <div>
+                                            <div className="flex items-center gap-3">
+                                                <h2 className={`text-2xl font-black italic uppercase tracking-tight ${isDarkMode ? "text-white" : "text-gray-900"}`}>
+                                                    {modalData.title}
+                                                </h2>
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border ${modalData.badgeColor}`}>
+                                                    {modalData.filteredItems.length} Records
+                                                </span>
+                                            </div>
+                                            <p className="text-xs text-gray-500 font-bold uppercase tracking-widest mt-1">
+                                                {modalData.description} • Total: <span className="text-emerald-400 font-black">₹{modalData.totalModalAmount.toLocaleString('en-IN')}</span>
+                                            </p>
+                                        </div>
+                                    </div>
+                                    <button
+                                        onClick={() => setCardModalType(null)}
+                                        className={`w-10 h-10 rounded-full flex items-center justify-center text-gray-400 hover:text-white transition-colors border ${isDarkMode ? "bg-gray-900 hover:bg-gray-800 border-gray-800" : "bg-gray-100 hover:bg-gray-200 border-gray-300"
+                                            }`}
+                                    >
+                                        <FaTimes />
+                                    </button>
+                                </div>
+
+                                {/* Toolbar with Centre Filter, Search, and Export */}
+                                <div className={`p-4 md:px-8 border-b flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 ${isDarkMode ? "border-gray-800 bg-black/20" : "border-gray-200 bg-gray-50"
+                                    }`}>
+                                    <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+                                        {/* Centre Filter in Modal */}
+                                        <div className="relative min-w-[200px] sm:max-w-[240px]">
+                                            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-xs">
+                                                <FaBuilding />
+                                            </div>
+                                            <select
+                                                value={modalCentreFilter}
+                                                onChange={(e) => {
+                                                    setModalCentreFilter(e.target.value);
+                                                    setModalCurrentPage(1);
+                                                }}
+                                                className={`w-full pl-9 pr-8 py-2.5 text-xs font-bold uppercase rounded-xl border outline-none cursor-pointer focus:border-emerald-500/50 transition-all appearance-none ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-200" : "bg-white border-gray-300 text-gray-800"
+                                                    }`}
+                                            >
+                                                <option value="">ALL CENTRES ({modalData.items.length})</option>
+                                                {availableCentres.map(centre => {
+                                                    const cnt = modalData.items.filter(c => (c.centre || "").trim().toLowerCase() === centre.trim().toLowerCase()).length;
+                                                    return (
+                                                        <option key={centre} value={centre}>
+                                                            {centre} ({cnt})
+                                                        </option>
+                                                    );
+                                                })}
+                                            </select>
+                                            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-[10px]">
+                                                ▼
+                                            </div>
+                                        </div>
+
+                                        {/* Search Input in Modal */}
+                                        <div className="relative flex-1 min-w-[200px]">
+                                            <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs" />
+                                            <input
+                                                type="text"
+                                                placeholder="SEARCH WITHIN DETAILS..."
+                                                value={modalSearchTerm}
+                                                onChange={(e) => {
+                                                    setModalSearchTerm(e.target.value);
+                                                    setModalCurrentPage(1);
+                                                }}
+                                                className={`w-full pl-10 pr-4 py-2.5 text-xs font-bold uppercase rounded-xl border outline-none focus:border-emerald-500/50 transition-all ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-200" : "bg-white border-gray-300 text-gray-800"
+                                                    }`}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 justify-end">
+                                        {modalCentreFilter && (
+                                            <button
+                                                onClick={() => {
+                                                    setModalCentreFilter("");
+                                                    setModalCurrentPage(1);
+                                                }}
+                                                className="text-[10px] font-bold uppercase tracking-wider text-rose-400 hover:text-rose-300 px-2 py-1"
+                                            >
+                                                Clear Centre
+                                            </button>
+                                        )}
+                                        <button
+                                            onClick={exportModalToExcel}
+                                            className="px-4 py-2.5 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-black uppercase text-xs tracking-wider rounded-xl hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-2 shadow-sm"
+                                        >
+                                            <FaDownload size={11} /> Export
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* Table Content */}
+                                <div className="flex-1 overflow-y-auto custom-scrollbar p-4 md:p-8">
+                                    <div className={`border rounded-2xl overflow-x-auto custom-scrollbar ${isDarkMode ? "border-gray-800" : "border-gray-200"}`}>
+                                        <table className="w-full text-left border-collapse min-w-[1100px]">
+                                            <thead>
+                                                <tr className={`border-b text-[10px] font-black text-gray-500 uppercase tracking-widest ${isDarkMode ? "bg-gray-900/60 border-gray-800" : "bg-gray-50 border-gray-200"
+                                                    }`}>
+                                                    <th className="p-4 whitespace-nowrap min-w-[120px]">Cheque Info</th>
+                                                    <th className="p-4 whitespace-nowrap min-w-[160px]">Student Details</th>
+                                                    <th className="p-4 whitespace-nowrap min-w-[160px]">Centre & Course</th>
+                                                    <th className="p-4 whitespace-nowrap min-w-[140px]">Bank Name</th>
+                                                    <th className="p-4 whitespace-nowrap min-w-[100px]">Amount</th>
+                                                    <th className="p-4 whitespace-nowrap min-w-[110px]">Cheque Date</th>
+                                                    <th className="p-4 whitespace-nowrap min-w-[120px]">Status</th>
+                                                    <th className="p-4 whitespace-nowrap min-w-[160px] text-left">Deposit Status</th>
+                                                    <th className="p-4 whitespace-nowrap min-w-[150px] text-left">Cleared / Action Date</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className={`divide-y text-xs ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
+                                                {paginatedItems.length === 0 ? (
+                                                    <tr>
+                                                        <td colSpan="9" className="p-12 text-center text-gray-500 font-bold uppercase tracking-wider text-xs">
+                                                            No matching cheque records found
+                                                        </td>
+                                                    </tr>
+                                                ) : (
+                                                    paginatedItems.map((cheque) => (
+                                                        <tr key={cheque.paymentId} className={`transition-colors ${isDarkMode ? "hover:bg-emerald-500/[0.02]" : "hover:bg-emerald-500/[0.04]"
+                                                            }`}>
+                                                            <td className="p-4 whitespace-nowrap">
+                                                                <div className="text-cyan-500 font-black"># {cheque.chequeNumber || "N/A"}</div>
+                                                                <div className="text-[9px] text-gray-500 font-bold uppercase">Ref: {cheque.paymentId ? String(cheque.paymentId).slice(-6) : "—"}</div>
+                                                            </td>
+                                                            <td className="p-4">
+                                                                <div className={`font-bold uppercase ${isDarkMode ? "text-white" : "text-gray-900"}`}>{cheque.studentName || "—"}</div>
+                                                                <div className="text-[10px] text-emerald-500/70 font-bold uppercase">{cheque.admissionNumber || "—"}</div>
+                                                            </td>
+                                                            <td className="p-4">
+                                                                <div className="font-bold text-gray-400 uppercase text-[11px]">{cheque.centre || "—"}</div>
+                                                                <div className="text-[10px] text-gray-500 uppercase">{cheque.courseName || "—"}</div>
+                                                            </td>
+                                                            <td className="p-4 font-bold uppercase text-gray-400">
+                                                                {cheque.bankName || "—"}
+                                                            </td>
+                                                            <td className="p-4 whitespace-nowrap">
+                                                                <span className="font-black text-emerald-400 text-sm">
+                                                                    ₹{Number(cheque.amount || 0).toLocaleString('en-IN')}
+                                                                </span>
+                                                            </td>
+                                                            <td className="p-4 font-bold text-gray-400 whitespace-nowrap">
+                                                                {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "—"}
+                                                            </td>
+                                                            <td className="p-4 whitespace-nowrap">
+                                                                {getStatusBadge(cheque.status)}
+                                                            </td>
+                                                            <td className="p-4 whitespace-nowrap min-w-[160px] align-middle">
+                                                                {cheque.isDeposited ? (
+                                                                    <div className="flex flex-col items-start gap-1">
+                                                                        <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase border text-emerald-400 bg-emerald-500/10 border-emerald-500/20 inline-flex items-center gap-1.5 whitespace-nowrap shadow-sm">
+                                                                            <FaCheckCircle size={10} /> Deposited
+                                                                        </span>
+                                                                        {cheque.depositedDate && (
+                                                                            <span className="text-[9px] text-gray-500 font-bold tracking-tight pl-1">
+                                                                                {new Date(cheque.depositedDate).toLocaleDateString('en-IN')}
+                                                                            </span>
+                                                                        )}
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase border text-rose-400 bg-rose-500/10 border-rose-500/20 inline-flex items-center gap-1.5 whitespace-nowrap shadow-sm">
+                                                                        <FaClock size={10} /> Not Deposited
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td className="p-4 font-bold text-gray-400 whitespace-nowrap min-w-[150px] align-middle">
+                                                                {cheque.clearedOrRejectedDate ? new Date(cheque.clearedOrRejectedDate).toLocaleDateString('en-IN') : "—"}
+                                                            </td>
+                                                        </tr>
+                                                    ))
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+
+                                {/* Modal Footer with Pagination */}
+                                <div className={`p-4 md:px-8 border-t flex flex-col sm:flex-row items-center justify-between gap-4 ${isDarkMode ? "border-gray-800 bg-black/40" : "border-gray-200 bg-gray-50"
+                                    }`}>
+                                    <div className="text-xs font-bold text-gray-500 uppercase tracking-wider">
+                                        Showing {modalData.filteredItems.length === 0 ? 0 : startIndex + 1} to {Math.min(startIndex + modalItemsPerPage, modalData.filteredItems.length)} of {modalData.filteredItems.length}
+                                    </div>
+                                    {totalPages > 1 && (
+                                        <div className="flex items-center gap-2">
+                                            <button
+                                                onClick={() => setModalCurrentPage(prev => Math.max(prev - 1, 1))}
+                                                disabled={modalCurrentPage === 1}
+                                                className={`px-3 py-1.5 font-bold text-[10px] uppercase rounded-lg disabled:opacity-40 transition-all ${isDarkMode ? "bg-gray-800 text-gray-300 hover:bg-gray-700" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                                    }`}
+                                            >
+                                                Prev
+                                            </button>
+                                            <span className="text-[10px] font-bold text-gray-400 uppercase px-2">
+                                                Page {modalCurrentPage} of {totalPages}
+                                            </span>
+                                            <button
+                                                onClick={() => setModalCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                                                disabled={modalCurrentPage === totalPages}
+                                                className={`px-3 py-1.5 font-bold text-[10px] uppercase rounded-lg disabled:opacity-40 transition-all ${isDarkMode ? "bg-gray-800 text-gray-300 hover:bg-gray-700" : "bg-gray-200 text-gray-700 hover:bg-gray-300"
+                                                    }`}
+                                            >
+                                                Next
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })()}
             </div>
         </Layout>
     );

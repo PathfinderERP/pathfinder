@@ -790,7 +790,28 @@ export const getTransactionReport = async (req, res) => {
 
         const statsPipeline = [
             { $match: baseAttributesMatch },
-            { $addFields: { effectiveDate: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$chequeDate" }, { $toDate: "$receivedDate" }, "$createdAt"] } } },
+            {
+                $addFields: {
+                    effectiveDate: {
+                        $cond: {
+                            if: { $eq: ["$paymentMethod", "CHEQUE"] },
+                            then: {
+                                $ifNull: [
+                                    { $toDate: "$clearedOrRejectedDate" },
+                                    { $toDate: "$paidDate" }
+                                ]
+                            },
+                            else: {
+                                $ifNull: [
+                                    { $toDate: "$paidDate" },
+                                    { $toDate: "$receivedDate" },
+                                    "$createdAt"
+                                ]
+                            }
+                        }
+                    }
+                }
+            },
             { $match: { effectiveDate: { $gte: startPFY } } }
         ];
 
