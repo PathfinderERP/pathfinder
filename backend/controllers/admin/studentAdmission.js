@@ -19,27 +19,41 @@ export const getStudentById = async (req, res) => {
         import("../../models/PMOStudent.js").then(m => m.default)
       ]);
       const [pntse, pmo] = await Promise.all([
-        PNTSEStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean(),
-        PMOStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean()
+        PNTSEStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').populate('board').lean(),
+        PMOStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').populate('board').lean()
       ]);
       const doc = pntse || pmo;
       if (doc) {
         student = {
           _id: doc._id,
+          rollNo: doc.rollNo || "",
+          admissionNumber: doc.rollNo || "",
           studentsDetails: [{
             studentName: doc.name,
+            rollNo: doc.rollNo || "",
+            admissionNumber: doc.rollNo || "",
             mobileNum: doc.mobile,
             whatsappNumber: doc.secondaryMobile || doc.mobile,
             studentEmail: doc.email || "",
+            schoolName: doc.school || "",
             centre: doc.centre?.centreName || (typeof doc.centre === 'string' ? doc.centre : ""),
             class: doc.class?.name || (typeof doc.class === 'string' ? doc.class : ""),
+            board: doc.board?.boardCourse || doc.board?.boardName || doc.board?.name || (typeof doc.board === 'string' ? doc.board : ""),
             gender: doc.gender || "",
             dob: doc.dob || "",
             address: doc.address || "",
             state: doc.state || "",
             city: doc.city || "",
-            pincode: doc.pincode || ""
+            pincode: doc.pincode || "",
+            guardians: (doc.guardianName || doc.guardianMobile) ? [{
+              guardianName: doc.guardianName || "",
+              guardianMobile: doc.guardianMobile || ""
+            }] : []
           }],
+          guardians: (doc.guardianName || doc.guardianMobile) ? [{
+            guardianName: doc.guardianName || "",
+            guardianMobile: doc.guardianMobile || ""
+          }] : [],
           examSchema: [{
             class: doc.class?.name || ""
           }],

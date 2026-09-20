@@ -979,6 +979,7 @@ const EnrolledStudentsContent = () => {
                 const studentName = (student.studentName || "").toLowerCase();
                 const mobile = student.mobileNum || "";
                 const email = (student.studentEmail || "").toLowerCase();
+                const studentRollNo = (student.rollNo || item.student?.rollNo || student.admissionNumber || item.student?.admissionNumber || "").toLowerCase();
 
                 // Check if any of the comma-separated terms match
                 return queries.some(query => {
@@ -995,6 +996,7 @@ const EnrolledStudentsContent = () => {
                     return studentName.includes(query) ||
                         mobile.includes(query) ||
                         email.includes(query) ||
+                        studentRollNo.includes(query) ||
                         admissionMatch;
                 });
             });

@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Admission from "../../models/Admission/Admission.js";
 import Course from "../../models/Master_data/Courses.js";
 import Student from "../../models/Students.js";
@@ -20,7 +21,7 @@ import { getActiveCarryForwardBalance } from "../../utils/carryForwardHelper.js"
 
 export const createAdmission = async (req, res) => {
     try {
-        const {
+        let {
             studentId,
             admissionType = "NORMAL", // Default to normal
             courseId,
@@ -88,29 +89,50 @@ export const createAdmission = async (req, res) => {
                 import("../../models/PMOStudent.js").then(m => m.default)
             ]);
             const [pntse, pmo] = await Promise.all([
-                PNTSEStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean(),
-                PMOStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').lean()
+                PNTSEStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').populate('board').lean(),
+                PMOStudent.findById(studentId).populate('centre', 'centreName').populate('class', 'name').populate('board').lean()
             ]);
             const doc = pntse || pmo;
             if (doc) {
                 if (doc.studentId && mongoose.Types.ObjectId.isValid(doc.studentId)) {
                     student = await Student.findById(doc.studentId).populate('batches');
+                    if (student) studentId = student._id;
                 }
                 if (!student) {
+                    const boardName = doc.board?.boardCourse || doc.board?.boardName || doc.board?.name || (typeof doc.board === 'string' ? doc.board : "");
                     const newStudent = new Student({
                         _id: mongoose.Types.ObjectId.isValid(studentId) ? studentId : new mongoose.Types.ObjectId(),
+                        rollNo: doc.rollNo || "",
+                        admissionNumber: doc.rollNo || "",
                         studentsDetails: [{
                             studentName: doc.name,
+                            rollNo: doc.rollNo || "",
+                            admissionNumber: doc.rollNo || "",
                             mobileNum: doc.mobile,
                             whatsappNumber: doc.secondaryMobile || doc.mobile,
                             studentEmail: doc.email || "",
+                            schoolName: doc.school || "",
+                            gender: doc.gender || "",
+                            dateOfBirth: doc.dob || "",
+                            address: doc.address || "",
+                            pincode: doc.pincode || "",
                             centre: doc.centre?.centreName || (typeof doc.centre === 'string' ? doc.centre : centre || ""),
-                            programme: programme || "CRP"
+                            programme: programme || "CRP",
+                            board: boardName || undefined,
+                            guardians: (doc.guardianName || doc.guardianMobile) ? [{
+                                guardianName: doc.guardianName || "",
+                                guardianMobile: doc.guardianMobile || ""
+                            }] : []
                         }],
+                        guardians: (doc.guardianName || doc.guardianMobile) ? [{
+                            guardianName: doc.guardianName || "",
+                            guardianMobile: doc.guardianMobile || ""
+                        }] : [],
                         status: 'Active',
                         isEnrolled: true
                     });
                     student = await newStudent.save();
+                    studentId = student._id;
 
                     if (pntse) {
                         await PNTSEStudent.findByIdAndUpdate(doc._id, { studentId: student._id });
@@ -387,13 +409,26 @@ export const createAdmission = async (req, res) => {
         let admissionNumber = req.body.admissionNumber || undefined;
 
         // Preserve enrollment number: if the student already has one from ANY prior admission,
-        // always reuse it — never generate a second enrollment number for the same student.
+        // student record, or PNTSE/PMO record, always reuse it — never generate a second enrollment number.
         if (!admissionNumber) {
-            const [existingNormal, existingBoard] = await Promise.all([
-                Admission.findOne({ student: studentId }, 'admissionNumber').sort({ createdAt: 1 }).lean(),
-                BoardCourseAdmission.findOne({ studentId: studentId }, 'admissionNumber').sort({ createdAt: 1 }).lean()
+            const [PNTSEStudent, PMOStudent] = await Promise.all([
+                import("../../models/PNTSEStudent.js").then(m => m.default),
+                import("../../models/PMOStudent.js").then(m => m.default)
             ]);
-            admissionNumber = existingNormal?.admissionNumber || existingBoard?.admissionNumber;
+            const [existingNormal, existingBoard, pntseDoc, pmoDoc] = await Promise.all([
+                Admission.findOne({ student: studentId }, 'admissionNumber').sort({ createdAt: 1 }).lean(),
+                BoardCourseAdmission.findOne({ studentId: studentId }, 'admissionNumber').sort({ createdAt: 1 }).lean(),
+                PNTSEStudent.findOne({ $or: [{ _id: studentId }, { studentId: studentId }] }, 'rollNo').lean(),
+                PMOStudent.findOne({ $or: [{ _id: studentId }, { studentId: studentId }] }, 'rollNo').lean()
+            ]);
+            admissionNumber = existingNormal?.admissionNumber ||
+                existingBoard?.admissionNumber ||
+                student.rollNo ||
+                student.admissionNumber ||
+                student.studentsDetails?.[0]?.rollNo ||
+                student.studentsDetails?.[0]?.admissionNumber ||
+                pntseDoc?.rollNo ||
+                pmoDoc?.rollNo;
         }
 
         // Initialize monthly subject history for Board admissions
@@ -523,6 +558,26 @@ export const createAdmission = async (req, res) => {
         await Student.findByIdAndUpdate(studentId, {
             $set: studentUpdatePayload
         });
+
+        // Update PNTSE / PMO carry forward status if applicable
+        try {
+            const [PNTSEStudent, PMOStudent] = await Promise.all([
+                import("../../models/PNTSEStudent.js").then(m => m.default),
+                import("../../models/PMOStudent.js").then(m => m.default)
+            ]);
+            await Promise.all([
+                PNTSEStudent.updateMany(
+                    { $or: [{ _id: studentId }, { studentId: studentId }, { rollNo: admission.admissionNumber }] },
+                    { $set: { isCarriedForward: true, carriedForwardTo: admissionType, admissionId: admission._id, courseCarriedForward: course?.courseName || "Normal Course" } }
+                ),
+                PMOStudent.updateMany(
+                    { $or: [{ _id: studentId }, { studentId: studentId }, { rollNo: admission.admissionNumber }] },
+                    { $set: { isCarriedForward: true, carriedForwardTo: admissionType, admissionId: admission._id, courseCarriedForward: course?.courseName || "Normal Course" } }
+                )
+            ]);
+        } catch (cfErr) {
+            console.error("Error updating PNTSE/PMO carry forward status:", cfErr);
+        }
 
         // Mark matching leads as counselled/admitted (so they move out of All Leads)
         try {
