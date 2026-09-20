@@ -731,14 +731,17 @@ const BoardAdmissionsContent = () => {
         return boardAdmissions.filter(admission => {
             // Search Query
             const searchLower = searchQuery.toLowerCase();
-            const studentName = (admission.studentId?.studentsDetails?.[0]?.studentName || admission.studentName || "").toLowerCase();
+            const studentDetails = admission.studentId?.studentsDetails?.[0] || {};
+            const studentName = (studentDetails.studentName || admission.studentName || "").toLowerCase();
             const admissionNo = (admission.admissionNumber || "").toLowerCase();
-            const mobile = (admission.studentId?.studentsDetails?.[0]?.mobileNum || admission.mobileNum || "").toLowerCase();
+            const studentRollNo = (studentDetails.rollNo || admission.studentId?.rollNo || studentDetails.admissionNumber || "").toLowerCase();
+            const mobile = (studentDetails.mobileNum || admission.mobileNum || "").toLowerCase();
             const courseName = (admission.boardCourseName || "").toLowerCase();
 
             const matchesSearch = !searchQuery ||
                 studentName.includes(searchLower) ||
                 admissionNo.includes(searchLower) ||
+                studentRollNo.includes(searchLower) ||
                 mobile.includes(searchLower) ||
                 courseName.includes(searchLower);
 

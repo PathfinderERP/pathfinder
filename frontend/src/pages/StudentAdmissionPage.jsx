@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaArrowLeft, FaCalculator, FaMoneyBillWave, FaFileInvoice, FaUserGraduate } from 'react-icons/fa';
@@ -10,6 +10,7 @@ import { useTheme } from '../context/ThemeContext';
 const StudentAdmissionPage = () => {
     const { studentId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 

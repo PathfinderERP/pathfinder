@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { FaArrowLeft, FaCalculator, FaMoneyBillWave, FaCalendarAlt, FaUserGraduate, FaCheckCircle, FaTrash } from 'react-icons/fa';
@@ -9,6 +9,7 @@ import BillGenerator from '../components/Finance/BillGenerator';
 const BoardCourseAdmissionPage = () => {
     const { studentId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
 
