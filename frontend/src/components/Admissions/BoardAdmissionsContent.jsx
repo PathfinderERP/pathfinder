@@ -205,6 +205,7 @@ const BoardAdmissionsContent = () => {
     const [filterExamTag, setFilterExamTag] = useState([]);
     const [filterDepartment, setFilterDepartment] = useState([]);
     const [filterClass, setFilterClass] = useState([]);
+    const [filterSchool, setFilterSchool] = useState([]);
     const [filterLeadBy, setFilterLeadBy] = useState([]);
     const [filterCounselledBy, setFilterCounselledBy] = useState([]);
     const [filterAdmissionBy, setFilterAdmissionBy] = useState([]);
@@ -817,9 +818,13 @@ const BoardAdmissionsContent = () => {
                 }
             }
 
-            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesClass && matchesStartDate && matchesEndDate && matchesFollowUp && matchesStatus && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy && matchesDepartment;
+            // School Filter
+            const studentSchool = (admission.studentId?.studentsDetails?.[0]?.schoolName || admission.schoolName || "").trim();
+            const matchesSchool = filterSchool.length === 0 || filterSchool.includes(studentSchool);
+
+            return matchesSearch && matchesCentre && matchesBoard && matchesSubject && matchesProgramme && matchesClass && matchesStartDate && matchesEndDate && matchesFollowUp && matchesStatus && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy && matchesDepartment && matchesSchool;
         });
-    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, filterClass, startDate, endDate, followUpStartDate, followUpEndDate, activeTab, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterDepartment]);
+    }, [boardAdmissions, searchQuery, filterCentre, filterBoard, filterSubject, filterProgramme, filterClass, filterSchool, startDate, endDate, followUpStartDate, followUpEndDate, activeTab, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterDepartment]);
 
     const prepareReportExportData = () => {
         const headers = [
@@ -923,6 +928,7 @@ const BoardAdmissionsContent = () => {
                 "Mobile": adm.studentId?.studentsDetails?.[0]?.mobileNum || adm.mobileNum,
                 "Email": adm.studentId?.studentsDetails?.[0]?.studentEmail || adm.studentEmail,
                 "Centre": adm.centre,
+                "School": adm.studentId?.studentsDetails?.[0]?.schoolName || adm.schoolName || "N/A",
                 "Board": adm.boardId?.boardCourse || "N/A",
                 "Class": adm.lastClass,
                 "Programme": adm.programme,
@@ -1003,6 +1009,7 @@ const BoardAdmissionsContent = () => {
         setFilterBoard([]);
         setFilterExamTag([]);
         setFilterClass([]);
+        setFilterSchool([]);
         setFilterDepartment([]);
         setStartDate("");
         setEndDate("");
@@ -1051,7 +1058,7 @@ const BoardAdmissionsContent = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment, filterClass, startDate, endDate, activeTab]);
+    }, [searchQuery, filterCentre, filterBoard, filterExamTag, filterDepartment, filterClass, filterSchool, startDate, endDate, activeTab]);
 
     const visibleStudents = activeTab === "Potential"
         ? students.filter(s => {
@@ -1117,6 +1124,23 @@ const BoardAdmissionsContent = () => {
         item.createdBy?.name || (item.createdBy ? "Unknown" : "System")
     ).filter(Boolean))].sort((a, b) => a.localeCompare(b));
 
+    const uniqueSchools = React.useMemo(() => {
+        const schoolSet = new Set();
+        boardAdmissions.forEach(a => {
+            const sn = a.studentId?.studentsDetails?.[0]?.schoolName || a.schoolName;
+            if (sn && typeof sn === 'string' && sn.trim()) schoolSet.add(sn.trim());
+        });
+        counselledStudents.forEach(cs => {
+            const sn = cs.studentId?.studentsDetails?.[0]?.schoolName || cs.schoolName;
+            if (sn && typeof sn === 'string' && sn.trim()) schoolSet.add(sn.trim());
+        });
+        students.forEach(s => {
+            const sn = s.studentsDetails?.[0]?.schoolName || s.schoolName;
+            if (sn && typeof sn === 'string' && sn.trim()) schoolSet.add(sn.trim());
+        });
+        return Array.from(schoolSet).sort((a, b) => a.localeCompare(b));
+    }, [boardAdmissions, counselledStudents, students]);
+
     const filteredStudents = activeTab === "Potential"
         ? visibleStudents.filter(student => {
             if (student.isEnrolled) return false;
@@ -1156,6 +1180,8 @@ const BoardAdmissionsContent = () => {
             const matchesDepartment = filterDepartment.length === 0 || filterDepartment.includes(departmentName);
 
             const matchesClass = filterClass.length === 0 || filterClass.includes(details.lastClass || exam.class || "");
+            const studentSchool = (details.schoolName || student.schoolName || "").trim();
+            const matchesSchool = filterSchool.length === 0 || filterSchool.includes(studentSchool);
 
             let matchesDate = true;
             if (startDate || endDate) {
@@ -1175,7 +1201,7 @@ const BoardAdmissionsContent = () => {
                 }
             }
 
-            return matchesSearch && matchesCentre && matchesBoard && matchesExamTag && matchesDepartment && matchesClass && matchesDate;
+            return matchesSearch && matchesCentre && matchesBoard && matchesExamTag && matchesDepartment && matchesClass && matchesSchool && matchesDate;
         })
         : (activeTab === "Enrolled" || activeTab === "Deactivated")
             ? visibleStudents.filter(ba => {
@@ -1193,7 +1219,9 @@ const BoardAdmissionsContent = () => {
 
                 const matchesCentre = filterCentre.length === 0 || filterCentre.includes(details.centre);
                 const matchesClass = filterClass.length === 0 || filterClass.includes(ba.lastClass);
-                return matchesSearch && matchesCentre && matchesClass;
+                const studentSchool = (ba.studentId?.studentsDetails?.[0]?.schoolName || ba.schoolName || details.schoolName || "").trim();
+                const matchesSchool = filterSchool.length === 0 || filterSchool.includes(studentSchool);
+                return matchesSearch && matchesCentre && matchesClass && matchesSchool;
             })
             : visibleStudents.filter(cs => {
                 const details = cs.studentId?.studentsDetails?.[0] || {};
@@ -1210,6 +1238,8 @@ const BoardAdmissionsContent = () => {
 
                 const matchesCentre = filterCentre.length === 0 || filterCentre.includes(details.centre);
                 const matchesClass = filterClass.length === 0 || filterClass.includes(cs.lastClass);
+                const studentSchool = (cs.studentId?.studentsDetails?.[0]?.schoolName || cs.schoolName || details.schoolName || "").trim();
+                const matchesSchool = filterSchool.length === 0 || filterSchool.includes(studentSchool);
 
                 // Lead By Filter
                 const leadBy = cs.studentId?.leadBy || cs.leadBy;
@@ -1240,7 +1270,7 @@ const BoardAdmissionsContent = () => {
                 const matchesStartDate = !startDate || itemDate >= new Date(startDate);
                 const matchesEndDate = !endDate || itemDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999));
 
-                return matchesSearch && matchesCentre && matchesClass && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy && matchesDepartment && matchesBoard && matchesProgramme && matchesStartDate && matchesEndDate;
+                return matchesSearch && matchesCentre && matchesClass && matchesLeadBy && matchesCounselledBy && matchesAdmissionBy && matchesDepartment && matchesBoard && matchesProgramme && matchesStartDate && matchesEndDate && matchesSchool;
             });
 
     const totalStudents = filteredStudents.length;
@@ -1784,6 +1814,13 @@ const BoardAdmissionsContent = () => {
                                 theme={theme}
                             />
                             <MultiSelectFilter
+                                label="Schools"
+                                options={uniqueSchools}
+                                selectedValues={filterSchool}
+                                onChange={setFilterSchool}
+                                theme={theme}
+                            />
+                            <MultiSelectFilter
                                 label="Programmes"
                                 options={(activeTab === "Enrolled" || activeTab === "Deactivated")
                                     ? [...new Set(boardAdmissions.map(a => a.programme).filter(Boolean))]
@@ -1943,6 +1980,7 @@ const BoardAdmissionsContent = () => {
                                     {activeTab !== "Potential" && <th className="p-4">Department</th>}
                                     {activeTab === "Potential" && <th className="p-4">Exam Tag</th>}
                                     <th className="p-4">Centre</th>
+                                    <th className="p-4">School</th>
                                     <th className="p-4">Mobile</th>
                                     {activeTab === "Counselling" && <th className="p-4">Counselled By</th>}
                                     {(activeTab === "Enrolled" || activeTab === "Deactivated") && <th className="p-4">Fees Status</th>}
@@ -1960,9 +1998,9 @@ const BoardAdmissionsContent = () => {
                                 {(activeTab === "Potential" ? loading :
                                     activeTab === "Counselling" ? counsellingLoading :
                                         enrolledLoading) ? (
-                                    <tr><td colSpan={activeTab !== "Potential" ? 15 : 13} className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
+                                    <tr><td colSpan={activeTab !== "Potential" ? 16 : 14} className="p-12 text-center text-[10px] font-black uppercase text-gray-500">Loading...</td></tr>
                                 ) : currentPageItems.length === 0 ? (
-                                    <tr><td colSpan={activeTab !== "Potential" ? 15 : 13} className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : activeTab === "Deactivated" ? "Deactivated Students" : "Enrolled Students"} Found</td></tr>
+                                    <tr><td colSpan={activeTab !== "Potential" ? 16 : 14} className="p-12 text-center text-[10px] font-black uppercase text-gray-500">No {activeTab === "Potential" ? "Board Students" : activeTab === "Deactivated" ? "Deactivated Students" : "Enrolled Students"} Found</td></tr>
                                 ) : (
                                     currentPageItems.map((item, index) => {
                                         const student = activeTab === "Potential" ? item : item.studentId;
@@ -2059,6 +2097,7 @@ const BoardAdmissionsContent = () => {
                                                 )}
                                                 {activeTab === "Potential" && <td className="p-4"><span className="text-[11px] font-bold uppercase text-gray-400">{sessionExam.examTag || exam.examName || "N/A"}</span></td>}
                                                 <td className="p-4"><span className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{item.centre || details.centre || "N/A"}</span></td>
+                                                <td className="p-4"><span className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>{details.schoolName || item.schoolName || student?.schoolName || "N/A"}</span></td>
                                                 <td className="p-4 whitespace-nowrap">
                                                     <span className={`text-[11px] font-black tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{item.mobileNum || details.mobileNum || "N/A"}</span>
                                                     {(item.nextFollowUpDate || item.latestServiceCall?.nextFollowUpDate || item.studentId?.nextFollowUpDate) && (
