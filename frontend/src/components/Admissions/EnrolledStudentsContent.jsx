@@ -223,6 +223,7 @@ const EnrolledStudentsContent = () => {
     const [filterCounselledBy, setFilterCounselledBy] = useState([]);
     const [filterAdmissionBy, setFilterAdmissionBy] = useState([]);
     const [filterBatch, setFilterBatch] = useState([]);
+    const [filterSchool, setFilterSchool] = useState([]);
     const [startDate, setStartDate] = useState("");
     const [endDate, setEndDate] = useState("");
     const [followUpStartDate, setFollowUpStartDate] = useState("");
@@ -1094,6 +1095,13 @@ const EnrolledStudentsContent = () => {
             });
         }
 
+        if (filterSchool.length > 0) {
+            result = result.filter(item => {
+                const school = (item.student?.studentsDetails?.[0]?.schoolName || item.student?.schoolName || "").trim();
+                return filterSchool.includes(school);
+            });
+        }
+
         if (filterExamTag.length > 0) {
             result = result.filter(item => {
                 const student = item.student || {};
@@ -1284,7 +1292,7 @@ const EnrolledStudentsContent = () => {
         });
 
         setFilteredStudents(result);
-    }, [searchQuery, filterStatus, filterZone, masterZones, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, followUpStartDate, followUpEndDate, students, viewMode, allowedCentres, isSuperAdmin, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterBatch]);
+    }, [searchQuery, filterStatus, filterZone, masterZones, filterCentre, filterDepartment, filterCourse, filterClass, filterSession, filterBoard, filterSchool, filterExamTag, filterProgramme, filterMode, filterCourseType, filterAllocationStatus, startDate, endDate, followUpStartDate, followUpEndDate, students, viewMode, allowedCentres, isSuperAdmin, filterLeadBy, filterCounselledBy, filterAdmissionBy, filterBatch]);
 
     const filteredAdmissions = filteredStudents.flatMap(s =>
         s.admissions.filter(a => {
@@ -1367,6 +1375,7 @@ const EnrolledStudentsContent = () => {
         setFilterClass([]);
         setFilterSession([]);
         setFilterBoard([]);
+        setFilterSchool([]);
         setFilterExamTag([]);
         setFilterProgramme([]);
         setFilterMode([]);
@@ -1424,6 +1433,19 @@ const EnrolledStudentsContent = () => {
         return ["BLANK", ...coursesList];
     }, [masterCourses, students, resolveCourseName]);
     const uniqueBoards = [...new Set(students.map(item => item.student?.studentsDetails?.[0]?.board).filter(Boolean))];
+    const uniqueSchools = React.useMemo(() => {
+        const schoolSet = new Set();
+        students.forEach(item => {
+            const sn = item.student?.studentsDetails?.[0]?.schoolName || item.student?.schoolName;
+            if (sn && typeof sn === 'string' && sn.trim()) {
+                schoolSet.add(sn.trim());
+            }
+        });
+        return Array.from(schoolSet).sort((a, b) => a.localeCompare(b)).map(s => ({
+            value: s,
+            label: s.toUpperCase()
+        }));
+    }, [students]);
     const uniqueClasses = React.useMemo(() => {
         const classesSet = new Set(masterClasses.map(c => c.className || c.name));
         students.forEach(item => {
@@ -2339,6 +2361,17 @@ const EnrolledStudentsContent = () => {
 
                         <div className="w-full">
                             <MultiSelectFilter
+                                label="School"
+                                placeholder="ALL SCHOOLS"
+                                options={uniqueSchools}
+                                selectedValues={filterSchool}
+                                onChange={setFilterSchool}
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
+                        <div className="w-full">
+                            <MultiSelectFilter
                                 label="Exam Tag"
                                 placeholder="ALL TAGS"
                                 options={Array.from(new Set(uniqueExamTags)).filter(Boolean).map(t => ({ value: t, label: t.toUpperCase() }))}
@@ -2616,6 +2649,7 @@ const EnrolledStudentsContent = () => {
                                     <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Class</th>
                                     <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Department</th>
                                     <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Centre</th>
+                                    <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">School</th>
                                     <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Student</th>
                                     <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Mobile</th>
                                     <th className="p-4 text-[10px] font-black uppercase tracking-[0.2em]">Latest Course</th>
@@ -2631,11 +2665,11 @@ const EnrolledStudentsContent = () => {
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                 {loading ? (
                                     [...Array(10)].map((_, i) => (
-                                        <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={canEdit ? 17 : 16} />
+                                        <TableRowSkeleton key={i} isDarkMode={isDarkMode} columns={canEdit ? 18 : 17} />
                                     ))
                                 ) : filteredStudents.length === 0 ? (
                                     <tr>
-                                        <td colSpan={canEdit ? 17 : 16} className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
+                                        <td colSpan={canEdit ? 18 : 17} className="p-8 text-center text-gray-500 font-bold uppercase tracking-widest">
                                             {searchQuery ? "No matches found" : "No records available"}
                                         </td>
                                     </tr>
@@ -2748,6 +2782,11 @@ const EnrolledStudentsContent = () => {
                                                     <td className="p-4">
                                                         <span className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-[4px] border ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-600 border-cyan-200'}`}>
                                                             {latestAdmission?.centre || student.centre || "N/A"}
+                                                        </span>
+                                                    </td>
+                                                    <td className="p-4">
+                                                        <span className={`text-[10px] font-bold uppercase ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                            {student.schoolName || studentItem.student?.schoolName || "N/A"}
                                                         </span>
                                                     </td>
                                                     <td className="p-4">
