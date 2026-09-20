@@ -1293,23 +1293,33 @@ const checkIsHazraUser = async (user) => {
     return false;
 };
 
-// Helper to convert class date and time string into a local Date object
+// Helper to get YYYY-MM-DD in IST (Asia/Kolkata)
+export const getISTDateString = (dateVal) => {
+    if (!dateVal) return "";
+    if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateVal.trim())) {
+        return dateVal.trim();
+    }
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return "";
+    return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+};
+
+// Helper to get today midnight in IST (Asia/Kolkata)
+export const getISTMidnight = () => {
+    const todayISTStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    return new Date(`${todayISTStr}T00:00:00+05:30`);
+};
+
+// Helper to convert class date and time string into a Date object representing the exact IST moment
 export const parseClassDateTime = (dateVal, timeStr) => {
     if (!dateVal || !timeStr) return null;
-    let dateStr = "";
-    if (typeof dateVal === 'string') {
-        dateStr = dateVal.split('T')[0];
-    } else if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
-        dateStr = dateVal.toISOString().split('T')[0];
-    } else {
-        const d = new Date(dateVal);
-        if (isNaN(d.getTime())) return null;
-        dateStr = d.toISOString().split('T')[0];
-    }
-    const [year, month, day] = dateStr.split('-').map(Number);
+    const dateStr = getISTDateString(dateVal);
+    if (!dateStr) return null;
     const cleanTime = String(timeStr || "00:00").trim().replace('.', ':');
     const [hours, minutes] = cleanTime.split(':').map(Number);
-    return new Date(year, month - 1, day, isNaN(hours) ? 0 : hours, isNaN(minutes) ? 0 : minutes, 0, 0);
+    const hh = String(isNaN(hours) ? 0 : hours).padStart(2, '0');
+    const mm = String(isNaN(minutes) ? 0 : minutes).padStart(2, '0');
+    return new Date(`${dateStr}T${hh}:${mm}:00+05:30`);
 };
 
 // Create a new class schedule
@@ -1558,9 +1568,8 @@ export const getClassSchedules = async (req, res) => {
             const subjectIds = subjectId.split(',').filter(id => id.trim());
             if (subjectIds.length > 0) query.subjectId = { $in: subjectIds };
         }
-        // Define today at midnight for status logic
-        const todayMidnight = new Date();
-        todayMidnight.setHours(0, 0, 0, 0);
+        // Define today at midnight for status logic in IST
+        const todayMidnight = getISTMidnight();
 
         if (status) {
             if (status === 'Upcoming') {
@@ -1645,11 +1654,15 @@ export const getClassSchedules = async (req, res) => {
             .lean();
 
         // Flatten names for frontend compatibility
+        const todayStr = getISTDateString(new Date());
         const classes = classSchedules.map(cls => {
             // If the class is unstarted but past-dated, set status to "Not Taken" for the response
             let status = cls.status;
-            if (status === 'Upcoming' && new Date(cls.date) < todayMidnight) {
-                status = 'Not Taken';
+            if (status === 'Upcoming' && cls.date) {
+                const clsDateStr = getISTDateString(cls.date);
+                if (clsDateStr && todayStr && clsDateStr < todayStr) {
+                    status = 'Not Taken';
+                }
             }
 
             // Combine names from both centreIds and centreId safely
@@ -1747,9 +1760,10 @@ export const startClass = async (req, res) => {
             return res.status(403).json({ message: "Access denied" });
         }
 
-        // Check if scheduled start time has arrived
+        // Check if scheduled start time has arrived (allow 5-minute grace period for clock skew)
         const schedStartTime = parseClassDateTime(currentClass.date, currentClass.startTime);
-        if (schedStartTime && new Date() < schedStartTime) {
+        const GRACE_PERIOD_MS = 5 * 60 * 1000;
+        if (schedStartTime && (Date.now() + GRACE_PERIOD_MS) < schedStartTime.getTime()) {
             return res.status(400).json({
                 message: `Class cannot be started before scheduled start time (${currentClass.startTime})`
             });
@@ -2025,9 +2039,10 @@ export const markTeacherAttendance = async (req, res) => {
             return res.status(403).json({ message: "Access denied" });
         }
 
-        // Check if scheduled start time has arrived
+        // Check if scheduled start time has arrived (allow 5-minute grace period for clock skew)
         const schedStartTime = parseClassDateTime(currentClass.date, currentClass.startTime);
-        if (schedStartTime && new Date() < schedStartTime) {
+        const GRACE_PERIOD_MS = 5 * 60 * 1000;
+        if (schedStartTime && (Date.now() + GRACE_PERIOD_MS) < schedStartTime.getTime()) {
             return res.status(400).json({
                 message: `Teacher attendance cannot be marked before scheduled start time (${currentClass.startTime})`
             });
@@ -2498,9 +2513,8 @@ export const exportClassSchedulesExcel = async (req, res) => {
             const subjectIds = subjectId.split(',').filter(id => id.trim());
             if (subjectIds.length > 0) query.subjectId = { $in: subjectIds };
         }
-        // Define today at midnight for status logic
-        const todayMidnight = new Date();
-        todayMidnight.setHours(0, 0, 0, 0);
+        // Define today at midnight for status logic in IST
+        const todayMidnight = getISTMidnight();
 
         if (status) {
             if (status === 'Upcoming') {
@@ -2613,9 +2627,9 @@ export const exportClassSchedulesExcel = async (req, res) => {
 
             if (clsStudents.length === 0) {
                 let classStatus = cls.status;
-                const todayMid = new Date();
-                todayMid.setHours(0, 0, 0, 0);
-                if (classStatus === 'Upcoming' && new Date(cls.date) < todayMid) {
+                const todayStr = getISTDateString(new Date());
+                const clsDateStr = getISTDateString(cls.date);
+                if (classStatus === 'Upcoming' && clsDateStr && todayStr && clsDateStr < todayStr) {
                     classStatus = 'Not Taken';
                 }
 
@@ -2672,9 +2686,9 @@ export const exportClassSchedulesExcel = async (req, res) => {
                     let statusValue = attendanceMap[statusKey] || (cls.isStudentAttendanceSaved ? "Absent" : "Attendance Not Taken");
 
                     let classStatus = cls.status;
-                    const todayMid = new Date();
-                    todayMid.setHours(0, 0, 0, 0);
-                    if (classStatus === 'Upcoming' && new Date(cls.date) < todayMid) {
+                    const todayStr = getISTDateString(new Date());
+                    const clsDateStr = getISTDateString(cls.date);
+                    if (classStatus === 'Upcoming' && clsDateStr && todayStr && clsDateStr < todayStr) {
                         classStatus = 'Not Taken';
                     }
 
@@ -3140,12 +3154,13 @@ export const bulkStartClass = async (req, res) => {
             });
         }
 
-        const now = new Date();
+        const now = Date.now();
+        const GRACE_PERIOD_MS = 5 * 60 * 1000;
         const validClassIds = classesToStart
             .filter(c => {
                 if (!isValidClass(c)) return false;
                 const schedStartTime = parseClassDateTime(c.date, c.startTime);
-                return !schedStartTime || now >= schedStartTime;
+                return !schedStartTime || (now + GRACE_PERIOD_MS) >= schedStartTime.getTime();
             })
             .map(c => c._id);
 

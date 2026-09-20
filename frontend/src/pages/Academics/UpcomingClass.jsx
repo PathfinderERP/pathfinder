@@ -86,18 +86,18 @@ const UpcomingClass = () => {
     const parseClassDateTime = (dateVal, timeStr) => {
         if (!dateVal || !timeStr) return null;
         let dateStr = "";
-        if (typeof dateVal === 'string') {
-            dateStr = dateVal.split('T')[0];
-        } else if (dateVal instanceof Date && !isNaN(dateVal.getTime())) {
-            dateStr = dateVal.toISOString().split('T')[0];
+        if (typeof dateVal === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateVal.trim())) {
+            dateStr = dateVal.trim();
         } else {
             const d = new Date(dateVal);
             if (isNaN(d.getTime())) return null;
-            dateStr = d.toISOString().split('T')[0];
+            dateStr = d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
         }
-        const [year, month, day] = dateStr.split('-').map(Number);
-        const [hours, minutes] = (timeStr || "00:00").split(':').map(Number);
-        return new Date(year, month - 1, day, isNaN(hours) ? 0 : hours, isNaN(minutes) ? 0 : minutes, 0, 0);
+        const cleanTime = String(timeStr || "00:00").trim().replace('.', ':');
+        const [hours, minutes] = cleanTime.split(':').map(Number);
+        const hh = String(isNaN(hours) ? 0 : hours).padStart(2, '0');
+        const mm = String(isNaN(minutes) ? 0 : minutes).padStart(2, '0');
+        return new Date(`${dateStr}T${hh}:${mm}:00+05:30`);
     };
 
     const API_URL = import.meta.env.VITE_API_URL;
