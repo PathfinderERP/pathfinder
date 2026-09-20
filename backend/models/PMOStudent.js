@@ -157,7 +157,7 @@ const pmoStudentSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['Qualified', 'Appeared', 'Not Qualified'],
+        enum: ['Present', 'Absent', 'Qualified', 'Appeared', 'Not Qualified'],
         default: 'Appeared',
     },
     score: {

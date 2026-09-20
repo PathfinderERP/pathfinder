@@ -264,6 +264,7 @@ const PMOAllStudentsContent = () => {
         status: [],
         session: [],
         course: [],
+        admissionStatus: [],
         datePreset: 'all',
         dateType: 'registration',
         startDate: '',
@@ -360,6 +361,39 @@ const PMOAllStudentsContent = () => {
         } catch (err) {
             console.error(err);
             alert("Error updating status.");
+        }
+    };
+
+    // Handle quick attendance marking (Present / Absent)
+    const handleAttendanceUpdate = async (student, newStatus) => {
+        if (student.status === newStatus) return;
+        const previousStatus = student.status;
+        setStudents(prev => prev.map(s => s._id === student._id ? { ...s, status: newStatus } : s));
+
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/pmo/${student._id}`, {
+                method: 'PUT',
+                headers: {
+                    "Authorization": `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.student) {
+                    setStudents(prev => prev.map(s => s._id === student._id ? data.student : s));
+                }
+            } else {
+                const errData = await response.json().catch(() => ({}));
+                setStudents(prev => prev.map(s => s._id === student._id ? { ...s, status: previousStatus } : s));
+                alert(errData.message || "Failed to update attendance status.");
+            }
+        } catch (err) {
+            console.error("Attendance update error:", err);
+            setStudents(prev => prev.map(s => s._id === student._id ? { ...s, status: previousStatus } : s));
+            alert("Error updating attendance status.");
         }
     };
 
@@ -536,6 +570,7 @@ const PMOAllStudentsContent = () => {
             if (filters.status?.length > 0) params.append('status', filters.status.join(','));
             if (filters.session?.length > 0) params.append('session', filters.session.join(','));
             if (filters.course?.length > 0) params.append('course', filters.course.join(','));
+            if (filters.admissionStatus?.length > 0) params.append('admissionStatus', filters.admissionStatus.join(','));
             if (filters.startDate) params.append('startDate', filters.startDate);
             if (filters.endDate) params.append('endDate', filters.endDate);
             if (filters.dateType) params.append('dateType', filters.dateType);
@@ -679,6 +714,8 @@ const PMOAllStudentsContent = () => {
             'Exam Venue': s.examVenue || '—',
             'Reporting Time': formatReportingTime(s.reportingTime),
             'Exam Time Slot': s.timeSlot || '—',
+            'Exam Tag': s.examTag?.name || '—',
+            'Admission Status': s.admissionStatus || 'None',
             'Status': s.status,
             'Score': s.score || 0,
             'Rank': s.rank || '—',
@@ -779,7 +816,7 @@ const PMOAllStudentsContent = () => {
             });
             const data = await res.json();
             if (res.ok) {
-                setStudents(prev => prev.map(s => s._id === editStudent._id ? data.student : s));
+                setStudents(prev => prev.map(s => s._id === editStudent._id ? { ...s, ...data.student, admissionStatus: s.admissionStatus } : s));
                 setShowEditModal(false);
             } else {
                 alert(data.message || "Failed to update student.");
@@ -1002,9 +1039,8 @@ const PMOAllStudentsContent = () => {
                         label="Status"
                         placeholder="All Statuses"
                         options={[
-                            { value: 'Appeared', label: 'Appeared' },
-                            { value: 'Qualified', label: 'Qualified' },
-                            { value: 'Not Qualified', label: 'Not Qualified' }
+                            { value: 'Present', label: 'Present' },
+                            { value: 'Absent', label: 'Absent' }
                         ]}
                         selectedValues={filters.status}
                         onChange={(vals) => setFilters(prev => ({ ...prev, status: vals }))}
@@ -1020,6 +1056,20 @@ const PMOAllStudentsContent = () => {
                             onChange={(vals) => setFilters(prev => ({ ...prev, session: vals }))}
                         />
                     )}
+
+                    {/* Admission Status MultiSelect */}
+                    <PMOMultiSelect
+                        label="Admission Status"
+                        placeholder="All Admission Statuses"
+                        options={[
+                            { value: 'Normal', label: 'Normal' },
+                            { value: 'Board', label: 'Board' },
+                            { value: 'Both', label: 'Both' },
+                            { value: 'None', label: 'Not Enrolled' }
+                        ]}
+                        selectedValues={filters.admissionStatus}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, admissionStatus: vals }))}
+                    />
 
                     {/* Date Type */}
                     <select
@@ -1127,6 +1177,7 @@ const PMOAllStudentsContent = () => {
                                         {sortConfig.key === 'rollNo' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                                     </div>
                                 </th>
+                                <th className="p-3.5">Mail</th>
                                 <th className="p-3.5 cursor-pointer hover:text-white" onClick={() => handleSort('name')}>
                                     <div className="flex items-center gap-1">
                                         Student Details
@@ -1153,21 +1204,23 @@ const PMOAllStudentsContent = () => {
                                 </th>
                                 <th className="p-3.5">Fee & Payment</th>
                                 <th className="p-3.5">Exam Venue & Time</th>
-                                <th className="p-3.5">Result</th>
+                                <th className="p-3.5">Exam Tag</th>
+                                <th className="p-3.5">Admission Status</th>
+                                <th className="p-3.5 text-center">Attendance</th>
                                 <th className="p-3.5 text-right min-w-[150px]">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800/60">
                             {studentsLoading ? (
                                 <tr>
-                                    <td colSpan={11} className="p-12 text-center text-gray-500">
+                                    <td colSpan={14} className="p-12 text-center text-gray-500">
                                         <FaSpinner className="animate-spin text-2xl text-purple-400 mx-auto mb-2" />
                                         Loading PMO students...
                                     </td>
                                 </tr>
                             ) : paginatedStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={11} className="p-12 text-center text-gray-500">
+                                    <td colSpan={14} className="p-12 text-center text-gray-500">
                                         No PMO students found. Click "Add Student" or adjust search/filters.
                                     </td>
                                 </tr>
@@ -1194,6 +1247,10 @@ const PMOAllStudentsContent = () => {
                                                 <span className="font-mono font-bold text-purple-400 bg-purple-500/10 px-2 py-1 rounded-md border border-purple-500/20">
                                                     {s.rollNo}
                                                 </span>
+                                            </td>
+
+                                            <td className="p-3.5 text-gray-300 font-mono text-xs">
+                                                {s.email || ''}
                                             </td>
 
                                             <td className="p-3.5">
@@ -1326,15 +1383,60 @@ const PMOAllStudentsContent = () => {
                                             </td>
 
                                             <td className="p-3.5">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
-                                                    s.status === 'Qualified'
-                                                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
-                                                        : s.status === 'Not Qualified'
-                                                        ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                                                        : 'bg-gray-800 text-gray-400'
-                                                }`}>
-                                                    {s.status || 'Appeared'}
+                                                <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-300 font-semibold text-[11px] border border-purple-500/30">
+                                                    {s.examTag?.name || '—'}
                                                 </span>
+                                            </td>
+
+                                            <td className="p-3.5">
+                                                {s.admissionStatus === 'Both' ? (
+                                                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[11px] border border-emerald-500/30">
+                                                        Both
+                                                    </span>
+                                                ) : s.admissionStatus === 'Normal' ? (
+                                                    <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-bold text-[11px] border border-cyan-500/30">
+                                                        Normal
+                                                    </span>
+                                                ) : s.admissionStatus === 'Board' ? (
+                                                    <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 font-bold text-[11px] border border-purple-500/30">
+                                                        Board
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-500 text-xs font-medium">—</span>
+                                                )}
+                                            </td>
+
+                                            <td className="p-3.5 text-center">
+                                                <div className="inline-flex items-center gap-1.5 p-1 bg-gray-900/80 rounded-lg border border-gray-800 shadow-inner">
+                                                    <button
+                                                        type="button"
+                                                        disabled={!canEdit}
+                                                        onClick={() => handleAttendanceUpdate(s, 'Present')}
+                                                        title={canEdit ? "Mark Present" : "Permission required to edit"}
+                                                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all duration-150 flex items-center gap-1 ${
+                                                            s.status === 'Present'
+                                                                ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/40 border border-emerald-500'
+                                                                : 'text-gray-400 hover:text-emerald-300 hover:bg-emerald-500/10 border border-transparent'
+                                                        } ${!canEdit ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                    >
+                                                        <FaCheckCircle className="text-[11px]" />
+                                                        Present
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        disabled={!canEdit}
+                                                        onClick={() => handleAttendanceUpdate(s, 'Absent')}
+                                                        title={canEdit ? "Mark Absent" : "Permission required to edit"}
+                                                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all duration-150 flex items-center gap-1 ${
+                                                            s.status === 'Absent'
+                                                                ? 'bg-rose-600 text-white shadow-md shadow-rose-900/40 border border-rose-500'
+                                                                : 'text-gray-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent'
+                                                        } ${!canEdit ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                                    >
+                                                        <FaTimesCircle className="text-[11px]" />
+                                                        Absent
+                                                    </button>
+                                                </div>
                                             </td>
 
                                             <td className="p-3 text-right">
@@ -1842,16 +1944,16 @@ const PMOAllStudentsContent = () => {
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400 mb-3">4. Result & Status</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label className="block text-gray-400 mb-1 font-medium">Status</label>
+                                        <label className="block text-gray-400 mb-1 font-medium">Attendance Status</label>
                                         <select
                                             name="status"
                                             value={editForm.status}
                                             onChange={handleEditChange}
                                             className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-gray-200 focus:outline-none focus:border-purple-500"
                                         >
-                                            <option value="Appeared">Appeared</option>
-                                            <option value="Qualified">Qualified</option>
-                                            <option value="Not Qualified">Not Qualified</option>
+                                            <option value="">Select Status</option>
+                                            <option value="Present">Present</option>
+                                            <option value="Absent">Absent</option>
                                         </select>
                                     </div>
 

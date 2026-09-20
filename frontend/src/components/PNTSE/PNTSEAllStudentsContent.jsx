@@ -4,7 +4,7 @@ import { FaSearch, FaDownload, FaFileImport, FaFileExcel,
     FaGraduationCap, FaUsers, FaTrophy, FaChartLine, FaSortUp, FaSortDown,
     FaSpinner, FaTimes, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaFileInvoice,
     FaEdit, FaTrash, FaEye, FaBookOpen, FaChalkboardTeacher, FaSchool, FaPlus, FaMoneyBillWave,
-    FaCalendarAlt, FaPhone
+    FaCalendarAlt, FaPhone, FaCheck, FaChevronDown, FaUserCheck
 } from 'react-icons/fa';
 import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
@@ -71,6 +71,183 @@ const getDateRangeFromPreset = (preset) => {
     }
 };
 
+// Custom Anchored MultiSelect Dropdown for PNTSE
+const PNTSEMultiSelect = ({ label, placeholder, options = [], selectedValues = [], onChange }) => {
+    const [isOpen, setIsOpen] = useState(false);
+    const [search, setSearch] = useState('');
+    const containerRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (containerRef.current && !containerRef.current.contains(e.target)) {
+                setIsOpen(false);
+                setSearch('');
+            }
+        };
+        const handleKeyDown = (e) => {
+            if (e.key === 'Escape') {
+                setIsOpen(false);
+                setSearch('');
+            }
+        };
+        if (isOpen) {
+            document.addEventListener('mousedown', handleClickOutside);
+            document.addEventListener('keydown', handleKeyDown);
+        }
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isOpen]);
+
+    const filteredOptions = options.filter(opt => {
+        const labelStr = (opt.label || '').toLowerCase();
+        return labelStr.includes(search.toLowerCase());
+    });
+
+    const toggleOption = (val) => {
+        if (selectedValues.includes(val)) {
+            onChange(selectedValues.filter(v => v !== val));
+        } else {
+            onChange([...selectedValues, val]);
+        }
+    };
+
+    const handleSelectAll = (e) => {
+        e.stopPropagation();
+        const visibleVals = filteredOptions.map(o => o.value);
+        onChange(Array.from(new Set([...selectedValues, ...visibleVals])));
+    };
+
+    const handleClear = (e) => {
+        e.stopPropagation();
+        if (search) {
+            const visibleVals = filteredOptions.map(o => o.value);
+            onChange(selectedValues.filter(v => !visibleVals.includes(v)));
+        } else {
+            onChange([]);
+        }
+    };
+
+    const selectedLabels = selectedValues
+        .map(v => options.find(o => String(o.value) === String(v))?.label || v);
+
+    return (
+        <div className="relative inline-block" ref={containerRef}>
+            {/* Trigger Button */}
+            <button
+                type="button"
+                onClick={() => setIsOpen(prev => !prev)}
+                className={`h-10 px-3.5 py-2 rounded-xl border text-sm flex items-center justify-between gap-2 transition-all cursor-pointer select-none ${
+                    selectedValues.length > 0
+                        ? 'bg-cyan-950/40 border-cyan-500/50 text-cyan-200 shadow-sm shadow-cyan-900/20'
+                        : 'bg-gray-800 border-gray-700 hover:border-gray-600 text-gray-300'
+                }`}
+            >
+                <div className="flex items-center gap-1.5 truncate max-w-[150px]">
+                    {selectedValues.length === 0 ? (
+                        <span className="text-gray-400 font-medium">{placeholder || label}</span>
+                    ) : selectedValues.length === 1 ? (
+                        <span className="text-cyan-300 font-semibold truncate">{selectedLabels[0]}</span>
+                    ) : (
+                        <>
+                            <span className="text-cyan-300 font-semibold truncate">{label}:</span>
+                            <span className="px-1.5 py-0.2 text-[10px] font-bold bg-cyan-500/20 text-cyan-300 rounded-md border border-cyan-500/30">
+                                {selectedValues.length}
+                            </span>
+                        </>
+                    )}
+                </div>
+
+                <div className="flex items-center gap-1 ml-auto text-gray-500">
+                    {selectedValues.length > 0 && (
+                        <span
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onChange([]);
+                            }}
+                            className="hover:text-rose-400 p-0.5 rounded transition"
+                            title="Clear"
+                        >
+                            <FaTimes size={10} />
+                        </span>
+                    )}
+                    <FaChevronDown size={9} className={`transition-transform duration-200 ${isOpen ? 'rotate-180 text-cyan-400' : 'text-gray-500'}`} />
+                </div>
+            </button>
+
+            {/* Dropdown Menu */}
+            {isOpen && (
+                <div className="absolute left-0 mt-1.5 w-64 bg-gray-900 border border-gray-700 rounded-2xl shadow-2xl z-[9999] overflow-hidden flex flex-col max-h-80 animate-in fade-in zoom-in-95 duration-100">
+                    {/* Search & Actions Header */}
+                    <div className="p-2 border-b border-gray-800 bg-gray-950/60 flex flex-col gap-1.5">
+                        <div className="relative">
+                            <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-xs" />
+                            <input
+                                type="text"
+                                placeholder={`Search ${label}...`}
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                className="w-full pl-7 pr-2 py-1 bg-gray-900 border border-gray-700 rounded-lg text-xs text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500"
+                                autoFocus
+                            />
+                        </div>
+                        <div className="flex items-center justify-between px-1 text-[11px]">
+                            <button
+                                type="button"
+                                onClick={handleSelectAll}
+                                className="text-cyan-400 hover:text-cyan-300 font-semibold transition"
+                            >
+                                Select All
+                            </button>
+                            <button
+                                type="button"
+                                onClick={handleClear}
+                                className="text-gray-500 hover:text-rose-400 font-semibold transition"
+                            >
+                                Clear
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* Options List */}
+                    <div className="overflow-y-auto p-1.5 flex flex-col gap-0.5 custom-scrollbar">
+                        {filteredOptions.length === 0 ? (
+                            <div className="py-4 text-center text-xs text-gray-500">No options found</div>
+                        ) : (
+                            filteredOptions.map((opt) => {
+                                const isChecked = selectedValues.includes(opt.value);
+                                return (
+                                    <div
+                                        key={opt.value}
+                                        onClick={() => toggleOption(opt.value)}
+                                        className={`px-2.5 py-1.5 rounded-lg text-xs flex items-center justify-between cursor-pointer transition select-none ${
+                                            isChecked
+                                                ? 'bg-cyan-500/10 text-cyan-200 font-medium'
+                                                : 'hover:bg-gray-800 text-gray-300'
+                                        }`}
+                                    >
+                                        <span className="truncate pr-2">{opt.label}</span>
+                                        <div
+                                            className={`w-3.5 h-3.5 rounded border flex items-center justify-center shrink-0 transition ${
+                                                isChecked
+                                                    ? 'bg-cyan-600 border-cyan-500 text-white'
+                                                    : 'border-gray-600 bg-gray-800'
+                                            }`}
+                                        >
+                                            {isChecked && <FaCheck size={8} />}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
+                    </div>
+                </div>
+            )}
+        </div>
+    );
+};
+
 const PNTSEAllStudentsContent = () => {
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -82,12 +259,13 @@ const PNTSEAllStudentsContent = () => {
 
     const [searchQuery, setSearchQuery] = useState('');
     const [filters, setFilters] = useState({
-        zone: '',
-        centre: '',
-        school: '',
-        class: '',
-        status: '',
-        session: '',
+        zone: [],
+        centre: [],
+        school: [],
+        class: [],
+        status: [],
+        session: [],
+        admissionStatus: [],
         datePreset: 'all',
         dateType: 'registration',
         startDate: '',
@@ -116,12 +294,13 @@ const PNTSEAllStudentsContent = () => {
 
     const hasActiveFilters = Boolean(
         searchQuery.trim() ||
-        filters.zone ||
-        filters.centre ||
-        filters.school ||
-        filters.class ||
-        filters.status ||
-        filters.session ||
+        filters.zone?.length > 0 ||
+        filters.centre?.length > 0 ||
+        filters.school?.length > 0 ||
+        filters.class?.length > 0 ||
+        filters.status?.length > 0 ||
+        filters.session?.length > 0 ||
+        filters.admissionStatus?.length > 0 ||
         filters.startDate ||
         filters.endDate ||
         filters.datePreset !== 'all'
@@ -130,12 +309,13 @@ const PNTSEAllStudentsContent = () => {
     const handleResetFilters = () => {
         setSearchQuery('');
         setFilters({
-            zone: '',
-            centre: '',
-            school: '',
-            class: '',
-            status: '',
-            session: '',
+            zone: [],
+            centre: [],
+            school: [],
+            class: [],
+            status: [],
+            session: [],
+            admissionStatus: [],
             datePreset: 'all',
             dateType: 'registration',
             startDate: '',
@@ -211,6 +391,38 @@ const PNTSEAllStudentsContent = () => {
         } catch (err) {
             console.error(err);
             alert("Error updating status.");
+        }
+    };
+
+    // Handle quick attendance marking (Present / Absent)
+    const handleAttendanceUpdate = async (student, newStatus) => {
+        if (student.status === newStatus) return;
+        const previousStatus = student.status;
+        setStudents(prev => prev.map(s => s._id === student._id ? { ...s, status: newStatus } : s));
+
+        try {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/pntse/${student._id}`, {
+                method: 'PUT',
+                headers: {
+                    ...getHeaders(),
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ status: newStatus })
+            });
+            if (response.ok) {
+                const data = await response.json();
+                if (data.student) {
+                    setStudents(prev => prev.map(s => s._id === student._id ? data.student : s));
+                }
+            } else {
+                const errData = await response.json().catch(() => ({}));
+                setStudents(prev => prev.map(s => s._id === student._id ? { ...s, status: previousStatus } : s));
+                alert(errData.message || "Failed to update attendance status.");
+            }
+        } catch (err) {
+            console.error("Attendance update error:", err);
+            setStudents(prev => prev.map(s => s._id === student._id ? { ...s, status: previousStatus } : s));
+            alert("Error updating attendance status.");
         }
     };
 
@@ -400,6 +612,9 @@ const PNTSEAllStudentsContent = () => {
                 setEditStudent(null);
                 setEditErrors({});
                 
+                if (data.student) {
+                    setStudents(prev => prev.map(s => s._id === editStudent._id ? { ...s, ...data.student, admissionStatus: s.admissionStatus } : s));
+                }
                 const listRes = await fetch(`${import.meta.env.VITE_API_URL}/pntse/list`, { headers: getHeaders() });
                 if (listRes.ok) setStudents(await listRes.json());
             } else {
@@ -444,7 +659,12 @@ const PNTSEAllStudentsContent = () => {
     const [showFollowUpModal, setShowFollowUpModal] = useState(false);
     const [followUpStudent, setFollowUpStudent] = useState(null);
 
-    const statuses = ['Qualified', 'Appeared', 'Not Qualified'];
+    // Bulk Attendance State
+    const [showBulkAttendanceModal, setShowBulkAttendanceModal] = useState(false);
+    const [bulkAttendanceSubmitting, setBulkAttendanceSubmitting] = useState(false);
+    const [bulkAttendanceTarget, setBulkAttendanceTarget] = useState('filtered');
+
+    const statuses = ['Present', 'Absent'];
 
     const getToken = () => localStorage.getItem("token");
     const getHeaders = () => ({ "Authorization": `Bearer ${getToken()}` });
@@ -458,6 +678,14 @@ const PNTSEAllStudentsContent = () => {
         );
         return matchedZone ? matchedZone.name : '—';
     };
+
+    // Filter centres by selected zones if any zones selected
+    const centresForDropdown = filters.zone?.length > 0
+        ? dbCentres.filter(c => {
+            const selectedZoneObjs = dbZones.filter(z => filters.zone.includes(z._id));
+            return selectedZoneObjs.some(z => (z.centres || []).some(zc => (zc._id || zc).toString() === c._id.toString()));
+        })
+        : dbCentres;
 
     // Load master data
     useEffect(() => {
@@ -480,17 +708,14 @@ const PNTSEAllStudentsContent = () => {
                     const data = await sessionsRes.json();
                     setDbSessions(Array.isArray(data) ? data : (data.sessions || []));
                 }
-                if (examTagsRes.ok) {
-                    const allTags = await examTagsRes.json();
-                    setDbExamTags(Array.isArray(allTags) ? allTags.filter(t => t.name && /pntse/i.test(t.name)) : []);
-                }
+                if (examTagsRes.ok) setDbExamTags(await examTagsRes.json());
                 if (zonesRes.ok) {
                     const zData = await zonesRes.json();
                     setDbZones(Array.isArray(zData) ? zData : (zData.zones || zData.data || []));
                 }
                 if (schoolsRes && schoolsRes.ok) {
-                    const sData = await schoolsRes.json();
-                    setDbSchools(Array.isArray(sData) ? sData : []);
+                    const schData = await schoolsRes.json();
+                    if (Array.isArray(schData)) setDbSchools(schData);
                 }
             } catch (err) {
                 console.error("Failed to load master data", err);
@@ -508,12 +733,13 @@ const PNTSEAllStudentsContent = () => {
             try {
                 const params = new URLSearchParams();
                 if (searchQuery) params.append('search', searchQuery);
-                if (filters.zone) params.append('zone', filters.zone);
-                if (filters.centre) params.append('centre', filters.centre);
-                if (filters.school) params.append('school', filters.school);
-                if (filters.class) params.append('class', filters.class);
-                if (filters.session) params.append('session', filters.session);
-                if (filters.status) params.append('status', filters.status);
+                if (filters.zone?.length > 0) params.append('zone', filters.zone.join(','));
+                if (filters.centre?.length > 0) params.append('centre', filters.centre.join(','));
+                if (filters.school?.length > 0) params.append('school', filters.school.join(','));
+                if (filters.class?.length > 0) params.append('class', filters.class.join(','));
+                if (filters.session?.length > 0) params.append('session', filters.session.join(','));
+                if (filters.status?.length > 0) params.append('status', filters.status.join(','));
+                if (filters.admissionStatus?.length > 0) params.append('admissionStatus', filters.admissionStatus.join(','));
                 if (filters.startDate) params.append('startDate', filters.startDate);
                 if (filters.endDate) params.append('endDate', filters.endDate);
                 if (filters.dateType) params.append('dateType', filters.dateType);
@@ -534,6 +760,86 @@ const PNTSEAllStudentsContent = () => {
     useEffect(() => {
         setCurrentPage(1);
     }, [searchQuery, filters]);
+
+    // Handle Bulk Attendance Execution
+    const handleExecuteBulkAttendance = async (targetStatus) => {
+        if (!['Present', 'Absent'].includes(targetStatus)) return;
+
+        const isMarkingSelected = bulkAttendanceTarget === 'selected' && selectedStudentIds.size > 0;
+        const count = isMarkingSelected ? selectedStudentIds.size : students.length;
+
+        if (count === 0) {
+            alert("No students to update.");
+            return;
+        }
+
+        const confirmMsg = `Are you sure you want to mark ${count} student(s) as ${targetStatus.toUpperCase()}?`;
+        if (!window.confirm(confirmMsg)) return;
+
+        setBulkAttendanceSubmitting(true);
+        try {
+            const body = isMarkingSelected
+                ? {
+                    studentIds: Array.from(selectedStudentIds),
+                    status: targetStatus
+                }
+                : {
+                    filters: {
+                        zone: filters.zone?.join(','),
+                        centre: filters.centre?.join(','),
+                        school: filters.school?.join(','),
+                        class: filters.class?.join(','),
+                        session: filters.session?.join(','),
+                        status: filters.status?.join(','),
+                        admissionStatus: filters.admissionStatus?.join(','),
+                        startDate: filters.startDate,
+                        endDate: filters.endDate,
+                        dateType: filters.dateType
+                    },
+                    search: searchQuery,
+                    status: targetStatus
+                };
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/pntse/bulk-attendance`, {
+                method: 'POST',
+                headers: {
+                    ...getHeaders(),
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(body)
+            });
+
+            const data = await response.json();
+            if (response.ok) {
+                alert(data.message || `Successfully marked ${count} student(s) as ${targetStatus}.`);
+                setShowBulkAttendanceModal(false);
+                setSelectedStudentIds(new Set());
+                // Refresh list
+                const refreshParams = new URLSearchParams();
+                if (searchQuery) refreshParams.append('search', searchQuery);
+                if (filters.zone?.length > 0) refreshParams.append('zone', filters.zone.join(','));
+                if (filters.centre?.length > 0) refreshParams.append('centre', filters.centre.join(','));
+                if (filters.school?.length > 0) refreshParams.append('school', filters.school.join(','));
+                if (filters.class?.length > 0) refreshParams.append('class', filters.class.join(','));
+                if (filters.session?.length > 0) refreshParams.append('session', filters.session.join(','));
+                if (filters.status?.length > 0) refreshParams.append('status', filters.status.join(','));
+                if (filters.admissionStatus?.length > 0) refreshParams.append('admissionStatus', filters.admissionStatus.join(','));
+                if (filters.startDate) refreshParams.append('startDate', filters.startDate);
+                if (filters.endDate) refreshParams.append('endDate', filters.endDate);
+                if (filters.dateType) refreshParams.append('dateType', filters.dateType);
+
+                const refreshRes = await fetch(`${import.meta.env.VITE_API_URL}/pntse/list?${refreshParams.toString()}`, { headers: getHeaders() });
+                if (refreshRes.ok) setStudents(await refreshRes.json());
+            } else {
+                alert(data.message || "Failed to update bulk attendance.");
+            }
+        } catch (err) {
+            console.error("Bulk attendance error:", err);
+            alert("Error updating bulk attendance.");
+        } finally {
+            setBulkAttendanceSubmitting(false);
+        }
+    };
 
     // Download template
     const handleDownloadTemplate = async () => {
@@ -605,6 +911,7 @@ const PNTSEAllStudentsContent = () => {
             return {
                 "Sl. No.": idx + 1,
                 "Roll No.": student.rollNo || '',
+                "Email": student.email || '',
                 "Student Name": student.name || '',
                 "Mobile": student.mobile || '',
                 "Secondary Mobile": student.secondaryMobile || '',
@@ -618,6 +925,7 @@ const PNTSEAllStudentsContent = () => {
                 "Amount Paid (Rs)": (student.amountPaid && student.amountPaid > 0) ? student.amountPaid : (student.paymentId?.paidAmount ?? student.amountPaid ?? 0),
                 "Waiver (Rs)": student.waiver ?? 0,
                 "Exam Tag": student.examTag?.name || '',
+                "Admission Status": student.admissionStatus || 'None',
                 "Session": student.session?.sessionName || student.session?.name || '',
                 "School": student.school || '',
                 "Guardian Name": student.guardianName || '',
@@ -857,6 +1165,23 @@ const PNTSEAllStudentsContent = () => {
                         <FaFileExcel className="text-base" />
                         Export Excel
                     </button>
+                    {canEdit && (
+                        <button
+                            onClick={() => {
+                                if (students.length === 0) {
+                                    alert("No students found matching current filters.");
+                                    return;
+                                }
+                                setBulkAttendanceTarget(selectedStudentIds.size > 0 ? 'selected' : 'filtered');
+                                setShowBulkAttendanceModal(true);
+                            }}
+                            className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-purple-500/25 cursor-pointer"
+                            title="Mark attendance in bulk for filtered or selected students"
+                        >
+                            <FaCheckCircle className="text-base" />
+                            Bulk Attendance
+                        </button>
+                    )}
                     <button
                         onClick={() => {
                             if (!sortedStudents || sortedStudents.length === 0) {
@@ -904,49 +1229,65 @@ const PNTSEAllStudentsContent = () => {
                             className="w-full pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 placeholder-gray-500 focus:outline-none focus:border-cyan-500 focus:ring-1 focus:ring-cyan-500/30 transition-all"
                         />
                     </div>
-                    <select
-                        value={filters.zone}
-                        onChange={e => setFilters(p => ({ ...p, zone: e.target.value, centre: '' }))}
-                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[140px]"
-                    >
-                        <option value="">All Zones</option>
-                        {dbZones.map(z => <option key={z._id} value={z._id}>{z.name}</option>)}
-                    </select>
-                    <select
-                        value={filters.centre}
-                        onChange={e => setFilters(p => ({ ...p, centre: e.target.value }))}
-                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[140px]"
-                    >
-                        <option value="">All Centres</option>
-                        {(filters.zone
-                            ? dbCentres.filter(c => {
-                                const zoneObj = dbZones.find(z => z._id === filters.zone);
-                                return (zoneObj?.centres || []).some(zc => (zc._id || zc).toString() === c._id.toString());
-                            })
-                            : dbCentres
-                        ).map(c => <option key={c._id} value={c._id}>{c.centreName || c.enterCode}</option>)}
-                    </select>
-                    <select
-                        value={filters.school}
-                        onChange={e => setFilters(p => ({ ...p, school: e.target.value }))}
-                        className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[140px] max-w-[200px]"
-                        title="Filter by School"
-                    >
-                        <option value="">All Schools</option>
-                        {availableSchools.map(sch => <option key={sch} value={sch}>{sch}</option>)}
-                    </select>
-                    <select value={filters.class} onChange={e => setFilters(p => ({ ...p, class: e.target.value }))} className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[130px]">
-                        <option value="">All Classes</option>
-                        {dbClasses.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                    </select>
-                    <select value={filters.status} onChange={e => setFilters(p => ({ ...p, status: e.target.value }))} className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[150px]">
-                        <option value="">All Statuses</option>
-                        {statuses.map(s => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                    <select value={filters.session} onChange={e => setFilters(p => ({ ...p, session: e.target.value }))} className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer min-w-[130px]">
-                        <option value="">All Sessions</option>
-                        {dbSessions.map(s => <option key={s._id} value={s._id}>{s.sessionName}</option>)}
-                    </select>
+                    <PNTSEMultiSelect
+                        label="Zone"
+                        placeholder="All Zones"
+                        options={dbZones.map(z => ({ value: z._id, label: z.name }))}
+                        selectedValues={filters.zone}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, zone: vals, centre: [] }))}
+                    />
+                    <PNTSEMultiSelect
+                        label="Centre"
+                        placeholder="All Centres"
+                        options={centresForDropdown.map(c => ({ value: c._id, label: c.centreName || c.enterCode }))}
+                        selectedValues={filters.centre}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, centre: vals }))}
+                    />
+                    <PNTSEMultiSelect
+                        label="School"
+                        placeholder="All Schools"
+                        options={availableSchools.map(sch => ({ value: sch, label: sch }))}
+                        selectedValues={filters.school}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, school: vals }))}
+                    />
+                    <PNTSEMultiSelect
+                        label="Class"
+                        placeholder="All Classes"
+                        options={dbClasses.map(c => ({ value: c._id, label: c.name }))}
+                        selectedValues={filters.class}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, class: vals }))}
+                    />
+                    <PNTSEMultiSelect
+                        label="Status"
+                        placeholder="All Statuses"
+                        options={[
+                            { value: 'Present', label: 'Present' },
+                            { value: 'Absent', label: 'Absent' }
+                        ]}
+                        selectedValues={filters.status}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, status: vals }))}
+                    />
+                    <PNTSEMultiSelect
+                        label="Admission Status"
+                        placeholder="All Admission Statuses"
+                        options={[
+                            { value: 'Normal', label: 'Normal' },
+                            { value: 'Board', label: 'Board' },
+                            { value: 'Both', label: 'Both' },
+                            { value: 'None', label: 'Not Enrolled' }
+                        ]}
+                        selectedValues={filters.admissionStatus}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, admissionStatus: vals }))}
+                    />
+                    {dbSessions.length > 0 && (
+                        <PNTSEMultiSelect
+                            label="Session"
+                            placeholder="All Sessions"
+                            options={dbSessions.map(s => ({ value: s._id, label: s.sessionName }))}
+                            selectedValues={filters.session}
+                            onChange={(vals) => setFilters(prev => ({ ...prev, session: vals }))}
+                        />
+                    )}
 
                     {/* Date Type */}
                     <select
@@ -1071,6 +1412,7 @@ const PNTSEAllStudentsContent = () => {
                                     <div className="flex items-center gap-1.5">Student Name <SortIcon field="name" /></div>
                                 </th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Roll No.</th>
+                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Mail</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Class</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Board</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cyan-400 transition-colors" onClick={() => handleSort('school')}>
@@ -1087,6 +1429,8 @@ const PNTSEAllStudentsContent = () => {
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Course</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Paid Status</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Exam Tag</th>
+                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Admission Status</th>
+                                <th className="px-4 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Attendance</th>
                                 <th className="px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Admit Card</th>
                                 <th className="px-3 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center min-w-[130px]">Actions</th>
                             </tr>
@@ -1094,7 +1438,7 @@ const PNTSEAllStudentsContent = () => {
                         <tbody className="divide-y divide-gray-800/50">
                             {paginatedStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={16} className="text-center py-16 text-gray-500">
+                                    <td colSpan={19} className="text-center py-16 text-gray-500">
                                         <FaGraduationCap className="text-4xl mx-auto mb-3 opacity-30" />
                                         <p>No students found</p>
                                     </td>
@@ -1121,6 +1465,7 @@ const PNTSEAllStudentsContent = () => {
                                         </div>
                                     </td>
                                     <td className="px-5 py-4 text-cyan-400 font-mono text-xs font-semibold">{student.rollNo}</td>
+                                    <td className="px-5 py-4 text-gray-300 text-xs font-mono">{student.email || ''}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.class?.name || student.class}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.board?.boardCourse || student.board?.boardName || student.board || '—'}</td>
                                     <td className="px-5 py-4 text-gray-300 font-medium">{student.school || '—'}</td>
@@ -1148,6 +1493,55 @@ const PNTSEAllStudentsContent = () => {
                                         <span className="px-2.5 py-1 rounded-lg text-xs font-medium bg-violet-500/20 text-violet-400 border border-violet-500/30">
                                             {student.examTag?.name || '—'}
                                         </span>
+                                    </td>
+                                    <td className="px-5 py-4 text-left">
+                                        {student.admissionStatus === 'Both' ? (
+                                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                Both
+                                            </span>
+                                        ) : student.admissionStatus === 'Normal' ? (
+                                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                                                Normal
+                                            </span>
+                                        ) : student.admissionStatus === 'Board' ? (
+                                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                                                Board
+                                            </span>
+                                        ) : (
+                                            <span className="text-gray-500 text-xs font-medium">—</span>
+                                        )}
+                                    </td>
+                                    <td className="px-4 py-4 text-center">
+                                        <div className="inline-flex items-center gap-1.5 p-1 bg-gray-900/80 rounded-lg border border-gray-800 shadow-inner">
+                                            <button
+                                                type="button"
+                                                disabled={!canEdit}
+                                                onClick={() => handleAttendanceUpdate(student, 'Present')}
+                                                title={canEdit ? "Mark Present" : "Permission required to edit"}
+                                                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all duration-150 flex items-center gap-1 ${
+                                                    student.status === 'Present'
+                                                        ? 'bg-emerald-600 text-white shadow-md shadow-emerald-900/40 border border-emerald-500'
+                                                        : 'text-gray-400 hover:text-emerald-300 hover:bg-emerald-500/10 border border-transparent'
+                                                } ${!canEdit ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                            >
+                                                <FaCheckCircle className="text-[11px]" />
+                                                Present
+                                            </button>
+                                            <button
+                                                type="button"
+                                                disabled={!canEdit}
+                                                onClick={() => handleAttendanceUpdate(student, 'Absent')}
+                                                title={canEdit ? "Mark Absent" : "Permission required to edit"}
+                                                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all duration-150 flex items-center gap-1 ${
+                                                    student.status === 'Absent'
+                                                        ? 'bg-rose-600 text-white shadow-md shadow-rose-900/40 border border-rose-500'
+                                                        : 'text-gray-400 hover:text-rose-300 hover:bg-rose-500/10 border border-transparent'
+                                                } ${!canEdit ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                                            >
+                                                <FaTimesCircle className="text-[11px]" />
+                                                Absent
+                                            </button>
+                                        </div>
                                     </td>
                                     <td className="px-5 py-4 text-center">
                                         <button 
@@ -1283,6 +1677,121 @@ const PNTSEAllStudentsContent = () => {
                     student={admitCardStudent} 
                     onClose={() => { setShowAdmitCard(false); setAdmitCardStudent(null); }} 
                 />
+            )}
+
+            {/* ==================== BULK ATTENDANCE MODAL ==================== */}
+            {showBulkAttendanceModal && (
+                <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+                    <div className="bg-gray-900 border border-gray-800 rounded-2xl w-full max-w-md p-6 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+                        <div className="flex items-center justify-between pb-4 border-b border-gray-800 mb-5">
+                            <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center text-lg">
+                                    <FaCheckCircle />
+                                </div>
+                                <div>
+                                    <h3 className="text-base font-bold text-white">Bulk Attendance</h3>
+                                    <p className="text-xs text-gray-400">PNTSE Module</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowBulkAttendanceModal(false)}
+                                className="text-gray-400 hover:text-white p-1 rounded-lg transition cursor-pointer"
+                            >
+                                <FaTimes size={16} />
+                            </button>
+                        </div>
+
+                        {/* Target Scope Selection */}
+                        {selectedStudentIds.size > 0 && (
+                            <div className="mb-5 bg-gray-950/60 p-3 rounded-xl border border-gray-800/80">
+                                <p className="text-xs text-gray-400 mb-2 font-semibold">Apply Attendance To:</p>
+                                <div className="flex gap-4">
+                                    <label className="flex items-center gap-2 text-xs text-gray-200 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="bulkTarget"
+                                            checked={bulkAttendanceTarget === 'selected'}
+                                            onChange={() => setBulkAttendanceTarget('selected')}
+                                            className="text-cyan-600 focus:ring-cyan-500 cursor-pointer"
+                                        />
+                                        <span>Selected ({selectedStudentIds.size} student{selectedStudentIds.size > 1 ? 's' : ''})</span>
+                                    </label>
+                                    <label className="flex items-center gap-2 text-xs text-gray-200 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="bulkTarget"
+                                            checked={bulkAttendanceTarget === 'filtered'}
+                                            onChange={() => setBulkAttendanceTarget('filtered')}
+                                            className="text-cyan-600 focus:ring-cyan-500 cursor-pointer"
+                                        />
+                                        <span>All Filtered ({students.length} student{students.length > 1 ? 's' : ''})</span>
+                                    </label>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Filter Summary */}
+                        <div className="mb-6 p-3.5 bg-gray-800/40 rounded-xl border border-gray-700/50 text-xs space-y-1.5">
+                            <div className="flex items-center justify-between text-gray-300 font-medium">
+                                <span>Target Students:</span>
+                                <span className="font-bold text-cyan-400 text-sm">
+                                    {bulkAttendanceTarget === 'selected' && selectedStudentIds.size > 0
+                                        ? `${selectedStudentIds.size} selected`
+                                        : `${students.length} matching filter(s)`}
+                                </span>
+                            </div>
+                            {hasActiveFilters && (
+                                <div className="text-[11px] text-gray-400 pt-2 border-t border-gray-800">
+                                    <span className="font-semibold text-gray-300">Active Filters: </span>
+                                    {[
+                                        filters.zone?.length > 0 && `Zones (${filters.zone.length})`,
+                                        filters.centre?.length > 0 && `Centres (${filters.centre.length})`,
+                                        filters.school?.length > 0 && `Schools (${filters.school.length})`,
+                                        filters.class?.length > 0 && `Classes (${filters.class.length})`,
+                                        filters.status?.length > 0 && `Status (${filters.status.join(', ')})`,
+                                        filters.session?.length > 0 && `Sessions (${filters.session.length})`,
+                                        searchQuery.trim() && `Search "${searchQuery}"`
+                                    ].filter(Boolean).join(' • ') || 'None'}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="space-y-3">
+                            <p className="text-xs text-gray-400 font-semibold text-center">Choose Status to Assign:</p>
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    disabled={bulkAttendanceSubmitting}
+                                    onClick={() => handleExecuteBulkAttendance('Present')}
+                                    className="py-3 px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-emerald-950/40 transition flex items-center justify-center gap-2 text-sm cursor-pointer"
+                                >
+                                    {bulkAttendanceSubmitting ? <FaSpinner className="animate-spin" /> : <FaCheckCircle />}
+                                    Mark Present
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={bulkAttendanceSubmitting}
+                                    onClick={() => handleExecuteBulkAttendance('Absent')}
+                                    className="py-3 px-4 bg-rose-600 hover:bg-rose-500 disabled:opacity-50 text-white font-bold rounded-xl shadow-lg shadow-rose-950/40 transition flex items-center justify-center gap-2 text-sm cursor-pointer"
+                                >
+                                    {bulkAttendanceSubmitting ? <FaSpinner className="animate-spin" /> : <FaTimesCircle />}
+                                    Mark Absent
+                                </button>
+                            </div>
+                        </div>
+
+                        <div className="mt-5 pt-3 border-t border-gray-800 text-center">
+                            <button
+                                type="button"
+                                onClick={() => setShowBulkAttendanceModal(false)}
+                                className="text-xs text-gray-400 hover:text-gray-200 transition cursor-pointer"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             {/* ==================== BULK ADMIT CARD MODAL ==================== */}
@@ -1961,14 +2470,15 @@ const PNTSEAllStudentsContent = () => {
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-cyan-400 mb-3">Status & Scores</h4>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <div className="flex flex-col gap-1">
-                                        <label className="text-xs text-gray-400 font-semibold">Exam Status</label>
+                                        <label className="text-xs text-gray-400 font-semibold">Attendance Status</label>
                                         <select
                                             value={editForm.status}
                                             onChange={e => setEditForm(p => ({ ...p, status: e.target.value }))}
                                             className="px-4 py-2.5 bg-gray-800 border border-gray-700 rounded-xl text-sm text-gray-100 focus:outline-none focus:border-cyan-500 transition-all cursor-pointer"
                                         >
                                             <option value="">Select Status</option>
-                                            {statuses.map(s => <option key={s} value={s}>{s}</option>)}
+                                            <option value="Present">Present</option>
+                                            <option value="Absent">Absent</option>
                                         </select>
                                     </div>
                                     <div className="flex flex-col gap-1">
