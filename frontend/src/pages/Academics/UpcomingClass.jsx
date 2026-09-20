@@ -852,8 +852,7 @@ const UpcomingClass = () => {
                                     </tr>
                                 ) : (
                                     filteredClasses.map((cls, idx) => {
-                                        const schedStart = parseClassDateTime(cls.date, cls.startTime);
-                                        const isStartReached = !schedStart || currentTime >= schedStart;
+                                        const isStartReached = true;
 
                                         return (
                                         <tr
@@ -919,13 +918,9 @@ const UpcomingClass = () => {
                                                 {(isAcademicAdmin || isHod) ? (
                                                     <button
                                                         onClick={() => handleStartClass(cls._id)}
-                                                        disabled={!isStartReached}
-                                                        className={`px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg mx-auto ${
-                                                            !isStartReached
-                                                                ? "bg-gray-600/20 text-gray-500 border border-gray-600/30 cursor-not-allowed opacity-50"
-                                                                : "bg-green-600 hover:bg-green-700 text-white shadow-green-900/20 cursor-pointer"
-                                                        }`}
-                                                        title={!isStartReached ? `Class can only be started at or after ${cls.startTime}` : "Start Class"}
+                                                        disabled={false}
+                                                        className="px-4 py-1.5 rounded-lg flex items-center justify-center gap-2 font-bold text-xs uppercase transition shadow-lg mx-auto bg-green-600 hover:bg-green-700 text-white shadow-green-900/20 cursor-pointer"
+                                                        title="Start Class"
                                                     >
                                                         <FaPlay size={9} /> Start
                                                     </button>
