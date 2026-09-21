@@ -136,7 +136,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
             setLoadingPopup(true);
             const token = localStorage.getItem("token");
             const apiUrl = import.meta.env.VITE_API_URL;
-            let endpoint = `${apiUrl}/operations/daily-tracking/user/${row.userId}?fromDate=${fromDate}&toDate=${toDate}&centerId=${row.centreId}`;
+            let endpoint = `${apiUrl}/operations/daily-tracking/user/${row.userId}?fromDate=${fromDate}&toDate=${toDate}&centerId=${row.centreId}&callsOnly=true`;
             if (leadType === 'WALK_IN') {
                 endpoint = `${apiUrl}/operations/daily-tracking/user/${row.userId}/walk-ins?fromDate=${fromDate}&toDate=${toDate}&centerId=${row.centreId}`;
             } else if (leadType === 'ADMISSION') {
@@ -180,7 +180,7 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
             const leadTypeParam = selectedLeadType ? `&leadType=${encodeURIComponent(selectedLeadType)}` : '';
             const searchParam = popupSearchQuery ? `&search=${encodeURIComponent(popupSearchQuery)}` : '';
             const response = await fetch(
-                `${apiUrl}/operations/daily-tracking/user/export/${selectedUser.userId}?fromDate=${fromDate}&toDate=${toDate}&centerId=${selectedUser.centreId}${leadTypeParam}${searchParam}`,
+                `${apiUrl}/operations/daily-tracking/user/export/${selectedUser.userId}?fromDate=${fromDate}&toDate=${toDate}&centerId=${selectedUser.centreId}${leadTypeParam}${searchParam}&callsOnly=true`,
                 { headers: { Authorization: `Bearer ${token}` } }
             );
             
@@ -300,6 +300,14 @@ const ActiveCentresCallsReportModal = ({ isOpen, onClose, isDarkMode, centres })
 
     // Filter popup details
     const filteredPopupCalls = popupCallsData.filter(call => {
+        // Exclude admission/counselling records when viewing call details
+        if (selectedLeadType !== 'ADMISSION' && selectedLeadType !== 'WALK_IN') {
+            if (call.callType === 'ADMISSION' || call.callType === 'COUNSELLING' ||
+                call.feedback === 'ADMISSION COMPLETED' || call.feedback === 'BOARD ADMISSION COMPLETED' || call.feedback === 'BOARD COUNSELLING COMPLETED') {
+                return false;
+            }
+        }
+
         const matchSearch = popupSearchQuery === '' ||
             (call.studentName || '').toLowerCase().includes(popupSearchQuery.toLowerCase()) ||
             (call.phoneNumber || '').includes(popupSearchQuery) ||

@@ -321,6 +321,7 @@ const ChequeManagement = () => {
             "Course": c.courseName || "N/A",
             "Bank": c.bankName || "N/A",
             "Amount (INR)": c.amount || 0,
+            "Receiving Date": c.receivedDate ? new Date(c.receivedDate).toLocaleDateString('en-IN') : "N/A",
             "Status": c.status === "PAID" ? "CLEARED" : (c.status === "PENDING_CLEARANCE" ? "IN PROCESS" : c.status),
             "Deposit Status": c.isDeposited ? "Deposited" : "Not Deposited",
             "Deposit Date": c.depositedDate ? new Date(c.depositedDate).toLocaleDateString('en-IN') : "N/A",
@@ -591,6 +592,7 @@ const ChequeManagement = () => {
             "Admission No": c.admissionNumber,
             "Bank": c.bankName,
             "Amount": c.amount,
+            "Receiving Date": c.receivedDate ? new Date(c.receivedDate).toLocaleDateString('en-IN') : "N/A",
             "Cheque Date": c.chequeDate ? new Date(c.chequeDate).toLocaleDateString('en-IN') : "N/A",
             "Cheque Deposit Date": c.depositedDate ? new Date(c.depositedDate).toLocaleDateString('en-IN') : "N/A",
             "Cleared/Rejected Date": c.clearedOrRejectedDate ? new Date(c.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A",
@@ -981,6 +983,7 @@ const ChequeManagement = () => {
                                     <th className="p-6">Student Details</th>
                                     <th className="p-6">Bank Name</th>
                                     <th className="p-6">Amount</th>
+                                    <th className="p-6">Receiving Date</th>
                                     <th className="p-6">Cheque Date</th>
                                     <th className="p-6">Cheque Deposit Date</th>
                                     <th className="p-6">Cleared/Rejected Date</th>
@@ -994,13 +997,13 @@ const ChequeManagement = () => {
                             <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="12" className="p-20 text-center">
+                                        <td colSpan="13" className="p-20 text-center">
                                             <div className="animate-spin h-10 w-10 border-t-2 border-emerald-500 rounded-full mx-auto"></div>
                                         </td>
                                     </tr>
                                 ) : currentItems.length === 0 ? (
                                     <tr>
-                                        <td colSpan="12" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
+                                        <td colSpan="13" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
                                             No cheques found in records
                                         </td>
                                     </tr>
@@ -1020,6 +1023,9 @@ const ChequeManagement = () => {
                                                 <div className="text-[9px] text-gray-500 uppercase mt-1">{cheque.centre}</div>
                                             </td>
                                             <td className={`font-black text-lg p-6 ${isDarkMode ? "text-white" : "text-gray-900"}`}>₹{cheque.amount.toLocaleString()}</td>
+                                            <td className={`font-bold text-xs p-6 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
+                                                {cheque.receivedDate ? new Date(cheque.receivedDate).toLocaleDateString('en-IN') : "---"}
+                                            </td>
                                             <td className={`font-bold text-xs p-6 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
                                                 {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "N/A"}
                                             </td>
@@ -1695,6 +1701,7 @@ const ChequeManagement = () => {
                                                     <th className="p-4 whitespace-nowrap min-w-[160px]">Centre & Course</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[140px]">Bank Name</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[100px]">Amount</th>
+                                                    <th className="p-4 whitespace-nowrap min-w-[120px]">Receiving Date</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[110px]">Cheque Date</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[120px]">Status</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[160px] text-left">Deposit Status</th>
@@ -1704,7 +1711,7 @@ const ChequeManagement = () => {
                                             <tbody className={`divide-y text-xs ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
                                                 {paginatedItems.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="9" className="p-12 text-center text-gray-500 font-bold uppercase tracking-wider text-xs">
+                                                        <td colSpan="10" className="p-12 text-center text-gray-500 font-bold uppercase tracking-wider text-xs">
                                                             No matching cheque records found
                                                         </td>
                                                     </tr>
@@ -1731,6 +1738,9 @@ const ChequeManagement = () => {
                                                                 <span className="font-black text-emerald-400 text-sm">
                                                                     ₹{Number(cheque.amount || 0).toLocaleString('en-IN')}
                                                                 </span>
+                                                            </td>
+                                                            <td className="p-4 font-bold text-gray-400 whitespace-nowrap">
+                                                                {cheque.receivedDate ? new Date(cheque.receivedDate).toLocaleDateString('en-IN') : "—"}
                                                             </td>
                                                             <td className="p-4 font-bold text-gray-400 whitespace-nowrap">
                                                                 {cheque.chequeDate ? new Date(cheque.chequeDate).toLocaleDateString('en-IN') : "—"}
