@@ -893,15 +893,34 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         let carryoverAdjustment = 0;
 
         for (const week of fixedWeeks) {
+            const weekTotalBase = week.days.reduce((sum, d) => sum + getManualBaseTarget(d.day), 0);
             const daysCount = week.actualDays;
-            const dailyAdjustment = (daysCount > 0 && carryoverAdjustment !== 0)
-                ? (carryoverAdjustment / daysCount)
-                : 0;
 
+            // Distribute weekly carryover adjustment (shortfall or surplus) across week days
             const weekDaysData = week.days.map(dObj => {
                 const manualBase = getManualBaseTarget(dObj.day);
-                // Adjust base target: adds shortfall or deducts overachievement surplus (min 0)
-                const effectiveBase = Math.max(0, manualBase + dailyAdjustment);
+                let dailyAdjustment = 0;
+
+                if (carryoverAdjustment > 0) {
+                    // Cumulative shortfall: exactly as originally implemented (distributed over daysCount)
+                    dailyAdjustment = daysCount > 0 ? (carryoverAdjustment / daysCount) : 0;
+                } else if (carryoverAdjustment < 0) {
+                    // Surplus: distributed across week days according to shortfall,
+                    // weighted proportionally so weekend and weekday targets share appropriately:
+                    dailyAdjustment = weekTotalBase > 0
+                        ? (carryoverAdjustment * (manualBase / weekTotalBase))
+                        : (daysCount > 0 ? (carryoverAdjustment / daysCount) : 0);
+                }
+
+                // Minimum floor for surplus so daily target doesn't drop to 0
+                let effectiveBase;
+                if (carryoverAdjustment < 0 && manualBase > 0) {
+                    const minFloor = Math.round(manualBase * 0.25);
+                    effectiveBase = Math.max(minFloor, manualBase + dailyAdjustment);
+                } else {
+                    effectiveBase = Math.max(0, manualBase + dailyAdjustment);
+                }
+
                 const achieved = dayMap[dObj.day] || 0;
                 return {
                     day: dObj.day,
@@ -909,22 +928,29 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     isWeekend: dObj.isWeekend,
                     manualBase,
                     effectiveBase,
+                    dailyAdj: dailyAdjustment,
                     achieved
                 };
             });
 
-            // Sequential day-to-day rolling shortfall/overachievement within this week
+            // Sequential day-to-day rolling shortfall/surplus within this week
             let runningShortfall = 0;
 
             for (const d of weekDaysData) {
                 const rawTarget = d.effectiveBase + runningShortfall;
-                const finalTarget = Math.round(Math.max(0, rawTarget));
+                let finalTarget;
+                if (rawTarget < d.manualBase && d.manualBase > 0) {
+                    const minFloor = Math.round(d.manualBase * 0.25);
+                    finalTarget = Math.round(Math.max(minFloor, rawTarget));
+                } else {
+                    finalTarget = Math.round(Math.max(0, rawTarget));
+                }
+
                 let shortfallAdded = 0;
                 if (finalTarget > d.manualBase) {
                     shortfallAdded = Math.round(finalTarget - d.manualBase);
-                } else if (rawTarget < d.manualBase) {
-                    // When there is an accumulated surplus, reflect the surplus adjusted amount (negative)
-                    shortfallAdded = Math.round(rawTarget - d.manualBase);
+                } else if (finalTarget < d.manualBase) {
+                    shortfallAdded = Math.round(finalTarget - d.manualBase);
                 }
 
                 daysResult[d.day] = {
@@ -936,15 +962,13 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     dayName: d.dayName
                 };
 
-                // Update runningShortfall for subsequent days in this week:
-                // Only days that have already occurred or are today have actual achievement data.
                 const isDayPastOrToday = isMonthInPast || (isCurrentMonth && d.day <= curDay);
                 if (isDayPastOrToday) {
                     runningShortfall = rawTarget - d.achieved;
                 }
             }
 
-            // Total target and total achieved for this week to determine adjustment (shortfall or surplus) for next week
+            // Cumulative carryover across weeks (weekTotalTarget - weekTotalAchieved)
             const weekTotalTarget = weekDaysData.reduce((sum, d) => sum + d.effectiveBase, 0);
             const weekTotalAchieved = weekDaysData.reduce((sum, d) => sum + d.achieved, 0);
 
