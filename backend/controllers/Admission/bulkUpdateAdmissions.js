@@ -3,6 +3,7 @@ import Student from "../../models/Students.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
 import Class from "../../models/Master_data/Class.js";
 import { clearCachePattern, deleteCache } from "../../utils/redisCache.js";
+import { syncStudentCentre } from "../../services/admissionCentreSyncService.js";
 
 export const bulkUpdateAdmissions = async (req, res) => {
     try {
@@ -69,16 +70,18 @@ export const bulkUpdateAdmissions = async (req, res) => {
                 admissionUpdates.admissionStatus = "ACTIVE";
             }
 
-            // Sync Centre across all admissions of the student and on the student record
+            // Sync Centre across all admissions of the student, student profile, and payments
             if (cleanUpdateData.centre !== undefined) {
-                admissionUpdates.centre = cleanUpdateData.centre;
-
-                // Sync to all admissions for this student
-                if (studentId) {
-                    await Admission.updateMany(
-                        { student: studentId },
-                        { centre: cleanUpdateData.centre }
-                    );
+                const syncRes = await syncStudentCentre({
+                    studentId,
+                    admissionId,
+                    newCentre: cleanUpdateData.centre,
+                    modifiedBy: req.user?.name || "System"
+                });
+                if (syncRes && syncRes.canonicalCentre) {
+                    admissionUpdates.centre = syncRes.canonicalCentre;
+                } else {
+                    admissionUpdates.centre = cleanUpdateData.centre;
                 }
             }
 
@@ -87,15 +90,6 @@ export const bulkUpdateAdmissions = async (req, res) => {
                 const student = await Student.findById(studentId);
                 if (student) {
                     let studentModified = false;
-
-                    // Sync Centre
-                    if (cleanUpdateData.centre !== undefined) {
-                        if (student.studentsDetails && student.studentsDetails[0]) {
-                            student.studentsDetails[0].centre = cleanUpdateData.centre;
-                            student.markModified('studentsDetails');
-                            studentModified = true;
-                        }
-                    }
 
                     // Sync Board
                     if (cleanUpdateData.board !== undefined) {

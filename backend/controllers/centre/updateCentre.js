@@ -1,6 +1,9 @@
 import CentreSchema from "../../models/Master_data/Centre.js";
 import Student from "../../models/Students.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
+import Admission from "../../models/Admission/Admission.js";
+import Payment from "../../models/Payment/Payment.js";
+import { clearCachePattern } from "../../utils/redisCache.js";
 
 export const updateCentre = async (req, res) => {
     try {
@@ -52,6 +55,24 @@ export const updateCentre = async (req, res) => {
                 { centre: oldName },
                 { $set: { centre: newName } }
             );
+
+            // Update normal Admission where centre is stored as String
+            await Admission.updateMany(
+                { centre: oldName },
+                { $set: { centre: newName } }
+            );
+
+            // Update Payment where centre is stored as String
+            await Payment.updateMany(
+                { centre: oldName },
+                { $set: { centre: newName } }
+            );
+
+            await clearCachePattern("admissions:list:*");
+            await clearCachePattern("dailyCollection*");
+            await clearCachePattern("transactions*");
+            await clearCachePattern("sales*");
+            await clearCachePattern("centreTarget*");
         }
 
         res.status(200).json({

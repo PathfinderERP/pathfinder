@@ -6,6 +6,7 @@ import ExamTag from "../../models/Master_data/ExamTag.js";
 import Department from "../../models/Master_data/Department.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import { clearCachePattern, deleteCache } from "../../utils/redisCache.js";
+import { syncStudentCentre } from "../../services/admissionCentreSyncService.js";
 
 export const updateAdmission = async (req, res) => {
     try {
@@ -63,16 +64,17 @@ export const updateAdmission = async (req, res) => {
             );
         }
 
-        // Synchronize centre across ALL admissions for this student if it's being updated
+        // Synchronize centre across ALL admissions, student profile, and payments if it's being updated
         if (updates.centre) {
-            await Admission.updateMany(
-                { student: studentId },
-                { centre: updates.centre }
-            );
-            await BoardCourseAdmission.updateMany(
-                { studentId: studentId },
-                { centre: updates.centre }
-            );
+            const syncResult = await syncStudentCentre({
+                studentId,
+                admissionId: id,
+                newCentre: updates.centre,
+                modifiedBy: req.user?.name || "System"
+            });
+            if (syncResult && syncResult.canonicalCentre) {
+                updates.centre = syncResult.canonicalCentre;
+            }
         }
 
         // Sync examTag updates to student's sessionExamCourse

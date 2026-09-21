@@ -3,6 +3,7 @@ import mongoose from "mongoose";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import Boards from "../../models/Master_data/Boards.js";
 import { clearCachePattern, deleteCache } from "../../utils/redisCache.js";
+import { syncStudentCentre } from "../../services/admissionCentreSyncService.js";
 
 export const updateStudent = async (req, res) => {
     try {
@@ -51,6 +52,20 @@ export const updateStudent = async (req, res) => {
                 );
             } catch (counsErr) {
                 console.error("Error syncing BoardCourseCounselling in updateStudent:", counsErr);
+            }
+        }
+
+        // If centre is updated, synchronize Admissions, BoardCourseAdmissions, Payments, and Caches
+        const updatedCentre = cleanedData.studentsDetails?.[0]?.centre || cleanedData.centre;
+        if (updatedCentre) {
+            try {
+                await syncStudentCentre({
+                    studentId,
+                    newCentre: updatedCentre,
+                    modifiedBy: req.user?.name || "System"
+                });
+            } catch (centreSyncErr) {
+                console.error("Error syncing student centre in updateStudent:", centreSyncErr);
             }
         }
 

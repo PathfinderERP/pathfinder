@@ -12,6 +12,7 @@ import Class from "../../models/Master_data/Class.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
 import { deleteCache } from "../../utils/redisCache.js";
 import { isGstExempt } from "../../utils/gstHelper.js";
+import { syncStudentCentre } from "../../services/admissionCentreSyncService.js";
 
 // Helper to calculate next months due date
 const getNextMonthDate = (startDate, monthsToAdd) => {
@@ -1945,7 +1946,15 @@ export const bulkUpdateBoardAdmissions = async (req, res) => {
 
                 const admissionUpdates = {};
                 if (cleanUpdateData.academicSession !== undefined) admissionUpdates.academicSession = cleanUpdateData.academicSession;
-                if (cleanUpdateData.centre !== undefined) admissionUpdates.centre = cleanUpdateData.centre;
+                if (cleanUpdateData.centre !== undefined) {
+                    const syncRes = await syncStudentCentre({
+                        studentId: record.studentId,
+                        admissionId: id,
+                        newCentre: cleanUpdateData.centre,
+                        modifiedBy: req.user?.name || "System"
+                    });
+                    admissionUpdates.centre = (syncRes && syncRes.canonicalCentre) ? syncRes.canonicalCentre : cleanUpdateData.centre;
+                }
                 if (cleanUpdateData.lastClass !== undefined) admissionUpdates.lastClass = cleanUpdateData.lastClass;
                 if (cleanUpdateData.department !== undefined) admissionUpdates.department = cleanUpdateData.department;
                 if (cleanUpdateData.programme !== undefined) admissionUpdates.programme = cleanUpdateData.programme;
@@ -1958,10 +1967,6 @@ export const bulkUpdateBoardAdmissions = async (req, res) => {
                     if (student) {
                         const studentUpdates = {};
                         let studentModified = false;
-                        if (cleanUpdateData.centre !== undefined && student.studentsDetails?.[0]) {
-                            studentUpdates["studentsDetails.0.centre"] = cleanUpdateData.centre;
-                            studentModified = true;
-                        }
                         if (cleanUpdateData.department !== undefined) {
                             studentUpdates.department = cleanUpdateData.department;
                             studentModified = true;
