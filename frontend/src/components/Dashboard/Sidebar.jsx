@@ -7,7 +7,7 @@ import {
     FaShoppingCart, FaCalendarCheck, FaBuilding, FaIdCard, FaMapMarkerAlt, FaToggleOn,
     FaChalkboardTeacher, FaTable, FaFileUpload, FaCommentDots, FaMoneyCheckAlt, FaUserMinus,
     FaBirthdayCake, FaPizzaSlice, FaGlassCheers, FaCalendarTimes, FaHandshake, FaRegFileAlt, FaWindowClose, FaExclamationCircle,
-    FaFlag, FaGraduationCap
+    FaFlag, FaGraduationCap, FaBalanceScale
 } from "react-icons/fa";
 import { useNavigate, useLocation } from "react-router-dom";
 
@@ -330,6 +330,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Leave Management", path: "/hr/attendance/leave-request", icon: <FaCalendarTimes />, permissionSection: "leaveManagement" },
                 { name: "Regularize Table", path: "/employee/regularization", icon: <FaHandshake />, permissionSection: "regularization" },
                 { name: "Team Regularization", path: "/employee/team-regularization", icon: <FaUsers />, permissionSection: "regularization" },
+                { name: "Team Leave Balances", path: "/employee/team-leave-balances", icon: <FaBalanceScale />, permissionSection: "regularization" },
                 { name: "My Profile", path: "/employee/details", icon: <FaIdCard />, permissionSection: "profile" },
                 { name: "Document Center", path: "/employee/documents", icon: <FaRegFileAlt />, permissionSection: "documents" },
                 { name: "Training Center", path: "/employee/training", icon: <FaChalkboardTeacher />, permissionSection: "training" },
@@ -380,6 +381,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         { name: "Holiday List", path: "/hr/attendance/holiday-list", permissionSection: "holidayList" },
                         { name: "Leaves Type", path: "/hr/attendance/leave-type", permissionSection: "leaveType" },
                         { name: "Leave Management", path: "/hr/attendance/leave-management", permissionSection: "leaveManagement" },
+                        { name: "Leave Balances", path: "/hr/attendance/leave-balances", permissionSection: "leaveManagement" },
                         { name: "Leave Request", path: "/hr/attendance/leave-request", permissionSection: "leaveRequest" },
                         { name: "Regularize Table", path: "/hr/attendance/regularize-table", permissionSection: "regularizeTable" },
                         { name: "Employees Attendance", path: "/hr/attendance/employee-logs", icon: <FaUsers />, permissionSection: "attendance" },

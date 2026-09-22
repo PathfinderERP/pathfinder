@@ -26,6 +26,10 @@ import {
     updateRegularization,
     deleteRegularization
 } from '../../controllers/Attendance/regularizationController.js';
+import {
+    getEmployeeLeaveBalances,
+    getEmployeeLeaveDetails
+} from '../../controllers/Attendance/employeeLeaveBalanceController.js';
 
 import { upload } from '../../utils/r2Upload.js';
 
@@ -58,5 +62,9 @@ router.put('/regularizations/:id', upload.array('photos', 5), updateRegularizati
 router.patch('/regularizations/bulk-status', bulkUpdateRegularizationStatus);
 router.patch('/regularizations/:id/status', updateRegularizationStatus);
 router.delete('/regularizations/:id', deleteRegularization);
+
+// Employee Leave Balances (Financial Year Quota Analysis)
+router.get('/employee-leave-balances', getEmployeeLeaveBalances);
+router.get('/employee-leave-balances/:employeeId', getEmployeeLeaveDetails);
 
 export default router;

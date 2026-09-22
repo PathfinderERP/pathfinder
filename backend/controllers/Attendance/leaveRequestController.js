@@ -27,6 +27,17 @@ const findEmployeeByUser = async (userId) => {
     return employee;
 };
 
+// Helper to compute Financial Year date range (April 1 to March 31)
+const getFinancialYearDates = (date = new Date()) => {
+    const curYear = date.getFullYear();
+    const curMonth = date.getMonth(); // 0 = Jan, 3 = April
+    const startYear = curMonth >= 3 ? curYear : curYear - 1;
+    const endYear = startYear + 1;
+    const startDate = new Date(Date.UTC(startYear, 3, 1, 0, 0, 0, 0));
+    const endDate = new Date(Date.UTC(endYear, 2, 31, 23, 59, 59, 999));
+    return { startDate, endDate };
+};
+
 // Helper to check available leave balance for an employee and leave type
 const checkAvailableLeaveBalance = async (employeeId, leaveTypeId, requestingDays, excludeRequestId = null, requestedStartDate = null) => {
     const leaveTypeObj = await LeaveType.findById(leaveTypeId);
@@ -49,40 +60,48 @@ const checkAvailableLeaveBalance = async (employeeId, leaveTypeId, requestingDay
     const query = {
         employee: employeeId,
         leaveType: leaveTypeId,
-        status: 'Approved'
+        status: { $in: ['Approved', 'Pending'] }
     };
     if (excludeRequestId) {
         query._id = { $ne: excludeRequestId };
     }
 
-    let approvedRequests = await LeaveRequest.find(query);
+    const targetDate = requestedStartDate ? new Date(requestedStartDate) : new Date();
 
     if (isMonthly) {
-        const targetDate = requestedStartDate ? new Date(requestedStartDate) : new Date();
         const targetMonth = targetDate.getMonth();
         const targetYear = targetDate.getFullYear();
-
-        approvedRequests = approvedRequests.filter(r => {
-            const rDate = new Date(r.startDate);
-            return rDate.getMonth() === targetMonth && rDate.getFullYear() === targetYear;
-        });
+        const monthStart = new Date(Date.UTC(targetYear, targetMonth, 1, 0, 0, 0, 0));
+        const monthEnd = new Date(Date.UTC(targetYear, targetMonth + 1, 0, 23, 59, 59, 999));
+        query.$or = [
+            { startDate: { $gte: monthStart, $lte: monthEnd } },
+            { endDate: { $gte: monthStart, $lte: monthEnd } }
+        ];
+    } else {
+        const { startDate: fyStart, endDate: fyEnd } = getFinancialYearDates(targetDate);
+        query.$or = [
+            { startDate: { $gte: fyStart, $lte: fyEnd } },
+            { endDate: { $gte: fyStart, $lte: fyEnd } }
+        ];
     }
 
-    const usedDays = approvedRequests.reduce((sum, r) => sum + (r.days || 0), 0);
-    const availableDays = Math.max(0, totalQuota - usedDays);
+    const activeRequests = await LeaveRequest.find(query);
+
+    const deductedDays = activeRequests.reduce((sum, r) => sum + (r.days || 0), 0);
+    const availableDays = Math.max(0, totalQuota - deductedDays);
 
     if (requestingDays > availableDays) {
-        const cycleText = isMonthly ? "for this month" : "for this year";
+        const cycleText = isMonthly ? "for this month" : "for this financial year";
         return {
             valid: false,
             message: `Insufficient leave balance! You have ${availableDays} day(s) available for ${leaveTypeObj.name} ${cycleText}, but requested ${requestingDays} day(s).`,
             availableDays,
             totalQuota,
-            usedDays
+            usedDays: deductedDays
         };
     }
 
-    return { valid: true, availableDays, totalQuota, usedDays, leaveTypeName: leaveTypeObj.name };
+    return { valid: true, availableDays, totalQuota, usedDays: deductedDays, leaveTypeName: leaveTypeObj.name };
 };
 
 // Get all leave requests (for HR/Superadmin, Reporting Manager, or employee's own requests)

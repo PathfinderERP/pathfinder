@@ -32,18 +32,22 @@ export const getLeaveTypes = async (req, res) => {
             }
         }
 
-        // Get all approved leave requests for target employee
-        let approvedRequests = [];
+        // Get all active (Approved and Pending) leave requests for target employee
+        let activeRequests = [];
         if (targetEmployeeId) {
-            approvedRequests = await LeaveRequest.find({
+            activeRequests = await LeaveRequest.find({
                 employee: targetEmployeeId,
-                status: 'Approved'
+                status: { $in: ['Approved', 'Pending'] }
             });
         }
 
         const now = new Date();
         const currentMonth = now.getMonth();
         const currentYear = now.getFullYear();
+        const fyStartYear = currentMonth >= 3 ? currentYear : currentYear - 1;
+        const fyEndYear = fyStartYear + 1;
+        const fyStartDate = new Date(Date.UTC(fyStartYear, 3, 1, 0, 0, 0, 0));
+        const fyEndDate = new Date(Date.UTC(fyEndYear, 2, 31, 23, 59, 59, 999));
 
         const adjustedLeaveTypes = leaveTypes.map(lt => {
             const obj = lt.toObject();
@@ -55,17 +59,27 @@ export const getLeaveTypes = async (req, res) => {
             obj.isMonthly = isMonthly;
 
             if (targetEmployeeId) {
-                const used = approvedRequests
-                    .filter(r => r.leaveType.toString() === obj._id.toString())
+                const relevant = activeRequests
+                    .filter(r => r.leaveType?.toString() === obj._id.toString())
                     .filter(r => {
-                        if (!isMonthly) return true;
                         const rDate = new Date(r.startDate);
-                        return rDate.getMonth() === currentMonth && rDate.getFullYear() === currentYear;
-                    })
-                    .reduce((sum, r) => sum + (r.days || 0), 0);
-                obj.usedDays = used;
-                obj.availableDays = Math.max(0, totalQuota - used);
+                        if (isMonthly) {
+                            return rDate.getMonth() === currentMonth && rDate.getFullYear() === currentYear;
+                        }
+                        return rDate >= fyStartDate && rDate <= fyEndDate;
+                    });
+
+                const approved = relevant.filter(r => r.status === 'Approved').reduce((sum, r) => sum + (r.days || 0), 0);
+                const pending = relevant.filter(r => r.status === 'Pending').reduce((sum, r) => sum + (r.days || 0), 0);
+                const deducted = approved + pending;
+
+                obj.approvedDays = approved;
+                obj.pendingDays = pending;
+                obj.usedDays = deducted;
+                obj.availableDays = Math.max(0, totalQuota - deducted);
             } else {
+                obj.approvedDays = 0;
+                obj.pendingDays = 0;
                 obj.usedDays = 0;
                 obj.availableDays = totalQuota;
             }

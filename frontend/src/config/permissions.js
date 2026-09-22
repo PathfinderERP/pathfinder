@@ -242,6 +242,7 @@ export const PERMISSION_MODULES = {
             holidayList: { label: "Holiday List", operations: ["create", "edit", "delete"] },
             leaveType: { label: "Leaves Type", operations: ["create", "edit", "delete"] },
             leaveManagement: { label: "Leave Management", operations: ["create", "edit", "delete"] },
+            leaveBalances: { label: "Leave Balances", operations: ["create", "edit", "delete"] },
             leaveRequest: { label: "Leave Request", operations: ["create", "edit", "delete"] },
             regularizeTable: { label: "Regularize Table", operations: ["create", "edit", "delete"] },
             department: { label: "Department", operations: ["create", "edit", "delete"] },
