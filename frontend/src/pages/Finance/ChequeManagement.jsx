@@ -27,9 +27,18 @@ const ChequeManagement = () => {
     // Modal state for KPI card drilldown
     const [cardModalType, setCardModalType] = useState(null); // 'TOTAL' | 'CLEARED' | 'PENDING' | 'NOT_DEPOSITED' | null
     const [modalSearchTerm, setModalSearchTerm] = useState("");
-    const [modalCentreFilter, setModalCentreFilter] = useState("");
+    const [modalZoneFilter, setModalZoneFilter] = useState([]);
+    const [modalCentreFilter, setModalCentreFilter] = useState([]);
     const [modalCurrentPage, setModalCurrentPage] = useState(1);
     const [modalItemsPerPage, setModalItemsPerPage] = useState(10);
+
+    // Card-specific zone filter overrides
+    const [cardZoneFilters, setCardZoneFilters] = useState({
+        TOTAL: [],
+        CLEARED: [],
+        PENDING: [],
+        NOT_DEPOSITED: []
+    });
 
     const [showRejectModal, setShowRejectModal] = useState(false);
     const [rejectingId, setRejectingId] = useState(null);
@@ -60,6 +69,7 @@ const ChequeManagement = () => {
     const [jumpToPage, setJumpToPage] = useState("");
 
     const [filters, setFilters] = useState({
+        zone: [],
         centre: [],
         course: [],
         department: [],
@@ -71,6 +81,7 @@ const ChequeManagement = () => {
     });
 
     const [metadata, setMetadata] = useState({
+        zones: [],
         centres: [],
         courses: [],
         departments: []
@@ -114,15 +125,18 @@ const ChequeManagement = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [centresRes, coursesRes, deptsRes] = await Promise.all([
+            const [centresRes, coursesRes, deptsRes, zonesRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/department`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
             ]);
 
             const centres = await centresRes.json();
             const courses = await coursesRes.json();
             const depts = await deptsRes.json();
+            const zonesData = zonesRes.ok ? await zonesRes.json() : [];
+            const rawZones = Array.isArray(zonesData) ? zonesData : (zonesData.data || []);
 
             // Filter centres based on user's authorized assigned centres
             const isSuperAdminUser = userRoles.some(r => {
@@ -144,7 +158,18 @@ const ChequeManagement = () => {
                 })
                 : [];
 
+            const userCentresSet = new Set(filteredCentres.map(c => (c.centreName || "").trim().toLowerCase()));
+            const availableZones = rawZones.filter(z => {
+                if (z.isActive === false) return false;
+                if (isSuperAdminUser) return true;
+                return (z.centres || []).some(c => {
+                    const cName = typeof c === 'object' ? c.centreName : null;
+                    return cName && userCentresSet.has(cName.trim().toLowerCase());
+                });
+            });
+
             setMetadata({
+                zones: availableZones,
                 centres: filteredCentres,
                 courses: Array.isArray(courses) ? courses : [],
                 departments: Array.isArray(depts) ? depts.filter(dept => dept.showInAdmission !== false) : []
@@ -191,48 +216,78 @@ const ChequeManagement = () => {
         }
     };
 
-    // Dynamically calculated stats based on current filtered cheques
-    const stats = React.useMemo(() => {
-        return cheques.reduce((acc, c) => {
-            const amt = Number(c.amount) || 0;
-            acc.totalAmount += amt;
-            acc.totalCount += 1;
+    // Zone options for dropdowns
+    const zoneOptions = React.useMemo(() => {
+        return (metadata.zones || [])
+            .map(z => ({ value: z.name, label: z.name }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [metadata.zones]);
 
-            if (c.status === "PAID") {
-                acc.clearedAmount += amt;
-                acc.clearedCount += 1;
-            } else if (c.status === "PENDING_CLEARANCE") {
-                acc.pendingAmount += amt;
-                acc.pendingCount += 1;
-            } else if (c.status === "REJECTED") {
-                acc.bouncedAmount += amt;
-                acc.bouncedCount += 1;
-            }
+    // Available centres filtered by selected main zones
+    const availableCentresForDropdown = React.useMemo(() => {
+        if (!filters.zone || filters.zone.length === 0) {
+            return metadata.centres;
+        }
+        const allowedCentreNames = new Set();
+        (metadata.zones || [])
+            .filter(z => filters.zone.includes(z.name) || filters.zone.includes(z._id))
+            .forEach(z => {
+                (z.centres || []).forEach(c => {
+                    const name = typeof c === 'object' ? c.centreName : null;
+                    if (name) allowedCentreNames.add(name.trim().toLowerCase());
+                });
+            });
+        return metadata.centres.filter(c => allowedCentreNames.has((c.centreName || "").trim().toLowerCase()));
+    }, [metadata.centres, metadata.zones, filters.zone]);
 
-            if (!c.isDeposited) {
-                acc.notDepositedCount += 1;
-                acc.notDepositedAmount += amt;
-            } else {
-                acc.depositedCount += 1;
-                acc.depositedAmount += amt;
-            }
-
-            return acc;
-        }, {
-            totalAmount: 0,
-            totalCount: 0,
-            clearedAmount: 0,
-            clearedCount: 0,
-            pendingAmount: 0,
-            pendingCount: 0,
-            bouncedAmount: 0,
-            bouncedCount: 0,
-            notDepositedCount: 0,
-            notDepositedAmount: 0,
-            depositedCount: 0,
-            depositedAmount: 0
+    // Helper to filter a cheque list by zones
+    const filterChequesByZones = (chequeList, selectedZones) => {
+        if (!selectedZones || selectedZones.length === 0) return chequeList;
+        const allowedCentres = new Set();
+        (metadata.zones || [])
+            .filter(z => selectedZones.includes(z.name) || selectedZones.includes(z._id))
+            .forEach(z => {
+                (z.centres || []).forEach(c => {
+                    const name = typeof c === 'object' ? c.centreName : null;
+                    if (name) allowedCentres.add(name.trim().toLowerCase());
+                });
+            });
+        return chequeList.filter(c => {
+            const cCentre = (c.centre || "").trim().toLowerCase();
+            return allowedCentres.has(cCentre);
         });
-    }, [cheques]);
+    };
+
+    // Calculate individual card stats dynamically taking into account any card-specific zone filter
+    const cardStats = React.useMemo(() => {
+        const calculateStats = (chequeList) => {
+            return chequeList.reduce((acc, c) => {
+                const amt = Number(c.amount) || 0;
+                acc.amount += amt;
+                acc.count += 1;
+                return acc;
+            }, { amount: 0, count: 0 });
+        };
+
+        const totalList = filterChequesByZones(cheques, cardZoneFilters.TOTAL);
+        const clearedList = filterChequesByZones(cheques.filter(c => c.status === "PAID"), cardZoneFilters.CLEARED);
+        const pendingList = filterChequesByZones(cheques.filter(c => c.status === "PENDING_CLEARANCE"), cardZoneFilters.PENDING);
+        const notDepositedList = filterChequesByZones(cheques.filter(c => !c.isDeposited), cardZoneFilters.NOT_DEPOSITED);
+
+        return {
+            TOTAL: calculateStats(totalList),
+            CLEARED: calculateStats(clearedList),
+            PENDING: calculateStats(pendingList),
+            NOT_DEPOSITED: calculateStats(notDepositedList)
+        };
+    }, [cheques, cardZoneFilters, metadata.zones]);
+
+    const handleCardZoneChange = (type, selectedZones) => {
+        setCardZoneFilters(prev => ({
+            ...prev,
+            [type]: selectedZones
+        }));
+    };
 
     const availableCentres = React.useMemo(() => {
         const fromMeta = (metadata.centres || []).map(c => c.centreName).filter(Boolean);
@@ -240,10 +295,31 @@ const ChequeManagement = () => {
         return [...new Set([...fromMeta, ...fromCheques])].sort((a, b) => a.localeCompare(b));
     }, [metadata.centres, cheques]);
 
+    const modalAvailableCentres = React.useMemo(() => {
+        let centresToFilter = availableCentres;
+        if (modalZoneFilter && modalZoneFilter.length > 0) {
+            const allowedCentres = new Set();
+            (metadata.zones || [])
+                .filter(z => modalZoneFilter.includes(z.name) || modalZoneFilter.includes(z._id))
+                .forEach(z => {
+                    (z.centres || []).forEach(c => {
+                        const name = typeof c === 'object' ? c.centreName : null;
+                        if (name) allowedCentres.add(name.trim().toLowerCase());
+                    });
+                });
+            centresToFilter = centresToFilter.filter(c => allowedCentres.has(c.trim().toLowerCase()));
+        }
+        return centresToFilter;
+    }, [modalZoneFilter, metadata.zones, availableCentres]);
+
     const openCardModal = (type) => {
         setCardModalType(type);
         setModalSearchTerm("");
-        setModalCentreFilter(filters.centre && filters.centre.length === 1 ? filters.centre[0] : "");
+        const initialZones = cardZoneFilters[type] && cardZoneFilters[type].length > 0
+            ? cardZoneFilters[type]
+            : (filters.zone || []);
+        setModalZoneFilter(initialZones);
+        setModalCentreFilter(filters.centre && filters.centre.length > 0 ? filters.centre : []);
         setModalCurrentPage(1);
     };
 
@@ -282,9 +358,25 @@ const ChequeManagement = () => {
 
         let filteredItems = items;
 
-        if (modalCentreFilter) {
+        if (modalZoneFilter && modalZoneFilter.length > 0) {
+            const allowedCentres = new Set();
+            (metadata.zones || [])
+                .filter(z => modalZoneFilter.includes(z.name) || modalZoneFilter.includes(z._id))
+                .forEach(z => {
+                    (z.centres || []).forEach(c => {
+                        const name = typeof c === 'object' ? c.centreName : null;
+                        if (name) allowedCentres.add(name.trim().toLowerCase());
+                    });
+                });
+            filteredItems = filteredItems.filter(c => allowedCentres.has((c.centre || "").trim().toLowerCase()));
+        }
+
+        if (modalCentreFilter && modalCentreFilter.length > 0) {
+            const selectedCentreSet = new Set(
+                (Array.isArray(modalCentreFilter) ? modalCentreFilter : [modalCentreFilter]).map(c => c.trim().toLowerCase())
+            );
             filteredItems = filteredItems.filter(c =>
-                (c.centre || "").trim().toLowerCase() === modalCentreFilter.trim().toLowerCase()
+                selectedCentreSet.has((c.centre || "").trim().toLowerCase())
             );
         }
 
@@ -296,7 +388,8 @@ const ChequeManagement = () => {
                 const admNo = (c.admissionNumber || "").toLowerCase();
                 const bank = (c.bankName || "").toLowerCase();
                 const centre = (c.centre || "").toLowerCase();
-                return chNo.includes(term) || sName.includes(term) || admNo.includes(term) || bank.includes(term) || centre.includes(term);
+                const zone = (c.zone || "").toLowerCase();
+                return chNo.includes(term) || sName.includes(term) || admNo.includes(term) || bank.includes(term) || centre.includes(term) || zone.includes(term);
             });
         }
 
@@ -317,6 +410,7 @@ const ChequeManagement = () => {
             "Cheque Date": c.chequeDate ? new Date(c.chequeDate).toLocaleDateString('en-IN') : "N/A",
             "Student Name": c.studentName || "N/A",
             "Admission No": c.admissionNumber || "N/A",
+            "Zone": c.zone || "N/A",
             "Centre": c.centre || "N/A",
             "Course": c.courseName || "N/A",
             "Bank": c.bankName || "N/A",
@@ -568,6 +662,7 @@ const ChequeManagement = () => {
 
     const clearFilters = () => {
         setFilters({
+            zone: [],
             centre: [],
             course: [],
             department: [],
@@ -576,6 +671,12 @@ const ChequeManagement = () => {
             endDate: "",
             chequeStartDate: "",
             chequeEndDate: ""
+        });
+        setCardZoneFilters({
+            TOTAL: [],
+            CLEARED: [],
+            PENDING: [],
+            NOT_DEPOSITED: []
         });
         setSearchTerm("");
     };
@@ -590,6 +691,8 @@ const ChequeManagement = () => {
             "Cheque No": c.chequeNumber,
             "Student Name": c.studentName,
             "Admission No": c.admissionNumber,
+            "Zone": c.zone || "N/A",
+            "Centre": c.centre,
             "Bank": c.bankName,
             "Amount": c.amount,
             "Receiving Date": c.receivedDate ? new Date(c.receivedDate).toLocaleDateString('en-IN') : "N/A",
@@ -598,7 +701,6 @@ const ChequeManagement = () => {
             "Cleared/Rejected Date": c.clearedOrRejectedDate ? new Date(c.clearedOrRejectedDate).toLocaleDateString('en-IN') : "N/A",
             "Status": c.status === "PAID" ? "Cleared" : (c.status === "REJECTED" ? "Rejected" : "Pending"),
             "Bill No": c.status === "PAID" ? (c.billId || "Generated") : "N/A",
-            "Centre": c.centre,
             "Course": c.courseName,
             "Department": c.department,
             "Processed By": c.processedBy
@@ -633,8 +735,9 @@ const ChequeManagement = () => {
             background: isDarkMode ? "#131619" : "#ffffff",
             border: isDarkMode ? "1px solid rgba(31, 41, 55, 1)" : "1px solid rgba(229, 231, 235, 1)",
             borderRadius: "0.75rem",
-            zIndex: 100
+            zIndex: 9999
         }),
+        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
         option: (base, state) => ({
             ...base,
             background: state.isSelected
@@ -681,6 +784,91 @@ const ChequeManagement = () => {
         singleValue: (base) => ({
             ...base,
             color: isDarkMode ? "#e5e7eb" : "#111827"
+        })
+    };
+
+    const cardSelectStyles = {
+        control: (base, state) => ({
+            ...base,
+            background: isDarkMode ? "#181c20" : "#f9fafb",
+            borderColor: state.isFocused ? "rgba(16, 185, 129, 0.6)" : (isDarkMode ? "rgba(55, 65, 81, 0.6)" : "rgba(229, 231, 235, 1)"),
+            borderRadius: "0.75rem",
+            padding: "0 2px",
+            minHeight: "30px",
+            fontSize: "9px",
+            fontWeight: "bold",
+            color: isDarkMode ? "white" : "#111827",
+            boxShadow: "none",
+            "&:hover": {
+                borderColor: "rgba(16, 185, 129, 0.4)"
+            }
+        }),
+        menu: (base) => ({
+            ...base,
+            background: isDarkMode ? "#131619" : "#ffffff",
+            border: isDarkMode ? "1px solid rgba(55, 65, 81, 1)" : "1px solid rgba(229, 231, 235, 1)",
+            borderRadius: "0.75rem",
+            zIndex: 9999
+        }),
+        menuPortal: (base) => ({ ...base, zIndex: 9999 }),
+        option: (base, state) => ({
+            ...base,
+            background: state.isSelected
+                ? "#10b981"
+                : state.isFocused
+                    ? (isDarkMode ? "rgba(16, 185, 129, 0.15)" : "rgba(16, 185, 129, 0.08)")
+                    : "transparent",
+            color: state.isSelected
+                ? "white"
+                : state.isFocused
+                    ? "#10b981"
+                    : (isDarkMode ? "#9ca3af" : "#374151"),
+            fontSize: "9px",
+            fontWeight: "bold",
+            textTransform: "uppercase",
+            cursor: "pointer",
+            padding: "5px 10px"
+        }),
+        multiValue: (base) => ({
+            ...base,
+            background: "rgba(16, 185, 129, 0.15)",
+            borderRadius: "4px",
+            margin: "1px 2px"
+        }),
+        multiValueLabel: (base) => ({
+            ...base,
+            color: "#10b981",
+            fontSize: "8px",
+            fontWeight: "900",
+            padding: "1px 4px"
+        }),
+        multiValueRemove: (base) => ({
+            ...base,
+            color: "#10b981",
+            padding: "0 2px",
+            "&:hover": {
+                background: "rgba(16, 185, 129, 0.25)",
+                color: "#059669"
+            }
+        }),
+        placeholder: (base) => ({
+            ...base,
+            color: isDarkMode ? "#6b7280" : "#9ca3af",
+            fontSize: "9px"
+        }),
+        indicatorsContainer: (base) => ({
+            ...base,
+            padding: "0"
+        }),
+        dropdownIndicator: (base) => ({
+            ...base,
+            padding: "2px 4px",
+            svg: { width: "11px", height: "11px" }
+        }),
+        clearIndicator: (base) => ({
+            ...base,
+            padding: "2px",
+            svg: { width: "11px", height: "11px" }
         })
     };
 
@@ -746,18 +934,45 @@ const ChequeManagement = () => {
                             }`}
                         title="Click to view all cheques in filtered selection"
                     >
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between mb-3">
                             <div className="w-12 h-12 rounded-2xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 text-xl group-hover:scale-110 transition-transform shadow-inner">
                                 <FaMoneyCheckAlt />
                             </div>
                             <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-blue-500/10 text-blue-400 border-blue-500/20">
-                                {stats.totalCount} Cheques
+                                {cardStats.TOTAL.count} Cheques
                             </span>
                         </div>
                         <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Total Cheque Amount</p>
                         <h3 className={`text-2xl font-black italic tracking-tight mb-3 ${isDarkMode ? "text-white" : "text-gray-900"}`}>
-                            ₹{stats.totalAmount.toLocaleString('en-IN')}
+                            ₹{cardStats.TOTAL.amount.toLocaleString('en-IN')}
                         </h3>
+
+                        {/* Zone Multi-Selection inside Card */}
+                        <div className="mb-3 pt-2 border-t border-gray-800/40" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Zone Filter</span>
+                                {cardZoneFilters.TOTAL.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleCardZoneChange("TOTAL", [])}
+                                        className="text-[9px] text-rose-400 hover:text-rose-300 uppercase font-black tracking-wider"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+                            <Select
+                                isMulti
+                                options={zoneOptions}
+                                value={cardZoneFilters.TOTAL.map(z => ({ value: z, label: z }))}
+                                onChange={(selected) => handleCardZoneChange("TOTAL", selected ? selected.map(s => s.value) : [])}
+                                styles={cardSelectStyles}
+                                placeholder="ALL ZONES"
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                            />
+                        </div>
+
                         <div className="flex items-center justify-between pt-3 border-t border-gray-800/40 text-[10px] font-bold text-blue-400/80 group-hover:text-blue-400">
                             <span>Click to view details</span>
                             <FaArrowRight className="group-hover:translate-x-1 transition-transform" size={10} />
@@ -773,18 +988,45 @@ const ChequeManagement = () => {
                             }`}
                         title="Click to view cleared cheques"
                     >
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between mb-3">
                             <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 text-xl group-hover:scale-110 transition-transform shadow-inner">
                                 <FaCheckCircle />
                             </div>
                             <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-emerald-500/10 text-emerald-400 border-emerald-500/20">
-                                {stats.clearedCount} Cleared
+                                {cardStats.CLEARED.count} Cleared
                             </span>
                         </div>
                         <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Cleared Amount</p>
                         <h3 className="text-2xl font-black italic tracking-tight text-emerald-500 mb-3">
-                            ₹{stats.clearedAmount.toLocaleString('en-IN')}
+                            ₹{cardStats.CLEARED.amount.toLocaleString('en-IN')}
                         </h3>
+
+                        {/* Zone Multi-Selection inside Card */}
+                        <div className="mb-3 pt-2 border-t border-gray-800/40" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Zone Filter</span>
+                                {cardZoneFilters.CLEARED.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleCardZoneChange("CLEARED", [])}
+                                        className="text-[9px] text-rose-400 hover:text-rose-300 uppercase font-black tracking-wider"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+                            <Select
+                                isMulti
+                                options={zoneOptions}
+                                value={cardZoneFilters.CLEARED.map(z => ({ value: z, label: z }))}
+                                onChange={(selected) => handleCardZoneChange("CLEARED", selected ? selected.map(s => s.value) : [])}
+                                styles={cardSelectStyles}
+                                placeholder="ALL ZONES"
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                            />
+                        </div>
+
                         <div className="flex items-center justify-between pt-3 border-t border-gray-800/40 text-[10px] font-bold text-emerald-400/80 group-hover:text-emerald-400">
                             <span>Click to view details</span>
                             <FaArrowRight className="group-hover:translate-x-1 transition-transform" size={10} />
@@ -800,18 +1042,45 @@ const ChequeManagement = () => {
                             }`}
                         title="Click to view pending cheques"
                     >
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between mb-3">
                             <div className="w-12 h-12 rounded-2xl bg-yellow-500/10 border border-yellow-500/20 flex items-center justify-center text-yellow-400 text-xl group-hover:scale-110 transition-transform shadow-inner">
                                 <FaClock />
                             </div>
                             <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-yellow-500/10 text-yellow-400 border-yellow-500/20">
-                                {stats.pendingCount} In Process
+                                {cardStats.PENDING.count} In Process
                             </span>
                         </div>
                         <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Pending Amount</p>
                         <h3 className="text-2xl font-black italic tracking-tight text-yellow-500 mb-3">
-                            ₹{stats.pendingAmount.toLocaleString('en-IN')}
+                            ₹{cardStats.PENDING.amount.toLocaleString('en-IN')}
                         </h3>
+
+                        {/* Zone Multi-Selection inside Card */}
+                        <div className="mb-3 pt-2 border-t border-gray-800/40" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Zone Filter</span>
+                                {cardZoneFilters.PENDING.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleCardZoneChange("PENDING", [])}
+                                        className="text-[9px] text-rose-400 hover:text-rose-300 uppercase font-black tracking-wider"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+                            <Select
+                                isMulti
+                                options={zoneOptions}
+                                value={cardZoneFilters.PENDING.map(z => ({ value: z, label: z }))}
+                                onChange={(selected) => handleCardZoneChange("PENDING", selected ? selected.map(s => s.value) : [])}
+                                styles={cardSelectStyles}
+                                placeholder="ALL ZONES"
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                            />
+                        </div>
+
                         <div className="flex items-center justify-between pt-3 border-t border-gray-800/40 text-[10px] font-bold text-yellow-400/80 group-hover:text-yellow-400">
                             <span>Click to view details</span>
                             <FaArrowRight className="group-hover:translate-x-1 transition-transform" size={10} />
@@ -827,18 +1096,45 @@ const ChequeManagement = () => {
                             }`}
                         title="Click to view cheques not yet deposited from cheque deposit entry"
                     >
-                        <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center justify-between mb-3">
                             <div className="w-12 h-12 rounded-2xl bg-rose-500/10 border border-rose-500/20 flex items-center justify-center text-rose-400 text-xl group-hover:scale-110 transition-transform shadow-inner">
                                 <FaBuilding />
                             </div>
                             <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border bg-rose-500/10 text-rose-400 border-rose-500/20">
-                                ₹{stats.notDepositedAmount.toLocaleString('en-IN')}
+                                ₹{cardStats.NOT_DEPOSITED.amount.toLocaleString('en-IN')}
                             </span>
                         </div>
                         <p className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">Cheque Not Deposit Count</p>
                         <h3 className="text-2xl font-black italic tracking-tight text-rose-400 mb-3">
-                            {stats.notDepositedCount} <span className="text-xs font-bold text-gray-500 not-italic">Not Deposited</span>
+                            {cardStats.NOT_DEPOSITED.count} <span className="text-xs font-bold text-gray-500 not-italic">Not Deposited</span>
                         </h3>
+
+                        {/* Zone Multi-Selection inside Card */}
+                        <div className="mb-3 pt-2 border-t border-gray-800/40" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Zone Filter</span>
+                                {cardZoneFilters.NOT_DEPOSITED.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => handleCardZoneChange("NOT_DEPOSITED", [])}
+                                        className="text-[9px] text-rose-400 hover:text-rose-300 uppercase font-black tracking-wider"
+                                    >
+                                        Clear
+                                    </button>
+                                )}
+                            </div>
+                            <Select
+                                isMulti
+                                options={zoneOptions}
+                                value={cardZoneFilters.NOT_DEPOSITED.map(z => ({ value: z, label: z }))}
+                                onChange={(selected) => handleCardZoneChange("NOT_DEPOSITED", selected ? selected.map(s => s.value) : [])}
+                                styles={cardSelectStyles}
+                                placeholder="ALL ZONES"
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                            />
+                        </div>
+
                         <div className="flex items-center justify-between pt-3 border-t border-gray-800/40 text-[10px] font-bold text-rose-400/80 group-hover:text-rose-400">
                             <span>Click to view details</span>
                             <FaArrowRight className="group-hover:translate-x-1 transition-transform" size={10} />
@@ -848,16 +1144,31 @@ const ChequeManagement = () => {
 
                 {/* Main Filter Section */}
                 <div className={`border rounded-3xl p-6 mb-8 shadow-2xl ${isDarkMode ? "bg-[#131619] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"}`}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end mb-6">
+                        <div>
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Zone</label>
+                            <Select
+                                isMulti
+                                options={zoneOptions}
+                                value={filters.zone.map(z => ({ value: z, label: z }))}
+                                onChange={(selected) => handleFilterChange("zone", selected ? selected.map(s => s.value) : [])}
+                                styles={customSelectStyles}
+                                placeholder="ALL ZONES"
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                            />
+                        </div>
                         <div>
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Centre</label>
                             <Select
                                 isMulti
-                                options={metadata.centres.map(c => ({ value: c.centreName, label: c.centreName }))}
+                                options={availableCentresForDropdown.map(c => ({ value: c.centreName, label: c.centreName }))}
                                 value={filters.centre.map(c => ({ value: c, label: c }))}
                                 onChange={(selected) => handleFilterChange("centre", selected ? selected.map(s => s.value) : [])}
                                 styles={customSelectStyles}
                                 placeholder="ALL CENTRES"
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
                             />
                         </div>
                         <div>
@@ -869,6 +1180,8 @@ const ChequeManagement = () => {
                                 onChange={(selected) => handleFilterChange("course", selected ? selected.map(s => s.value) : [])}
                                 styles={customSelectStyles}
                                 placeholder="ALL COURSES"
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
                             />
                         </div>
                         <div>
@@ -880,6 +1193,8 @@ const ChequeManagement = () => {
                                 onChange={(selected) => handleFilterChange("department", selected ? selected.map(s => s.value) : [])}
                                 styles={customSelectStyles}
                                 placeholder="ALL DEPARTMENTS"
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
                             />
                         </div>
                         <div>
@@ -902,6 +1217,8 @@ const ChequeManagement = () => {
                                 placeholder="ALL STATUS"
                                 className="react-select-container"
                                 classNamePrefix="react-select"
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
                             />
                         </div>
                     </div>
@@ -1020,7 +1337,10 @@ const ChequeManagement = () => {
                                             </td>
                                             <td className="p-6">
                                                 <div className={`font-bold text-xs uppercase ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>{cheque.bankName || "N/A"}</div>
-                                                <div className="text-[9px] text-gray-500 uppercase mt-1">{cheque.centre}</div>
+                                                {cheque.zone && cheque.zone !== "N/A" && (
+                                                    <div className="text-[10px] font-black text-emerald-500 uppercase mt-1">{cheque.zone}</div>
+                                                )}
+                                                <div className="text-[9px] text-gray-500 uppercase mt-0.5">{cheque.centre}</div>
                                             </td>
                                             <td className={`font-black text-lg p-6 ${isDarkMode ? "text-white" : "text-gray-900"}`}>₹{cheque.amount.toLocaleString()}</td>
                                             <td className={`font-bold text-xs p-6 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
@@ -1618,37 +1938,42 @@ const ChequeManagement = () => {
                                     </button>
                                 </div>
 
-                                {/* Toolbar with Centre Filter, Search, and Export */}
-                                <div className={`p-4 md:px-8 border-b flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4 ${isDarkMode ? "border-gray-800 bg-black/20" : "border-gray-200 bg-gray-50"
+                                {/* Toolbar with Zone Filter, Centre Filter, Search, and Export */}
+                                <div className={`p-4 md:px-8 border-b flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-4 ${isDarkMode ? "border-gray-800 bg-black/20" : "border-gray-200 bg-gray-50"
                                     }`}>
                                     <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
-                                        {/* Centre Filter in Modal */}
-                                        <div className="relative min-w-[200px] sm:max-w-[240px]">
-                                            <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-xs">
-                                                <FaBuilding />
-                                            </div>
-                                            <select
-                                                value={modalCentreFilter}
-                                                onChange={(e) => {
-                                                    setModalCentreFilter(e.target.value);
+                                        {/* Zone Filter in Modal */}
+                                        <div className="min-w-[180px] sm:max-w-[220px]">
+                                            <Select
+                                                isMulti
+                                                options={zoneOptions}
+                                                value={modalZoneFilter.map(z => ({ value: z, label: z }))}
+                                                onChange={(selected) => {
+                                                    setModalZoneFilter(selected ? selected.map(s => s.value) : []);
                                                     setModalCurrentPage(1);
                                                 }}
-                                                className={`w-full pl-9 pr-8 py-2.5 text-xs font-bold uppercase rounded-xl border outline-none cursor-pointer focus:border-emerald-500/50 transition-all appearance-none ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-200" : "bg-white border-gray-300 text-gray-800"
-                                                    }`}
-                                            >
-                                                <option value="">ALL CENTRES ({modalData.items.length})</option>
-                                                {availableCentres.map(centre => {
-                                                    const cnt = modalData.items.filter(c => (c.centre || "").trim().toLowerCase() === centre.trim().toLowerCase()).length;
-                                                    return (
-                                                        <option key={centre} value={centre}>
-                                                            {centre} ({cnt})
-                                                        </option>
-                                                    );
-                                                })}
-                                            </select>
-                                            <div className="absolute right-3.5 top-1/2 -translate-y-1/2 text-gray-500 pointer-events-none text-[10px]">
-                                                ▼
-                                            </div>
+                                                styles={customSelectStyles}
+                                                placeholder="ALL ZONES"
+                                                menuPortalTarget={document.body}
+                                                menuPosition="fixed"
+                                            />
+                                        </div>
+
+                                        {/* Centre Filter in Modal */}
+                                        <div className="min-w-[180px] sm:max-w-[220px]">
+                                            <Select
+                                                isMulti
+                                                options={modalAvailableCentres.map(c => ({ value: c, label: c }))}
+                                                value={modalCentreFilter.map(c => ({ value: c, label: c }))}
+                                                onChange={(selected) => {
+                                                    setModalCentreFilter(selected ? selected.map(s => s.value) : []);
+                                                    setModalCurrentPage(1);
+                                                }}
+                                                styles={customSelectStyles}
+                                                placeholder="ALL CENTRES"
+                                                menuPortalTarget={document.body}
+                                                menuPosition="fixed"
+                                            />
                                         </div>
 
                                         {/* Search Input in Modal */}
@@ -1669,15 +1994,16 @@ const ChequeManagement = () => {
                                     </div>
 
                                     <div className="flex items-center gap-3 justify-end">
-                                        {modalCentreFilter && (
+                                        {(modalZoneFilter.length > 0 || modalCentreFilter.length > 0) && (
                                             <button
                                                 onClick={() => {
-                                                    setModalCentreFilter("");
+                                                    setModalZoneFilter([]);
+                                                    setModalCentreFilter([]);
                                                     setModalCurrentPage(1);
                                                 }}
                                                 className="text-[10px] font-bold uppercase tracking-wider text-rose-400 hover:text-rose-300 px-2 py-1"
                                             >
-                                                Clear Centre
+                                                Reset Filters
                                             </button>
                                         )}
                                         <button
@@ -1698,7 +2024,7 @@ const ChequeManagement = () => {
                                                     }`}>
                                                     <th className="p-4 whitespace-nowrap min-w-[120px]">Cheque Info</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[160px]">Student Details</th>
-                                                    <th className="p-4 whitespace-nowrap min-w-[160px]">Centre & Course</th>
+                                                    <th className="p-4 whitespace-nowrap min-w-[160px]">Zone, Centre & Course</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[140px]">Bank Name</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[100px]">Amount</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[120px]">Receiving Date</th>
@@ -1728,7 +2054,10 @@ const ChequeManagement = () => {
                                                                 <div className="text-[10px] text-emerald-500/70 font-bold uppercase">{cheque.admissionNumber || "—"}</div>
                                                             </td>
                                                             <td className="p-4">
-                                                                <div className="font-bold text-gray-400 uppercase text-[11px]">{cheque.centre || "—"}</div>
+                                                                {cheque.zone && cheque.zone !== "N/A" && (
+                                                                    <div className="text-[10px] font-black text-emerald-400 uppercase tracking-tight">{cheque.zone}</div>
+                                                                )}
+                                                                <div className="font-bold text-gray-300 uppercase text-[11px] mt-0.5">{cheque.centre || "—"}</div>
                                                                 <div className="text-[10px] text-gray-500 uppercase">{cheque.courseName || "—"}</div>
                                                             </td>
                                                             <td className="p-4 font-bold uppercase text-gray-400">

@@ -1,6 +1,8 @@
+import mongoose from "mongoose";
 import Payment from "../../models/Payment/Payment.js";
 import Admission from "../../models/Admission/Admission.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
+import Zone from "../../models/Zone.js";
 import User from "../../models/User.js";
 import Student from "../../models/Students.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
@@ -109,7 +111,7 @@ const populateAdmissions = async (cheques) => {
 // Get all pending cheques
 export const getPendingCheques = async (req, res) => {
     try {
-        const { centre, course, department, search, status, startDate, endDate, chequeStartDate, chequeEndDate } = req.query;
+        const { zone, zoneIds, centre, course, department, search, status, startDate, endDate, chequeStartDate, chequeEndDate } = req.query;
 
         // Build query for retrieving payments
         const query = {
@@ -187,8 +189,43 @@ export const getPendingCheques = async (req, res) => {
             });
         }
 
+        // Resolve Zone filter (by IDs or Zone names)
+        let zoneCentreNames = null;
+        const rawZones = zone || zoneIds;
+        const requestedZones = rawZones
+            ? (Array.isArray(rawZones) ? rawZones : typeof rawZones === 'string' ? rawZones.split(',') : [rawZones])
+                .map(z => String(z).trim())
+                .filter(Boolean)
+            : [];
+
+        if (requestedZones.length > 0) {
+            const validObjectIds = requestedZones.filter(z => mongoose.Types.ObjectId.isValid(z));
+            const zoneNames = requestedZones.filter(z => !mongoose.Types.ObjectId.isValid(z));
+
+            const orConditions = [];
+            if (validObjectIds.length > 0) {
+                orConditions.push({ _id: { $in: validObjectIds } });
+            }
+            if (zoneNames.length > 0) {
+                orConditions.push({
+                    name: { $in: zoneNames.map(n => new RegExp(`^${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) }
+                });
+            }
+
+            if (orConditions.length > 0) {
+                const zoneDocs = await Zone.find({ $or: orConditions }).populate('centres', 'centreName').lean();
+                zoneCentreNames = new Set();
+                zoneDocs.forEach(z => {
+                    (z.centres || []).forEach(c => {
+                        const name = typeof c === 'object' ? c.centreName : null;
+                        if (name) zoneCentreNames.add(name.trim().toLowerCase());
+                    });
+                });
+            }
+        }
+
         // Filter results based on query params (since some data is in populated fields)
-        if (centre || course || department || search) {
+        if (zoneCentreNames !== null || centre || course || department || search) {
             const requestedCentres = centre ? (Array.isArray(centre) ? centre : [centre]) : [];
             const requestedCourses = course ? (Array.isArray(course) ? course : [course]) : [];
             const requestedDepts = department ? (Array.isArray(department) ? department : [department]) : [];
@@ -198,9 +235,14 @@ export const getPendingCheques = async (req, res) => {
                 const adm = c.admission;
                 if (!adm) return false;
 
+                const admCentre = (adm.centre || "").trim().toLowerCase();
+
+                if (zoneCentreNames !== null && !zoneCentreNames.has(admCentre)) {
+                    return false;
+                }
+
                 let matchesCentre = true;
                 if (normalizedRequestedCentres.length > 0) {
-                    const admCentre = (adm.centre || "").trim().toLowerCase();
                     matchesCentre = normalizedRequestedCentres.includes(admCentre);
                 }
 
@@ -229,6 +271,18 @@ export const getPendingCheques = async (req, res) => {
             });
         }
 
+        // Preload active zones to enrich each cheque with its zone name
+        const allActiveZones = await Zone.find({ isActive: { $ne: false } }).populate('centres', 'centreName').lean();
+        const centreToZoneMap = {};
+        allActiveZones.forEach(z => {
+            (z.centres || []).forEach(c => {
+                const cName = typeof c === 'object' ? c.centreName : null;
+                if (cName) {
+                    centreToZoneMap[cName.trim().toLowerCase()] = z.name;
+                }
+            });
+        });
+
         const formattedCheques = await Promise.all(cheques.map(async (c) => {
             const adm = c.admission;
             const isBoard = c.isBoardAdmission;
@@ -245,6 +299,9 @@ export const getPendingCheques = async (req, res) => {
                 }
             }
 
+            const rawCentre = adm?.centre || "";
+            const resolvedZone = centreToZoneMap[rawCentre.trim().toLowerCase()] || "N/A";
+
             return {
                 paymentId: c._id,
                 admissionId: adm?._id,
@@ -252,7 +309,8 @@ export const getPendingCheques = async (req, res) => {
                 studentName: isBoard
                     ? adm?.studentName
                     : adm?.student?.studentsDetails?.[0]?.studentName,
-                centre: adm?.centre,
+                centre: rawCentre,
+                zone: resolvedZone,
                 department: isBoard ? "Board" : adm?.department?.departmentName,
                 courseName: isBoard ? adm?.boardCourseName : adm?.course?.courseName,
                 installmentNumber: c.installmentNumber,

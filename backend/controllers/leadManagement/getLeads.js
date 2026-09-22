@@ -263,7 +263,7 @@ export const getLeads = async (req, res) => {
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
-            .populate('board', 'boardCourse')
+            .populate('board', 'boardName boardCourse')
             .populate('campaign', 'adName')
             .populate('createdBy', 'name')
             .sort(sortOption)

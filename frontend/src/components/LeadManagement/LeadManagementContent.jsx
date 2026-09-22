@@ -793,7 +793,8 @@ const LeadManagementContent = () => {
             schoolName: [],
             showDuplicates: "",
             zone: [],
-            uploadedBy: []
+            uploadedBy: [],
+            campaign: []
         });
         setDatePreset("");
         setShowCustomDates(false);
@@ -1025,12 +1026,20 @@ const LeadManagementContent = () => {
 
     const handleExport = async () => {
         try {
-            // console.log("Export Filters:", filters);
             const token = localStorage.getItem("token");
             const params = new URLSearchParams();
             if (searchTerm) params.append("search", searchTerm);
             if (dashboardFilters.fromDate) params.append("followUpFromDate", dashboardFilters.fromDate);
             if (dashboardFilters.toDate) params.append("followUpToDate", dashboardFilters.toDate);
+            if (sortField) {
+                params.append("sortBy", sortField);
+                params.append("sortOrder", sortDirection);
+            }
+
+            // If user explicitly selected checkboxes and not in 'all filtered' mode, export only selected
+            if (selectedLeads.length > 0 && !isAllFilteredSelected) {
+                params.append("selectedLeadIds", selectedLeads.join(","));
+            }
 
             Object.entries(filters).forEach(([key, value]) => {
                 if (Array.isArray(value)) {
@@ -1045,6 +1054,7 @@ const LeadManagementContent = () => {
                 }
             });
 
+            toast.info("Preparing Excel export...", { autoClose: 1500 });
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/export/excel?${params.toString()}`, {
                 headers: {
                     Authorization: `Bearer ${token}`,
@@ -1053,7 +1063,11 @@ const LeadManagementContent = () => {
 
             if (response.ok) {
                 const blob = await response.blob();
-                saveAs(blob, "Leads_Export.xlsx");
+                const exportName = selectedLeads.length > 0 && !isAllFilteredSelected
+                    ? `Leads_Selected_${selectedLeads.length}_${formatLocalDate()}.xlsx`
+                    : `Leads_Export_${formatLocalDate()}.xlsx`;
+                saveAs(blob, exportName);
+                toast.success("Excel exported successfully!");
             } else {
                 const error = await response.json();
                 toast.error(error.message || "Failed to export leads");
@@ -1211,9 +1225,10 @@ const LeadManagementContent = () => {
                         {canExport && (
                             <button
                                 onClick={handleExport}
+                                title={selectedLeads.length > 0 && !isAllFilteredSelected ? `Export ${selectedLeads.length} selected leads to Excel` : `Export all ${totalLeads} matching leads to Excel`}
                                 className="px-6 py-3 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-[2px] border border-emerald-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
                             >
-                                <FaDownload /> Export Excel
+                                <FaDownload /> {selectedLeads.length > 0 && !isAllFilteredSelected ? `Export Selected (${selectedLeads.length})` : `Export Excel (${totalLeads})`}
                             </button>
                         )}
                         {/* {user && hasPermission(user, 'leadManagement', 'dashboard', 'view') && (

@@ -269,31 +269,60 @@ export const buildLeadQuery = async (queryParams, user) => {
 
     // Feedback filter
     if (feedback && (!Array.isArray(feedback) || feedback.length > 0)) {
-        const feedbackArray = Array.isArray(feedback) ? normalizeValue(feedback) : [normalizeValue(feedback)];
-        const normalizedFeedbacks = feedbackArray.filter(f => f);
-        if (normalizedFeedbacks.length > 0) {
-            query.followUps = {
-                $elemMatch: { feedback: { $in: normalizedFeedbacks } }
-            };
+        const rawFeedback = Array.isArray(feedback) ? feedback : [feedback];
+        const flatFeedback = rawFeedback.flatMap(f => Array.isArray(f) ? f : [f]).filter(Boolean);
+        const cleanFeedback = flatFeedback.map(f => (f && typeof f === 'object' && 'value' in f) ? f.value : f).filter(Boolean);
+
+        if (cleanFeedback.length > 0) {
+            const hasNotContacted = cleanFeedback.some(f => /not\s*contacted/i.test(String(f)));
+            const textFeedbacks = cleanFeedback.filter(f => !/not\s*contacted/i.test(String(f)));
+
+            const feedbackOr = [];
+            if (textFeedbacks.length > 0) {
+                const regexes = textFeedbacks.map(f => new RegExp(`^${escapeRegex(String(f).trim())}$`, "i"));
+                feedbackOr.push({ followUps: { $elemMatch: { feedback: { $in: regexes } } } });
+            }
+            if (hasNotContacted) {
+                feedbackOr.push({
+                    $or: [
+                        { followUps: { $size: 0 } },
+                        { followUps: { $exists: false } }
+                    ]
+                });
+            }
+
+            if (feedbackOr.length > 0) {
+                query.$and = query.$and || [];
+                query.$and.push({ $or: feedbackOr });
+            }
         }
     }
 
-
-
-    // Date range filter (Created At)
+    // Date range filter (matches assignedAt or createdAt to align with table's Assigned At column)
     if (fromDate || toDate) {
         const start = parseFlexibleDate(fromDate);
         const end = parseFlexibleDate(toDate);
         if (start || end) {
-            query.createdAt = {};
+            const createCond = {};
+            const assignCond = {};
             if (start) {
                 start.setHours(0, 0, 0, 0);
-                query.createdAt.$gte = start;
+                createCond.$gte = start;
+                assignCond.$gte = start;
             }
             if (end) {
                 end.setHours(23, 59, 59, 999);
-                query.createdAt.$lte = end;
+                createCond.$lte = end;
+                assignCond.$lte = end;
             }
+
+            query.$and = query.$and || [];
+            query.$and.push({
+                $or: [
+                    { assignedAt: assignCond },
+                    { createdAt: createCond }
+                ]
+            });
         }
     }
 
@@ -325,39 +354,109 @@ export const buildLeadQuery = async (queryParams, user) => {
         }
     }
 
-    // Multi-select fields
+    // Multi-select fields: leadType
     if (leadType && (!Array.isArray(leadType) || leadType.length > 0)) {
-        const values = Array.isArray(leadType) ? normalizeValue(leadType) : [normalizeValue(leadType)];
-        query.leadType = { $in: values };
+        const rawTypes = Array.isArray(leadType) ? leadType : [leadType];
+        const flatTypes = rawTypes.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
+        const cleanTypes = flatTypes.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
+        if (cleanTypes.length > 0) {
+            query.leadType = { $in: cleanTypes.map(v => new RegExp(`^${escapeRegex(String(v).trim())}$`, "i")) };
+        }
     }
+
+    // source
     if (source && (!Array.isArray(source) || source.length > 0)) {
-        const values = Array.isArray(source) ? normalizeValue(source) : [normalizeValue(source)];
-        query.source = { $in: values };
+        const rawSources = Array.isArray(source) ? source : [source];
+        const flatSources = rawSources.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
+        const cleanSources = flatSources.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
+        if (cleanSources.length > 0) {
+            query.source = { $in: cleanSources.map(v => new RegExp(`^${escapeRegex(String(v).trim())}$`, "i")) };
+        }
     }
+
+    // course (matches both course ObjectId and courseText string)
     if (course && (!Array.isArray(course) || course.length > 0)) {
-        const values = Array.isArray(course) ? normalizeValue(course) : [normalizeValue(course)];
-        query.course = { $in: values };
+        const rawCourses = Array.isArray(course) ? course : [course];
+        const flatCourses = rawCourses.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
+        const normalizedCourses = flatCourses.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
+
+        if (normalizedCourses.length > 0) {
+            const courseObjectIds = [];
+            const courseTextNames = [];
+
+            for (const val of normalizedCourses) {
+                const strVal = String(val).trim();
+                if (mongoose.Types.ObjectId.isValid(strVal)) {
+                    courseObjectIds.push(new mongoose.Types.ObjectId(strVal));
+                } else {
+                    courseTextNames.push(strVal);
+                }
+            }
+
+            if (courseObjectIds.length > 0) {
+                try {
+                    const CourseModel = mongoose.model("Course");
+                    const foundCourses = await CourseModel.find({ _id: { $in: courseObjectIds } }).select("courseName");
+                    foundCourses.forEach(c => {
+                        if (c.courseName) courseTextNames.push(c.courseName.trim());
+                    });
+                } catch (e) {
+                    console.error("Error fetching course names for filter:", e);
+                }
+            }
+
+            const courseOrConditions = [];
+            if (courseObjectIds.length > 0) {
+                courseOrConditions.push({ course: { $in: courseObjectIds } });
+            }
+            if (courseTextNames.length > 0) {
+                const textRegexes = courseTextNames.map(name => new RegExp(`^${escapeRegex(name)}$`, "i"));
+                courseOrConditions.push({ courseText: { $in: textRegexes } });
+            }
+
+            if (courseOrConditions.length > 0) {
+                query.$and = query.$and || [];
+                query.$and.push({ $or: courseOrConditions });
+            }
+        }
     }
+
+    // board
     if (board && (!Array.isArray(board) || board.length > 0)) {
-        const values = Array.isArray(board) ? normalizeValue(board) : [normalizeValue(board)];
-        query.board = { $in: values };
+        const rawBoards = Array.isArray(board) ? board : [board];
+        const flatBoards = rawBoards.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
+        const cleanBoards = flatBoards.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
+        const boardObjectIds = cleanBoards.filter(v => mongoose.Types.ObjectId.isValid(v)).map(v => new mongoose.Types.ObjectId(v));
+        if (boardObjectIds.length > 0) {
+            query.board = { $in: boardObjectIds };
+        }
     }
+
+    // className
     if (className && (!Array.isArray(className) || className.length > 0)) {
-        const values = Array.isArray(className) ? normalizeValue(className) : [normalizeValue(className)];
-        query.className = { $in: values };
+        const rawClasses = Array.isArray(className) ? className : [className];
+        const flatClasses = rawClasses.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
+        const cleanClasses = flatClasses.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
+        const classObjectIds = cleanClasses.filter(v => mongoose.Types.ObjectId.isValid(v)).map(v => new mongoose.Types.ObjectId(v));
+        if (classObjectIds.length > 0) {
+            query.className = { $in: classObjectIds };
+        }
     }
+
+    // zone
     let zoneQueryCentres = [];
     if (zone && (!Array.isArray(zone) || zone.length > 0)) {
-        const zoneValues = Array.isArray(zone) ? normalizeValue(zone) : [normalizeValue(zone)];
-        const normalizedZones = zoneValues.filter(z => z);
-        
+        const rawZones = Array.isArray(zone) ? zone : [zone];
+        const flatZones = rawZones.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
+        const normalizedZones = flatZones.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
+
         if (normalizedZones.length > 0) {
             try {
                 const Zone = mongoose.model("Zone");
                 const zoneDocs = await Zone.find({
-                    _id: { $in: normalizedZones }
+                    _id: { $in: normalizedZones.filter(z => mongoose.Types.ObjectId.isValid(z)).map(z => new mongoose.Types.ObjectId(z)) }
                 }).select("centres");
-                
+
                 const taggedCentreIds = zoneDocs.flatMap(z => z.centres || []);
                 if (taggedCentreIds.length > 0) {
                     zoneQueryCentres = taggedCentreIds;
@@ -370,10 +469,15 @@ export const buildLeadQuery = async (queryParams, user) => {
         }
     }
 
+    // centre
     let centreFilterIds = [];
     if (centre && (!Array.isArray(centre) || centre.length > 0)) {
-        const raw = Array.isArray(centre) ? centre : (typeof centre === 'string' && centre.includes(',') ? centre.split(',') : [centre]);
-        centreFilterIds = raw.map(c => normalizeValue(c)).filter(Boolean);
+        const rawCentres = Array.isArray(centre) ? centre : (typeof centre === 'string' && centre.includes(',') ? centre.split(',') : [centre]);
+        const flatCentres = rawCentres.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
+        centreFilterIds = flatCentres
+            .map(c => (c && typeof c === 'object' && 'value' in c) ? c.value : c)
+            .filter(c => c && mongoose.Types.ObjectId.isValid(c))
+            .map(c => new mongoose.Types.ObjectId(c));
     }
 
     if (zoneQueryCentres.length > 0) {
@@ -391,32 +495,83 @@ export const buildLeadQuery = async (queryParams, user) => {
     } else if (centreFilterIds.length > 0) {
         query.centre = { $in: centreFilterIds };
     }
+
+    // marketingBy
     if (queryParams.marketingBy && (!Array.isArray(queryParams.marketingBy) || queryParams.marketingBy.length > 0)) {
-        const values = Array.isArray(queryParams.marketingBy) ? normalizeValue(queryParams.marketingBy) : [normalizeValue(queryParams.marketingBy)];
-        query.marketingBy = { $in: values };
-    }
-    if (uploadedBy && (!Array.isArray(uploadedBy) || uploadedBy.length > 0)) {
-        const values = Array.isArray(uploadedBy) ? normalizeValue(uploadedBy) : [normalizeValue(uploadedBy)];
-        const cleanValues = values.filter(v => v);
+        const raw = Array.isArray(queryParams.marketingBy) ? queryParams.marketingBy : [queryParams.marketingBy];
+        const flat = raw.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
+        const cleanValues = flat.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
         if (cleanValues.length > 0) {
-            query.createdBy = { $in: cleanValues };
+            query.marketingBy = { $in: cleanValues.map(v => new RegExp(`^${escapeRegex(String(v).trim())}$`, "i")) };
         }
     }
-    if (schoolName && (!Array.isArray(schoolName) || schoolName.length > 0)) {
-        const values = Array.isArray(schoolName) ? normalizeValue(schoolName) : [normalizeValue(schoolName)];
-        query.schoolName = { $in: values };
+
+    // uploadedBy
+    if (uploadedBy && (!Array.isArray(uploadedBy) || uploadedBy.length > 0)) {
+        const raw = Array.isArray(uploadedBy) ? uploadedBy : [uploadedBy];
+        const flat = raw.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
+        const cleanValues = flat.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
+        const validIds = cleanValues.filter(v => mongoose.Types.ObjectId.isValid(v)).map(v => new mongoose.Types.ObjectId(v));
+        if (validIds.length > 0) {
+            query.createdBy = { $in: validIds };
+        }
     }
-    if (queryParams.campaign && (!Array.isArray(queryParams.campaign) || queryParams.campaign.length > 0)) {
-        const values = Array.isArray(queryParams.campaign) ? normalizeValue(queryParams.campaign) : [normalizeValue(queryParams.campaign)];
-        const cleanValues = values.filter(v => v);
+
+    // schoolName
+    if (schoolName && (!Array.isArray(schoolName) || schoolName.length > 0)) {
+        const raw = Array.isArray(schoolName) ? schoolName : [schoolName];
+        const flat = raw.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
+        const cleanValues = flat.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
         if (cleanValues.length > 0) {
-            query.$and = query.$and || [];
-            query.$and.push({
-                $or: [
-                    { campaign: { $in: cleanValues } },
-                    { campaignFrom: { $in: cleanValues } }
-                ]
-            });
+            query.schoolName = { $in: cleanValues.map(v => new RegExp(`^${escapeRegex(String(v).trim())}$`, "i")) };
+        }
+    }
+
+    // campaign (matches both campaign ObjectId and campaignFrom string)
+    if (queryParams.campaign && (!Array.isArray(queryParams.campaign) || queryParams.campaign.length > 0)) {
+        const rawCampaigns = Array.isArray(queryParams.campaign) ? queryParams.campaign : [queryParams.campaign];
+        const flatCampaigns = rawCampaigns.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
+        const normalizedCampaigns = flatCampaigns.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
+
+        if (normalizedCampaigns.length > 0) {
+            const campaignObjectIds = [];
+            const campaignNames = [];
+
+            for (const cVal of normalizedCampaigns) {
+                const strVal = String(cVal).trim();
+                if (mongoose.Types.ObjectId.isValid(strVal)) {
+                    campaignObjectIds.push(new mongoose.Types.ObjectId(strVal));
+                } else {
+                    campaignNames.push(strVal);
+                }
+            }
+
+            if (campaignObjectIds.length > 0) {
+                try {
+                    const CampaignModel = mongoose.model("Campaign");
+                    const foundCampaigns = await CampaignModel.find({ _id: { $in: campaignObjectIds } }).select("adName name");
+                    foundCampaigns.forEach(c => {
+                        if (c.adName) campaignNames.push(c.adName.trim());
+                        if (c.name) campaignNames.push(c.name.trim());
+                    });
+                } catch (e) {
+                    console.error("Error resolving campaign names:", e);
+                }
+            }
+
+            const campaignOrConditions = [];
+            if (campaignObjectIds.length > 0) {
+                campaignOrConditions.push({ campaign: { $in: campaignObjectIds } });
+            }
+            if (campaignNames.length > 0) {
+                const nameRegexes = campaignNames.map(cn => new RegExp(`^${escapeRegex(cn)}$`, "i"));
+                campaignOrConditions.push({ campaignFrom: { $in: nameRegexes } });
+            }
+
+            if (campaignOrConditions.length > 0) {
+                query.$and = query.$and || [];
+                query.$and.push({ $or: campaignOrConditions });
+            }
         }
     }
 
@@ -462,29 +617,44 @@ export const buildLeadQuery = async (queryParams, user) => {
         }
     }
 
-    // Follow-up status
-    const statusVal = Array.isArray(followUpStatus) ? followUpStatus[0] : (followUpStatus && typeof followUpStatus === 'object' && 'value' in followUpStatus ? followUpStatus.value : followUpStatus);
-    if (statusVal === 'contacted') {
-        query.$and = query.$and || [];
-        query.$and.push({ followUps: { $exists: true, $not: { $size: 0 } } });
-    } else if (statusVal === 'remaining') {
-        query.$and = query.$and || [];
-        query.$and.push({ followUps: { $size: 0 } });
-    } else if (statusVal === 'walkin') {
-        query.$and = query.$and || [];
-        query.$and.push({
-            $or: [
-                { isWalkIn: true },
-                { source: { $regex: /^walk[- ]?in$/i } }
-            ]
-        });
+    // Follow-up status (supports multi-selection of contacted, remaining, walkin)
+    if (followUpStatus && (!Array.isArray(followUpStatus) || followUpStatus.length > 0)) {
+        const rawStatus = Array.isArray(followUpStatus) ? followUpStatus : [followUpStatus];
+        const flatStatus = rawStatus.flatMap(s => Array.isArray(s) ? s : [s]).filter(Boolean);
+        const statusVals = flatStatus.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
+
+        const statusOr = [];
+        if (statusVals.includes('contacted')) {
+            statusOr.push({ followUps: { $exists: true, $not: { $size: 0 } } });
+        }
+        if (statusVals.includes('remaining')) {
+            statusOr.push({
+                $or: [
+                    { followUps: { $size: 0 } },
+                    { followUps: { $exists: false } }
+                ]
+            });
+        }
+        if (statusVals.includes('walkin')) {
+            statusOr.push({
+                $or: [
+                    { isWalkIn: true },
+                    { source: { $regex: /^walk[- ]?in$/i } }
+                ]
+            });
+        }
+
+        if (statusOr.length > 0) {
+            query.$and = query.$and || [];
+            query.$and.push({ $or: statusOr });
+        }
     }
 
     // Exclude counseled leads
     query.isCounseled = { $ne: true };
 
     // Access Control Logic
-    const userRole = (user.role || "").toLowerCase().replace(/\s+/g, "");
+    const userRole = (user?.role || "").toLowerCase().replace(/\s+/g, "");
     const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hr', 'class_coordinator', 'coordinator', 'rm', 'hod', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'];
     const isPrivileged = privilegedRoles.includes(userRole);
     const isSuperAdmin = ['superadmin', 'super admin', 'digital'].includes(userRole);
@@ -494,7 +664,7 @@ export const buildLeadQuery = async (queryParams, user) => {
         if (!userDoc) throw new Error("User not found during query building");
 
         const userCentreIds = userDoc.centres || [];
-        const escapedName = userDoc.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const escapedName = escapeRegex(userDoc.name);
 
         // Check if there are other active users with the same name
         const duplicateUsers = await User.find({
@@ -549,7 +719,7 @@ export const buildLeadQuery = async (queryParams, user) => {
                 const restrictedIn = currentIn.filter(id => 
                     allUserCentreIn.some(allowedId => allowedId.toString() === id.toString())
                 );
-                query.centre = { $in: restrictedIn.length > 0 ? restrictedIn : allUserCentreIn };
+                query.centre = { $in: restrictedIn.length > 0 ? restrictedIn : [new mongoose.Types.ObjectId()] };
             } else if (!hasAgentFilter) {
                 query.centre = { $in: allUserCentreIn };
             }
@@ -557,12 +727,15 @@ export const buildLeadQuery = async (queryParams, user) => {
     }
 
     // Search logic
-    if (search) {
+    if (search && String(search).trim()) {
+        const escapedSearch = escapeRegex(String(search).trim());
         const searchOr = [
-            { name: { $regex: search, $options: "i" } },
-            { email: { $regex: search, $options: "i" } },
-            { phoneNumber: { $regex: search, $options: "i" } },
-            { schoolName: { $regex: search, $options: "i" } },
+            { name: { $regex: escapedSearch, $options: "i" } },
+            { email: { $regex: escapedSearch, $options: "i" } },
+            { phoneNumber: { $regex: escapedSearch, $options: "i" } },
+            { secondPhoneNumber: { $regex: escapedSearch, $options: "i" } },
+            { schoolName: { $regex: escapedSearch, $options: "i" } },
+            { leadResponsibility: { $regex: escapedSearch, $options: "i" } }
         ];
 
         if (query.$and) {

@@ -736,6 +736,10 @@ const BoardAdmissionsContent = () => {
             const admissionNo = (admission.admissionNumber || "").toLowerCase();
             const studentRollNo = (studentDetails.rollNo || admission.studentId?.rollNo || studentDetails.admissionNumber || "").toLowerCase();
             const mobile = (studentDetails.mobileNum || admission.mobileNum || "").toLowerCase();
+            const whatsapp = (studentDetails.whatsappNumber || admission.studentId?.whatsappNumber || "").toLowerCase();
+            const allDetails = admission.studentId?.studentsDetails || [];
+            const allMobiles = allDetails.map(d => (d.mobileNum || "").toLowerCase());
+            const allWhatsapps = allDetails.map(d => (d.whatsappNumber || "").toLowerCase());
             const courseName = (admission.boardCourseName || "").toLowerCase();
 
             const matchesSearch = !searchQuery ||
@@ -743,6 +747,9 @@ const BoardAdmissionsContent = () => {
                 admissionNo.includes(searchLower) ||
                 studentRollNo.includes(searchLower) ||
                 mobile.includes(searchLower) ||
+                whatsapp.includes(searchLower) ||
+                allMobiles.some(m => m.includes(searchLower)) ||
+                allWhatsapps.some(w => w.includes(searchLower)) ||
                 courseName.includes(searchLower);
 
             // Centre Filter
@@ -1161,6 +1168,10 @@ const BoardAdmissionsContent = () => {
 
             const studentName = details.studentName || "";
             const mobile = details.mobileNum || "";
+            const whatsapp = details.whatsappNumber || student.whatsappNumber || "";
+            const allDetails = student.studentsDetails || [];
+            const allMobiles = allDetails.map(d => d.mobileNum).filter(Boolean);
+            const allWhatsapps = allDetails.map(d => d.whatsappNumber).filter(Boolean);
             const email = details.studentEmail || "";
             const centre = details.centre || "";
             const school = details.schoolName || "";
@@ -1169,6 +1180,9 @@ const BoardAdmissionsContent = () => {
             const matchesSearch = queries.length === 0 || queries.some(query =>
                 studentName.toLowerCase().includes(query) ||
                 mobile.includes(query) ||
+                whatsapp.includes(query) ||
+                allMobiles.some(m => m.includes(query)) ||
+                allWhatsapps.some(w => w.includes(query)) ||
                 email.toLowerCase().includes(query) ||
                 centre.toLowerCase().includes(query) ||
                 school.toLowerCase().includes(query) ||
@@ -1211,12 +1225,19 @@ const BoardAdmissionsContent = () => {
                 const details = ba.studentId?.studentsDetails?.[0] || {};
                 const studentName = ba.studentName || details.studentName || "";
                 const mobile = ba.mobileNum || details.mobileNum || "";
+                const whatsapp = details.whatsappNumber || ba.studentId?.whatsappNumber || "";
+                const allDetails = ba.studentId?.studentsDetails || [];
+                const allMobiles = allDetails.map(d => d.mobileNum).filter(Boolean);
+                const allWhatsapps = allDetails.map(d => d.whatsappNumber).filter(Boolean);
                 const boardName = ba.boardId?.boardCourse || "";
 
                 const queries = searchQuery.toLowerCase().split(',').map(q => q.trim()).filter(Boolean);
                 const matchesSearch = queries.length === 0 || queries.some(query =>
                     studentName.toLowerCase().includes(query) ||
                     mobile.includes(query) ||
+                    whatsapp.includes(query) ||
+                    allMobiles.some(m => m.includes(query)) ||
+                    allWhatsapps.some(w => w.includes(query)) ||
                     boardName.toLowerCase().includes(query)
                 );
 
@@ -1230,12 +1251,19 @@ const BoardAdmissionsContent = () => {
                 const details = cs.studentId?.studentsDetails?.[0] || {};
                 const studentName = cs.studentName || details.studentName || "";
                 const mobile = cs.mobileNum || details.mobileNum || "";
+                const whatsapp = details.whatsappNumber || cs.studentId?.whatsappNumber || cs.whatsappNumber || "";
+                const allDetails = cs.studentId?.studentsDetails || [];
+                const allMobiles = allDetails.map(d => d.mobileNum).filter(Boolean);
+                const allWhatsapps = allDetails.map(d => d.whatsappNumber).filter(Boolean);
                 const boardName = cs.boardId?.boardCourse || "";
 
                 const queries = searchQuery.toLowerCase().split(',').map(q => q.trim()).filter(Boolean);
                 const matchesSearch = queries.length === 0 || queries.some(query =>
                     studentName.toLowerCase().includes(query) ||
                     mobile.includes(query) ||
+                    whatsapp.includes(query) ||
+                    allMobiles.some(m => m.includes(query)) ||
+                    allWhatsapps.some(w => w.includes(query)) ||
                     boardName.toLowerCase().includes(query)
                 );
 
@@ -1741,7 +1769,7 @@ const BoardAdmissionsContent = () => {
                             <FaSearch className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500" />
                             <input
                                 type="text"
-                                placeholder={activeTab === "Potential" ? "SEARCH BOARD STUDENTS..." : activeTab === "Deactivated" ? "SEARCH DEACTIVATED BOARD..." : "SEARCH ENROLLED BOARD..."}
+                                placeholder={activeTab === "Potential" ? "SEARCH BOARD STUDENTS (NAME, MOBILE, WHATSAPP...)" : activeTab === "Deactivated" ? "SEARCH DEACTIVATED BOARD (NAME, MOBILE, WHATSAPP...)" : "SEARCH ENROLLED BOARD (NAME, MOBILE, WHATSAPP...)"}
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className={`w-full pl-11 sm:pl-12 pr-4 py-2.5 sm:py-3 rounded-[4px] border text-[10px] font-black tracking-widest uppercase outline-none min-w-0 ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
@@ -2103,6 +2131,11 @@ const BoardAdmissionsContent = () => {
                                                 <td className="p-4"><span className={`text-[11px] font-bold uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'}`}>{details.schoolName || item.schoolName || student?.schoolName || "N/A"}</span></td>
                                                 <td className="p-4 whitespace-nowrap">
                                                     <span className={`text-[11px] font-black tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-700'}`}>{item.mobileNum || details.mobileNum || "N/A"}</span>
+                                                    {(details.whatsappNumber || item.studentId?.whatsappNumber) && (details.whatsappNumber || item.studentId?.whatsappNumber) !== (item.mobileNum || details.mobileNum) && (
+                                                        <div className={`text-[9px] font-bold tracking-wider ${isDarkMode ? 'text-emerald-400/80' : 'text-emerald-600'}`}>
+                                                            WA: {details.whatsappNumber || item.studentId?.whatsappNumber}
+                                                        </div>
+                                                    )}
                                                     {(item.nextFollowUpDate || item.latestServiceCall?.nextFollowUpDate || item.studentId?.nextFollowUpDate) && (
                                                         <div className="mt-1">
                                                             <span className={`px-2 py-0.5 rounded-[3px] text-[8px] font-black tracking-wider uppercase border inline-flex items-center gap-1 ${isDarkMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>

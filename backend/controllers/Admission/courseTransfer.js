@@ -71,9 +71,13 @@ export const searchAdmission = async (req, res) => {
             };
         });
 
-        // 3. Search by Student Name
+        // 3. Search by Student Name / Mobile / WhatsApp
         const students = await Student.find({
-            "studentsDetails.0.studentName": { $regex: query, $options: "i" }
+            $or: [
+                { "studentsDetails.studentName": { $regex: query, $options: "i" } },
+                { "studentsDetails.mobileNum": { $regex: query, $options: "i" } },
+                { "studentsDetails.whatsappNumber": { $regex: query, $options: "i" } }
+            ]
         });
 
         const studentIds = students.map(s => s._id);
@@ -90,7 +94,8 @@ export const searchAdmission = async (req, res) => {
         const boardByStudentName = await BoardCourseAdmission.find({
             $or: [
                 { studentId: { $in: studentIds } },
-                { studentName: { $regex: query, $options: "i" } }
+                { studentName: { $regex: query, $options: "i" } },
+                { mobileNum: { $regex: query, $options: "i" } }
             ]
         })
             .populate("studentId")

@@ -978,9 +978,15 @@ const EnrolledStudentsContent = () => {
             result = result.filter(item => {
                 const student = item.student?.studentsDetails?.[0] || {};
                 const studentName = (student.studentName || "").toLowerCase();
-                const mobile = student.mobileNum || "";
+                const mobile = (student.mobileNum || "").toLowerCase();
+                const whatsapp = (student.whatsappNumber || "").toLowerCase();
                 const email = (student.studentEmail || "").toLowerCase();
                 const studentRollNo = (student.rollNo || item.student?.rollNo || student.admissionNumber || item.student?.admissionNumber || "").toLowerCase();
+
+                // Check all elements in studentsDetails array
+                const allDetails = item.student?.studentsDetails || [];
+                const allMobiles = allDetails.map(d => (d.mobileNum || "").toLowerCase());
+                const allWhatsapps = allDetails.map(d => (d.whatsappNumber || "").toLowerCase());
 
                 // Check if any of the comma-separated terms match
                 return queries.some(query => {
@@ -989,13 +995,18 @@ const EnrolledStudentsContent = () => {
                         const admissionNumber = (admission.admissionNumber || "").toLowerCase();
                         const courseName = resolveCourseName(admission).toLowerCase();
                         const centre = (admission.centre || student.centre || "").toLowerCase();
+                        const admMobile = (admission.mobileNum || "").toLowerCase();
                         return admissionNumber.includes(query) ||
                             courseName.includes(query) ||
-                            centre.includes(query);
+                            centre.includes(query) ||
+                            admMobile.includes(query);
                     });
 
                     return studentName.includes(query) ||
                         mobile.includes(query) ||
+                        whatsapp.includes(query) ||
+                        allMobiles.some(m => m.includes(query)) ||
+                        allWhatsapps.some(w => w.includes(query)) ||
                         email.includes(query) ||
                         studentRollNo.includes(query) ||
                         admissionMatch;
@@ -2302,7 +2313,7 @@ const EnrolledStudentsContent = () => {
                         <FaSearch className={`absolute left-4 top-1/2 transform -translate-y-1/2 transition-colors ${isDarkMode ? 'text-gray-600 group-focus-within:text-cyan-400' : 'text-gray-400 group-focus-within:text-gray-900'}`} />
                         <input
                             type="text"
-                            placeholder="SEARCH BY NAME, ID, CENTRE, COURSE, MOBILE..."
+                            placeholder="SEARCH BY NAME, ID, CENTRE, COURSE, MOBILE, WHATSAPP..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
                             className={`w-full pl-11 sm:pl-12 pr-4 py-3 sm:py-4 rounded-[4px] border transition-all font-bold text-[10px] uppercase tracking-widest focus:outline-none min-w-0 ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-gray-400 shadow-inner'}`}
@@ -2829,6 +2840,11 @@ const EnrolledStudentsContent = () => {
                                                         <div className={`text-[11px] font-black tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
                                                             {latestAdmission?.mobileNum || student.mobileNum || "N/A"}
                                                         </div>
+                                                        {student.whatsappNumber && student.whatsappNumber !== (latestAdmission?.mobileNum || student.mobileNum) && (
+                                                            <div className={`text-[9px] font-bold tracking-wider ${isDarkMode ? 'text-emerald-400/80' : 'text-emerald-600'}`}>
+                                                                WA: {student.whatsappNumber}
+                                                            </div>
+                                                        )}
                                                         {(studentItem.nextFollowUpDate || latestAdmission?.nextFollowUpDate || studentItem.latestServiceCall?.nextFollowUpDate) && (
                                                             <div className="mt-1">
                                                                 <span className={`px-2 py-0.5 rounded-[3px] text-[8px] font-black tracking-wider uppercase border inline-flex items-center gap-1 ${isDarkMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
