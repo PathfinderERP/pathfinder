@@ -74,10 +74,12 @@ const ChequeManagement = () => {
         course: [],
         department: [],
         status: ["PENDING_CLEARANCE"],
-        startDate: "",
-        endDate: "",
+        receivedStartDate: "",
+        receivedEndDate: "",
         chequeStartDate: "",
-        chequeEndDate: ""
+        chequeEndDate: "",
+        clearRejectStartDate: "",
+        clearRejectEndDate: ""
     });
 
     const [metadata, setMetadata] = useState({
@@ -667,10 +669,12 @@ const ChequeManagement = () => {
             course: [],
             department: [],
             status: ["PENDING_CLEARANCE"],
-            startDate: "",
-            endDate: "",
+            receivedStartDate: "",
+            receivedEndDate: "",
             chequeStartDate: "",
-            chequeEndDate: ""
+            chequeEndDate: "",
+            clearRejectStartDate: "",
+            clearRejectEndDate: ""
         });
         setCardZoneFilters({
             TOTAL: [],
@@ -1223,22 +1227,22 @@ const ChequeManagement = () => {
                         </div>
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 items-end mb-6">
                         <div>
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Cheque Start Date</label>
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Received Start Date</label>
                             <input
                                 type="date"
-                                value={filters.startDate}
-                                onChange={(e) => handleFilterChange("startDate", e.target.value)}
+                                value={filters.receivedStartDate}
+                                onChange={(e) => handleFilterChange("receivedStartDate", e.target.value)}
                                 className={`w-full border rounded-xl py-2.5 px-4 font-bold text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 [color-scheme:dark]" : "bg-white border-gray-300 text-gray-800"}`}
                             />
                         </div>
                         <div>
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Cheque End Date</label>
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Received End Date</label>
                             <input
                                 type="date"
-                                value={filters.endDate}
-                                onChange={(e) => handleFilterChange("endDate", e.target.value)}
+                                value={filters.receivedEndDate}
+                                onChange={(e) => handleFilterChange("receivedEndDate", e.target.value)}
                                 className={`w-full border rounded-xl py-2.5 px-4 font-bold text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 [color-scheme:dark]" : "bg-white border-gray-300 text-gray-800"}`}
                             />
                         </div>
@@ -1257,6 +1261,24 @@ const ChequeManagement = () => {
                                 type="date"
                                 value={filters.chequeEndDate}
                                 onChange={(e) => handleFilterChange("chequeEndDate", e.target.value)}
+                                className={`w-full border rounded-xl py-2.5 px-4 font-bold text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 [color-scheme:dark]" : "bg-white border-gray-300 text-gray-800"}`}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Clear/Reject Start Date</label>
+                            <input
+                                type="date"
+                                value={filters.clearRejectStartDate}
+                                onChange={(e) => handleFilterChange("clearRejectStartDate", e.target.value)}
+                                className={`w-full border rounded-xl py-2.5 px-4 font-bold text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 [color-scheme:dark]" : "bg-white border-gray-300 text-gray-800"}`}
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Clear/Reject End Date</label>
+                            <input
+                                type="date"
+                                value={filters.clearRejectEndDate}
+                                onChange={(e) => handleFilterChange("clearRejectEndDate", e.target.value)}
                                 className={`w-full border rounded-xl py-2.5 px-4 font-bold text-[10px] outline-none focus:border-emerald-500/50 transition-all uppercase ${isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 [color-scheme:dark]" : "bg-white border-gray-300 text-gray-800"}`}
                             />
                         </div>

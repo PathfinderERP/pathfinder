@@ -111,22 +111,48 @@ const populateAdmissions = async (cheques) => {
 // Get all pending cheques
 export const getPendingCheques = async (req, res) => {
     try {
-        const { zone, zoneIds, centre, course, department, search, status, startDate, endDate, chequeStartDate, chequeEndDate } = req.query;
+        const {
+            zone,
+            zoneIds,
+            centre,
+            course,
+            department,
+            search,
+            status,
+            startDate,
+            endDate,
+            receivedStartDate,
+            receivedEndDate,
+            chequeStartDate,
+            chequeEndDate,
+            clearRejectStartDate,
+            clearRejectEndDate,
+            clearedRejectStartDate,
+            clearedRejectEndDate
+        } = req.query;
 
         // Build query for retrieving payments
         const query = {
             paymentMethod: "CHEQUE"
         };
 
-        // Date filter for processing Date (updatedAt)
-        if (startDate || endDate) {
-            query.updatedAt = {};
-            if (startDate) query.updatedAt.$gte = new Date(startDate);
-            if (endDate) {
-                const end = new Date(endDate);
+        // Date filter for Received Date (fallback priority: receivedDate -> paidDate -> createdAt)
+        const effectiveRecStart = receivedStartDate || startDate;
+        const effectiveRecEnd = receivedEndDate || endDate;
+        if (effectiveRecStart || effectiveRecEnd) {
+            const dateCond = {};
+            if (effectiveRecStart) dateCond.$gte = new Date(effectiveRecStart);
+            if (effectiveRecEnd) {
+                const end = new Date(effectiveRecEnd);
                 end.setHours(23, 59, 59, 999);
-                query.updatedAt.$lte = end;
+                dateCond.$lte = end;
             }
+
+            query.$or = [
+                { receivedDate: dateCond },
+                { receivedDate: { $in: [null, undefined] }, paidDate: dateCond },
+                { receivedDate: { $in: [null, undefined] }, paidDate: { $in: [null, undefined] }, createdAt: dateCond }
+            ];
         }
 
         // Date filter for Cheque Date
@@ -137,6 +163,19 @@ export const getPendingCheques = async (req, res) => {
                 const end = new Date(chequeEndDate);
                 end.setHours(23, 59, 59, 999);
                 query.chequeDate.$lte = end;
+            }
+        }
+
+        // Date filter for Cheque Clear / Reject Date
+        const effectiveCRStart = clearRejectStartDate || clearedRejectStartDate;
+        const effectiveCREnd = clearRejectEndDate || clearedRejectEndDate;
+        if (effectiveCRStart || effectiveCREnd) {
+            query.clearedOrRejectedDate = {};
+            if (effectiveCRStart) query.clearedOrRejectedDate.$gte = new Date(effectiveCRStart);
+            if (effectiveCREnd) {
+                const end = new Date(effectiveCREnd);
+                end.setHours(23, 59, 59, 999);
+                query.clearedOrRejectedDate.$lte = end;
             }
         }
 
@@ -268,6 +307,37 @@ export const getPendingCheques = async (req, res) => {
                 }
 
                 return matchesCentre && matchesCourse && matchesDept && matchesSearch;
+            });
+        }
+
+        // Additional in-memory verification for received date filter
+        if (effectiveRecStart || effectiveRecEnd) {
+            const startD = effectiveRecStart ? new Date(effectiveRecStart) : null;
+            const endD = effectiveRecEnd ? new Date(effectiveRecEnd) : null;
+            if (endD) endD.setHours(23, 59, 59, 999);
+
+            cheques = cheques.filter(c => {
+                const effectiveDate = c.receivedDate || c.paidDate || c.createdAt;
+                if (!effectiveDate) return false;
+                const d = new Date(effectiveDate);
+                if (startD && d < startD) return false;
+                if (endD && d > endD) return false;
+                return true;
+            });
+        }
+
+        // Additional in-memory verification for clear/reject date filter
+        if (effectiveCRStart || effectiveCREnd) {
+            const startD = effectiveCRStart ? new Date(effectiveCRStart) : null;
+            const endD = effectiveCREnd ? new Date(effectiveCREnd) : null;
+            if (endD) endD.setHours(23, 59, 59, 999);
+
+            cheques = cheques.filter(c => {
+                if (!c.clearedOrRejectedDate) return false;
+                const d = new Date(c.clearedOrRejectedDate);
+                if (startD && d < startD) return false;
+                if (endD && d > endD) return false;
+                return true;
             });
         }
 
