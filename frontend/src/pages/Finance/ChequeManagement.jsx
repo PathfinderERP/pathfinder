@@ -929,8 +929,8 @@ const ChequeManagement = () => {
                     <div
                         onClick={() => openCardModal("TOTAL")}
                         className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer shadow-xl hover:-translate-y-1 ${isDarkMode
-                                ? "bg-[#131619] border-gray-800 hover:border-blue-500/50 hover:shadow-blue-500/10"
-                                : "bg-white border-gray-200 hover:border-blue-400 hover:shadow-blue-500/10"
+                            ? "bg-[#131619] border-gray-800 hover:border-blue-500/50 hover:shadow-blue-500/10"
+                            : "bg-white border-gray-200 hover:border-blue-400 hover:shadow-blue-500/10"
                             }`}
                         title="Click to view all cheques in filtered selection"
                     >
@@ -983,8 +983,8 @@ const ChequeManagement = () => {
                     <div
                         onClick={() => openCardModal("CLEARED")}
                         className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer shadow-xl hover:-translate-y-1 ${isDarkMode
-                                ? "bg-[#131619] border-gray-800 hover:border-emerald-500/50 hover:shadow-emerald-500/10"
-                                : "bg-white border-gray-200 hover:border-emerald-400 hover:shadow-emerald-500/10"
+                            ? "bg-[#131619] border-gray-800 hover:border-emerald-500/50 hover:shadow-emerald-500/10"
+                            : "bg-white border-gray-200 hover:border-emerald-400 hover:shadow-emerald-500/10"
                             }`}
                         title="Click to view cleared cheques"
                     >
@@ -1037,8 +1037,8 @@ const ChequeManagement = () => {
                     <div
                         onClick={() => openCardModal("PENDING")}
                         className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer shadow-xl hover:-translate-y-1 ${isDarkMode
-                                ? "bg-[#131619] border-gray-800 hover:border-yellow-500/50 hover:shadow-yellow-500/10"
-                                : "bg-white border-gray-200 hover:border-yellow-400 hover:shadow-yellow-500/10"
+                            ? "bg-[#131619] border-gray-800 hover:border-yellow-500/50 hover:shadow-yellow-500/10"
+                            : "bg-white border-gray-200 hover:border-yellow-400 hover:shadow-yellow-500/10"
                             }`}
                         title="Click to view pending cheques"
                     >
@@ -1091,8 +1091,8 @@ const ChequeManagement = () => {
                     <div
                         onClick={() => openCardModal("NOT_DEPOSITED")}
                         className={`group relative p-6 rounded-3xl border transition-all duration-300 cursor-pointer shadow-xl hover:-translate-y-1 ${isDarkMode
-                                ? "bg-[#131619] border-gray-800 hover:border-rose-500/50 hover:shadow-rose-500/10"
-                                : "bg-white border-gray-200 hover:border-rose-400 hover:shadow-rose-500/10"
+                            ? "bg-[#131619] border-gray-800 hover:border-rose-500/50 hover:shadow-rose-500/10"
+                            : "bg-white border-gray-200 hover:border-rose-400 hover:shadow-rose-500/10"
                             }`}
                         title="Click to view cheques not yet deposited from cheque deposit entry"
                     >
@@ -1225,7 +1225,7 @@ const ChequeManagement = () => {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 items-end mb-6">
                         <div>
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Processing Start Date</label>
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Cheque Start Date</label>
                             <input
                                 type="date"
                                 value={filters.startDate}
@@ -1234,7 +1234,7 @@ const ChequeManagement = () => {
                             />
                         </div>
                         <div>
-                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Processing End Date</label>
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Cheque End Date</label>
                             <input
                                 type="date"
                                 value={filters.endDate}
@@ -1361,8 +1361,8 @@ const ChequeManagement = () => {
                                                             onClick={() => handleOpenEditClearanceDate(cheque)}
                                                             title="Edit Clearance Date"
                                                             className={`p-1.5 rounded-lg border transition-all ${isDarkMode
-                                                                    ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500 hover:text-white"
-                                                                    : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-600 hover:text-white"
+                                                                ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500 hover:text-white"
+                                                                : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-600 hover:text-white"
                                                                 }`}
                                                         >
                                                             <FaEdit className="text-[11px]" />
@@ -1393,8 +1393,8 @@ const ChequeManagement = () => {
                                                             onClick={() => handleOpenEditStatus(cheque)}
                                                             title="Edit Cheque Status"
                                                             className={`p-1.5 rounded-lg border transition-all ${isDarkMode
-                                                                    ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
-                                                                    : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
+                                                                ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
+                                                                : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
                                                                 }`}
                                                         >
                                                             <FaEdit className="text-[10px]" />
@@ -1449,8 +1449,8 @@ const ChequeManagement = () => {
                                                         <button
                                                             onClick={() => handleOpenEditStatus(cheque)}
                                                             className={`px-3 py-1.5 border rounded-lg font-black text-[10px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm ${isDarkMode
-                                                                    ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
-                                                                    : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
+                                                                ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
+                                                                : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
                                                                 }`}
                                                             title="Change Cheque Status"
                                                         >
@@ -1459,8 +1459,8 @@ const ChequeManagement = () => {
                                                         <button
                                                             onClick={() => handleOpenEditClearanceDate(cheque)}
                                                             className={`px-3 py-1.5 border rounded-lg font-black text-[10px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm ${isDarkMode
-                                                                    ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500 hover:text-white"
-                                                                    : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-600 hover:text-white"
+                                                                ? "bg-blue-500/10 text-blue-400 border-blue-500/20 hover:bg-blue-500 hover:text-white"
+                                                                : "bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-600 hover:text-white"
                                                                 }`}
                                                             title="Edit Clearance Date"
                                                         >
@@ -1472,8 +1472,8 @@ const ChequeManagement = () => {
                                                         <button
                                                             onClick={() => handleOpenEditStatus(cheque)}
                                                             className={`px-3 py-1.5 border rounded-lg font-black text-[10px] uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm ${isDarkMode
-                                                                    ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
-                                                                    : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
+                                                                ? "bg-purple-500/10 text-purple-400 border-purple-500/20 hover:bg-purple-500 hover:text-white"
+                                                                : "bg-purple-50 text-purple-600 border-purple-200 hover:bg-purple-600 hover:text-white"
                                                                 }`}
                                                             title="Change Cheque Status"
                                                         >
@@ -1766,8 +1766,8 @@ const ChequeManagement = () => {
                                             type="button"
                                             onClick={() => setTargetStatus("PAID")}
                                             className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${targetStatus === "PAID"
-                                                    ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-black shadow-lg shadow-emerald-500/10"
-                                                    : isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
+                                                ? "bg-emerald-500/20 border-emerald-500 text-emerald-400 font-black shadow-lg shadow-emerald-500/10"
+                                                : isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
                                                 }`}
                                         >
                                             <FaCheckCircle className="text-base" />
@@ -1778,8 +1778,8 @@ const ChequeManagement = () => {
                                             type="button"
                                             onClick={() => setTargetStatus("REJECTED")}
                                             className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${targetStatus === "REJECTED"
-                                                    ? "bg-red-500/20 border-red-500 text-red-400 font-black shadow-lg shadow-red-500/10"
-                                                    : isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
+                                                ? "bg-red-500/20 border-red-500 text-red-400 font-black shadow-lg shadow-red-500/10"
+                                                : isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
                                                 }`}
                                         >
                                             <FaExclamationTriangle className="text-base" />
@@ -1790,8 +1790,8 @@ const ChequeManagement = () => {
                                             type="button"
                                             onClick={() => setTargetStatus("PENDING_CLEARANCE")}
                                             className={`p-3 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1.5 ${targetStatus === "PENDING_CLEARANCE"
-                                                    ? "bg-amber-500/20 border-amber-500 text-amber-400 font-black shadow-lg shadow-amber-500/10"
-                                                    : isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
+                                                ? "bg-amber-500/20 border-amber-500 text-amber-400 font-black shadow-lg shadow-amber-500/10"
+                                                : isDarkMode ? "bg-black/40 border-gray-800 text-gray-400 hover:border-gray-700" : "bg-gray-50 border-gray-200 text-gray-600 hover:border-gray-300"
                                                 }`}
                                         >
                                             <FaClock className="text-base" />
