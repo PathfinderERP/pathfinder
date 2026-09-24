@@ -27,6 +27,31 @@ export const updateAdmission = async (req, res) => {
 
         const studentId = isBoard ? currentAdmission.studentId : currentAdmission.student;
 
+        // Synchronize student personal details across collections
+        const incomingName = updates.studentName || updates.studentsDetails?.[0]?.studentName;
+        const incomingPhone = updates.mobileNum || updates.phoneNumber || updates.studentsDetails?.[0]?.mobileNum;
+        const incomingEmail = updates.studentEmail || updates.email || updates.studentsDetails?.[0]?.studentEmail;
+        const incomingWhatsapp = updates.whatsappNumber || updates.studentsDetails?.[0]?.whatsappNumber;
+        const incomingAddress = updates.address || updates.studentsDetails?.[0]?.address;
+
+        if (incomingName || incomingPhone || incomingEmail || incomingWhatsapp || incomingAddress) {
+            const studentSet = {};
+            if (incomingName) studentSet['studentsDetails.0.studentName'] = incomingName.trim();
+            if (incomingPhone) studentSet['studentsDetails.0.mobileNum'] = incomingPhone.trim();
+            if (incomingEmail) studentSet['studentsDetails.0.studentEmail'] = incomingEmail.trim();
+            if (incomingWhatsapp) studentSet['studentsDetails.0.whatsappNumber'] = incomingWhatsapp.trim();
+            if (incomingAddress) studentSet['studentsDetails.0.address'] = incomingAddress.trim();
+
+            await Student.findByIdAndUpdate(studentId, { $set: studentSet });
+
+            const boardSyncSet = {};
+            if (incomingName) boardSyncSet.studentName = incomingName.trim();
+            if (incomingPhone) boardSyncSet.mobileNum = incomingPhone.trim();
+            if (Object.keys(boardSyncSet).length > 0) {
+                await BoardCourseAdmission.updateMany({ studentId }, { $set: boardSyncSet });
+            }
+        }
+
         // Synchronize department to Student document
         if (updates.department) {
             await Student.findByIdAndUpdate(studentId, { department: updates.department });
@@ -105,6 +130,8 @@ export const updateAdmission = async (req, res) => {
         let admission;
         if (isBoard) {
             const boardUpdates = { centre: updates.centre };
+            if (incomingName) boardUpdates.studentName = incomingName.trim();
+            if (incomingPhone) boardUpdates.mobileNum = incomingPhone.trim();
             if (updates.academicSession) boardUpdates.academicSession = updates.academicSession;
             if (updates.examTag) boardUpdates.examTag = updates.examTag;
             if (updates.createdBy) boardUpdates.createdBy = updates.createdBy;

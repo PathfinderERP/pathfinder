@@ -32,6 +32,32 @@ export const updateStudent = async (req, res) => {
         cleanedData.updatedBy = req.user?.name || "System";
         cleanedData.updatedByUserId = req.user?._id;
 
+        // If personal details were sent at root level rather than nested under studentsDetails, map to studentsDetails.0
+        if (!cleanedData.studentsDetails) {
+            if (cleanedData.studentName) {
+                cleanedData['studentsDetails.0.studentName'] = cleanedData.studentName;
+                delete cleanedData.studentName;
+            }
+            if (cleanedData.mobileNum || cleanedData.phoneNumber) {
+                cleanedData['studentsDetails.0.mobileNum'] = cleanedData.mobileNum || cleanedData.phoneNumber;
+                delete cleanedData.mobileNum;
+                delete cleanedData.phoneNumber;
+            }
+            if (cleanedData.studentEmail || cleanedData.email) {
+                cleanedData['studentsDetails.0.studentEmail'] = cleanedData.studentEmail || cleanedData.email;
+                delete cleanedData.studentEmail;
+                delete cleanedData.email;
+            }
+            if (cleanedData.whatsappNumber) {
+                cleanedData['studentsDetails.0.whatsappNumber'] = cleanedData.whatsappNumber;
+                delete cleanedData.whatsappNumber;
+            }
+            if (cleanedData.address) {
+                cleanedData['studentsDetails.0.address'] = cleanedData.address;
+                delete cleanedData.address;
+            }
+        }
+
         const student = await Student.findByIdAndUpdate(
             studentId,
             { $set: cleanedData },

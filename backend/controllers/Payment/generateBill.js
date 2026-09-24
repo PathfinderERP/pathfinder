@@ -1,6 +1,7 @@
 import Payment from "../../models/Payment/Payment.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
+import Student from "../../models/Students.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import Course from "../../models/Master_data/Courses.js";
 import Class from "../../models/Master_data/Class.js";
@@ -397,6 +398,25 @@ export const generateBill = async (req, res) => {
             // Resolve bank account details
             const bankAccDetails = await resolveBankAccountDetails(payment, admission, installmentNum, isBoardAdmission);
 
+            const studentDoc = admission.student || admission.studentId;
+            const studentDetails = studentDoc?.studentsDetails?.[0] || {};
+            const resolvedStudentName = (isBoardAdmission
+                ? (admission.studentName || studentDetails.studentName)
+                : (studentDetails.studentName || admission.studentName)) || 'N/A';
+            const resolvedPhone = (isBoardAdmission
+                ? (admission.mobileNum || studentDetails.mobileNum || studentDetails.whatsappNumber)
+                : (studentDetails.mobileNum || studentDetails.whatsappNumber || admission.mobileNum)) || 'N/A';
+            const resolvedEmail = studentDetails.studentEmail || admission.email || admission.studentEmail || 'N/A';
+            const resolvedAdmNo = admission.admissionNumber || studentDoc?.admissionNumber || studentDetails.rollNo || 'N/A';
+
+            // Auto-heal discrepancy so Student document is always in sync with Board Admission
+            if (isBoardAdmission && admission.studentName && studentDoc?._id && studentDetails.studentName !== admission.studentName) {
+                Student.updateOne(
+                    { _id: studentDoc._id },
+                    { $set: { "studentsDetails.0.studentName": admission.studentName } }
+                ).catch(e => console.error("Auto-heal Student name error:", e));
+            }
+
             // Prepare bill data
             const billData = {
                 billId: payment.billId,
@@ -412,10 +432,10 @@ export const generateBill = async (req, res) => {
                 },
                 student: {
                     id: (admission.student?._id || admission.studentId?._id || admission.studentId || 'N/A'),
-                    name: (admission.student?.studentsDetails?.[0]?.studentName || admission.studentName || 'N/A'),
-                    admissionNumber: admission.admissionNumber || 'N/A',
-                    phoneNumber: (admission.student?.studentsDetails?.[0]?.mobileNum || admission.mobileNum || 'N/A'),
-                    email: (admission.student?.studentsDetails?.[0]?.studentEmail || 'N/A')
+                    name: resolvedStudentName,
+                    admissionNumber: resolvedAdmNo,
+                    phoneNumber: resolvedPhone,
+                    email: resolvedEmail
                 },
                 course: {
                     name: payment.boardCourseName || (admission.boardCourseName || (admission.course?.courseName || 'N/A')),
@@ -562,6 +582,22 @@ export const getBillById = async (req, res) => {
                                allocation?.student?.studentsDetails?.[0] || 
                                boardCourseAdmission?.studentId?.studentsDetails?.[0] || {};
 
+        let resolvedStudentName = (boardCourseAdmission?.studentName || admission?.studentName || studentProfile.studentName || 'N/A').trim();
+        let resolvedPhone = boardCourseAdmission?.mobileNum || admission?.mobileNum || studentProfile.mobileNum || studentProfile.whatsappNumber || 'N/A';
+        let resolvedEmail = boardCourseAdmission?.studentEmail || studentProfile.studentEmail || admission?.studentEmail || 'N/A';
+        let resolvedAdmNo = admission?.admissionNumber || allocation?.admissionNumber || boardCourseAdmission?.admissionNumber || studentProfile.formNo || studentProfile.rollNo || 'N/A';
+
+        // Auto-heal Student record if needed when board admission has updated name
+        if (boardCourseAdmission && boardCourseAdmission.studentId && boardCourseAdmission.studentName) {
+            const sid = boardCourseAdmission.studentId._id || boardCourseAdmission.studentId;
+            if (studentProfile.studentName && studentProfile.studentName !== boardCourseAdmission.studentName) {
+                Student.updateOne(
+                    { _id: sid, 'studentsDetails.0': { $exists: true } },
+                    { $set: { 'studentsDetails.0.studentName': boardCourseAdmission.studentName } }
+                ).catch(e => console.error("Auto-heal Student name in getBillById error:", e));
+            }
+        }
+
         const bankAccDetails = await resolveBankAccountDetails(
             payment,
             admission || boardCourseAdmission,
@@ -582,10 +618,10 @@ export const getBillById = async (req, res) => {
             },
             student: {
                 id: admission?.student?._id || allocation?.student?._id || allocation?.student || payment.studentId,
-                name: studentProfile.studentName || admission?.studentName || boardCourseAdmission?.studentName || 'N/A',
-                admissionNumber: admission?.admissionNumber || allocation?.admissionNumber || boardCourseAdmission?.admissionNumber || studentProfile.formNo || studentProfile.rollNo || 'N/A',
-                phoneNumber: studentProfile.mobileNum || studentProfile.whatsappNumber || admission?.mobileNum || boardCourseAdmission?.mobileNum || 'N/A',
-                email: studentProfile.studentEmail || 'N/A'
+                name: resolvedStudentName,
+                admissionNumber: resolvedAdmNo,
+                phoneNumber: resolvedPhone,
+                email: resolvedEmail
             },
             course: {
                 name: payment.boardCourseName || (allocation?.items?.map(i => `${i.itemName} (x${i.quantity || 1})`).join(', ')) || (admission?.boardCourseName || (admission?.course?.courseName || 'N/A')),
@@ -881,6 +917,23 @@ export const generateReceivingSlip = async (req, res) => {
 
         const bankAccDetails = await resolveBankAccountDetails(payment, admission, installmentNum, isBoardAdmission);
 
+        const studentProfile = admission.student?.studentsDetails?.[0] || admission.studentId?.studentsDetails?.[0] || {};
+        let resolvedStudentName = (admission.studentName || studentProfile.studentName || 'N/A').trim();
+        let resolvedPhone = admission.mobileNum || studentProfile.mobileNum || studentProfile.whatsappNumber || 'N/A';
+        let resolvedEmail = admission.studentEmail || studentProfile.studentEmail || 'N/A';
+        let resolvedAdmNo = admission.admissionNumber || studentProfile.rollNo || studentProfile.formNo || 'N/A';
+
+        // Auto-heal Student record if needed when board admission has updated name
+        if (isBoardAdmission && admission.studentId && admission.studentName) {
+            const sid = admission.studentId._id || admission.studentId;
+            if (studentProfile.studentName && studentProfile.studentName !== admission.studentName) {
+                Student.updateOne(
+                    { _id: sid, 'studentsDetails.0': { $exists: true } },
+                    { $set: { 'studentsDetails.0.studentName': admission.studentName } }
+                ).catch(e => console.error("Auto-heal Student name in generateReceivingSlip error:", e));
+            }
+        }
+
         const receivingSlipData = {
             isReceivingSlip: true,
             billId: null, // Strictly NO bill number for receiving slip
@@ -898,10 +951,10 @@ export const generateReceivingSlip = async (req, res) => {
             },
             student: {
                 id: (admission.student?._id || admission.studentId?._id || admission.studentId || 'N/A'),
-                name: (admission.student?.studentsDetails?.[0]?.studentName || admission.studentName || 'N/A'),
-                admissionNumber: admission.admissionNumber || (admission.student?.studentsDetails?.[0]?.rollNo || 'N/A'),
-                phoneNumber: (admission.student?.studentsDetails?.[0]?.mobileNum || admission.mobileNum || 'N/A'),
-                email: (admission.student?.studentsDetails?.[0]?.studentEmail || 'N/A')
+                name: resolvedStudentName,
+                admissionNumber: resolvedAdmNo,
+                phoneNumber: resolvedPhone,
+                email: resolvedEmail
             },
             course: {
                 name: payment?.boardCourseName || (admission.boardCourseName || (admission.course?.courseName || 'N/A')),

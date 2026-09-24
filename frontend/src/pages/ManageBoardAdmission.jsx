@@ -292,10 +292,10 @@ const ManageBoardAdmission = () => {
                             address: 'N/A'
                         },
                         student: {
-                            name: admission?.studentId?.studentsDetails?.[0]?.studentName || admission?.studentName || '',
-                            admissionNumber: admission?.studentId?.admissionNumber || admission?.admissionNumber || 'N/A',
-                            phoneNumber: admission?.studentId?.studentsDetails?.[0]?.mobileNum || admission?.mobileNum || '',
-                            email: admission?.studentId?.studentsDetails?.[0]?.studentEmail || ''
+                            name: admission?.studentName || admission?.studentId?.studentsDetails?.[0]?.studentName || '',
+                            admissionNumber: admission?.admissionNumber || admission?.studentId?.admissionNumber || 'N/A',
+                            phoneNumber: admission?.mobileNum || admission?.studentId?.studentsDetails?.[0]?.mobileNum || '',
+                            email: admission?.studentEmail || admission?.studentId?.studentsDetails?.[0]?.studentEmail || ''
                         },
                         course: {
                             name: selectedBoard?.boardCourse || admission?.boardCourseName || 'Board Course',
@@ -392,10 +392,10 @@ const ManageBoardAdmission = () => {
                             address: 'N/A'
                         },
                         student: {
-                            name: admission?.studentId?.studentsDetails?.[0]?.studentName || admission?.studentName || '',
-                            admissionNumber: admission?.studentId?.admissionNumber || admission?.admissionNumber || 'N/A',
-                            phoneNumber: admission?.studentId?.studentsDetails?.[0]?.mobileNum || admission?.mobileNum || '',
-                            email: admission?.studentId?.studentsDetails?.[0]?.studentEmail || ''
+                            name: admission?.studentName || admission?.studentId?.studentsDetails?.[0]?.studentName || '',
+                            admissionNumber: admission?.admissionNumber || admission?.studentId?.admissionNumber || 'N/A',
+                            phoneNumber: admission?.mobileNum || admission?.studentId?.studentsDetails?.[0]?.mobileNum || '',
+                            email: admission?.studentEmail || admission?.studentId?.studentsDetails?.[0]?.studentEmail || ''
                         },
                         course: {
                             name: `${selectedBoard?.boardCourse || admission?.boardCourseName || 'Board Course'} + Examination`,
@@ -485,10 +485,10 @@ const ManageBoardAdmission = () => {
                             address: 'N/A'
                         },
                         student: {
-                            name: admission?.studentId?.studentsDetails?.[0]?.studentName || admission?.studentName || '',
-                            admissionNumber: admission?.studentId?.admissionNumber || admission?.admissionNumber || 'N/A',
-                            phoneNumber: admission?.studentId?.studentsDetails?.[0]?.mobileNum || admission?.mobileNum || '',
-                            email: admission?.studentId?.studentsDetails?.[0]?.studentEmail || ''
+                            name: admission?.studentName || admission?.studentId?.studentsDetails?.[0]?.studentName || '',
+                            admissionNumber: admission?.admissionNumber || admission?.studentId?.admissionNumber || 'N/A',
+                            phoneNumber: admission?.mobileNum || admission?.studentId?.studentsDetails?.[0]?.mobileNum || '',
+                            email: admission?.studentEmail || admission?.studentId?.studentsDetails?.[0]?.studentEmail || ''
                         },
                         course: {
                             name: `${selectedBoard?.boardCourse || admission?.boardCourseName || 'Board Course'} (NCRP Fees)`,
@@ -584,10 +584,10 @@ const ManageBoardAdmission = () => {
                             address: 'N/A'
                         },
                         student: {
-                            name: admission?.studentId?.studentsDetails?.[0]?.studentName || admission?.studentName || '',
-                            admissionNumber: admission?.studentId?.admissionNumber || admission?.admissionNumber || 'N/A',
-                            phoneNumber: admission?.studentId?.studentsDetails?.[0]?.mobileNum || admission?.mobileNum || '',
-                            email: admission?.studentId?.studentsDetails?.[0]?.studentEmail || ''
+                            name: admission?.studentName || admission?.studentId?.studentsDetails?.[0]?.studentName || '',
+                            admissionNumber: admission?.admissionNumber || admission?.studentId?.admissionNumber || 'N/A',
+                            phoneNumber: admission?.mobileNum || admission?.studentId?.studentsDetails?.[0]?.mobileNum || '',
+                            email: admission?.studentEmail || admission?.studentId?.studentsDetails?.[0]?.studentEmail || ''
                         },
                         course: {
                             name: `${selectedBoard?.boardCourse || admission?.boardCourseName || 'Board Course'} + ${admission?.additionalThingsName || 'Additional Fee'}`,
@@ -1389,8 +1389,9 @@ const ManageBoardAdmission = () => {
                     admission={{
                         ...admission,
                         // Transformation to match what BillGenerator expects
-                        admissionNo: admission.studentId?.admissionNumber,
-                        boardCourseName: selectedBoard?.boardCourse || 'Board Course'
+                        studentName: admission?.studentName || admission?.studentId?.studentsDetails?.[0]?.studentName,
+                        admissionNo: admission?.admissionNumber || admission.studentId?.admissionNumber,
+                        boardCourseName: selectedBoard?.boardCourse || admission?.boardCourseName || 'Board Course'
                     }}
                     installment={selectedInstForBill}
                     preloadedBillData={preloadedBillData}
