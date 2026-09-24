@@ -312,6 +312,11 @@ const ManageBoardAdmission = () => {
                             accountHolderName: formCopy.accountHolderName,
                             chequeDate: formCopy.chequeDate,
                             receivedDate: formCopy.receivedDate,
+                            bankAccount: formCopy.bankAccount,
+                            bankAccountName: (() => {
+                                const acc = masterAccounts.find(a => (a._id || a.id) === formCopy.bankAccount);
+                                return acc ? `${acc.accname.toUpperCase()} (A/C: ${acc.accno})` : null;
+                            })(),
                             status: "PENDING_CLEARANCE",
                             remarks: `Board Installment Month ${inst.monthNumber}`
                         },
@@ -407,6 +412,11 @@ const ManageBoardAdmission = () => {
                             accountHolderName: formCopy.accountHolderName,
                             chequeDate: formCopy.chequeDate,
                             receivedDate: formCopy.receivedDate,
+                            bankAccount: formCopy.bankAccount,
+                            bankAccountName: (() => {
+                                const acc = masterAccounts.find(a => (a._id || a.id) === formCopy.bankAccount);
+                                return acc ? `${acc.accname.toUpperCase()} (A/C: ${acc.accno})` : null;
+                            })(),
                             status: "PENDING_CLEARANCE",
                             remarks: "Board Examination Fee Payment"
                         },
@@ -495,6 +505,11 @@ const ManageBoardAdmission = () => {
                             accountHolderName: formCopy.accountHolderName,
                             chequeDate: formCopy.chequeDate,
                             receivedDate: new Date(),
+                            bankAccount: formCopy.bankAccount,
+                            bankAccountName: (() => {
+                                const acc = masterAccounts.find(a => (a._id || a.id) === formCopy.bankAccount);
+                                return acc ? `${acc.accname.toUpperCase()} (A/C: ${acc.accno})` : null;
+                            })(),
                             status: "PENDING_CLEARANCE",
                             remarks: "NCRP Fees Cheque Payment"
                         },
@@ -589,6 +604,11 @@ const ManageBoardAdmission = () => {
                             accountHolderName: formCopy.accountHolderName,
                             chequeDate: formCopy.chequeDate,
                             receivedDate: formCopy.receivedDate,
+                            bankAccount: formCopy.bankAccount,
+                            bankAccountName: (() => {
+                                const acc = masterAccounts.find(a => (a._id || a.id) === formCopy.bankAccount);
+                                return acc ? `${acc.accname.toUpperCase()} (A/C: ${acc.accno})` : null;
+                            })(),
                             status: "PENDING_CLEARANCE",
                             remarks: `Board Additional Fee Payment (${admission?.additionalThingsName || ''})`
                         },

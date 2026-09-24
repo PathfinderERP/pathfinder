@@ -8,6 +8,7 @@ import ExamTag from "../../models/Master_data/ExamTag.js";
 import Department from "../../models/Master_data/Department.js";
 import Boards from "../../models/Master_data/Boards.js";
 import Allocation from "../../models/Inventory/Allocation.js";
+import Account from "../../models/Master_data/Account.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import { isGstExempt } from "../../utils/gstHelper.js";
 
@@ -26,6 +27,50 @@ const generateGSTNumber = () => {
 
 // Generate bill for a payment
 const activeGenerations = new Map();
+
+// Helper to resolve bank account details for a payment
+const resolveBankAccountDetails = async (payment, admission, installmentNum, isBoardAdmission) => {
+    let accountId = payment?.bankAccount;
+
+    if (!accountId && admission) {
+        if (installmentNum === 0) {
+            accountId = admission.downPaymentBankAccount || admission.paymentBreakdown?.[0]?.bankAccount || admission.bankAccount;
+        } else if (!isBoardAdmission && admission.paymentBreakdown) {
+            const inst = admission.paymentBreakdown.find(p => p.installmentNumber === installmentNum);
+            accountId = inst?.bankAccount;
+        } else if (isBoardAdmission && admission.installments) {
+            const bInst = admission.installments.find(i => i.monthNumber === installmentNum || i.monthNumber === (installmentNum + 1) || i._id?.toString() === String(installmentNum));
+            const lastTx = bInst?.paymentTransactions?.[bInst.paymentTransactions?.length - 1];
+            accountId = lastTx?.bankAccount || bInst?.bankAccount;
+        }
+    }
+
+    if (!accountId) return null;
+
+    if (typeof accountId === 'object' && accountId.accname) {
+        return {
+            _id: accountId._id,
+            accname: accountId.accname,
+            accno: accountId.accno,
+            label: accountId.accno ? `${accountId.accname.toUpperCase()} (A/C: ${accountId.accno})` : accountId.accname.toUpperCase()
+        };
+    }
+
+    try {
+        const acc = await Account.findById(accountId).lean();
+        if (acc) {
+            return {
+                _id: acc._id,
+                accname: acc.accname,
+                accno: acc.accno,
+                label: acc.accno ? `${acc.accname.toUpperCase()} (A/C: ${acc.accno})` : acc.accname.toUpperCase()
+            };
+        }
+    } catch (err) {
+        console.error("Error resolving bank account:", err);
+    }
+    return null;
+};
 
 export const generateBill = async (req, res) => {
     const { admissionId, installmentNumber } = req.params;
@@ -231,7 +276,7 @@ export const generateBill = async (req, res) => {
                 }
             }
 
-            let payment = await Payment.findOne(query).sort({ createdAt: -1 });
+            let payment = await Payment.findOne(query).populate('bankAccount').sort({ createdAt: -1 });
 
             // Determine the actual total amount paid for this bill from source of truth
             // For installment 0 (standard), we trust admission.downPayment. 
@@ -349,6 +394,9 @@ export const generateBill = async (req, res) => {
                 finalSgst = parseFloat((finalGstPool - finalCgst).toFixed(2));
             }
 
+            // Resolve bank account details
+            const bankAccDetails = await resolveBankAccountDetails(payment, admission, installmentNum, isBoardAdmission);
+
             // Prepare bill data
             const billData = {
                 billId: payment.billId,
@@ -383,8 +431,15 @@ export const generateBill = async (req, res) => {
                     transactionId: payment.transactionId || (installment ? (installment.transactionId || 'N/A') : 'N/A'),
                     paidDate: payment.paidDate,
                     receivedDate: payment.receivedDate,
-                    accountHolderName: payment.accountHolderName,
+                    bankName: payment.bankName || (installment ? installment.bankName : '') || (payment.accountHolderName || ''),
+                    accountHolderName: payment.accountHolderName || (installment ? installment.accountHolderName : '') || '',
                     chequeDate: payment.chequeDate,
+                    bankAccount: bankAccDetails ? {
+                        _id: bankAccDetails._id,
+                        accname: bankAccDetails.accname,
+                        accno: bankAccDetails.accno
+                    } : null,
+                    bankAccountName: bankAccDetails ? bankAccDetails.label : (payment.depositAccount || null),
                     status: payment.status,
                     remarks: payment.remarks || (installment ? installment.remarks : '') || (admission ? admission.remarks : '') || ''
                 },
@@ -429,6 +484,7 @@ export const getBillById = async (req, res) => {
         const { billId } = req.params;
 
         const payment = await Payment.findOne({ billId })
+            .populate('bankAccount')
             .populate({
                 path: 'admission',
                 populate: [
@@ -506,6 +562,13 @@ export const getBillById = async (req, res) => {
                                allocation?.student?.studentsDetails?.[0] || 
                                boardCourseAdmission?.studentId?.studentsDetails?.[0] || {};
 
+        const bankAccDetails = await resolveBankAccountDetails(
+            payment,
+            admission || boardCourseAdmission,
+            payment.installmentNumber,
+            !admission && Boolean(boardCourseAdmission)
+        );
+
         const billData = {
             billId: payment.billId,
             billDate: payment.paidDate || new Date(),
@@ -546,8 +609,15 @@ export const getBillById = async (req, res) => {
                 transactionId: payment.transactionId,
                 paidDate: payment.paidDate,
                 receivedDate: payment.receivedDate,
+                bankName: payment.bankName || payment.accountHolderName || '',
                 accountHolderName: payment.accountHolderName,
                 chequeDate: payment.chequeDate,
+                bankAccount: bankAccDetails ? {
+                    _id: bankAccDetails._id,
+                    accname: bankAccDetails.accname,
+                    accno: bankAccDetails.accno
+                } : null,
+                bankAccountName: bankAccDetails ? bankAccDetails.label : (payment.depositAccount || null),
                 status: payment.status
             },
             amounts: {
@@ -585,35 +655,50 @@ export const getBillsByAdmission = async (req, res) => {
             filter.billId = { $exists: true, $ne: null };
         }
 
-        const payments = await Payment.find(filter).populate({
-            path: 'admission',
-            populate: [
-                { path: 'student' },
-                { path: 'course' }
-            ]
-        }).sort({ paidDate: 1, receivedDate: 1 });
+        const payments = await Payment.find(filter)
+            .populate('bankAccount')
+            .populate({
+                path: 'admission',
+                populate: [
+                    { path: 'student' },
+                    { path: 'course' }
+                ]
+            }).sort({ paidDate: 1, receivedDate: 1 });
 
-        const bills = payments.map(payment => ({
-            _id: payment._id,
-            billId: payment.billId || null,
-            isReceivingSlip: !payment.billId && payment.paymentMethod === 'CHEQUE' && payment.status === 'PENDING_CLEARANCE',
-            billDate: payment.paidDate || payment.receivedDate,
-            paidDate: payment.paidDate,
-            receivedDate: payment.receivedDate,
-            installmentNumber: payment.installmentNumber,
-            courseFee: payment.courseFee,
-            cgst: payment.cgst,
-            sgst: payment.sgst,
-            totalAmount: payment.totalAmount,
-            paymentMethod: payment.paymentMethod,
-            transactionId: payment.transactionId,
-            bankName: payment.bankName,
-            accountHolderName: payment.accountHolderName,
-            chequeDate: payment.chequeDate,
-            status: payment.status,
-            remarks: payment.remarks,
-            boardCourseName: payment.boardCourseName
-        }));
+        const bills = payments.map(payment => {
+            const acc = payment.bankAccount;
+            const bankAccLabel = acc && acc.accname
+                ? (acc.accno ? `${acc.accname.toUpperCase()} (A/C: ${acc.accno})` : acc.accname.toUpperCase())
+                : (payment.depositAccount || null);
+
+            return {
+                _id: payment._id,
+                billId: payment.billId || null,
+                isReceivingSlip: !payment.billId && payment.paymentMethod === 'CHEQUE' && payment.status === 'PENDING_CLEARANCE',
+                billDate: payment.paidDate || payment.receivedDate,
+                paidDate: payment.paidDate,
+                receivedDate: payment.receivedDate,
+                installmentNumber: payment.installmentNumber,
+                courseFee: payment.courseFee,
+                cgst: payment.cgst,
+                sgst: payment.sgst,
+                totalAmount: payment.totalAmount,
+                paymentMethod: payment.paymentMethod,
+                transactionId: payment.transactionId,
+                bankName: payment.bankName,
+                accountHolderName: payment.accountHolderName,
+                chequeDate: payment.chequeDate,
+                bankAccount: acc ? {
+                    _id: acc._id,
+                    accname: acc.accname,
+                    accno: acc.accno
+                } : null,
+                bankAccountName: bankAccLabel,
+                status: payment.status,
+                remarks: payment.remarks,
+                boardCourseName: payment.boardCourseName
+            };
+        });
 
         res.status(200).json({
             success: true,
@@ -699,7 +784,7 @@ export const generateReceivingSlip = async (req, res) => {
         // Locate payment record or installment details
         let payment = null;
         if (paymentId) {
-            payment = await Payment.findById(paymentId);
+            payment = await Payment.findById(paymentId).populate('bankAccount');
         }
 
         if (!payment) {
@@ -715,21 +800,21 @@ export const generateReceivingSlip = async (req, res) => {
                     admission: admissionId,
                     installmentNumber: { $in: candidates },
                     paymentMethod: "CHEQUE"
-                }).sort({ createdAt: -1 });
+                }).populate('bankAccount').sort({ createdAt: -1 });
 
                 if (!payment && billingMonth) {
                     payment = await Payment.findOne({
                         admission: admissionId,
                         billingMonth,
                         paymentMethod: "CHEQUE"
-                    }).sort({ createdAt: -1 });
+                    }).populate('bankAccount').sort({ createdAt: -1 });
                 }
             } else {
                 payment = await Payment.findOne({
                     admission: admissionId,
                     installmentNumber: installmentNum,
                     paymentMethod: "CHEQUE"
-                }).sort({ createdAt: -1 });
+                }).populate('bankAccount').sort({ createdAt: -1 });
             }
         }
 
@@ -738,7 +823,7 @@ export const generateReceivingSlip = async (req, res) => {
             payment = await Payment.findOne({
                 admission: admissionId,
                 installmentNumber: isBoardAdmission && installmentNum > 0 ? { $in: [installmentNum, installmentNum - 1] } : installmentNum
-            }).sort({ createdAt: -1 });
+            }).populate('bankAccount').sort({ createdAt: -1 });
         }
 
         // Extract installment data from admission structure if available
@@ -794,6 +879,8 @@ export const generateReceivingSlip = async (req, res) => {
             finalSgst = parseFloat((finalGstPool - finalCgst).toFixed(2));
         }
 
+        const bankAccDetails = await resolveBankAccountDetails(payment, admission, installmentNum, isBoardAdmission);
+
         const receivingSlipData = {
             isReceivingSlip: true,
             billId: null, // Strictly NO bill number for receiving slip
@@ -830,6 +917,12 @@ export const generateReceivingSlip = async (req, res) => {
                 bankName: payment?.bankName || instData?.bankName || 'N/A',
                 accountHolderName: payment?.accountHolderName || instData?.accountHolderName || 'N/A',
                 chequeDate: payment?.chequeDate || instData?.chequeDate || null,
+                bankAccount: bankAccDetails ? {
+                    _id: bankAccDetails._id,
+                    accname: bankAccDetails.accname,
+                    accno: bankAccDetails.accno
+                } : null,
+                bankAccountName: bankAccDetails ? bankAccDetails.label : (payment?.depositAccount || null),
                 paidDate: payment?.paidDate || instData?.paidDate,
                 receivedDate: payment?.receivedDate || instData?.receivedDate || new Date(),
                 status: "PENDING_CLEARANCE",

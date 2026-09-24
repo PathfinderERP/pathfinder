@@ -409,6 +409,15 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                 const cDate = billData.payment?.chequeDate ? new Date(billData.payment.chequeDate).toLocaleDateString('en-IN') : 'N/A';
                 doc.text(cDate, midX + 18, yPos + 4.2);
                 yPos += rowHeight;
+
+                const bAccLabel = billData.payment?.bankAccountName ||
+                    (billData.payment?.bankAccount?.accname
+                        ? `${billData.payment.bankAccount.accname} (A/C: ${billData.payment.bankAccount.accno || ''})`
+                        : null);
+                if (bAccLabel) {
+                    const bAccH = drawRow(yPos, 'Bank Account:', bAccLabel);
+                    yPos += bAccH;
+                }
             }
 
             // Remarks
@@ -663,9 +672,35 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                         {['CHEQUE', 'BANK_TRANSFER'].includes(billData.payment.paymentMethod) && (
                                             <>
                                                 <div><span className="text-gray-400">{isSlip || billData.payment.paymentMethod === 'CHEQUE' ? 'Bank Name:' : 'Bank:'}</span> <span className="text-white font-medium">{billData.payment.bankName || 'N/A'}</span></div>
+                                                <div>
+                                                    <span className="text-gray-400">Bank Account:</span>{" "}
+                                                    <span className="text-white font-medium">
+                                                        {billData.payment.bankAccountName ||
+                                                         (billData.payment.bankAccount
+                                                            ? (billData.payment.bankAccount.accno
+                                                                ? `${billData.payment.bankAccount.accname.toUpperCase()} (A/C: ${billData.payment.bankAccount.accno})`
+                                                                : (billData.payment.bankAccount.accname?.toUpperCase() || billData.payment.bankAccount))
+                                                            : null) ||
+                                                         installment?.bankAccountName ||
+                                                         'N/A'}
+                                                    </span>
+                                                </div>
                                                 <div><span className="text-gray-400">Payer Name:</span> <span className="text-white font-medium">{billData.payment.accountHolderName || 'N/A'}</span></div>
                                                 <div><span className="text-gray-400">Cheque Date:</span> <span className="text-white font-medium">{billData.payment.chequeDate ? new Date(billData.payment.chequeDate).toLocaleDateString('en-IN') : 'N/A'}</span></div>
                                             </>
+                                        )}
+                                        {!['CHEQUE', 'BANK_TRANSFER'].includes(billData.payment.paymentMethod) && (billData.payment.bankAccountName || billData.payment.bankAccount) && (
+                                            <div>
+                                                <span className="text-gray-400">Bank Account:</span>{" "}
+                                                <span className="text-white font-medium">
+                                                    {billData.payment.bankAccountName ||
+                                                     (billData.payment.bankAccount
+                                                        ? (billData.payment.bankAccount.accno
+                                                            ? `${billData.payment.bankAccount.accname.toUpperCase()} (A/C: ${billData.payment.bankAccount.accno})`
+                                                            : (billData.payment.bankAccount.accname?.toUpperCase() || billData.payment.bankAccount))
+                                                        : null)}
+                                                </span>
+                                            </div>
                                         )}
                                         <div className="col-span-1 sm:col-span-2 border-t border-gray-700/60 pt-2 mt-1 break-all">
                                             <span className="text-gray-400 font-semibold">Remarks:</span>{" "}

@@ -611,6 +611,11 @@ const BoardCourseAdmissionPage = () => {
                             bankName,
                             accountHolderName,
                             chequeDate,
+                            bankAccount,
+                            bankAccountName: (() => {
+                                const acc = masterAccounts.find(a => (a._id || a.id) === bankAccount);
+                                return acc ? `${acc.accname.toUpperCase()} (A/C: ${acc.accno})` : null;
+                            })(),
                             status: "PENDING_CLEARANCE"
                         },
                         preloadedBillData: {
@@ -643,6 +648,11 @@ const BoardCourseAdmissionPage = () => {
                                 accountHolderName,
                                 chequeDate,
                                 receivedDate,
+                                bankAccount,
+                                bankAccountName: (() => {
+                                    const acc = masterAccounts.find(a => (a._id || a.id) === bankAccount);
+                                    return acc ? `${acc.accname.toUpperCase()} (A/C: ${acc.accno})` : null;
+                                })(),
                                 status: "PENDING_CLEARANCE",
                                 remarks: remarks || "Board Admission Initial Cheque Payment"
                             },

@@ -20,7 +20,7 @@ const ChequeManagement = () => {
     const isDarkMode = theme === 'dark';
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState("");
-    const [filterStatus, setFilterStatus] = useState("all");
+    const [_filterStatus, _setFilterStatus] = useState("all");
     const [cheques, setCheques] = useState([]);
     const [loading, setLoading] = useState(true);
 
@@ -30,7 +30,7 @@ const ChequeManagement = () => {
     const [modalZoneFilter, setModalZoneFilter] = useState([]);
     const [modalCentreFilter, setModalCentreFilter] = useState([]);
     const [modalCurrentPage, setModalCurrentPage] = useState(1);
-    const [modalItemsPerPage, setModalItemsPerPage] = useState(10);
+    const [modalItemsPerPage, _setModalItemsPerPage] = useState(10);
 
     // Card-specific zone filter overrides
     const [cardZoneFilters, setCardZoneFilters] = useState({
@@ -389,9 +389,10 @@ const ChequeManagement = () => {
                 const sName = (c.studentName || "").toLowerCase();
                 const admNo = (c.admissionNumber || "").toLowerCase();
                 const bank = (c.bankName || "").toLowerCase();
+                const bankAcc = (c.bankAccountName || c.bankAccountOnlyName || "").toLowerCase();
                 const centre = (c.centre || "").toLowerCase();
                 const zone = (c.zone || "").toLowerCase();
-                return chNo.includes(term) || sName.includes(term) || admNo.includes(term) || bank.includes(term) || centre.includes(term) || zone.includes(term);
+                return chNo.includes(term) || sName.includes(term) || admNo.includes(term) || bank.includes(term) || bankAcc.includes(term) || centre.includes(term) || zone.includes(term);
             });
         }
 
@@ -416,6 +417,7 @@ const ChequeManagement = () => {
             "Centre": c.centre || "N/A",
             "Course": c.courseName || "N/A",
             "Bank": c.bankName || "N/A",
+            "Bank Account": c.bankAccountName || c.depositAccount || "N/A",
             "Amount (INR)": c.amount || 0,
             "Receiving Date": c.receivedDate ? new Date(c.receivedDate).toLocaleDateString('en-IN') : "N/A",
             "Status": c.status === "PAID" ? "CLEARED" : (c.status === "PENDING_CLEARANCE" ? "IN PROCESS" : c.status),
@@ -698,6 +700,7 @@ const ChequeManagement = () => {
             "Zone": c.zone || "N/A",
             "Centre": c.centre,
             "Bank": c.bankName,
+            "Bank Account": c.bankAccountName || c.depositAccount || "N/A",
             "Amount": c.amount,
             "Receiving Date": c.receivedDate ? new Date(c.receivedDate).toLocaleDateString('en-IN') : "N/A",
             "Cheque Date": c.chequeDate ? new Date(c.chequeDate).toLocaleDateString('en-IN') : "N/A",
@@ -1321,6 +1324,7 @@ const ChequeManagement = () => {
                                     <th className="p-6">Cheque Info</th>
                                     <th className="p-6">Student Details</th>
                                     <th className="p-6">Bank Name</th>
+                                    <th className="p-6">Bank Account</th>
                                     <th className="p-6">Amount</th>
                                     <th className="p-6">Receiving Date</th>
                                     <th className="p-6">Cheque Date</th>
@@ -1336,13 +1340,13 @@ const ChequeManagement = () => {
                             <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
                                 {loading ? (
                                     <tr>
-                                        <td colSpan="13" className="p-20 text-center">
+                                        <td colSpan="14" className="p-20 text-center">
                                             <div className="animate-spin h-10 w-10 border-t-2 border-emerald-500 rounded-full mx-auto"></div>
                                         </td>
                                     </tr>
                                 ) : currentItems.length === 0 ? (
                                     <tr>
-                                        <td colSpan="13" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
+                                        <td colSpan="14" className="p-20 text-center text-gray-500 font-bold uppercase tracking-widest text-xs">
                                             No cheques found in records
                                         </td>
                                     </tr>
@@ -1363,6 +1367,16 @@ const ChequeManagement = () => {
                                                     <div className="text-[10px] font-black text-emerald-500 uppercase mt-1">{cheque.zone}</div>
                                                 )}
                                                 <div className="text-[9px] text-gray-500 uppercase mt-0.5">{cheque.centre}</div>
+                                            </td>
+                                            <td className="p-6">
+                                                <div className={`font-bold text-xs uppercase ${isDarkMode ? "text-emerald-400" : "text-emerald-700"}`}>
+                                                    {cheque.bankAccountOnlyName || cheque.bankAccountName || cheque.depositAccount || "N/A"}
+                                                </div>
+                                                {cheque.bankAccountNumber && (
+                                                    <div className="text-[10px] text-gray-500 font-bold uppercase mt-1">
+                                                        A/C: {cheque.bankAccountNumber}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className={`font-black text-lg p-6 ${isDarkMode ? "text-white" : "text-gray-900"}`}>₹{cheque.amount.toLocaleString()}</td>
                                             <td className={`font-bold text-xs p-6 ${isDarkMode ? "text-gray-300" : "text-gray-700"}`}>
@@ -2048,6 +2062,7 @@ const ChequeManagement = () => {
                                                     <th className="p-4 whitespace-nowrap min-w-[160px]">Student Details</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[160px]">Zone, Centre & Course</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[140px]">Bank Name</th>
+                                                    <th className="p-4 whitespace-nowrap min-w-[160px]">Bank Account</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[100px]">Amount</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[120px]">Receiving Date</th>
                                                     <th className="p-4 whitespace-nowrap min-w-[110px]">Cheque Date</th>
@@ -2059,7 +2074,7 @@ const ChequeManagement = () => {
                                             <tbody className={`divide-y text-xs ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
                                                 {paginatedItems.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="10" className="p-12 text-center text-gray-500 font-bold uppercase tracking-wider text-xs">
+                                                        <td colSpan="11" className="p-12 text-center text-gray-500 font-bold uppercase tracking-wider text-xs">
                                                             No matching cheque records found
                                                         </td>
                                                     </tr>
@@ -2084,6 +2099,16 @@ const ChequeManagement = () => {
                                                             </td>
                                                             <td className="p-4 font-bold uppercase text-gray-400">
                                                                 {cheque.bankName || "—"}
+                                                            </td>
+                                                            <td className="p-4 font-bold uppercase">
+                                                                <div className={isDarkMode ? "text-emerald-400" : "text-emerald-700"}>
+                                                                    {cheque.bankAccountOnlyName || cheque.bankAccountName || cheque.depositAccount || "—"}
+                                                                </div>
+                                                                {cheque.bankAccountNumber && (
+                                                                    <div className="text-[9px] text-gray-500 font-bold uppercase mt-0.5">
+                                                                        A/C: {cheque.bankAccountNumber}
+                                                                    </div>
+                                                                )}
                                                             </td>
                                                             <td className="p-4 whitespace-nowrap">
                                                                 <span className="font-black text-emerald-400 text-sm">

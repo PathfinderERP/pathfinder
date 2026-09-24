@@ -260,6 +260,12 @@ export const searchBill = async (req, res) => {
                 paymentObj.admission = rawAdmId;
             }
 
+            if (paymentObj.bankAccount && typeof paymentObj.bankAccount === 'object' && paymentObj.bankAccount.accname) {
+                paymentObj.bankAccountName = paymentObj.bankAccount.accno
+                    ? `${paymentObj.bankAccount.accname.toUpperCase()} (A/C: ${paymentObj.bankAccount.accno})`
+                    : paymentObj.bankAccount.accname.toUpperCase();
+            }
+
             return {
                 payment: paymentObj,
                 admissionType,

@@ -209,9 +209,29 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const cleanDateStr = (d) => {
         if (!d) return null;
         if (typeof d === "string") {
-            return d.includes("T") ? d.split("T")[0] : d;
+            const trimmed = d.trim();
+            if (!trimmed) return null;
+            // Handle DD-MM-YYYY or DD/MM/YYYY
+            const dmy = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+            if (dmy) {
+                const [_, day, month, year] = dmy;
+                return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            }
+            // Handle YYYY-MM-DD or YYYY/MM/DD
+            const ymd = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (ymd) {
+                const [_, year, month, day] = ymd;
+                return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            }
+            const dateObj = new Date(trimmed);
+            if (!isNaN(dateObj.getTime())) {
+                return dateObj.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+            }
+            return trimmed.includes("T") ? trimmed.split("T")[0] : trimmed;
         }
-        return new Date(d).toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        const dateObj = new Date(d);
+        if (isNaN(dateObj.getTime())) return null;
+        return dateObj.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
     };
 
     let startOfDay;
@@ -1012,15 +1032,14 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 const daysMap = computeCentreTargetsForMonth(c);
                 let rangeSum = 0;
                 let rangeBaseSum = 0;
-                let rangeShortfallAdded = 0;
                 daysInRange.forEach(dNum => {
                     const res = daysMap[dNum];
                     if (res) {
-                        rangeSum += res.finalTarget;
+                        rangeSum += (res.effectiveBaseTarget !== undefined ? res.effectiveBaseTarget : res.baseTarget);
                         rangeBaseSum += res.baseTarget;
-                        rangeShortfallAdded += (res.shortfallAdded || 0);
                     }
                 });
+                const rangeShortfallAdded = rangeSum - rangeBaseSum;
                 centreTargets[name] = rangeSum;
                 centreTargetMeta[name] = {
                     finalTarget: rangeSum,

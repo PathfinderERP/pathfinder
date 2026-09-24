@@ -6,6 +6,7 @@ import Zone from "../../models/Zone.js";
 import User from "../../models/User.js";
 import Student from "../../models/Students.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
+import Account from "../../models/Master_data/Account.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import s3Client from "../../config/r2Config.js";
 import { GetObjectCommand } from "@aws-sdk/client-s3";
@@ -76,6 +77,8 @@ const populateAdmissions = async (cheques) => {
         .populate("student")
         .populate({ path: "course", select: "courseName" })
         .populate({ path: "department", select: "departmentName" })
+        .populate("downPaymentBankAccount")
+        .populate("paymentBreakdown.bankAccount")
         .lean();
 
     const normalMap = new Map(normalAdmissions.map(a => [a._id.toString(), a]));
@@ -89,6 +92,7 @@ const populateAdmissions = async (cheques) => {
         const boardAdmissions = await BoardCourseAdmission.find({ _id: { $in: remainingIds } })
             .populate('boardId') // Boards model
             .populate('studentId')
+            .populate('installments.paymentTransactions.bankAccount')
             .lean();
         boardMap = new Map(boardAdmissions.map(a => [a._id.toString(), a]));
     }
@@ -202,6 +206,7 @@ export const getPendingCheques = async (req, res) => {
                 path: "depositedBy",
                 select: "name"
             })
+            .populate("bankAccount")
             .sort({ updatedAt: -1 })
             .lean();
 
@@ -303,7 +308,9 @@ export const getPendingCheques = async (req, res) => {
                     const studentName = (c.isBoardAdmission ? adm.studentName : (adm.student?.studentsDetails?.[0]?.studentName || "")).toLowerCase();
                     const admNo = (adm.admissionNumber || "").toLowerCase();
                     const chNo = (c.transactionId || "").toLowerCase();
-                    matchesSearch = studentName.includes(s) || admNo.includes(s) || chNo.includes(s);
+                    const bank = (c.bankName || c.accountHolderName || "").toLowerCase();
+                    const bAcc = (c.bankAccount?.accname || "").toLowerCase();
+                    matchesSearch = studentName.includes(s) || admNo.includes(s) || chNo.includes(s) || bank.includes(s) || bAcc.includes(s);
                 }
 
                 return matchesCentre && matchesCourse && matchesDept && matchesSearch;
@@ -353,6 +360,9 @@ export const getPendingCheques = async (req, res) => {
             });
         });
 
+        const allAccounts = await Account.find().lean();
+        const accountMap = new Map(allAccounts.map(a => [a._id.toString(), a]));
+
         const formattedCheques = await Promise.all(cheques.map(async (c) => {
             const adm = c.admission;
             const isBoard = c.isBoardAdmission;
@@ -372,6 +382,32 @@ export const getPendingCheques = async (req, res) => {
             const rawCentre = adm?.centre || "";
             const resolvedZone = centreToZoneMap[rawCentre.trim().toLowerCase()] || "N/A";
 
+            // Resolve bank account selected during payment
+            let bankAcc = null;
+            if (c.bankAccount) {
+                bankAcc = typeof c.bankAccount === 'object' && c.bankAccount.accname ? c.bankAccount : accountMap.get(c.bankAccount.toString());
+            }
+            if (!bankAcc && adm) {
+                if (c.installmentNumber === 0) {
+                    const dpAcc = adm.downPaymentBankAccount || adm.paymentBreakdown?.[0]?.bankAccount || adm.bankAccount;
+                    bankAcc = typeof dpAcc === 'object' && dpAcc?.accname ? dpAcc : (dpAcc ? accountMap.get(dpAcc.toString()) : null);
+                } else {
+                    const inst = adm.paymentBreakdown?.find(p => p.installmentNumber === c.installmentNumber);
+                    const instAcc = inst?.bankAccount;
+                    bankAcc = typeof instAcc === 'object' && instAcc?.accname ? instAcc : (instAcc ? accountMap.get(instAcc.toString()) : null);
+                    if (!bankAcc && isBoard) {
+                        const bInst = adm.installments?.find(i => i.monthNumber === c.installmentNumber || i.monthNumber === (c.installmentNumber + 1));
+                        const lastTx = bInst?.paymentTransactions?.[bInst.paymentTransactions?.length - 1];
+                        const bAcc = lastTx?.bankAccount || bInst?.bankAccount;
+                        bankAcc = typeof bAcc === 'object' && bAcc?.accname ? bAcc : (bAcc ? accountMap.get(bAcc.toString()) : null);
+                    }
+                }
+            }
+
+            const bankAccountLabel = bankAcc
+                ? (bankAcc.accno ? `${bankAcc.accname.toUpperCase()} (A/C: ${bankAcc.accno})` : bankAcc.accname.toUpperCase())
+                : (c.depositAccount || null);
+
             return {
                 paymentId: c._id,
                 admissionId: adm?._id,
@@ -388,7 +424,16 @@ export const getPendingCheques = async (req, res) => {
                 chequeNumber: c.transactionId,
                 chequeDate: c.chequeDate,
                 receivedDate: c.receivedDate || c.paidDate || c.createdAt,
-                bankName: c.accountHolderName,
+                bankName: c.bankName || c.accountHolderName || "N/A",
+                accountHolderName: c.accountHolderName || "N/A",
+                bankAccount: bankAcc ? {
+                    _id: bankAcc._id,
+                    accname: bankAcc.accname,
+                    accno: bankAcc.accno
+                } : null,
+                bankAccountName: bankAccountLabel,
+                bankAccountOnlyName: bankAcc ? bankAcc.accname : null,
+                bankAccountNumber: bankAcc ? bankAcc.accno : null,
                 status: c.status,
                 createdAt: c.createdAt,
                 processedBy: c.processedBy?.name || "System",
@@ -1373,6 +1418,7 @@ export const getAllCheques = async (req, res) => {
                 path: "depositedBy",
                 select: "name"
             })
+            .populate("bankAccount")
             .sort({ createdAt: -1 })
             .lean();
 
@@ -1460,6 +1506,9 @@ export const getAllCheques = async (req, res) => {
             });
         }
 
+        const allAccounts = await Account.find().lean();
+        const accountMap = new Map(allAccounts.map(a => [a._id.toString(), a]));
+
         // Format for frontend response
         const formattedCheques = await Promise.all(cheques.map(async (c) => {
             const adm = c.admission;
@@ -1486,6 +1535,32 @@ export const getAllCheques = async (req, res) => {
                 }
             }
 
+            // Resolve bank account
+            let bankAcc = null;
+            if (c.bankAccount) {
+                bankAcc = typeof c.bankAccount === 'object' && c.bankAccount.accname ? c.bankAccount : accountMap.get(c.bankAccount.toString());
+            }
+            if (!bankAcc && adm) {
+                if (c.installmentNumber === 0) {
+                    const dpAcc = adm.downPaymentBankAccount || adm.paymentBreakdown?.[0]?.bankAccount || adm.bankAccount;
+                    bankAcc = typeof dpAcc === 'object' && dpAcc?.accname ? dpAcc : (dpAcc ? accountMap.get(dpAcc.toString()) : null);
+                } else {
+                    const inst = adm.paymentBreakdown?.find(p => p.installmentNumber === c.installmentNumber);
+                    const instAcc = inst?.bankAccount;
+                    bankAcc = typeof instAcc === 'object' && instAcc?.accname ? instAcc : (instAcc ? accountMap.get(instAcc.toString()) : null);
+                    if (!bankAcc && isBoard) {
+                        const bInst = adm.installments?.find(i => i.monthNumber === c.installmentNumber || i.monthNumber === (c.installmentNumber + 1));
+                        const lastTx = bInst?.paymentTransactions?.[bInst.paymentTransactions?.length - 1];
+                        const bAcc = lastTx?.bankAccount || bInst?.bankAccount;
+                        bankAcc = typeof bAcc === 'object' && bAcc?.accname ? bAcc : (bAcc ? accountMap.get(bAcc.toString()) : null);
+                    }
+                }
+            }
+
+            const bankAccountLabel = bankAcc
+                ? (bankAcc.accno ? `${bankAcc.accname.toUpperCase()} (A/C: ${bankAcc.accno})` : bankAcc.accname.toUpperCase())
+                : (c.depositAccount || null);
+
             return {
                 id: c._id,
                 paymentId: c._id,
@@ -1493,6 +1568,15 @@ export const getAllCheques = async (req, res) => {
                 studentName,
                 admissionNo,
                 bankName: c.bankName || c.accountHolderName || "N/A",
+                accountHolderName: c.accountHolderName || "N/A",
+                bankAccount: bankAcc ? {
+                    _id: bankAcc._id,
+                    accname: bankAcc.accname,
+                    accno: bankAcc.accno
+                } : null,
+                bankAccountName: bankAccountLabel,
+                bankAccountOnlyName: bankAcc ? bankAcc.accname : null,
+                bankAccountNumber: bankAcc ? bankAcc.accno : null,
                 amount: c.paidAmount,
                 receivedDate: c.receivedDate || c.paidDate || c.createdAt,
                 chequeDate: c.chequeDate,

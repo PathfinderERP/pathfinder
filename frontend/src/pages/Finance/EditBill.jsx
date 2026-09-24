@@ -361,10 +361,20 @@ const EditBill = () => {
                 installmentNumber: p?.installmentNumber !== undefined ? p.installmentNumber : 0,
                 paymentMethod: formData.paymentMethod,
                 transactionId: formData.transactionId || "N/A",
+                bankName: formData.bankName || "N/A",
                 paidDate: formData.paidDate ? new Date(formData.paidDate) : new Date(),
                 receivedDate: formData.receivedDate ? new Date(formData.receivedDate) : new Date(),
                 accountHolderName: formData.accountHolderName,
                 chequeDate: formData.chequeDate ? new Date(formData.chequeDate) : null,
+                bankAccount: formData.bankAccount,
+                bankAccountName: (() => {
+                    if (!formData.bankAccount) return null;
+                    const matched = accounts.find(a => (a._id || a.id) === formData.bankAccount);
+                    if (!matched) return null;
+                    const name = matched.accname || matched.accountName || matched.bankName || "Bank Account";
+                    const number = matched.accno || matched.accountNumber || "";
+                    return `${name.toUpperCase()}${number ? ` (A/C: ${number})` : ""}`;
+                })(),
                 status: formData.status,
                 remarks: formData.remarks
             },

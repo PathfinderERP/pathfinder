@@ -24,9 +24,13 @@ const DailyCollection = () => {
     const isDigital = userRoleClean === 'digital' || userRoleClean === 'digitalmarketing' || userRoleClean.includes('digital');
     const canEditTarget = isSuperAdmin || isDigital;
 
+    const filterStorageKey = (currentUser?.id || currentUser?._id)
+        ? `dailyCollection_filters_${currentUser.id || currentUser._id}`
+        : "dailyCollection_filters";
+
     const getSavedFilters = () => {
         try {
-            const saved = localStorage.getItem("dailyCollection_filters");
+            const saved = localStorage.getItem(filterStorageKey);
             return saved ? JSON.parse(saved) : {};
         } catch (e) {
             return {};
@@ -113,8 +117,8 @@ const DailyCollection = () => {
             redFlagStatus,
             searchText
         };
-        localStorage.setItem("dailyCollection_filters", JSON.stringify(filtersToSave));
-    }, [date, startDate, endDate, activePreset, activeTab, selectedZones, selectedCentres, selectedCourses, selectedDepartments, selectedExamTags, selectedPaymentMethods, redFlagStatus, searchText]);
+        localStorage.setItem(filterStorageKey, JSON.stringify(filtersToSave));
+    }, [filterStorageKey, date, startDate, endDate, activePreset, activeTab, selectedZones, selectedCentres, selectedCourses, selectedDepartments, selectedExamTags, selectedPaymentMethods, redFlagStatus, searchText]);
 
     useEffect(() => {
         fetchMasterData();
@@ -155,6 +159,16 @@ const DailyCollection = () => {
     const tableBillTextClass = "text-blue-600 font-semibold";
     const wrapperBgClass = isDarkMode ? "bg-[#090b10]" : "bg-white";
     const centreDropdownRef = useRef(null);
+    const abortControllerRef = useRef(null);
+    const latestReqTimestampRef = useRef(0);
+
+    useEffect(() => {
+        return () => {
+            if (abortControllerRef.current) {
+                abortControllerRef.current.abort();
+            }
+        };
+    }, []);
 
     const fetchMasterData = async () => {
         try {
@@ -176,9 +190,9 @@ const DailyCollection = () => {
                 if (storedUser) {
                     const user = JSON.parse(storedUser);
                     if (user.role !== "superAdmin" && user.role !== "Super Admin" && user.centres) {
-                        const allowedIds = user.centres.map(c => c._id || c);
+                        const allowedIds = user.centres.map(c => String(c._id || c).trim());
                         const sortedCentres = centreList
-                            .filter(c => allowedIds.includes(c._id))
+                            .filter(c => allowedIds.includes(String(c._id).trim()))
                             .sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
                         setCentres(sortedCentres);
                     } else {
@@ -203,6 +217,14 @@ const DailyCollection = () => {
     };
 
     const fetchDailyCollection = async () => {
+        if (abortControllerRef.current) {
+            abortControllerRef.current.abort();
+        }
+        const controller = new AbortController();
+        abortControllerRef.current = controller;
+        const reqTimestamp = Date.now();
+        latestReqTimestampRef.current = reqTimestamp;
+
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
@@ -247,8 +269,14 @@ const DailyCollection = () => {
             }
 
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/daily-collection?${params.toString()}`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                signal: controller.signal
             });
+
+            if (reqTimestamp !== latestReqTimestampRef.current) {
+                return;
+            }
+
             if (response.ok) {
                 const data = await response.json();
                 const fetchedDetails = Array.isArray(data.details) ? data.details : [];
@@ -270,6 +298,9 @@ const DailyCollection = () => {
                 const mergedMethods = Array.from(new Set([...defaultMethods, ...uniqueMethods]));
                 setPaymentMethodsList(mergedMethods);
             } else {
+                const errData = await response.json().catch(() => ({}));
+                console.error("Failed to load daily collection:", errData);
+                toast.error(errData.message || "Failed to load daily collection data");
                 setDailyDetails([]);
                 setPaymentMethods([]);
                 setPaymentMethodsList([]);
@@ -279,9 +310,15 @@ const DailyCollection = () => {
                 setCentreTargetMeta({});
             }
         } catch (error) {
+            if (error.name === "AbortError") {
+                return;
+            }
             console.error("Error fetching daily collection", error);
+            toast.error("Error fetching daily collection");
         } finally {
-            setLoading(false);
+            if (reqTimestamp === latestReqTimestampRef.current) {
+                setLoading(false);
+            }
         }
     };
 
@@ -570,6 +607,7 @@ const DailyCollection = () => {
     };
 
     const resetFilters = () => {
+        localStorage.removeItem(filterStorageKey);
         localStorage.removeItem("dailyCollection_filters");
         setSelectedCentres([]);
         setSelectedCourses([]);
