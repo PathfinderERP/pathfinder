@@ -47,6 +47,7 @@ const checkAvailableLeaveBalance = async (employeeId, leaveTypeId, requestingDay
 
     const isMonthly = /short\s*leave|early\s*leave/i.test(leaveTypeObj.name);
 
+    let totalQuota = leaveTypeObj.days || 0;
     const employeeObj = await Employee.findById(employeeId);
     let userObj = null;
     if (employeeObj && employeeObj.user) {
