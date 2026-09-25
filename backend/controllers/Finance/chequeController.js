@@ -121,6 +121,8 @@ export const getPendingCheques = async (req, res) => {
             centre,
             course,
             department,
+            account,
+            bankAccount,
             search,
             status,
             startDate,
@@ -449,7 +451,36 @@ export const getPendingCheques = async (req, res) => {
             };
         }));
 
-        res.status(200).json(formattedCheques);
+        const rawAccountFilter = account || bankAccount;
+        let finalCheques = formattedCheques;
+
+        if (rawAccountFilter) {
+            const requestedAccounts = (Array.isArray(rawAccountFilter) ? rawAccountFilter : [rawAccountFilter])
+                .map(a => String(a).trim().toLowerCase())
+                .filter(Boolean);
+
+            if (requestedAccounts.length > 0) {
+                finalCheques = formattedCheques.filter(c => {
+                    const accId = c.bankAccount?._id ? String(c.bankAccount._id).toLowerCase() : "";
+                    const accNo = c.bankAccountNumber ? String(c.bankAccountNumber).trim().toLowerCase() : (c.bankAccount?.accno ? String(c.bankAccount.accno).trim().toLowerCase() : "");
+                    const accName = c.bankAccountOnlyName ? String(c.bankAccountOnlyName).trim().toLowerCase() : (c.bankAccount?.accname ? String(c.bankAccount.accname).trim().toLowerCase() : "");
+                    const depAcc = c.depositAccount ? String(c.depositAccount).trim().toLowerCase() : "";
+                    const fullName = c.bankAccountName ? String(c.bankAccountName).trim().toLowerCase() : "";
+
+                    return requestedAccounts.some(target =>
+                        target === accId ||
+                        target === accNo ||
+                        target === accName ||
+                        target === depAcc ||
+                        (accNo && target.includes(accNo)) ||
+                        (accName && target.includes(accName)) ||
+                        (fullName && fullName.includes(target))
+                    );
+                });
+            }
+        }
+
+        res.status(200).json(finalCheques);
     } catch (error) {
         console.error("Get Pending Cheques Error:", error);
         res.status(500).json({ message: "Error fetching pending cheques", error: error.message });

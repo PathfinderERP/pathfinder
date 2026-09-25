@@ -73,6 +73,7 @@ const ChequeManagement = () => {
         centre: [],
         course: [],
         department: [],
+        account: [],
         status: ["PENDING_CLEARANCE"],
         receivedStartDate: "",
         receivedEndDate: "",
@@ -86,7 +87,8 @@ const ChequeManagement = () => {
         zones: [],
         centres: [],
         courses: [],
-        departments: []
+        departments: [],
+        accounts: []
     });
 
     const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -127,11 +129,12 @@ const ChequeManagement = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [centresRes, coursesRes, deptsRes, zonesRes] = await Promise.all([
+            const [centresRes, coursesRes, deptsRes, zonesRes, accountsRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/course`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/department`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/master-data/account`, { headers })
             ]);
 
             const centres = await centresRes.json();
@@ -139,6 +142,9 @@ const ChequeManagement = () => {
             const depts = await deptsRes.json();
             const zonesData = zonesRes.ok ? await zonesRes.json() : [];
             const rawZones = Array.isArray(zonesData) ? zonesData : (zonesData.data || []);
+            const accountsData = accountsRes.ok ? await accountsRes.json() : [];
+            const rawAccounts = Array.isArray(accountsData) ? accountsData : (accountsData.data || []);
+            const activeAccounts = rawAccounts.filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false);
 
             // Filter centres based on user's authorized assigned centres
             const isSuperAdminUser = userRoles.some(r => {
@@ -174,7 +180,8 @@ const ChequeManagement = () => {
                 zones: availableZones,
                 centres: filteredCentres,
                 courses: Array.isArray(courses) ? courses : [],
-                departments: Array.isArray(depts) ? depts.filter(dept => dept.showInAdmission !== false) : []
+                departments: Array.isArray(depts) ? depts.filter(dept => dept.showInAdmission !== false) : [],
+                accounts: activeAccounts
             });
         } catch (error) {
             console.error("Error fetching metadata:", error);
@@ -224,6 +231,19 @@ const ChequeManagement = () => {
             .map(z => ({ value: z.name, label: z.name }))
             .sort((a, b) => a.label.localeCompare(b.label));
     }, [metadata.zones]);
+
+    // Account options for dropdown (only active accounts)
+    const accountOptions = React.useMemo(() => {
+        return (metadata.accounts || [])
+            .filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false)
+            .map(acc => ({
+                value: acc._id,
+                label: acc.accno ? `${acc.accname} (${acc.accno})` : acc.accname,
+                accname: acc.accname,
+                accno: acc.accno
+            }))
+            .sort((a, b) => a.label.localeCompare(b.label));
+    }, [metadata.accounts]);
 
     // Available centres filtered by selected main zones
     const availableCentresForDropdown = React.useMemo(() => {
@@ -658,7 +678,27 @@ const ChequeManagement = () => {
         }
     };
 
-    const filteredCheques = cheques; // Now filtered by backend
+    const filteredCheques = React.useMemo(() => {
+        if (!filters.account || filters.account.length === 0) return cheques;
+        const normAccounts = filters.account.map(a => String(a).trim().toLowerCase()).filter(Boolean);
+        return cheques.filter(c => {
+            const accId = c.bankAccount?._id ? String(c.bankAccount._id).toLowerCase() : "";
+            const accNo = c.bankAccountNumber ? String(c.bankAccountNumber).trim().toLowerCase() : (c.bankAccount?.accno ? String(c.bankAccount.accno).trim().toLowerCase() : "");
+            const accName = c.bankAccountOnlyName ? String(c.bankAccountOnlyName).trim().toLowerCase() : (c.bankAccount?.accname ? String(c.bankAccount.accname).trim().toLowerCase() : "");
+            const depAcc = c.depositAccount ? String(c.depositAccount).trim().toLowerCase() : "";
+            const fullName = c.bankAccountName ? String(c.bankAccountName).trim().toLowerCase() : "";
+
+            return normAccounts.some(target =>
+                target === accId ||
+                target === accNo ||
+                target === accName ||
+                target === depAcc ||
+                (accNo && target.includes(accNo)) ||
+                (accName && target.includes(accName)) ||
+                (fullName && fullName.includes(target))
+            );
+        });
+    }, [cheques, filters.account]);
 
     const handleFilterChange = (name, value) => {
         setFilters(prev => ({ ...prev, [name]: value }));
@@ -670,6 +710,7 @@ const ChequeManagement = () => {
             centre: [],
             course: [],
             department: [],
+            account: [],
             status: ["PENDING_CLEARANCE"],
             receivedStartDate: "",
             receivedEndDate: "",
@@ -1151,7 +1192,7 @@ const ChequeManagement = () => {
 
                 {/* Main Filter Section */}
                 <div className={`border rounded-3xl p-6 mb-8 shadow-2xl ${isDarkMode ? "bg-[#131619] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"}`}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end mb-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4 items-end mb-6">
                         <div>
                             <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Zone</label>
                             <Select
@@ -1200,6 +1241,24 @@ const ChequeManagement = () => {
                                 onChange={(selected) => handleFilterChange("department", selected ? selected.map(s => s.value) : [])}
                                 styles={customSelectStyles}
                                 placeholder="ALL DEPARTMENTS"
+                                menuPortalTarget={document.body}
+                                menuPosition="fixed"
+                            />
+                        </div>
+                        <div>
+                            <label className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2 block">Account Wise Filter</label>
+                            <Select
+                                isMulti
+                                options={accountOptions}
+                                value={(filters.account || []).map(val => {
+                                    const match = accountOptions.find(o => o.value === val || o.accno === val || o.accname === val);
+                                    return match || { value: val, label: val };
+                                })}
+                                onChange={(selected) => handleFilterChange("account", selected ? selected.map(s => s.value) : [])}
+                                styles={customSelectStyles}
+                                placeholder="ALL ACCOUNTS"
+                                className="react-select-container"
+                                classNamePrefix="react-select"
                                 menuPortalTarget={document.body}
                                 menuPosition="fixed"
                             />
