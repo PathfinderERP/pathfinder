@@ -61,9 +61,12 @@ const TransactionList = () => {
     const [centres, setCentres] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [zones, setZones] = useState([]);
+    const [boards, setBoards] = useState([]);
 
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedCourses, setSelectedCourses] = useState([]);
+    const [selectedBoards, setSelectedBoards] = useState([]);
+    const [selectedProgrammes, setSelectedProgrammes] = useState([]);
     const [selectedExamTag, setSelectedExamTag] = useState("");
     const [selectedDepartments, setSelectedDepartments] = useState([]);
     const [selectedZones, setSelectedZones] = useState([]);
@@ -80,6 +83,7 @@ const TransactionList = () => {
     const [centreSearch, setCentreSearch] = useState("");
     const [departmentSearch, setDepartmentSearch] = useState("");
     const [zoneSearch, setZoneSearch] = useState("");
+    const [boardSearch, setBoardSearch] = useState("");
     const [selectedStatus, setSelectedStatus] = useState([]);
     const [billFilter, setBillFilter] = useState("all"); // "all" | "no_bill" | "with_bill"
     const [selectedBilledBy, setSelectedBilledBy] = useState([]);
@@ -101,18 +105,22 @@ const TransactionList = () => {
     const paymentDropdownRef = useRef(null);
     const typeDropdownRef = useRef(null);
     const departmentDropdownRef = useRef(null);
+    const boardDropdownRef = useRef(null);
     const statusDropdownRef = useRef(null);
     const billedByDropdownRef = useRef(null);
     const zoneDropdownRef = useRef(null);
     const courseDropdownRef = useRef(null);
+    const programmeDropdownRef = useRef(null);
 
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
     const [isPaymentDropdownOpen, setIsPaymentDropdownOpen] = useState(false);
     const [isTypeDropdownOpen, setIsTypeDropdownOpen] = useState(false);
     const [isDepartmentDropdownOpen, setIsDepartmentDropdownOpen] = useState(false);
+    const [isBoardDropdownOpen, setIsBoardDropdownOpen] = useState(false);
     const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
     const [isZoneDropdownOpen, setIsZoneDropdownOpen] = useState(false);
     const [isCourseDropdownOpen, setIsCourseDropdownOpen] = useState(false);
+    const [isProgrammeDropdownOpen, setIsProgrammeDropdownOpen] = useState(false);
     const [courseSearch, setCourseSearch] = useState("");
 
     // ---- Effects ----
@@ -131,6 +139,9 @@ const TransactionList = () => {
             if (departmentDropdownRef.current && !departmentDropdownRef.current.contains(event.target)) {
                 setIsDepartmentDropdownOpen(false);
             }
+            if (boardDropdownRef.current && !boardDropdownRef.current.contains(event.target)) {
+                setIsBoardDropdownOpen(false);
+            }
             if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
                 setIsStatusDropdownOpen(false);
             }
@@ -142,6 +153,9 @@ const TransactionList = () => {
             }
             if (courseDropdownRef.current && !courseDropdownRef.current.contains(event.target)) {
                 setIsCourseDropdownOpen(false);
+            }
+            if (programmeDropdownRef.current && !programmeDropdownRef.current.contains(event.target)) {
+                setIsProgrammeDropdownOpen(false);
             }
         };
         document.addEventListener("mousedown", handleClickOutside);
@@ -166,10 +180,11 @@ const TransactionList = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [cRes, dRes, zRes] = await Promise.all([
+            const [cRes, dRes, zRes, bRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
                 fetch(`${import.meta.env.VITE_API_URL}/department`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/board`, { headers })
             ]);
 
             if (cRes.ok) {
@@ -195,6 +210,10 @@ const TransactionList = () => {
                 const zoneList = Array.isArray(data) ? data : (data.data || []);
                 const activeZones = zoneList.filter(z => z.isActive !== false);
                 setZones(activeZones.sort((a, b) => (a.name || "").localeCompare(b.name || "")));
+            }
+            if (bRes && bRes.ok) {
+                const data = await bRes.json();
+                setBoards(Array.isArray(data) ? data : []);
             }
         } catch (error) {
             console.error("Error fetching master data", error);
@@ -299,7 +318,10 @@ const TransactionList = () => {
     const handleResetFilters = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
+        setSelectedBoards([]);
+        setSelectedProgrammes([]);
         setCourseSearch("");
+        setBoardSearch("");
         setSelectedExamTag("");
         setTimePeriod("Custom Range");
         setStartDate("");
@@ -350,13 +372,57 @@ const TransactionList = () => {
         });
     };
 
-    // --- Derived filtered data (client-side bill filter + billed by filter + course filter) ---
+    // --- Helpers to extract Board and Programme ---
+    const getItemBoard = (item) => {
+        if (item.board) return item.board;
+        const text = `${item.course || ""} ${item.department || ""}`;
+        if (/\bWBCHSE\b/i.test(text)) return "WBCHSE";
+        if (/\bWBBSE\b/i.test(text)) return "WBBSE";
+        if (/\bCBSE\b/i.test(text)) return "CBSE";
+        if (/\bICSE\b/i.test(text)) return "ICSE";
+        if (/\bISC\b/i.test(text)) return "ISC";
+        return null;
+    };
+
+    const getItemProgramme = (item) => {
+        if (item.programme) return item.programme.toUpperCase();
+        const text = `${item.course || ""}`;
+        if (/\bNCRP\b/i.test(text)) return "NCRP";
+        if (/\bCRP\b/i.test(text)) return "CRP";
+        return null;
+    };
+
+    // --- Derived filtered data (client-side bill filter + billed by + course + board + programme) ---
     const uniqueBilledByOptions = [...new Set(detailedReport.map(item => item.takenBy).filter(Boolean))];
     const uniqueCourseOptions = [...new Set(detailedReport.map(item => item.course).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const uniqueBoardOptions = React.useMemo(() => {
+        const fromMaster = boards.map(b => b.boardCourse || b.name).filter(Boolean);
+        const fromReport = detailedReport.map(item => getItemBoard(item)).filter(Boolean);
+        const combined = [...new Set([...fromMaster, ...fromReport])];
+        if (combined.length === 0) return ["WBCHSE", "CBSE", "ICSE", "ISC", "WBBSE"];
+        return combined.sort((a, b) => a.localeCompare(b));
+    }, [boards, detailedReport]);
+    const programmeOptions = ["CRP", "NCRP"];
 
     const toggleCourseSelection = (courseName) => {
         setSelectedCourses(prev =>
             prev.includes(courseName) ? prev.filter(c => c !== courseName) : [...prev, courseName]
+        );
+        setCurrentPage(1);
+        setPageInput("1");
+    };
+
+    const toggleBoardSelection = (boardName) => {
+        setSelectedBoards(prev =>
+            prev.includes(boardName) ? prev.filter(b => b !== boardName) : [...prev, boardName]
+        );
+        setCurrentPage(1);
+        setPageInput("1");
+    };
+
+    const toggleProgrammeSelection = (prog) => {
+        setSelectedProgrammes(prev =>
+            prev.includes(prog) ? prev.filter(p => p !== prog) : [...prev, prog]
         );
         setCurrentPage(1);
         setPageInput("1");
@@ -369,7 +435,17 @@ const TransactionList = () => {
             return true;
         })
         .filter(item => selectedBilledBy.length === 0 || selectedBilledBy.includes(item.takenBy || "System"))
-        .filter(item => selectedCourses.length === 0 || selectedCourses.includes(item.course));
+        .filter(item => selectedCourses.length === 0 || selectedCourses.includes(item.course))
+        .filter(item => {
+            if (selectedBoards.length === 0) return true;
+            const b = getItemBoard(item);
+            return b && selectedBoards.includes(b);
+        })
+        .filter(item => {
+            if (selectedProgrammes.length === 0) return true;
+            const p = getItemProgramme(item);
+            return p && selectedProgrammes.includes(p);
+        });
 
     const handleSort = (field) => {
         if (sortField === field) {
@@ -392,6 +468,8 @@ const TransactionList = () => {
         selectedCentres.length > 0 ||
         selectedZones.length > 0 ||
         selectedCourses.length > 0 ||
+        selectedBoards.length > 0 ||
+        selectedProgrammes.length > 0 ||
         selectedExamTag !== "" ||
         selectedDepartments.length > 0 ||
         selectedPaymentMode.length > 0 ||
@@ -438,9 +516,8 @@ const TransactionList = () => {
         const headers = [
             "Date", "Received Date", "Enroll No.", "Receipt No", "Student Name",
             "Student Email", "Student Mobile", "Whatsapp", "Address", "Guardian Name", "Guardian Mobile",
-            "Session", "Department", "Course Name", "Transaction Type", "Transaction ID",
+            "Session", "Department", "Board", "Programme", "Course Name", "Transaction Type", "Transaction ID",
             "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Billed By"
-
         ];
         const data = sortedReport.map(item => [
             new Date(item.paymentDate).toLocaleDateString("en-IN"),
@@ -456,6 +533,8 @@ const TransactionList = () => {
             item.guardianMobile || "-",
             item.session || "-",
             item.department || "-",
+            getItemBoard(item) || "-",
+            getItemProgramme(item) || "-",
             item.course,
             item.installmentNumber === 0 ? "Initial" : "EMI",
             item.transactionId || "-",
@@ -876,6 +955,88 @@ const TransactionList = () => {
                         )}
                     </div>
 
+                    {/* Board (MultiSelect) */}
+                    <div className="relative" ref={boardDropdownRef}>
+                        <div
+                            onClick={() => setIsBoardDropdownOpen(!isBoardDropdownOpen)}
+                            className={`min-w-[180px] h-10 px-3 py-2 ${btnBg} rounded-md cursor-pointer flex justify-between items-center text-sm transition-colors`}
+                        >
+                            <span className="truncate">
+                                {selectedBoards.length === 0 ? "-Select Board-" : `${selectedBoards.length} Selected`}
+                            </span>
+                            <FaChevronDown size={10} className={`transform transition-transform ${isBoardDropdownOpen ? 'rotate-180' : ''}`} />
+                        </div>
+                        {isBoardDropdownOpen && (
+                            <div className={`absolute top-full left-0 mt-1 w-64 z-[9999] ${dropdownBg} rounded-lg shadow-2xl max-h-80 flex flex-col overflow-hidden`}>
+                                <div className={`p-2 ${dropdownHdr} sticky top-0 z-10 flex flex-col gap-2`}>
+                                    <div className="relative">
+                                        <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search Board..."
+                                            value={boardSearch}
+                                            onChange={(e) => setBoardSearch(e.target.value)}
+                                            className={`w-full pl-8 pr-2 py-1.5 text-xs rounded focus:border-blue-500 outline-none font-bold uppercase ${inputBg}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </div>
+                                    {uniqueBoardOptions.length > 0 && (
+                                        <div className="flex items-center justify-between px-1 text-[10px] font-black uppercase tracking-wider">
+                                            <button
+                                                type="button"
+                                                className="text-blue-500 hover:underline"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedBoards(uniqueBoardOptions);
+                                                    setCurrentPage(1);
+                                                    setPageInput("1");
+                                                }}
+                                            >
+                                                Select All
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="text-gray-400 hover:text-red-400"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedBoards([]);
+                                                    setCurrentPage(1);
+                                                    setPageInput("1");
+                                                }}
+                                            >
+                                                Clear
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="overflow-y-auto max-h-60 custom-scrollbar">
+                                    {uniqueBoardOptions
+                                        .filter(b => b.toLowerCase().includes(boardSearch.toLowerCase()))
+                                        .map(boardName => (
+                                            <div
+                                                key={boardName}
+                                                className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${dropdownRow}`}
+                                                onClick={() => toggleBoardSelection(boardName)}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedBoards.includes(boardName)}
+                                                    readOnly
+                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 shrink-0"
+                                                />
+                                                <span className={`text-xs ${dropdownTxt} truncate font-bold uppercase`}>
+                                                    {boardName}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    {uniqueBoardOptions.filter(b => b.toLowerCase().includes(boardSearch.toLowerCase())).length === 0 && (
+                                        <div className={`p-4 text-center text-[10px] ${subText} font-black uppercase`}>No boards matched</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
                     {/* Course Name (MultiSelect) */}
                     <div className="relative" ref={courseDropdownRef}>
                         <div
@@ -955,6 +1116,71 @@ const TransactionList = () => {
                                             {uniqueCourseOptions.length === 0 ? "No courses on page" : "No courses matched"}
                                         </div>
                                     )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Programme (MultiSelect) */}
+                    <div className="relative" ref={programmeDropdownRef}>
+                        <div
+                            onClick={() => setIsProgrammeDropdownOpen(!isProgrammeDropdownOpen)}
+                            className={`min-w-[170px] h-10 px-3 py-2 ${btnBg} rounded-md cursor-pointer flex justify-between items-center text-sm transition-colors`}
+                        >
+                            <span className="truncate">
+                                {selectedProgrammes.length === 0 ? "-Select Programme-" : `${selectedProgrammes.length} Selected`}
+                            </span>
+                            <FaChevronDown size={10} className={`transform transition-transform ${isProgrammeDropdownOpen ? 'rotate-180' : ''}`} />
+                        </div>
+                        {isProgrammeDropdownOpen && (
+                            <div className={`absolute top-full left-0 mt-1 w-56 z-[9999] ${dropdownBg} rounded-lg shadow-2xl max-h-80 flex flex-col overflow-hidden`}>
+                                <div className={`p-2 ${dropdownHdr} sticky top-0 z-10 flex items-center justify-between`}>
+                                    <span className={`text-[10px] font-black ${subText} uppercase tracking-widest px-1`}>Programme</span>
+                                    <div className="flex items-center gap-2 text-[10px] font-black uppercase">
+                                        <button
+                                            type="button"
+                                            className="text-blue-500 hover:underline"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedProgrammes(programmeOptions);
+                                                setCurrentPage(1);
+                                                setPageInput("1");
+                                            }}
+                                        >
+                                            All
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="text-gray-400 hover:text-red-400"
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setSelectedProgrammes([]);
+                                                setCurrentPage(1);
+                                                setPageInput("1");
+                                            }}
+                                        >
+                                            Clear
+                                        </button>
+                                    </div>
+                                </div>
+                                <div className="overflow-y-auto max-h-60 custom-scrollbar">
+                                    {programmeOptions.map(prog => (
+                                        <div
+                                            key={prog}
+                                            className={`px-3 py-2.5 cursor-pointer flex items-center gap-2 transition-colors ${dropdownRow}`}
+                                            onClick={() => toggleProgrammeSelection(prog)}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedProgrammes.includes(prog)}
+                                                readOnly
+                                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 shrink-0"
+                                            />
+                                            <span className={`text-xs ${dropdownTxt} truncate font-bold uppercase`}>
+                                                {prog}
+                                            </span>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
@@ -1258,7 +1484,23 @@ const TransactionList = () => {
                                             <td className={`p-4 text-sm ${tTxtSub} font-medium whitespace-nowrap`}>{item.studentMobile || '-'}</td>
                                             <td className={`p-4 text-sm ${tTxtSub} font-bold`}>{item.session || "-"}</td>
                                             <td className={`p-4 text-sm ${isDark ? 'text-orange-400' : 'text-orange-500'} font-bold uppercase`}>{item.department || "-"}</td>
-                                            <td className={`p-4 text-sm ${tTxtSub} max-w-xs truncate`} title={item.course}>{item.course}</td>
+                                            <td className={`p-4 text-sm ${tTxtSub} max-w-xs`} title={item.course}>
+                                                <div className="truncate font-semibold">{item.course}</div>
+                                                {(getItemBoard(item) || getItemProgramme(item)) && (
+                                                    <div className="flex items-center gap-1.5 mt-1">
+                                                        {getItemBoard(item) && (
+                                                            <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${isDark ? 'bg-purple-900/40 text-purple-300 border border-purple-800' : 'bg-purple-50 text-purple-700 border border-purple-200'}`}>
+                                                                {getItemBoard(item)}
+                                                            </span>
+                                                        )}
+                                                        {getItemProgramme(item) && (
+                                                            <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded ${getItemProgramme(item) === 'CRP' ? (isDark ? 'bg-cyan-900/40 text-cyan-300 border border-cyan-800' : 'bg-cyan-50 text-cyan-700 border border-cyan-200') : (isDark ? 'bg-amber-900/40 text-amber-300 border border-amber-800' : 'bg-amber-50 text-amber-700 border border-amber-200')}`}>
+                                                                {getItemProgramme(item)}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </td>
                                             {/* <td className="p-4 text-sm">
                                                 <div className={`px-2 py-0.5 rounded-full text-[10px] font-black text-center ${item.attendanceStatus === 'Available' ? (isDark ? 'bg-green-900/30 text-green-400' : 'bg-green-100 text-green-700') : (isDark ? 'bg-gray-800 text-gray-400' : 'bg-gray-100 text-gray-600')}`}>
                                                     {item.attendanceStatus === 'Available' ? `${item.attendancePercent.toFixed(1)}%` : 'N/A'}

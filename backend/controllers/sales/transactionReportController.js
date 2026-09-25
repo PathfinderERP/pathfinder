@@ -47,6 +47,9 @@ export const getTransactionReport = async (req, res) => {
             paymentMode,
             transactionType, // "Initial" or "EMI"
             departmentIds,
+            boardIds,
+            board,
+            programme,
             minAmount,
             maxAmount,
             search
@@ -253,6 +256,41 @@ export const getTransactionReport = async (req, res) => {
             }
         }
 
+        if (boardIds || board) {
+            const bVal = boardIds || board;
+            const bList = typeof bVal === 'string' ? bVal.split(',') : bVal;
+            const validBIds = bList.filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim()));
+            const bNames = bList.filter(name => !mongoose.Types.ObjectId.isValid(name.trim())).map(name => name.trim());
+            let bOrs = [];
+            if (validBIds.length > 0) {
+                bOrs.push({ "admissionInfo.board": { $in: validBIds } });
+                bOrs.push({ "admissionInfo.boardId": { $in: validBIds } });
+            }
+            if (bNames.length > 0) {
+                const bRegexes = bNames.map(n => new RegExp(`\\b${n}\\b`, 'i'));
+                bOrs.push({ "boardDetails.boardCourse": { $in: bNames } });
+                bOrs.push({ "admissionInfo.boardCourseName": { $in: bRegexes } });
+                bOrs.push({ "boardCourseName": { $in: bRegexes } });
+            }
+            if (bOrs.length > 0) {
+                aggregateFilters.push({ $or: bOrs });
+            }
+        }
+
+        if (programme) {
+            const progs = (typeof programme === 'string' ? programme.split(',') : programme).map(p => p.trim().toUpperCase());
+            const progRegexes = progs.map(p => new RegExp(`\\b${p}\\b`, 'i'));
+            aggregateFilters.push({
+                $or: [
+                    { "admissionInfo.programme": { $in: progs } },
+                    { "courseInfo.programme": { $in: progs } },
+                    { "studentInfo.studentsDetails.programme": { $in: progs } },
+                    { "admissionInfo.boardCourseName": { $in: progRegexes } },
+                    { "boardCourseName": { $in: progRegexes } }
+                ]
+            });
+        }
+
         const aggregateMatchStage = aggregateFilters.length > 0 ? { $match: { $and: aggregateFilters } } : { $match: {} };
 
         // Check if we need Admission/Course lookups for the charts
@@ -313,6 +351,41 @@ export const getTransactionReport = async (req, res) => {
                         }
                     }
                 );
+            }
+
+            if (boardIds || board) {
+                const bVal = boardIds || board;
+                const bList = typeof bVal === 'string' ? bVal.split(',') : bVal;
+                const validBIds = bList.filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim()));
+                const bNames = bList.filter(name => !mongoose.Types.ObjectId.isValid(name.trim())).map(name => name.trim());
+                let bOrs = [];
+                if (validBIds.length > 0) {
+                    bOrs.push({ "admissionInfo.board": { $in: validBIds } });
+                    bOrs.push({ "admissionInfo.boardId": { $in: validBIds } });
+                }
+                if (bNames.length > 0) {
+                    const bRegexes = bNames.map(n => new RegExp(`\\b${n}\\b`, 'i'));
+                    bOrs.push({ "admissionInfo.boardCourseName": { $in: bRegexes } });
+                    bOrs.push({ "boardCourseName": { $in: bRegexes } });
+                }
+                if (bOrs.length > 0) {
+                    chartPipeline.push({ $match: { $or: bOrs } });
+                }
+            }
+
+            if (programme) {
+                const progs = (typeof programme === 'string' ? programme.split(',') : programme).map(p => p.trim().toUpperCase());
+                const progRegexes = progs.map(p => new RegExp(`\\b${p}\\b`, 'i'));
+                chartPipeline.push({
+                    $match: {
+                        $or: [
+                            { "admissionInfo.programme": { $in: progs } },
+                            { "courseInfo.programme": { $in: progs } },
+                            { "admissionInfo.boardCourseName": { $in: progRegexes } },
+                            { "boardCourseName": { $in: progRegexes } }
+                        ]
+                    }
+                });
             }
         }
 
@@ -555,6 +628,29 @@ export const getTransactionReport = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: "boards",
+                    let: {
+                        bId1: "$admissionInfo.board",
+                        bId2: "$admissionInfo.boardId"
+                    },
+                    pipeline: [
+                        {
+                            $match: {
+                                $expr: {
+                                    $or: [
+                                        { $and: [{ $ne: ["$$bId1", null] }, { $eq: ["$_id", "$$bId1"] }] },
+                                        { $and: [{ $ne: ["$$bId2", null] }, { $eq: ["$_id", "$$bId2"] }] }
+                                    ]
+                                }
+                            }
+                        }
+                    ],
+                    as: "boardDetails"
+                }
+            },
+            { $unwind: { path: "$boardDetails", preserveNullAndEmptyArrays: true } },
+            {
                 $addFields: {
                     receivedDate: { $ifNull: [{ $toDate: "$receivedDate" }, { $toDate: "$paidDate" }] }
                 }
@@ -733,6 +829,64 @@ export const getTransactionReport = async (req, res) => {
                         $ifNull: [
                             { $arrayElemAt: ["$collectorInfo.name", 0] },
                             "N/A"
+                        ]
+                    },
+                    board: {
+                        $ifNull: [
+                            "$boardDetails.boardCourse",
+                            {
+                                $cond: {
+                                    if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.boardCourseName", "$boardCourseName", ""] }, regex: "^WBCHSE", options: "i" } },
+                                    then: "WBCHSE",
+                                    else: {
+                                        $cond: {
+                                            if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.boardCourseName", "$boardCourseName", ""] }, regex: "^WBBSE", options: "i" } },
+                                            then: "WBBSE",
+                                            else: {
+                                                $cond: {
+                                                    if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.boardCourseName", "$boardCourseName", ""] }, regex: "^CBSE", options: "i" } },
+                                                    then: "CBSE",
+                                                    else: {
+                                                        $cond: {
+                                                            if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.boardCourseName", "$boardCourseName", ""] }, regex: "^ICSE", options: "i" } },
+                                                            then: "ICSE",
+                                                            else: {
+                                                                $cond: {
+                                                                    if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.boardCourseName", "$boardCourseName", ""] }, regex: "^ISC", options: "i" } },
+                                                                    then: "ISC",
+                                                                    else: null
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            },
+                            null
+                        ]
+                    },
+                    programme: {
+                        $ifNull: [
+                            "$admissionInfo.programme",
+                            "$courseInfo.programme",
+                            { $arrayElemAt: ["$studentInfo.studentsDetails.programme", 0] },
+                            {
+                                $cond: {
+                                    if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.boardCourseName", "$boardCourseName", "$courseInfo.courseName", ""] }, regex: "\\bNCRP\\b", options: "i" } },
+                                    then: "NCRP",
+                                    else: {
+                                        $cond: {
+                                            if: { $regexMatch: { input: { $ifNull: ["$admissionInfo.boardCourseName", "$boardCourseName", "$courseInfo.courseName", ""] }, regex: "\\bCRP\\b", options: "i" } },
+                                            then: "CRP",
+                                            else: null
+                                        }
+                                    }
+                                }
+                            },
+                            null
                         ]
                     },
 
