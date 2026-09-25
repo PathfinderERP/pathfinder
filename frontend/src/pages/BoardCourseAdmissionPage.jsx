@@ -507,7 +507,7 @@ const BoardCourseAdmissionPage = () => {
         }
 
         if (paymentMethod === "CHEQUE") {
-            if (!bankName || !transactionId || !accountHolderName || !chequeDate || !bankAccount) {
+            if (!bankName || !transactionId || !chequeDate || !bankAccount) {
                 return toast.error("Please fill all bank details and select a bank account for Cheque payment");
             }
         }
@@ -1049,28 +1049,15 @@ const BoardCourseAdmissionPage = () => {
                                                 />
                                             </div>
                                         </div>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                            <div>
-                                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Account Holder Name</label>
-                                                <input
-                                                    type="text"
-                                                    value={accountHolderName}
-                                                    onChange={(e) => setAccountHolderName(e.target.value)}
-                                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                                    placeholder="Name as on Cheque"
-                                                    required
-                                                />
-                                            </div>
-                                            <div>
-                                                <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Cheque Date</label>
-                                                <input
-                                                    type="date"
-                                                    value={chequeDate}
-                                                    onChange={(e) => setChequeDate(e.target.value)}
-                                                    className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
-                                                    required
-                                                />
-                                            </div>
+                                        <div>
+                                            <label className="block text-[10px] font-black uppercase text-gray-500 mb-2">Cheque Date</label>
+                                            <input
+                                                type="date"
+                                                value={chequeDate}
+                                                onChange={(e) => setChequeDate(e.target.value)}
+                                                className={`w-full p-3 rounded-lg border outline-none font-bold text-sm transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-gray-50 border-gray-200 focus:border-cyan-500'}`}
+                                                required
+                                            />
                                         </div>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                             <div className="md:col-span-2">
@@ -1250,28 +1237,15 @@ const BoardCourseAdmissionPage = () => {
                                                         />
                                                     </div>
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Acc. Holder</label>
-                                                        <input
-                                                            type="text"
-                                                            value={accountHolderName}
-                                                            onChange={(e) => setAccountHolderName(e.target.value)}
-                                                            className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
-                                                            placeholder="Name"
-                                                            required
-                                                        />
-                                                    </div>
-                                                    <div>
-                                                        <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Chq Date</label>
-                                                        <input
-                                                            type="date"
-                                                            value={chequeDate}
-                                                            onChange={(e) => setChequeDate(e.target.value)}
-                                                            className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
-                                                            required
-                                                        />
-                                                    </div>
+                                                <div>
+                                                    <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Chq Date</label>
+                                                    <input
+                                                        type="date"
+                                                        value={chequeDate}
+                                                        onChange={(e) => setChequeDate(e.target.value)}
+                                                        className={`w-full p-3 rounded-lg border outline-none font-bold text-xs transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500' : 'bg-white border-gray-200 focus:border-cyan-500'}`}
+                                                        required
+                                                    />
                                                 </div>
                                                 <div className="mt-3">
                                                     <label className="block text-[9px] font-black uppercase text-gray-500 mb-2">Bank Account <span className="text-red-500">*</span></label>

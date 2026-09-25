@@ -40,7 +40,7 @@ export const createBoardAdmission = async (req, res) => {
             paymentMethod,
             transactionId,
             bankName,
-            accountHolderName,
+            accountHolderName = "",
             chequeDate,
             admissionFee = 0,
             examFee = 0,
