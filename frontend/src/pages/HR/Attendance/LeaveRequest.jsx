@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../../components/Layout";
-import { FaPlus, FaSpinner, FaCalendarAlt, FaFileUpload, FaEye, FaHistory } from "react-icons/fa";
+import { FaPlus, FaSpinner, FaCalendarAlt, FaFileUpload, FaEye, FaHistory, FaInfoCircle, FaBan } from "react-icons/fa";
 import { toast } from "react-toastify";
 import usePermission from "../../../hooks/usePermission";
 import { useTheme } from "../../../context/ThemeContext";
@@ -12,6 +12,8 @@ const LeaveRequest = () => {
     const [myRequests, setMyRequests] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [isPartTimeUser, setIsPartTimeUser] = useState(false);
+    const [employmentType, setEmploymentType] = useState("");
     const [formData, setFormData] = useState({
         leaveType: "",
         startDate: "",
@@ -37,7 +39,12 @@ const LeaveRequest = () => {
             });
             if (response.ok) {
                 const data = await response.json();
-                setLeaveTypes(data);
+                if (Array.isArray(data)) {
+                    setLeaveTypes(data);
+                    if (data.length > 0 && data[0].isPartTime) {
+                        setIsPartTimeUser(true);
+                    }
+                }
             }
         } catch (error) {
             console.error("Error fetching leave types:", error);
@@ -54,6 +61,12 @@ const LeaveRequest = () => {
             if (response.ok) {
                 const data = await response.json();
                 setMyRequests(Array.isArray(data) ? data : (data.requests || []));
+                if (data.isPartTime !== undefined) {
+                    setIsPartTimeUser(Boolean(data.isPartTime));
+                }
+                if (data.employmentType) {
+                    setEmploymentType(data.employmentType);
+                }
             }
         } catch (error) {
             toast.error("Failed to load leave requests");
@@ -80,6 +93,10 @@ const LeaveRequest = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+        if (isPartTimeUser) {
+            toast.error("Part-time employees, teachers, and HODs are not eligible to apply for leave.");
+            return;
+        }
         try {
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/leave-requests`, {
@@ -126,7 +143,7 @@ const LeaveRequest = () => {
                         <h1 className="text-2xl font-bold text-gray-800 dark:text-white">My Leave Requests</h1>
                         <p className="text-sm text-gray-500 dark:text-gray-400">Apply for leave and track your requests</p>
                     </div>
-                    {canCreate && (
+                    {canCreate && !isPartTimeUser && (
                         <button
                             onClick={() => setShowModal(true)}
                             className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-600/20 font-bold text-sm"
@@ -134,7 +151,36 @@ const LeaveRequest = () => {
                             <FaPlus size={14} /> Apply for Leave
                         </button>
                     )}
+                    {canCreate && isPartTimeUser && (
+                        <button
+                            disabled
+                            title="Part-time personnel are not applicable for leave requests"
+                            className="flex items-center gap-2 px-5 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500 rounded-xl cursor-not-allowed font-bold text-sm border border-gray-200 dark:border-gray-700"
+                        >
+                            <FaBan size={14} /> Leave Not Applicable (Part-Time)
+                        </button>
+                    )}
                 </div>
+
+                {/* Part-Time Alert Banner */}
+                {isPartTimeUser && (
+                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-700 dark:text-amber-400 flex items-start gap-3 shadow-sm">
+                        <div className="p-2 bg-amber-500/20 rounded-xl text-amber-600 dark:text-amber-400 mt-0.5">
+                            <FaInfoCircle size={18} />
+                        </div>
+                        <div>
+                            <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                                Leave Requests Not Applicable
+                                <span className="text-[10px] uppercase font-black px-2 py-0.5 rounded bg-amber-500/20 text-amber-700 dark:text-amber-300 border border-amber-500/30">
+                                    {employmentType || "Part-Time"}
+                                </span>
+                            </h3>
+                            <p className="text-xs text-gray-600 dark:text-gray-300 mt-1 leading-relaxed">
+                                Your profile is marked as <strong>{employmentType || "Part-Time"}</strong>. In accordance with institution policy, leave requests and quota allocations are only applicable to Full-Time employees, teachers, and HODs.
+                            </p>
+                        </div>
+                    </div>
+                )}
 
                 {/* Leave Balance Summary */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -151,14 +197,31 @@ const LeaveRequest = () => {
                                         {type.isMonthly ? "Monthly" : "Yearly"}
                                     </span>
                                 </div>
-                                <p className="text-3xl font-black text-blue-600 dark:text-blue-400">
-                                    {type.availableDays !== undefined ? type.availableDays : type.days}
-                                </p>
-                                <p className="text-xs text-gray-500 font-semibold mt-1">Days Available {type.isMonthly ? "(This Month)" : "(This Year)"}</p>
+                                {isPartTimeUser ? (
+                                    <>
+                                        <p className="text-2xl font-black text-gray-400 dark:text-gray-500">
+                                            N/A
+                                        </p>
+                                        <p className="text-xs text-amber-500 font-semibold mt-1">Not Applicable (Part-Time)</p>
+                                    </>
+                                ) : (
+                                    <>
+                                        <p className="text-3xl font-black text-blue-600 dark:text-blue-400">
+                                            {type.availableDays !== undefined ? type.availableDays : type.days}
+                                        </p>
+                                        <p className="text-xs text-gray-500 font-semibold mt-1">Days Available {type.isMonthly ? "(This Month)" : "(This Year)"}</p>
+                                    </>
+                                )}
                             </div>
                             <div className="mt-3 pt-3 border-t border-gray-100 dark:border-gray-800/60 flex justify-between text-[11px] font-medium text-gray-400">
-                                <span>Used: <strong className="text-gray-700 dark:text-gray-300">{type.usedDays || 0}</strong> days</span>
-                                <span>Quota: <strong className="text-gray-700 dark:text-gray-300">{type.totalDays || type.days}</strong> days/{type.isMonthly ? "mo" : "yr"}</span>
+                                {isPartTimeUser ? (
+                                    <span className="text-amber-500/80 font-medium">Part-time staff do not accrue leave</span>
+                                ) : (
+                                    <>
+                                        <span>Used: <strong className="text-gray-700 dark:text-gray-300">{type.usedDays || 0}</strong> days</span>
+                                        <span>Quota: <strong className="text-gray-700 dark:text-gray-300">{type.totalDays || type.days}</strong> days/{type.isMonthly ? "mo" : "yr"}</span>
+                                    </>
+                                )}
                             </div>
                         </div>
                     ))}

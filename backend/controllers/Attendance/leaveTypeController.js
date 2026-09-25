@@ -20,21 +20,27 @@ export const getLeaveTypes = async (req, res) => {
     try {
         const leaveTypes = await LeaveType.find().populate('designations', 'name');
 
-        const user = await User.findById(req.user.id).select('role email');
+        const user = await User.findById(req.user.id).select('role email teacherType');
         const isTeacher = user?.role === 'teacher';
 
         // Check if employeeId is passed in query or find employee by logged-in user
         let targetEmployeeId = req.query.employeeId;
+        let emp = null;
         if (!targetEmployeeId) {
-            const emp = await Employee.findOne({ $or: [{ user: req.user.id }, { email: user?.email }] });
+            emp = await Employee.findOne({ $or: [{ user: req.user.id }, { email: user?.email }] });
             if (emp) {
                 targetEmployeeId = emp._id;
             }
+        } else {
+            emp = await Employee.findById(targetEmployeeId);
         }
+
+        const isPartTime = (emp?.typeOfEmployment && /part-?time/i.test(emp.typeOfEmployment)) ||
+                           (user?.teacherType && /part-?time/i.test(user.teacherType));
 
         // Get all active (Approved and Pending) leave requests for target employee
         let activeRequests = [];
-        if (targetEmployeeId) {
+        if (targetEmployeeId && !isPartTime) {
             activeRequests = await LeaveRequest.find({
                 employee: targetEmployeeId,
                 status: { $in: ['Approved', 'Pending'] }
@@ -51,12 +57,24 @@ export const getLeaveTypes = async (req, res) => {
 
         const adjustedLeaveTypes = leaveTypes.map(lt => {
             const obj = lt.toObject();
-            const totalQuota = (isTeacher && obj.teacherDays != null) ? obj.teacherDays : obj.days;
-            obj.days = totalQuota;
-            obj.totalDays = totalQuota;
+            obj.isPartTime = Boolean(isPartTime);
 
             const isMonthly = /short\s*leave|early\s*leave/i.test(obj.name);
             obj.isMonthly = isMonthly;
+
+            if (isPartTime) {
+                obj.days = 0;
+                obj.totalDays = 0;
+                obj.approvedDays = 0;
+                obj.pendingDays = 0;
+                obj.usedDays = 0;
+                obj.availableDays = 0;
+                return obj;
+            }
+
+            const totalQuota = (isTeacher && obj.teacherDays != null) ? obj.teacherDays : obj.days;
+            obj.days = totalQuota;
+            obj.totalDays = totalQuota;
 
             if (targetEmployeeId) {
                 const relevant = activeRequests

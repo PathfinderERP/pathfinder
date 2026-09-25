@@ -47,14 +47,26 @@ const checkAvailableLeaveBalance = async (employeeId, leaveTypeId, requestingDay
 
     const isMonthly = /short\s*leave|early\s*leave/i.test(leaveTypeObj.name);
 
-    let totalQuota = leaveTypeObj.days;
     const employeeObj = await Employee.findById(employeeId);
-
+    let userObj = null;
     if (employeeObj && employeeObj.user) {
-        const userObj = await User.findById(employeeObj.user).select('role');
+        userObj = await User.findById(employeeObj.user).select('role teacherType');
         if (userObj && userObj.role === 'teacher' && leaveTypeObj.teacherDays != null) {
             totalQuota = leaveTypeObj.teacherDays;
         }
+    }
+
+    // Check if employee, teacher, or HOD is marked as Part-Time
+    const isPartTime = (employeeObj?.typeOfEmployment && /part-?time/i.test(employeeObj.typeOfEmployment)) ||
+                       (userObj?.teacherType && /part-?time/i.test(userObj.teacherType));
+    if (isPartTime) {
+        return {
+            valid: false,
+            message: 'Leave requests are only applicable for full-time employees. Part-time employees, teachers, and HODs are not eligible to apply for leave.',
+            availableDays: 0,
+            totalQuota: 0,
+            usedDays: 0
+        };
     }
 
     const query = {
@@ -110,10 +122,17 @@ export const getLeaveRequests = async (req, res) => {
         const { employeeId, status, startDate, endDate, search, page, limit, myRequests } = req.query;
 
         let filter = {};
+        let isRequesterPartTime = false;
+        let requesterEmploymentType = "Full-time";
 
         // 1. Employee personal view (from Leave Request page)
         if (myRequests === 'true') {
             const employee = await findEmployeeByUser(req.user.id);
+            const user = await User.findById(req.user.id).select('role teacherType');
+            isRequesterPartTime = (employee?.typeOfEmployment && /part-?time/i.test(employee.typeOfEmployment)) ||
+                                  (user?.teacherType && /part-?time/i.test(user.teacherType));
+            requesterEmploymentType = employee?.typeOfEmployment || user?.teacherType || (isRequesterPartTime ? 'Part-time' : 'Full-time');
+
             if (employee) {
                 filter.employee = employee._id;
             } else {
@@ -122,7 +141,9 @@ export const getLeaveRequests = async (req, res) => {
                     totalItems: 0,
                     totalPages: 0,
                     currentPage: 1,
-                    itemsPerPage: Number(limit) || 10
+                    itemsPerPage: Number(limit) || 10,
+                    isPartTime: Boolean(isRequesterPartTime),
+                    employmentType: requesterEmploymentType
                 });
             }
         } else {
@@ -233,7 +254,9 @@ export const getLeaveRequests = async (req, res) => {
             totalItems,
             totalPages,
             currentPage: pageNum,
-            itemsPerPage: limitNum
+            itemsPerPage: limitNum,
+            isPartTime: Boolean(isRequesterPartTime),
+            employmentType: requesterEmploymentType
         });
     } catch (error) {
         console.error('Error fetching leave requests:', error);
@@ -252,6 +275,17 @@ export const createLeaveRequest = async (req, res) => {
 
         if (!employee) {
             return res.status(404).json({ message: 'Employee profile not found. Please ensure your email matches your employee record.' });
+        }
+
+        // Check if employee, teacher, or HOD is marked as Part-Time
+        const user = await User.findById(userId).select('role teacherType');
+        const isPartTime = (employee.typeOfEmployment && /part-?time/i.test(employee.typeOfEmployment)) ||
+                           (user?.teacherType && /part-?time/i.test(user.teacherType));
+
+        if (isPartTime) {
+            return res.status(403).json({
+                message: 'Leave requests are only applicable for full-time employees. Part-time employees, teachers, and HODs are not eligible to apply for leave.'
+            });
         }
 
         // Validate leave balance before creation

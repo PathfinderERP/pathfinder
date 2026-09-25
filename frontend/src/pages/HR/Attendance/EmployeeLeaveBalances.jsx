@@ -187,11 +187,14 @@ const EmployeeLeaveBalances = () => {
                 const data = await res.json();
                 setEmployeeDetails(data);
             } else {
-                toast.error("Failed to load employee leave details");
+                const err = await res.json().catch(() => ({}));
+                toast.error(err.message || "Failed to load employee leave details");
+                setIsDetailsModalOpen(false);
             }
         } catch (err) {
             console.error("Error loading employee details:", err);
             toast.error("Network error loading details");
+            setIsDetailsModalOpen(false);
         } finally {
             setDetailsLoading(false);
         }
@@ -301,9 +304,14 @@ const EmployeeLeaveBalances = () => {
                             <FaBalanceScale className="text-cyan-500" />
                             Employee Leave Balances
                         </h1>
-                        <p className={`text-xs mt-1 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            Live leave quota analysis by Financial Year (April 1 – March 31) for active personnel.
-                        </p>
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                            <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Live leave quota analysis by Financial Year (April 1 – March 31) for active personnel.
+                            </p>
+                            <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                                Full-Time Staff Only
+                            </span>
+                        </div>
                     </div>
 
                     {/* Top Action Bar (Financial Year & Month Selectors + Export + Refresh) */}
