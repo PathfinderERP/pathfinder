@@ -42,7 +42,10 @@ const EditBoardSubjects = () => {
                     headers: { 'Authorization': `Bearer ${token}` }
                 });
                 const data = await response.json();
-                if (response.ok) setMasterAccounts(data || []);
+                if (response.ok) {
+                    const activeOnly = (data || []).filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false);
+                    setMasterAccounts(activeOnly);
+                }
             } catch (error) {
                 console.error('Error fetching accounts:', error);
             }

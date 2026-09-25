@@ -366,7 +366,9 @@ const EnrolledStudentsContent = () => {
                 setActiveEmployees(await employeeRes.json());
             }
             if (accountRes && accountRes.ok) {
-                setMasterAccounts(await accountRes.json());
+                const accData = await accountRes.json();
+                const activeOnly = (Array.isArray(accData) ? accData : []).filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false);
+                setMasterAccounts(activeOnly);
             }
             if (tagRes && tagRes.ok) {
                 setMasterExamTags(await tagRes.json());

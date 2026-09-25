@@ -330,7 +330,11 @@ const StudentAdmissionPage = () => {
                 setDepartments(visibleDepts);
             }
             if (subjectsRes.ok) await subjectsRes.json();
-            if (accountsRes.ok) setMasterAccounts(await accountsRes.json());
+            if (accountsRes.ok) {
+                const accData = await accountsRes.json();
+                const activeOnly = (Array.isArray(accData) ? accData : []).filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false);
+                setMasterAccounts(activeOnly);
+            }
             if (batchesRes && batchesRes.ok) {
                 const bData = await batchesRes.json();
                 setBatches(Array.isArray(bData) ? bData : []);

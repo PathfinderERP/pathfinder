@@ -9,7 +9,7 @@ import {
     createExpenditureType, getExpenditureTypes, updateExpenditureType, deleteExpenditureType
 } from "../../controllers/masterData/expenditureTypeController.js";
 import {
-    createAccount, getAccounts, updateAccount, deleteAccount
+    createAccount, getAccounts, updateAccount, deleteAccount, bulkUpdateAccountStatus, toggleAccountStatus
 } from "../../controllers/masterData/accountController.js";
 import {
     createFollowUpFeedback, getFollowUpFeedbacks, updateFollowUpFeedback, deleteFollowUpFeedback
@@ -70,6 +70,9 @@ router.delete("/expenditure-type/:id", requireGranularPermission("masterData", "
 router.get("/account", requireAuth, getAccounts);
 router.post("/account", requireGranularPermission("masterData", "account", "create"), createAccount);
 router.post("/account/import", requireGranularPermission("masterData", "account", "create"), bulkImport(Account));
+router.put("/account/bulk-status", requireGranularPermission("masterData", "account", "edit"), bulkUpdateAccountStatus);
+router.patch("/account/bulk-status", requireGranularPermission("masterData", "account", "edit"), bulkUpdateAccountStatus);
+router.patch("/account/:id/status", requireGranularPermission("masterData", "account", "edit"), toggleAccountStatus);
 router.put("/account/:id", requireGranularPermission("masterData", "account", "edit"), updateAccount);
 router.delete("/account/:id", requireGranularPermission("masterData", "account", "delete"), deleteAccount);
 

@@ -447,10 +447,14 @@ const ChequeDepositEntry = () => {
                                     <div className="relative">
                                         <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 z-10" />
                                         <CustomSearchSelect
-                                            options={masterAccounts.map(acc => ({
-                                                value: acc.accno,
-                                                label: `${acc.accname} (${acc.accno}) - ${acc.bankname}`
-                                            }))}
+                                            options={masterAccounts
+                                                .filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false)
+                                                .map(acc => ({
+                                                    value: acc.accno,
+                                                    label: acc.bankname 
+                                                        ? `${acc.accname} (${acc.accno}) - ${acc.bankname}` 
+                                                        : (acc.accno ? `${acc.accname} (${acc.accno})` : acc.accname)
+                                                }))}
                                             value={accountNumber}
                                             onChange={(val) => setAccountNumber(val)}
                                             placeholder="Select Account"

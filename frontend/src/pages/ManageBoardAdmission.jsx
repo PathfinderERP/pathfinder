@@ -167,7 +167,10 @@ const ManageBoardAdmission = () => {
                     headers: { "Authorization": `Bearer ${token}` }
                 });
                 const data = await res.json();
-                if (res.ok) setMasterAccounts(data || []);
+                if (res.ok) {
+                    const activeOnly = (data || []).filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false);
+                    setMasterAccounts(activeOnly);
+                }
             } catch (error) {
                 console.error("Error fetching accounts:", error);
             }

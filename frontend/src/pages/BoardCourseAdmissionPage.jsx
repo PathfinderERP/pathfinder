@@ -249,7 +249,8 @@ const BoardCourseAdmissionPage = () => {
             const classesData = await (classesRes.ok ? classesRes.json() : Promise.resolve([]));
             const allBCSData = await (allBCSRes?.ok ? allBCSRes.json() : Promise.resolve([]));
             const accountsData = await (accountsRes?.ok ? accountsRes.json() : Promise.resolve([]));
-            setMasterAccounts(accountsData);
+            const activeAccounts = (Array.isArray(accountsData) ? accountsData : []).filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false);
+            setMasterAccounts(activeAccounts);
 
             // Load sessions from master data
             const sessionsData = await (sessionsRes?.ok ? sessionsRes.json() : Promise.resolve([]));

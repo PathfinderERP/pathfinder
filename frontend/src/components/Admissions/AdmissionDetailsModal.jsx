@@ -60,7 +60,8 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                 });
                 const data = await response.json();
                 if (response.ok) {
-                    setMasterAccounts(data || []);
+                    const activeOnly = (data || []).filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false);
+                    setMasterAccounts(activeOnly);
                 }
             } catch (error) {
                 console.error("Error fetching accounts:", error);

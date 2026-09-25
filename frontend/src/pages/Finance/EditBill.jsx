@@ -78,11 +78,9 @@ const EditBill = () => {
                     headers: { Authorization: `Bearer ${token}` }
                 });
                 const data = await res.json();
-                if (Array.isArray(data)) {
-                    setAccounts(data);
-                } else if (data && Array.isArray(data.data)) {
-                    setAccounts(data.data);
-                }
+                const rawList = Array.isArray(data) ? data : (data && Array.isArray(data.data) ? data.data : []);
+                const activeOnly = rawList.filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false);
+                setAccounts(activeOnly);
             } catch (err) {
                 console.error("Error fetching accounts:", err);
             }

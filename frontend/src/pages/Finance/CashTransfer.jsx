@@ -346,10 +346,12 @@ const CashTransfer = () => {
                                         <FaLock className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 z-10" />
                                         <CustomSearchSelect
                                             options={[
-                                                ...masterAccounts.map(acc => ({
-                                                    value: acc.accno,
-                                                    label: `${acc.accname} (${acc.accno})`
-                                                })),
+                                                ...masterAccounts
+                                                    .filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false)
+                                                    .map(acc => ({
+                                                        value: acc.accno,
+                                                        label: `${acc.accname} (${acc.accno})`
+                                                    })),
                                                 // Fallback if the centre's account isn't in master accounts but we have a value
                                                 ...(formData.accountNumber && !masterAccounts.some(a => a.accno === formData.accountNumber) 
                                                     ? [{ value: formData.accountNumber, label: `Centre Default: ${formData.accountNumber}` }] 
