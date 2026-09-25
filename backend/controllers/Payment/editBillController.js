@@ -554,7 +554,13 @@ export const updateBill = async (req, res) => {
         await Promise.all([
             clearCachePattern("finance:*"),
             clearCachePattern("sales:*"),
-            clearCachePattern("admissions:*")
+            clearCachePattern("admissions:*"),
+            clearCachePattern("dailyCollection*"),
+            clearCachePattern("transactions*"),
+            clearCachePattern("sales*"),
+            clearCachePattern("finance*"),
+            clearCachePattern("admissions*"),
+            clearCachePattern("report*")
         ]).catch(err => console.warn("Cache eviction warning:", err.message));
 
         return res.status(200).json({

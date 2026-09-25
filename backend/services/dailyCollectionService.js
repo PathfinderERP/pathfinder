@@ -817,7 +817,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                             }
                         }
                     },
-                    { $sort: { date: -1 } }
+                    { $sort: { date: -1, billId: -1 } }
                 ]
             }
         }

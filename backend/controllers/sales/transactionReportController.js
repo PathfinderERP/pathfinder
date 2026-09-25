@@ -413,7 +413,7 @@ export const getTransactionReport = async (req, res) => {
         }
 
         detailedPipeline.push(
-            { $sort: { createdAt: -1, effectiveDate: -1 } },
+            { $sort: { effectiveDate: -1, billId: -1 } },
             { $limit: 50000 },
             // 2. Lookup Admission Details from both potential collections
             {
@@ -712,6 +712,7 @@ export const getTransactionReport = async (req, res) => {
                     },
                     admissionNumber: { $ifNull: ["$admissionInfo.admissionNumber", "$admissionInfo.rollNo"] },
                     receivedDate: "$receivedDate",
+                    billId: "$billId",
                     receiptNo: {
                         $cond: {
                             if: { $and: [{ $eq: ["$paymentMethod", "CHEQUE"] }, { $eq: ["$status", "PENDING_CLEARANCE"] }] },
@@ -754,6 +755,9 @@ export const getTransactionReport = async (req, res) => {
                         ]
                     }
                 }
+            },
+            {
+                $sort: { paymentDate: -1, receiptNo: -1 }
             }
         );
 

@@ -58,6 +58,24 @@ const findEmployeeByUser = async (userId) => {
 };
 
 /**
+ * Helper to get all Part-Time Employee IDs (employees, teachers, and HODs)
+ * Considers both Employee.typeOfEmployment and User.teacherType
+ */
+export const getPartTimeEmployeeIds = async () => {
+    const ptUsers = await User.find({ teacherType: new RegExp('part', 'i') }).select('_id').lean();
+    const ptUserIds = ptUsers.map(u => u._id);
+
+    const ptEmployees = await Employee.find({
+        $or: [
+            { typeOfEmployment: new RegExp('part', 'i') },
+            { user: { $in: ptUserIds } }
+        ]
+    }).select('_id').lean();
+
+    return ptEmployees.map(e => e._id);
+};
+
+/**
  * GET /api/hr/attendance/employee-leave-balances
  * Fetch leave quota & balance analysis for active employees based on Financial Year.
  * Visibility:
@@ -97,6 +115,10 @@ export const getEmployeeLeaveBalances = async (req, res) => {
 
         const employeeQuery = { status: "Active" };
 
+        // Exclude all part-time employees, teachers, and HODs from Leave Balances
+        const partTimeEmpIds = await getPartTimeEmployeeIds();
+        const partTimeIdStrings = new Set(partTimeEmpIds.map(id => id.toString()));
+
         if (!isSuperAdminOrHR) {
             // Reporting Manager view
             const managerEmp = await findEmployeeByUser(req.user.id);
@@ -119,7 +141,9 @@ export const getEmployeeLeaveBalances = async (req, res) => {
             }
 
             const reportees = await Employee.find({ manager: managerEmp._id, status: "Active" }).select('_id');
-            const reporteeIds = reportees.map(r => r._id);
+            const reporteeIds = reportees
+                .map(r => r._id)
+                .filter(id => !partTimeIdStrings.has(id.toString()));
 
             if (reporteeIds.length === 0) {
                 return res.status(200).json({
@@ -140,6 +164,8 @@ export const getEmployeeLeaveBalances = async (req, res) => {
             }
 
             employeeQuery._id = { $in: reporteeIds };
+        } else {
+            employeeQuery._id = { $nin: partTimeEmpIds };
         }
 
         // 4. Center and Department Filters
@@ -391,11 +417,20 @@ export const getEmployeeLeaveDetails = async (req, res) => {
             .populate('department', 'departmentName')
             .populate('designation', 'designation')
             .populate('manager', 'name employeeId email phoneNumber')
-            .populate('user', 'role')
+            .populate('user', 'role teacherType')
             .lean();
 
         if (!emp) {
             return res.status(404).json({ message: "Employee not found" });
+        }
+
+        // Part-time check: part-time teachers, employees, and HODs leave details should not be viewable
+        const isPartTime = (emp.typeOfEmployment && /part-?time/i.test(emp.typeOfEmployment)) ||
+                           (emp.user?.teacherType && /part-?time/i.test(emp.user.teacherType));
+        if (isPartTime) {
+            return res.status(403).json({
+                message: "Leave details are not viewable for part-time employees, teachers, or HODs."
+            });
         }
 
         // Manager check

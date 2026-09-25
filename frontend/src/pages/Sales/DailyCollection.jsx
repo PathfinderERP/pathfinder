@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaDownload, FaCalendarDay, FaEraser, FaSearch, FaChevronDown, FaFlag, FaEdit, FaSave, FaTimes } from "react-icons/fa";
+import { FaFilter, FaDownload, FaCalendarDay, FaEraser, FaSearch, FaChevronDown, FaFlag, FaEdit, FaSave, FaTimes, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { sortTransactionsSequentially } from "../../utils/transactionSortHelper";
 
 const formatLocalDate = (d) => {
     if (!d) return "";
@@ -44,6 +45,8 @@ const DailyCollection = () => {
     const [endDate, setEndDate] = useState(savedFilters.endDate || "");
     const [activePreset, setActivePreset] = useState(savedFilters.activePreset || "today");
     const [dailyDetails, setDailyDetails] = useState([]);
+    const [sortField, setSortField] = useState("date"); // 'date' | 'billId'
+    const [sortOrder, setSortOrder] = useState("desc"); // 'asc' | 'desc'
     const [paymentMethods, setPaymentMethods] = useState([]);
     const [totalCollection, setTotalCollection] = useState(0);
     const [transactionCount, setTransactionCount] = useState(0);
@@ -280,7 +283,7 @@ const DailyCollection = () => {
             if (response.ok) {
                 const data = await response.json();
                 const fetchedDetails = Array.isArray(data.details) ? data.details : [];
-                const sortedDetails = [...fetchedDetails].sort((a, b) => new Date(b.date) - new Date(a.date));
+                const sortedDetails = sortTransactionsSequentially(fetchedDetails, { sortField, sortOrder });
                 setTotalCollection(data.totalCollection || 0);
                 setTransactionCount(data.transactionCount || 0);
                 setPaymentMethods(data.paymentMethods || []);
@@ -1144,7 +1147,23 @@ const DailyCollection = () => {
         isRedFlagCentre
     ]);
 
-    const redFlagFilteredDetails = activeDetails;
+    const handleSort = (field) => {
+        if (sortField === field) {
+            setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+        } else {
+            setSortField(field);
+            // Default to asc for bill numbers to view one-by-one sequentially, desc for date
+            setSortOrder(field === "billId" ? "asc" : "desc");
+        }
+        setCurrentPage(1);
+        setPageInput("1");
+    };
+
+    const sortedActiveDetails = React.useMemo(() => {
+        return sortTransactionsSequentially(activeDetails, { sortField, sortOrder });
+    }, [activeDetails, sortField, sortOrder]);
+
+    const redFlagFilteredDetails = sortedActiveDetails;
 
     const filteredZones = zones.filter((z) =>
         z.name?.toLowerCase().includes(zoneSearch.toLowerCase())
@@ -2129,12 +2148,41 @@ const DailyCollection = () => {
                                 <table className={`min-w-[1400px] divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"} text-sm text-left`}>
                                     <thead className={`${tableHeaderBgClass} ${tableHeaderTextClass} uppercase text-[11px] tracking-wider`}>
                                         <tr>
-                                            <th className="px-4 py-3">Date</th>
+                                            <th
+                                                onClick={() => handleSort("date")}
+                                                className="px-4 py-3 cursor-pointer hover:text-blue-500 transition-colors select-none min-w-[140px]"
+                                                title="Click to sort by Date"
+                                            >
+                                                <div className="flex items-center gap-1.5">
+                                                    <span>Date</span>
+                                                    {sortField === "date" ? (
+                                                        sortOrder === "asc" ? <FaSortUp className="text-blue-500" /> : <FaSortDown className="text-blue-500" />
+                                                    ) : (
+                                                        <FaSort className="text-gray-400 opacity-40 hover:opacity-100" />
+                                                    )}
+                                                </div>
+                                            </th>
                                             <th className="px-4 py-3">Centre</th>
                                             <th className="px-4 py-3">Student</th>
                                             <th className="px-4 py-3">Admission No.</th>
                                             <th className="px-4 py-3">Class</th>
-                                            <th className="px-4 py-3">Bill / Txn</th>
+                                            <th
+                                                onClick={() => handleSort("billId")}
+                                                className="px-4 py-3 cursor-pointer hover:text-blue-500 transition-colors select-none min-w-[200px]"
+                                                title="Click to sort sequentially by Bill No."
+                                            >
+                                                <div className="flex items-center gap-1.5">
+                                                    <span>Bill / Txn</span>
+                                                    {sortField === "billId" ? (
+                                                        sortOrder === "asc" ? <FaSortUp className="text-blue-500" /> : <FaSortDown className="text-blue-500" />
+                                                    ) : (
+                                                        <FaSort className="text-gray-400 opacity-40 hover:opacity-100" />
+                                                    )}
+                                                    <span className={`text-[9px] px-1 py-0.5 rounded font-mono font-normal tracking-normal ${sortField === "billId" ? "bg-blue-500/20 text-blue-400 font-bold" : "text-gray-500"}`}>
+                                                        {sortField === "billId" ? (sortOrder === "asc" ? "1-by-1 ▲" : "1-by-1 ▼") : "seq"}
+                                                    </span>
+                                                </div>
+                                            </th>
                                             <th className="px-4 py-3">Course</th>
                                             <th className="px-4 py-3">Department</th>
                                             <th className="px-4 py-3">Method</th>
@@ -2161,7 +2209,16 @@ const DailyCollection = () => {
                                                     <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.admissionNumber || "-"}</td>
                                                     <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.studentClass || "-"}</td>
                                                     <td className={`px-4 py-3 ${tableBillTextClass}`}>
-                                                        <div>{item.billId || "-"}</div>
+                                                        {item.billId && item.billId !== "-" ? (
+                                                            <span
+                                                                className="font-mono font-bold text-blue-500 inline-block transition-all duration-150 hover:text-blue-400 hover:scale-[1.02] hover:brightness-125 select-text cursor-default"
+                                                                title={`Bill No: ${item.billId}`}
+                                                            >
+                                                                {item.billId}
+                                                            </span>
+                                                        ) : (
+                                                            <div>{item.billId || "-"}</div>
+                                                        )}
                                                         <div className={`text-xs ${isDarkMode ? "text-gray-500" : "text-slate-500"}`}>{item.transactionId || ""}</div>
                                                     </td>
                                                     <td className={`px-4 py-3 ${tableDataTextClass}`}>{item.courseName || "-"}</td>
