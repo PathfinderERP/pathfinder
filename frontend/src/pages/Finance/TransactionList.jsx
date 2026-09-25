@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaArrowUp, FaSearch } from "react-icons/fa";
+import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaArrowUp, FaSearch, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import { useTheme } from "../../context/ThemeContext";
+import { sortTransactionsSequentially } from "../../utils/transactionSortHelper";
 
 const TransactionList = () => {
     const { theme } = useTheme();
@@ -41,6 +42,8 @@ const TransactionList = () => {
     // ---- State ----
     const [loading, setLoading] = useState(false);
     const [detailedReport, setDetailedReport] = useState([]);
+    const [sortField, setSortField] = useState("date"); // 'date' | 'receiptNo'
+    const [sortOrder, setSortOrder] = useState("desc"); // 'asc' | 'desc'
     const user = JSON.parse(localStorage.getItem("user") || "{}");
 
     const [stats, setStats] = useState({
@@ -349,6 +352,22 @@ const TransactionList = () => {
         })
         .filter(item => selectedBilledBy.length === 0 || selectedBilledBy.includes(item.takenBy || "System"));
 
+    const handleSort = (field) => {
+        if (sortField === field) {
+            setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+        } else {
+            setSortField(field);
+            // Default to asc for bill numbers to view one-by-one sequentially, desc for date
+            setSortOrder(field === "receiptNo" ? "asc" : "desc");
+        }
+        setCurrentPage(1);
+        setPageInput("1");
+    };
+
+    const sortedReport = React.useMemo(() => {
+        return sortTransactionsSequentially(filteredReport, { sortField, sortOrder });
+    }, [filteredReport, sortField, sortOrder]);
+
     // Dynamically calculate selection totals based on visually filtered active dataset (Includes all statuses)
     const hasActiveFilters =
         selectedCentres.length > 0 ||
@@ -389,7 +408,7 @@ const TransactionList = () => {
     }, [loading, dynamicSelectionTotalWithGst, dynamicSelectionTotalBase]);
 
     const handleDownloadExcel = () => {
-        if (!filteredReport.length) {
+        if (!sortedReport.length) {
             toast.warn("No data to download");
             return;
         }
@@ -404,7 +423,7 @@ const TransactionList = () => {
             "Centre", "Payment Mode", "Revenue (Base)", "GST Amount", "Total (Inc. GST)", "Status", "Billed By"
 
         ];
-        const data = filteredReport.map(item => [
+        const data = sortedReport.map(item => [
             new Date(item.paymentDate).toLocaleDateString("en-IN"),
             item.receivedDate ? new Date(item.receivedDate).toLocaleDateString("en-IN") : "-",
             item.admissionNumber && !item.admissionNumber.toString().startsWith("PATH") ? `PATH${item.admissionNumber}` : item.admissionNumber,
@@ -479,11 +498,11 @@ const TransactionList = () => {
         );
     };
 
-    // Pagination Logic (uses filteredReport so No Bill filter affects pagination too)
-    const totalPages = Math.ceil(filteredReport.length / itemsPerPage);
+    // Pagination Logic (uses sortedReport so sequential bill sorting affects pagination too)
+    const totalPages = Math.ceil(sortedReport.length / itemsPerPage);
     const startIndex = (currentPage - 1) * itemsPerPage;
     const endIndex = startIndex + itemsPerPage;
-    const paginatedData = filteredReport.slice(startIndex, endIndex);
+    const paginatedData = sortedReport.slice(startIndex, endIndex);
 
     const handlePageChange = (newPage) => {
         if (newPage >= 1 && newPage <= totalPages) {
@@ -1045,10 +1064,39 @@ const TransactionList = () => {
                             <thead>
                                 <tr className={`${tHeadBg} ${tHeadBorder}`}>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>#</th>
-                                    <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[120px]`}>MR Date</th>
+                                    <th
+                                        onClick={() => handleSort("date")}
+                                        className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[130px] cursor-pointer hover:text-blue-500 transition-colors select-none`}
+                                        title="Click to sort by MR Date"
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span>MR Date</span>
+                                            {sortField === "date" ? (
+                                                sortOrder === "asc" ? <FaSortUp className="text-blue-500" /> : <FaSortDown className="text-blue-500" />
+                                            ) : (
+                                                <FaSort className="text-gray-400 opacity-40 hover:opacity-100" />
+                                            )}
+                                        </div>
+                                    </th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[120px]`}>Received Date</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[150px]`}>Enroll No.</th>
-                                    <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[240px]`}>Receipt No</th>
+                                    <th
+                                        onClick={() => handleSort("receiptNo")}
+                                        className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[240px] cursor-pointer hover:text-blue-500 transition-colors select-none`}
+                                        title="Click to sort sequentially by Bill No."
+                                    >
+                                        <div className="flex items-center gap-1.5">
+                                            <span>Receipt No</span>
+                                            {sortField === "receiptNo" ? (
+                                                sortOrder === "asc" ? <FaSortUp className="text-blue-500" /> : <FaSortDown className="text-blue-500" />
+                                            ) : (
+                                                <FaSort className="text-gray-400 opacity-40 hover:opacity-100" />
+                                            )}
+                                            <span className={`text-[9px] px-1 py-0.5 rounded font-mono font-normal tracking-normal ${sortField === "receiptNo" ? "bg-blue-500/20 text-blue-400 font-bold" : "text-gray-500"}`}>
+                                                {sortField === "receiptNo" ? (sortOrder === "asc" ? "1-by-1 ▲" : "1-by-1 ▼") : "seq"}
+                                            </span>
+                                        </div>
+                                    </th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[180px]`}>Student Name</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[150px]`}>Centre</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[120px]`}>Mobile</th>
@@ -1071,7 +1119,7 @@ const TransactionList = () => {
                                     <tr>
                                         <td colSpan="18" className={`p-8 text-center ${tTxtSub} font-bold uppercase tracking-widest text-[10px]`}>Loading transactions...</td>
                                     </tr>
-                                ) : filteredReport.length === 0 ? (
+                                ) : sortedReport.length === 0 ? (
                                     <tr>
                                         <td colSpan="18" className={`p-8 text-center ${tTxtSub} font-bold uppercase tracking-widest text-[10px]`}>
                                             {billFilter === "no_bill" ? "No records without a bill number found" : billFilter === "with_bill" ? "No records with a bill number found" : "No transactions found"}
@@ -1091,7 +1139,16 @@ const TransactionList = () => {
                                                 {item.admissionNumber && !item.admissionNumber.toString().startsWith("PATH") ? `PATH${item.admissionNumber}` : item.admissionNumber}
                                             </td>
                                             <td className={`p-4 text-sm ${isDark ? 'text-blue-400' : 'text-blue-600'} font-mono font-bold whitespace-nowrap min-w-[240px] uppercase`}>
-                                                {(item.receiptNo && item.receiptNo !== "-" && !item.receiptNo.toString().startsWith("PATH")) ? `PATH/${item.receiptNo}` : (item.receiptNo || "-")}
+                                                {(item.receiptNo && item.receiptNo !== "-") ? (
+                                                    <span
+                                                        className="inline-block transition-all duration-150 hover:text-blue-500 hover:scale-[1.02] hover:brightness-125 select-text cursor-default"
+                                                        title={`Bill No: ${!item.receiptNo.toString().startsWith("PATH") ? `PATH/${item.receiptNo}` : item.receiptNo}`}
+                                                    >
+                                                        {!item.receiptNo.toString().startsWith("PATH") ? `PATH/${item.receiptNo}` : item.receiptNo}
+                                                    </span>
+                                                ) : (
+                                                    item.receiptNo || "-"
+                                                )}
                                             </td>
                                             <td className={`p-4 text-sm font-bold ${isDark ? 'text-gray-200' : 'text-gray-800'} uppercase whitespace-nowrap min-w-[180px]`}>{item.studentName}</td>
                                             <td className={`p-4 text-sm ${tTxtSub} font-bold whitespace-nowrap`}>{item.centre}</td>

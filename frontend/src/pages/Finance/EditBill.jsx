@@ -88,6 +88,45 @@ const EditBill = () => {
         fetchAccounts();
     }, [apiUrl, token]);
 
+    // Auto-search if billNumber or query is passed via URL query params (e.g. from Transaction List or Daily Collection)
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const billParam = urlParams.get("billNumber") || urlParams.get("query") || urlParams.get("billId");
+        if (billParam && billParam.trim()) {
+            const cleanBill = billParam.trim();
+            setSearchQuery(cleanBill);
+            const autoSearchBill = async () => {
+                setSearching(true);
+                setSelectedBill(null);
+                setSearchResults(null);
+                try {
+                    const res = await fetch(`${apiUrl}/payment/edit-bill/search?query=${encodeURIComponent(cleanBill)}`, {
+                        headers: {
+                            Authorization: `Bearer ${token}`,
+                            "Content-Type": "application/json"
+                        }
+                    });
+                    const data = await res.json();
+                    if (res.ok && data.success) {
+                        if (Array.isArray(data.data)) {
+                            setSearchResults(data.data);
+                            if (data.data.length === 1) {
+                                loadBillIntoForm(data.data[0]);
+                            }
+                        } else if (data.data) {
+                            loadBillIntoForm(data.data);
+                        }
+                    }
+                } catch (err) {
+                    console.error("Auto search error:", err);
+                } finally {
+                    setSearching(false);
+                }
+            };
+            autoSearchBill();
+        }
+    }, [apiUrl, token]);
+
     // Handle Search
     const handleSearch = async (e) => {
         if (e) e.preventDefault();
