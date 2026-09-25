@@ -231,7 +231,7 @@ const BoardAdmissionsContent = () => {
     const canCreate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'create');
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'edit');
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'allLeads', 'delete');
-    const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate') || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
+    const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'boardCourseAdmission', 'delete') || hasPermission(user.granularPermissions, 'admissions', 'boardCourseAdmission', 'edit') || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate') || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
 
     const [activeTab, setActiveTab] = useState(initialTab); // "Counselling" | "Enrolled"
     const [selectedIds, setSelectedIds] = useState([]);
@@ -697,15 +697,16 @@ const BoardAdmissionsContent = () => {
         }
     }, [boards, counsellingForm.board, counsellingForm.boardId]);
 
-    const handleToggleStatus = async (studentId, currentStatus) => {
-        const newStatus = currentStatus === 'Active' ? 'Deactivated' : 'Active';
-        if (!window.confirm(`Are you sure you want to ${newStatus === 'Active' ? 'reactivate' : 'deactivate'} this student?`)) {
+    const handleToggleBoardStatus = async (admissionId, currentStatus) => {
+        const isCurrentlyDeactivated = currentStatus === 'DEACTIVATED' || currentStatus === 'INACTIVE' || currentStatus === 'Deactivated';
+        const newStatus = isCurrentlyDeactivated ? 'ACTIVE' : 'DEACTIVATED';
+        if (!window.confirm(`Are you sure you want to ${isCurrentlyDeactivated ? 'reactivate' : 'deactivate'} this board student?`)) {
             return;
         }
 
         try {
             const token = localStorage.getItem("token");
-            const response = await fetch(`${import.meta.env.VITE_API_URL}/admission/student/${studentId}/status`, {
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/board-admission/${admissionId}/status`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json",
@@ -774,7 +775,7 @@ const BoardAdmissionsContent = () => {
             const matchesStartDate = !startDate || admissionDate >= new Date(startDate);
             const matchesEndDate = !endDate || admissionDate <= new Date(new Date(endDate).setHours(23, 59, 59, 999));
 
-            const isDeactivated = (admission.studentId?.status === 'Deactivated') || (admission.status === 'Deactivated' || admission.status === 'DEACTIVATED');
+            const isDeactivated = admission.status === 'DEACTIVATED' || admission.status === 'INACTIVE' || admission.status === 'Deactivated';
             const matchesStatus = activeTab === "Deactivated" ? isDeactivated : !isDeactivated;
 
             // Lead By Filter
@@ -2071,19 +2072,19 @@ const BoardAdmissionsContent = () => {
                                                     <div className="flex flex-col">
                                                         <span className={`text-[11px] font-black uppercase flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                             {item.studentName || details.studentName || "N/A"}
-                                                            {student?.status === 'Deactivated' && (
+                                                            {(item.status === 'DEACTIVATED' || item.status === 'INACTIVE' || item.status === 'Deactivated') && (
                                                                 <div className="flex flex-col gap-0.5 ml-2 normal-case font-normal">
                                                                     <span className="px-2 py-0.5 bg-red-500 text-white text-[8px] font-black rounded-[4px] uppercase tracking-tighter w-fit">
                                                                         Deactivated
                                                                     </span>
-                                                                    {student.deactivatedBy && (
+                                                                    {(item.deactivatedBy || student?.deactivatedBy) && (
                                                                         <span className="text-[7px] font-black text-red-500/80 uppercase tracking-tighter leading-none mt-0.5">
-                                                                            BY: {student.deactivatedBy}
+                                                                            BY: {item.deactivatedBy || student?.deactivatedBy}
                                                                         </span>
                                                                     )}
-                                                                    {student.deactivationDate && (
+                                                                    {(item.deactivationDate || student?.deactivationDate) && (
                                                                         <span className="text-[6.5px] font-bold text-red-400 uppercase tracking-tighter leading-none mt-0.5">
-                                                                            ON: {new Date(student.deactivationDate).toLocaleDateString('en-GB')}
+                                                                            ON: {new Date(item.deactivationDate || student?.deactivationDate).toLocaleDateString('en-GB')}
                                                                         </span>
                                                                     )}
                                                                 </div>
@@ -2307,14 +2308,19 @@ const BoardAdmissionsContent = () => {
                                                                 </button>
                                                                 {canDeactivate && (
                                                                     <button
-                                                                        onClick={(e) => { e.stopPropagation(); handleToggleStatus(item.studentId?._id, item.studentId?.status || 'Active'); }}
-                                                                        className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${item.studentId?.status === 'Deactivated'
+                                                                        onClick={(e) => { 
+                                                                            e.stopPropagation(); 
+                                                                            const isDeact = item.status === 'DEACTIVATED' || item.status === 'INACTIVE' || item.status === 'Deactivated';
+                                                                            handleToggleBoardStatus(item._id, isDeact ? 'DEACTIVATED' : 'ACTIVE'); 
+                                                                        }}
+                                                                        className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${
+                                                                            (item.status === 'DEACTIVATED' || item.status === 'INACTIVE' || item.status === 'Deactivated')
                                                                                 ? (isDarkMode ? "bg-green-500/10 border-green-500/20 text-green-400 hover:bg-green-500 hover:text-black" : "bg-green-50 border-green-200 text-green-600 hover:bg-green-600 hover:text-white shadow-sm")
                                                                                 : (isDarkMode ? "bg-red-500/10 border-red-500/20 text-red-400 hover:bg-red-500 hover:text-black" : "bg-red-50 border-red-200 text-red-600 hover:bg-red-600 hover:text-white shadow-sm")
-                                                                            }`}
-                                                                        title={item.studentId?.status === 'Deactivated' ? "Reactivate Student" : "Deactivate Student"}
+                                                                        }`}
+                                                                        title={(item.status === 'DEACTIVATED' || item.status === 'INACTIVE' || item.status === 'Deactivated') ? "Reactivate Board Admission" : "Deactivate Board Admission"}
                                                                     >
-                                                                        {item.studentId?.status === 'Deactivated' ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
+                                                                        {(item.status === 'DEACTIVATED' || item.status === 'INACTIVE' || item.status === 'Deactivated') ? <FaCheckCircle size={12} /> : <FaTimes size={12} />}
                                                                     </button>
                                                                 )}
                                                             </>

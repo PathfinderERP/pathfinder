@@ -12,6 +12,7 @@ import {
     bulkUpdateBoardAdmissions,
     deleteBoardAdmission,
     reactivateBoardAdmission,
+    toggleBoardAdmissionStatus,
     repairCancelledBoardAdmissions,
     updateBoardInstallmentDate,
     addBoardInstallments
@@ -23,7 +24,7 @@ import {
     checkDuplicateContact,
     deleteBoardCourseCounselling
 } from "../../controllers/Admission/BoardCourseCounsellingController.js";
-import { requireGranularPermission } from "../../middleware/permissionMiddleware.js";
+import { requireGranularPermission, requireAnyGranularPermission } from "../../middleware/permissionMiddleware.js";
 const router = express.Router();
 
 router.post("/create", requireGranularPermission("admissions", "boardCourseAdmission", "create"), createBoardAdmission);
@@ -40,6 +41,10 @@ router.post("/collect-additional-fee/:id", requireGranularPermission("admissions
 router.post("/collect-ncrp-fees/:id", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), collectNcrpFees);
 router.post("/bulk-update", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), bulkUpdateBoardAdmissions);
 router.delete("/:id", requireGranularPermission("admissions", "boardCourseAdmission", "delete"), deleteBoardAdmission);
+router.put("/:id/status", requireAnyGranularPermission([
+    { module: "admissions", section: "boardCourseAdmission", action: "delete" },
+    { module: "admissions", section: "boardCourseAdmission", action: "edit" }
+]), toggleBoardAdmissionStatus);
 router.put("/:id/reactivate", requireGranularPermission("admissions", "boardCourseAdmission", "edit"), reactivateBoardAdmission);
 router.post("/add-installments/:id", requireGranularPermission("admissions", "boardCourseAdmission", "addInstallments"), addBoardInstallments);
 
