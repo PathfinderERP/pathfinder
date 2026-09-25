@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaArrowUp, FaSearch, FaSort, FaSortUp, FaSortDown } from "react-icons/fa";
+import { FaFilter, FaDownload, FaChevronDown, FaEraser, FaChartBar, FaTable, FaTh, FaArrowUp, FaSearch } from "react-icons/fa";
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
@@ -42,8 +42,6 @@ const TransactionList = () => {
     // ---- State ----
     const [loading, setLoading] = useState(false);
     const [detailedReport, setDetailedReport] = useState([]);
-    const [sortField, setSortField] = useState("date"); // 'date' | 'receiptNo'
-    const [sortOrder, setSortOrder] = useState("desc"); // 'asc' | 'desc'
     const user = JSON.parse(localStorage.getItem("user") || "{}");
 
     const [stats, setStats] = useState({
@@ -447,21 +445,9 @@ const TransactionList = () => {
             return p && selectedProgrammes.includes(p);
         });
 
-    const handleSort = (field) => {
-        if (sortField === field) {
-            setSortOrder(prev => prev === "asc" ? "desc" : "asc");
-        } else {
-            setSortField(field);
-            // Default to asc for bill numbers to view one-by-one sequentially, desc for date
-            setSortOrder(field === "receiptNo" ? "asc" : "desc");
-        }
-        setCurrentPage(1);
-        setPageInput("1");
-    };
-
     const sortedReport = React.useMemo(() => {
-        return sortTransactionsSequentially(filteredReport, { sortField, sortOrder });
-    }, [filteredReport, sortField, sortOrder]);
+        return sortTransactionsSequentially(filteredReport);
+    }, [filteredReport]);
 
     // Dynamically calculate selection totals based on visually filtered active dataset (Includes all statuses)
     const hasActiveFilters =
@@ -1393,38 +1379,13 @@ const TransactionList = () => {
                             <thead>
                                 <tr className={`${tHeadBg} ${tHeadBorder}`}>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider`}>#</th>
-                                    <th
-                                        onClick={() => handleSort("date")}
-                                        className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[130px] cursor-pointer hover:text-blue-500 transition-colors select-none`}
-                                        title="Click to sort by MR Date"
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            <span>MR Date</span>
-                                            {sortField === "date" ? (
-                                                sortOrder === "asc" ? <FaSortUp className="text-blue-500" /> : <FaSortDown className="text-blue-500" />
-                                            ) : (
-                                                <FaSort className="text-gray-400 opacity-40 hover:opacity-100" />
-                                            )}
-                                        </div>
+                                    <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[130px]`}>
+                                        MR Date
                                     </th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[120px]`}>Received Date</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[150px]`}>Enroll No.</th>
-                                    <th
-                                        onClick={() => handleSort("receiptNo")}
-                                        className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[240px] cursor-pointer hover:text-blue-500 transition-colors select-none`}
-                                        title="Click to sort sequentially by Bill No."
-                                    >
-                                        <div className="flex items-center gap-1.5">
-                                            <span>Receipt No</span>
-                                            {sortField === "receiptNo" ? (
-                                                sortOrder === "asc" ? <FaSortUp className="text-blue-500" /> : <FaSortDown className="text-blue-500" />
-                                            ) : (
-                                                <FaSort className="text-gray-400 opacity-40 hover:opacity-100" />
-                                            )}
-                                            <span className={`text-[9px] px-1 py-0.5 rounded font-mono font-normal tracking-normal ${sortField === "receiptNo" ? "bg-blue-500/20 text-blue-400 font-bold" : "text-gray-500"}`}>
-                                                {sortField === "receiptNo" ? (sortOrder === "asc" ? "1-by-1 ▲" : "1-by-1 ▼") : "seq"}
-                                            </span>
-                                        </div>
+                                    <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[180px]`}>
+                                        Receipt No
                                     </th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[180px]`}>Student Name</th>
                                     <th className={`p-4 text-xs font-black ${tHeadTxt} uppercase tracking-wider min-w-[150px]`}>Centre</th>
