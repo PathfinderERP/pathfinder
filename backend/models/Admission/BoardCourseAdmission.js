@@ -119,7 +119,7 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ["ACTIVE", "COMPLETED", "CANCELLED"],
+        enum: ["ACTIVE", "COMPLETED", "CANCELLED", "DEACTIVATED", "INACTIVE"],
         default: "ACTIVE"
     },
     installments: [{
@@ -182,6 +182,16 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
         type: String,
         enum: ["ACTIVE", "INACTIVE"],
         default: "ACTIVE"
+    },
+    deactivationDate: {
+        type: Date
+    },
+    deactivatedBy: {
+        type: String
+    },
+    deactivatedByUserId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User"
     },
     createdBy: {
         type: mongoose.Schema.Types.ObjectId,

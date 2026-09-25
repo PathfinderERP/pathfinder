@@ -679,9 +679,9 @@ export const getDailyTracking = async (req, res) => {
         let centers;
         const userCenterIds = (req.user?.centres || []).map(c => c._id ? c._id.toString() : c.toString());
         if (req.user?.role !== 'superAdmin' && req.user?.role !== 'superadmin' && userCenterIds.length > 0) {
-            centers = await CentreSchema.find({ _id: { $in: userCenterIds }, status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).lean();
+            centers = await CentreSchema.find({ _id: { $in: userCenterIds }, status: { $ne: "deactive" }, centreName: { $nin: [/franchise/i, /rkm/i] } }).lean();
         } else {
-            centers = await CentreSchema.find({ status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).lean();
+            centers = await CentreSchema.find({ status: { $ne: "deactive" }, centreName: { $nin: [/franchise/i, /rkm/i] } }).lean();
         }
 
         if (req.query.zoneIds) {
@@ -3576,8 +3576,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                     };
                 }).filter(Boolean);
             }
-            // Exclude franchise, rkm, and phsps centres from all tracking data
-            const excludedCentrePattern = /franchise|rkm|phsps/i;
+            // Exclude franchise and rkm centres from all tracking data
+            const excludedCentrePattern = /franchise|rkm/i;
             return list.filter(item => {
                 const cn = (item.centreName || '').toString();
                 return !excludedCentrePattern.test(cn);
@@ -3669,7 +3669,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                 const normPhone = normalizePhone(lead.phoneNumber);
                 if (normPhone && admittedNormalPhones.has(normPhone)) return; // already admitted
                 const centreName = (lead.centre?.centreName || '').toString();
-                if (/franchise|rkm|phsps/i.test(centreName)) return; // exclude restricted centres
+                if (/franchise|rkm/i.test(centreName)) return; // exclude restricted centres
                 const key = lead._id.toString(); // use lead ID as key to match KPI counting
                 if (!uniqueMap.has(key)) {
                     uniqueMap.set(key, {
@@ -3690,7 +3690,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                 const normPhone = normalizePhone(bc.studentId?.studentsDetails?.[0]?.mobileNum);
                 if (normPhone && admittedBoardPhones.has(normPhone)) return; // already admitted
                 const centreName = (bc.centre || '').toString();
-                if (/franchise|rkm|phsps/i.test(centreName)) return; // exclude restricted centres
+                if (/franchise|rkm/i.test(centreName)) return; // exclude restricted centres
                 const key = bc._id.toString(); // use board counselling ID as key
                 if (!uniqueMap.has(key)) {
                     uniqueMap.set(key, {

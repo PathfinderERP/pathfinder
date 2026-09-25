@@ -1,6 +1,5 @@
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
-import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 
 /**
  * Toggle student status between 'Active' and 'Deactivated'
@@ -32,11 +31,8 @@ export const toggleStudentStatus = async (req, res) => {
                 daysDeactivated = Math.floor((now - new Date(deactivationDate)) / (1000 * 60 * 60 * 24));
             }
 
-            // Fetch Normal Admissions and Board Admissions in parallel
-            const [admissions, boardAdmissions] = await Promise.all([
-                Admission.find({ student: studentId }),
-                BoardCourseAdmission.find({ studentId: studentId })
-            ]);
+            // Fetch Normal Admissions
+            const admissions = await Admission.find({ student: studentId });
 
             const updatePromises = [];
 
@@ -73,35 +69,6 @@ export const toggleStudentStatus = async (req, res) => {
                 );
             }
 
-            // Update Board Admissions
-            for (const bAdmission of boardAdmissions) {
-                let updatedInstallments = bAdmission.installments || [];
-                if (daysDeactivated > 0 && Array.isArray(updatedInstallments)) {
-                    updatedInstallments = updatedInstallments.map(inst => {
-                        const instObj = inst.toObject ? inst.toObject() : { ...inst };
-                        if (['PENDING', 'PARTIAL', 'PARTIALLY_PAID', 'OVERDUE'].includes(instObj.status) && instObj.dueDate) {
-                            const oldDueDate = new Date(instObj.dueDate);
-                            if (!isNaN(oldDueDate.getTime())) {
-                                oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
-                                instObj.dueDate = oldDueDate;
-                            }
-                        }
-                        return instObj;
-                    });
-                }
-                updatePromises.push(
-                    BoardCourseAdmission.updateOne(
-                        { _id: bAdmission._id },
-                        {
-                            $set: {
-                                status: 'ACTIVE',
-                                installments: updatedInstallments
-                            }
-                        }
-                    )
-                );
-            }
-
             await Promise.all(updatePromises);
 
             // Update student status with findByIdAndUpdate to avoid schema validation errors on unrelated fields
@@ -128,16 +95,10 @@ export const toggleStudentStatus = async (req, res) => {
             const deactivatedBy = req.user?.name || 'System';
             const deactivatedByUserId = req.user?._id || req.user?.id || null;
 
-            await Promise.all([
-                Admission.updateMany(
-                    { student: studentId },
-                    { $set: { admissionStatus: 'INACTIVE' } }
-                ),
-                BoardCourseAdmission.updateMany(
-                    { studentId: studentId },
-                    { $set: { status: 'INACTIVE' } }
-                )
-            ]);
+            await Admission.updateMany(
+                { student: studentId },
+                { $set: { admissionStatus: 'INACTIVE' } }
+            );
 
             const updatedStudent = await Student.findByIdAndUpdate(
                 studentId,

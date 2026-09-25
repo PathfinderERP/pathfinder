@@ -262,7 +262,7 @@ const DailyCenterTracking = () => {
         }
     }, [canView]);
 
-    const isSpecialCentre = (name) => name && (/phsps/i.test(name) || /rkm/i.test(name) || /franchise/i.test(name));
+    const isSpecialCentre = (name) => name && (/rkm/i.test(name) || /franchise/i.test(name));
 
     const fetchCenters = async () => {
         try {

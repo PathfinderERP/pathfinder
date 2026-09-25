@@ -1297,7 +1297,7 @@ const EnrolledStudentsContent = () => {
         // Filter by student status (viewMode)
         result = result.filter(item => {
             if (viewMode === 'Board') {
-                return item.admissions.some(a => a.admissionType === 'BOARD') && (item.student?.status || 'Active') === 'Active';
+                return item.admissions.some(a => a.admissionType === 'BOARD' && a.admissionStatus !== 'INACTIVE');
             }
             const status = item.student?.status || 'Active';
             const targetStatus = viewMode === 'Report' ? 'Active' : viewMode;

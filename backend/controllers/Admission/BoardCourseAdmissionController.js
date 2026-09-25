@@ -940,8 +940,8 @@ export const getBoardAdmissions = async (req, res) => {
             // we include deactivated students so the frontend can show them separately.
             const includeDeactivated = req.query.includeDeactivated === 'true';
             if (!includeDeactivated) {
-                const studentStatus = (adm.studentId.status || "").trim().toLowerCase();
-                if (studentStatus === "deactivated") return false;
+                const isBoardDeactivated = adm.status === "DEACTIVATED" || adm.status === "INACTIVE" || (adm.status || "").toLowerCase() === "deactivated";
+                if (isBoardDeactivated) return false;
             }
 
             const admissionStatus = (adm.status || "").trim().toUpperCase();
@@ -1053,8 +1053,8 @@ export const updateBoardSubjects = async (req, res) => {
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
-        if (admission.studentId && admission.studentId.status === 'Deactivated') {
-            return res.status(400).json({ message: "This student is deactivated. Payments and other features are disabled." });
+        if (admission.status === 'DEACTIVATED' || admission.status === 'INACTIVE') {
+            return res.status(400).json({ message: "This board course admission is deactivated. Updates are disabled." });
         }
 
         // Auto-fix for old records missing name/mobile (avoids validation error on save)
@@ -1195,8 +1195,8 @@ export const collectBoardExamFee = async (req, res) => {
         const admission = await BoardCourseAdmission.findById(id).populate({ path: 'studentId', populate: { path: 'batches' } });
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
-        if (admission.studentId && admission.studentId.status === 'Deactivated') {
-            return res.status(400).json({ message: "This student is deactivated. Payments and other features are disabled." });
+        if (admission.status === 'DEACTIVATED' || admission.status === 'INACTIVE') {
+            return res.status(400).json({ message: "This board course admission is deactivated. Payments and other features are disabled." });
         }
 
         if (["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
@@ -1307,8 +1307,8 @@ export const collectBoardInstallment = async (req, res) => {
         const admission = await BoardCourseAdmission.findById(id).populate({ path: 'studentId', populate: { path: 'batches' } });
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
-        if (admission.studentId && admission.studentId.status === 'Deactivated') {
-            return res.status(400).json({ message: "This student is deactivated. Payments and other features are disabled." });
+        if (admission.status === 'DEACTIVATED' || admission.status === 'INACTIVE') {
+            return res.status(400).json({ message: "This board course admission is deactivated. Payments cannot be accepted for it." });
         }
 
         if (paymentMethod && ["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
@@ -1532,8 +1532,8 @@ export const collectBoardAdditionalFee = async (req, res) => {
         const admission = await BoardCourseAdmission.findById(id).populate({ path: 'studentId', populate: { path: 'batches' } });
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
-        if (admission.studentId && admission.studentId.status === 'Deactivated') {
-            return res.status(400).json({ message: "This student is deactivated. Payments and other features are disabled." });
+        if (admission.status === 'DEACTIVATED' || admission.status === 'INACTIVE') {
+            return res.status(400).json({ message: "This board course admission is deactivated. Payments and other features are disabled." });
         }
 
         if (["ONLINE", "UPI", "BANK_TRANSFER", "CARD"].includes(paymentMethod) && !transactionId) {
@@ -1641,8 +1641,8 @@ export const collectNcrpFees = async (req, res) => {
         const admission = await BoardCourseAdmission.findById(id).populate({ path: 'studentId', populate: { path: 'batches' } });
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
-        if (admission.studentId && admission.studentId.status === 'Deactivated') {
-            return res.status(400).json({ message: "This student is deactivated. Payments and other features are disabled." });
+        if (admission.status === 'DEACTIVATED' || admission.status === 'INACTIVE') {
+            return res.status(400).json({ message: "This board course admission is deactivated. Payments and other features are disabled." });
         }
 
         if (!admission.studentName || !admission.mobileNum) {
@@ -2009,22 +2009,100 @@ export const bulkUpdateBoardAdmissions = async (req, res) => {
     }
 };
 
+export const toggleBoardAdmissionStatus = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { status } = req.body;
+
+        const admission = await BoardCourseAdmission.findById(id);
+        if (!admission) {
+            return res.status(404).json({ message: "Board admission not found" });
+        }
+
+        const targetStatus = (status || "").toUpperCase();
+        if (!["ACTIVE", "DEACTIVATED", "INACTIVE"].includes(targetStatus)) {
+            return res.status(400).json({ message: "Invalid status value" });
+        }
+
+        if (targetStatus === "DEACTIVATED" || targetStatus === "INACTIVE") {
+            admission.status = "DEACTIVATED";
+            admission.enrolledStudentsStatus = "INACTIVE";
+            admission.deactivationDate = new Date();
+            admission.deactivatedBy = req.user?.name || "System";
+            admission.deactivatedByUserId = req.user?._id || req.user?.id || null;
+
+            await admission.save({ validateBeforeSave: false });
+
+            if (admission.studentId) {
+                await deleteCache(`student:report:${admission.studentId}`);
+            }
+
+            return res.status(200).json({
+                message: "Board admission successfully deactivated",
+                admission
+            });
+        } else {
+            // Reactivate
+            const oldStatus = admission.status;
+            const deactivationDate = admission.deactivationDate;
+            let daysDeactivated = 0;
+            if ((oldStatus === "DEACTIVATED" || oldStatus === "INACTIVE") && deactivationDate) {
+                const now = new Date();
+                daysDeactivated = Math.floor((now - new Date(deactivationDate)) / (1000 * 60 * 60 * 24));
+            }
+
+            if (daysDeactivated > 0 && Array.isArray(admission.installments)) {
+                admission.installments.forEach(inst => {
+                    if (['PENDING', 'PARTIAL', 'PARTIALLY_PAID', 'OVERDUE'].includes(inst.status) && inst.dueDate) {
+                        const oldDueDate = new Date(inst.dueDate);
+                        if (!isNaN(oldDueDate.getTime())) {
+                            oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
+                            inst.dueDate = oldDueDate;
+                        }
+                    }
+                });
+            }
+
+            admission.status = "ACTIVE";
+            admission.enrolledStudentsStatus = "ACTIVE";
+            admission.deactivationDate = null;
+            admission.deactivatedBy = null;
+            admission.deactivatedByUserId = null;
+
+            await admission.save({ validateBeforeSave: false });
+
+            if (admission.studentId) {
+                await deleteCache(`student:report:${admission.studentId}`);
+            }
+
+            return res.status(200).json({
+                message: "Board admission successfully reactivated",
+                admission
+            });
+        }
+    } catch (err) {
+        console.error("toggleBoardAdmissionStatus error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
 export const deleteBoardAdmission = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const admission = await BoardCourseAdmission.findById(id).lean();
+        const admission = await BoardCourseAdmission.findById(id);
 
         if (!admission) {
             return res.status(404).json({ message: "Board admission not found" });
         }
 
-        // Only update enrolledStudentsStatus — do NOT touch status, installments, or financials.
-        // This keeps the board course admission module fully intact.
-        await BoardCourseAdmission.findByIdAndUpdate(id, {
-            $set: { enrolledStudentsStatus: "INACTIVE" }
-        });
+        admission.enrolledStudentsStatus = "INACTIVE";
+        admission.status = "DEACTIVATED";
+        admission.deactivationDate = new Date();
+        admission.deactivatedBy = req.user?.name || "System";
+        admission.deactivatedByUserId = req.user?._id || req.user?.id || null;
 
+        await admission.save({ validateBeforeSave: false });
 
         if (admission.studentId) {
             await deleteCache(`student:report:${admission.studentId}`);
@@ -2040,16 +2118,39 @@ export const reactivateBoardAdmission = async (req, res) => {
     try {
         const { id } = req.params;
 
-        const admission = await BoardCourseAdmission.findById(id).lean();
+        const admission = await BoardCourseAdmission.findById(id);
 
         if (!admission) {
             return res.status(404).json({ message: "Board admission not found" });
         }
 
-        // Only restore enrolledStudentsStatus — do NOT touch status, installments, or financials.
-        await BoardCourseAdmission.findByIdAndUpdate(id, {
-            $set: { enrolledStudentsStatus: "ACTIVE" }
-        });
+        const oldStatus = admission.status;
+        const deactivationDate = admission.deactivationDate;
+        let daysDeactivated = 0;
+        if ((oldStatus === "DEACTIVATED" || oldStatus === "INACTIVE") && deactivationDate) {
+            const now = new Date();
+            daysDeactivated = Math.floor((now - new Date(deactivationDate)) / (1000 * 60 * 60 * 24));
+        }
+
+        if (daysDeactivated > 0 && Array.isArray(admission.installments)) {
+            admission.installments.forEach(inst => {
+                if (['PENDING', 'PARTIAL', 'PARTIALLY_PAID', 'OVERDUE'].includes(inst.status) && inst.dueDate) {
+                    const oldDueDate = new Date(inst.dueDate);
+                    if (!isNaN(oldDueDate.getTime())) {
+                        oldDueDate.setDate(oldDueDate.getDate() + daysDeactivated);
+                        inst.dueDate = oldDueDate;
+                    }
+                }
+            });
+        }
+
+        admission.enrolledStudentsStatus = "ACTIVE";
+        admission.status = "ACTIVE";
+        admission.deactivationDate = null;
+        admission.deactivatedBy = null;
+        admission.deactivatedByUserId = null;
+
+        await admission.save({ validateBeforeSave: false });
 
         if (admission.studentId) {
             await deleteCache(`student:report:${admission.studentId}`);
@@ -2131,8 +2232,8 @@ export const updateBoardInstallmentDate = async (req, res) => {
         const admission = await BoardCourseAdmission.findById(id).populate('studentId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
-        if (admission.studentId && admission.studentId.status === 'Deactivated') {
-            return res.status(400).json({ message: "This student is deactivated. Updates are disabled." });
+        if (admission.status === 'DEACTIVATED' || admission.status === 'INACTIVE') {
+            return res.status(400).json({ message: "This board course admission is deactivated. Updates are disabled." });
         }
 
         const inst = admission.installments.id(installmentId) || admission.installments.find(i => i._id.toString() === installmentId || i.monthNumber === Number(installmentId));
@@ -2173,8 +2274,8 @@ export const addBoardInstallments = async (req, res) => {
             return res.status(404).json({ message: "Admission not found." });
         }
 
-        if (admission.studentId && admission.studentId.status === 'Deactivated') {
-            return res.status(400).json({ message: "This student is deactivated. Updates are disabled." });
+        if (admission.status === 'DEACTIVATED' || admission.status === 'INACTIVE') {
+            return res.status(400).json({ message: "This board course admission is deactivated. Updates are disabled." });
         }
 
         if (!admission.installments || admission.installments.length === 0) {
