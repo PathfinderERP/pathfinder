@@ -104,6 +104,7 @@ const TransactionList = () => {
     const statusDropdownRef = useRef(null);
     const billedByDropdownRef = useRef(null);
     const zoneDropdownRef = useRef(null);
+    const courseDropdownRef = useRef(null);
 
     const [isCentreDropdownOpen, setIsCentreDropdownOpen] = useState(false);
     const [isPaymentDropdownOpen, setIsPaymentDropdownOpen] = useState(false);
@@ -111,11 +112,16 @@ const TransactionList = () => {
     const [isDepartmentDropdownOpen, setIsDepartmentDropdownOpen] = useState(false);
     const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
     const [isZoneDropdownOpen, setIsZoneDropdownOpen] = useState(false);
+    const [isCourseDropdownOpen, setIsCourseDropdownOpen] = useState(false);
+    const [courseSearch, setCourseSearch] = useState("");
 
     // ---- Effects ----
     useEffect(() => {
         fetchMasterData();
         const handleClickOutside = (event) => {
+            if (centreDropdownRef.current && !centreDropdownRef.current.contains(event.target)) {
+                setIsCentreDropdownOpen(false);
+            }
             if (paymentDropdownRef.current && !paymentDropdownRef.current.contains(event.target)) {
                 setIsPaymentDropdownOpen(false);
             }
@@ -134,6 +140,9 @@ const TransactionList = () => {
             if (zoneDropdownRef.current && !zoneDropdownRef.current.contains(event.target)) {
                 setIsZoneDropdownOpen(false);
             }
+            if (courseDropdownRef.current && !courseDropdownRef.current.contains(event.target)) {
+                setIsCourseDropdownOpen(false);
+            }
         };
         document.addEventListener("mousedown", handleClickOutside);
         return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -149,7 +158,7 @@ const TransactionList = () => {
 
         return () => clearTimeout(debounce);
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedCentres, selectedZones, selectedCourses, selectedExamTag, timePeriod, startDate, endDate, selectedPaymentMode, selectedTransactionType, minAmount, maxAmount, selectedDepartments, searchTerm, selectedStatus]);
+    }, [selectedCentres, selectedZones, selectedExamTag, timePeriod, startDate, endDate, selectedPaymentMode, selectedTransactionType, minAmount, maxAmount, selectedDepartments, searchTerm, selectedStatus]);
 
     // ---- API Calls ----
     const fetchMasterData = async () => {
@@ -248,7 +257,6 @@ const TransactionList = () => {
 
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
             if (selectedZones.length > 0) params.append("zoneIds", selectedZones.join(","));
-            if (selectedCourses.length > 0) params.append("courseIds", selectedCourses.join(","));
             if (selectedDepartments.length > 0) params.append("departmentIds", selectedDepartments.join(","));
             if (selectedExamTag) params.append("examTagId", selectedExamTag);
 
@@ -291,6 +299,7 @@ const TransactionList = () => {
     const handleResetFilters = () => {
         setSelectedCentres([]);
         setSelectedCourses([]);
+        setCourseSearch("");
         setSelectedExamTag("");
         setTimePeriod("Custom Range");
         setStartDate("");
@@ -341,8 +350,17 @@ const TransactionList = () => {
         });
     };
 
-    // --- Derived filtered data (client-side bill filter + billed by filter) ---
+    // --- Derived filtered data (client-side bill filter + billed by filter + course filter) ---
     const uniqueBilledByOptions = [...new Set(detailedReport.map(item => item.takenBy).filter(Boolean))];
+    const uniqueCourseOptions = [...new Set(detailedReport.map(item => item.course).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+
+    const toggleCourseSelection = (courseName) => {
+        setSelectedCourses(prev =>
+            prev.includes(courseName) ? prev.filter(c => c !== courseName) : [...prev, courseName]
+        );
+        setCurrentPage(1);
+        setPageInput("1");
+    };
 
     const filteredReport = detailedReport
         .filter(item => {
@@ -350,7 +368,8 @@ const TransactionList = () => {
             if (billFilter === "with_bill") return item.receiptNo && item.receiptNo !== "-" && item.receiptNo.toString().trim() !== "" && item.receiptNo !== "undefined";
             return true;
         })
-        .filter(item => selectedBilledBy.length === 0 || selectedBilledBy.includes(item.takenBy || "System"));
+        .filter(item => selectedBilledBy.length === 0 || selectedBilledBy.includes(item.takenBy || "System"))
+        .filter(item => selectedCourses.length === 0 || selectedCourses.includes(item.course));
 
     const handleSort = (field) => {
         if (sortField === field) {
@@ -851,6 +870,90 @@ const TransactionList = () => {
                                         ))}
                                     {departments.filter(d => d.departmentName.toLowerCase().includes(departmentSearch.toLowerCase())).length === 0 && (
                                         <div className={`p-4 text-center text-[10px] ${subText} font-black uppercase`}>No departments matched</div>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Course Name (MultiSelect) */}
+                    <div className="relative" ref={courseDropdownRef}>
+                        <div
+                            onClick={() => setIsCourseDropdownOpen(!isCourseDropdownOpen)}
+                            className={`min-w-[200px] h-10 px-3 py-2 ${btnBg} rounded-md cursor-pointer flex justify-between items-center text-sm transition-colors`}
+                        >
+                            <span className="truncate">
+                                {selectedCourses.length === 0 ? "-Select Course-" : `${selectedCourses.length} Selected`}
+                            </span>
+                            <FaChevronDown size={10} className={`transform transition-transform ${isCourseDropdownOpen ? 'rotate-180' : ''}`} />
+                        </div>
+                        {isCourseDropdownOpen && (
+                            <div className={`absolute top-full left-0 mt-1 w-72 z-[9999] ${dropdownBg} rounded-lg shadow-2xl max-h-80 flex flex-col overflow-hidden`}>
+                                <div className={`p-2 ${dropdownHdr} sticky top-0 z-10 flex flex-col gap-2`}>
+                                    <div className="relative">
+                                        <FaSearch className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-[10px]" />
+                                        <input
+                                            type="text"
+                                            placeholder="Search Course..."
+                                            value={courseSearch}
+                                            onChange={(e) => setCourseSearch(e.target.value)}
+                                            className={`w-full pl-8 pr-2 py-1.5 text-xs rounded focus:border-blue-500 outline-none font-bold uppercase ${inputBg}`}
+                                            onClick={(e) => e.stopPropagation()}
+                                        />
+                                    </div>
+                                    {uniqueCourseOptions.length > 0 && (
+                                        <div className="flex items-center justify-between px-1 text-[10px] font-black uppercase tracking-wider">
+                                            <button
+                                                type="button"
+                                                className="text-blue-500 hover:underline"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedCourses(uniqueCourseOptions);
+                                                    setCurrentPage(1);
+                                                    setPageInput("1");
+                                                }}
+                                            >
+                                                Select All
+                                            </button>
+                                            <button
+                                                type="button"
+                                                className="text-gray-400 hover:text-red-400"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setSelectedCourses([]);
+                                                    setCurrentPage(1);
+                                                    setPageInput("1");
+                                                }}
+                                            >
+                                                Clear
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="overflow-y-auto max-h-60 custom-scrollbar">
+                                    {uniqueCourseOptions
+                                        .filter(course => course.toLowerCase().includes(courseSearch.toLowerCase()))
+                                        .map(courseName => (
+                                            <div
+                                                key={courseName}
+                                                className={`px-3 py-2 cursor-pointer flex items-center gap-2 transition-colors ${dropdownRow}`}
+                                                onClick={() => toggleCourseSelection(courseName)}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selectedCourses.includes(courseName)}
+                                                    readOnly
+                                                    className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-3.5 h-3.5 shrink-0"
+                                                />
+                                                <span className={`text-xs ${dropdownTxt} truncate font-bold uppercase`} title={courseName}>
+                                                    {courseName}
+                                                </span>
+                                            </div>
+                                        ))}
+                                    {uniqueCourseOptions.filter(course => course.toLowerCase().includes(courseSearch.toLowerCase())).length === 0 && (
+                                        <div className={`p-4 text-center text-[10px] ${subText} font-black uppercase`}>
+                                            {uniqueCourseOptions.length === 0 ? "No courses on page" : "No courses matched"}
+                                        </div>
                                     )}
                                 </div>
                             </div>
