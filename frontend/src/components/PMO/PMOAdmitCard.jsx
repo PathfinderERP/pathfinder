@@ -42,6 +42,8 @@ const PMOAdmitCard = ({ student, onClose }) => {
                 img.onload = () => {
                     try {
                         const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = (img.height * pdfWidth) / img.width;
+                        
                         const yOffset = 8;
                         const maxAllowedHeight = pdf.internal.pageSize.getHeight() - (yOffset * 2);
                         
