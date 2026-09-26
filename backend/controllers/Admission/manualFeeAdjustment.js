@@ -17,7 +17,14 @@ export const manualFeeAdjustment = async (req, res) => {
         const { id } = req.params;
         const { totalFees, totalPaidAmount, numberOfInstallments } = req.body;
 
-        // The permission check is now handled via route middleware
+        // Role restriction: Only Super Admin, ZM / Zonal Manager, and Digital roles
+        const userRole = (req.user?.role || '').toLowerCase().replace(/[\s\-_]+/g, '');
+        const allowedRoles = ['superadmin', 'superadmins', 'zm', 'zonalmanager', 'assistantzonalmanager', 'digital'];
+        const isAllowed = allowedRoles.includes(userRole) || userRole.includes('zonalmanager') || userRole.includes('digital') || userRole === 'zm';
+
+        if (!isAllowed) {
+            return res.status(403).json({ message: "Access denied. Only Super Admin, Zonal Manager, or Digital roles can perform manual financial corrections." });
+        }
 
         const admission = await Admission.findById(id).populate('student');
         if (!admission) {

@@ -309,6 +309,15 @@ const EnrolledStudentsContent = () => {
     // Memoize user to prevent infinite re-renders when used in dependency arrays
     const user = React.useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
     const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin";
+    const userRoleClean = (user?.role || '').toLowerCase().replace(/[\s\-_]+/g, '');
+    const canFinancialEdit = [
+        'superadmin',
+        'superadmins',
+        'zm',
+        'zonalmanager',
+        'assistantzonalmanager',
+        'digital'
+    ].includes(userRoleClean) || userRoleClean.includes('zonalmanager') || userRoleClean.includes('digital') || userRoleClean === 'zm';
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'edit');
     const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate') || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
@@ -843,8 +852,8 @@ const EnrolledStudentsContent = () => {
     };
 
     const handleManualCorrection = async (admissionId) => {
-        if (!canEdit) {
-            toast.error("Unauthorized: Module edit access required.");
+        if (!canFinancialEdit) {
+            toast.error("Unauthorized: Financial correction is restricted to Zonal Manager, Super Admin, and Digital roles.");
             return;
         }
 
@@ -3531,7 +3540,7 @@ const EnrolledStudentsContent = () => {
                                                     <div className={`px-4 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-[0.2em] border shadow-sm ${getStatusColor(admission.admissionStatus)}`}>
                                                         {admission.admissionStatus}
                                                     </div>
-                                                    {canEdit && (
+                                                    {canFinancialEdit && (
                                                         <button
                                                             onClick={() => {
                                                                 if (showCorrectionId === admission._id) {
@@ -3606,7 +3615,7 @@ const EnrolledStudentsContent = () => {
                                             </div>
 
                                             <div className="p-4 space-y-4">
-                                                {showCorrectionId === admission._id && (
+                                                {canFinancialEdit && showCorrectionId === admission._id && (
                                                     <div className={`p-5 rounded-[4px] border ${isDarkMode ? 'bg-[#1a1f24] border-cyan-500/30' : 'bg-cyan-50 border-cyan-200'} shadow-inner mb-6`}>
                                                         <div className="flex items-center gap-3 mb-5">
                                                             <div className="p-2 bg-cyan-500/10 text-cyan-500 rounded-[4px]">
