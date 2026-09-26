@@ -526,7 +526,7 @@ const LeadManagementContent = () => {
     // Helper to apply permissions from a user object
     const applyPermissions = (parsedUser) => {
         setUser(parsedUser);
-        setCanCreate(true); // Everyone can create leads as requested
+        setCanCreate(hasPermission(parsedUser, 'leadManagement', 'leads', 'create'));
         setCanEdit(hasPermission(parsedUser, 'leadManagement', 'leads', 'edit'));
         setCanDelete(hasPermission(parsedUser, 'leadManagement', 'leads', 'delete'));
 

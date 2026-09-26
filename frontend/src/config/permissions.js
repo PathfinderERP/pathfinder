@@ -682,21 +682,8 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         return true;
     }
 
-    // Lead Management module - allow teacher, telecaller, and counsellor roles to view and create leads by default
-    if (module === 'leadManagement' && (section === 'leads' || section === 'allFollowups')) {
-        const isLeadAllowedRole = ['teacher', 'telecaller', 'centralizedtelecaller', 'counsellor'].includes(cleanRoleStr);
-        if (isLeadAllowedRole) {
-            if (hasGranularObject && granularPermissions?.leadManagement?.[section]) {
-                const secObj = granularPermissions.leadManagement[section];
-                if (operation === 'view') {
-                    if (secObj.view !== undefined) return secObj.view === true;
-                    return Object.values(secObj).some(v => v === true);
-                }
-                return secObj[operation] === true;
-            }
-            if (operation === 'view' || operation === 'create') return true;
-        }
-    }
+    // Lead Management module - access is strictly permission-based (set via User Management).
+    // No role gets automatic lead management access; permissions must be explicitly granted.
 
     // Master Data - Inventory section resolution: accessible to anyone with masterData access or admin roles
     if (module === 'masterData' && section === 'inventory') {
@@ -979,7 +966,8 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
                 });
             }
         }
-        if (['teacher', 'telecaller', 'centralizedtelecaller', 'counsellor'].includes(normalizedRole)) return true;
+        // No role-based fallback for leadManagement — access requires explicit granular permissions.
+        return false;
     }
     if (module === 'courseManagement') {
         const isCourseTargetRole = [
