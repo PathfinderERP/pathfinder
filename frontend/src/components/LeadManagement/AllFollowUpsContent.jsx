@@ -137,7 +137,7 @@ const AllFollowUpsContent = () => {
                     const allowedRoles = [
                         'telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm',
                         'centerincharge', 'centreincharge', 'zonalmanager', 'hod',
-                        'assistantzonalmanager', 'assistantcenterincharge'
+                        'assistantzonalmanager', 'assistantcenterincharge', 'teacher'
                     ];
                     const activeUsers = (data.users || []).filter(u => {
                         const r = (u.role || "").toLowerCase().replace(/[\s_-]+/g, '');

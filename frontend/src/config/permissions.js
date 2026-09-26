@@ -682,6 +682,22 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         return true;
     }
 
+    // Lead Management module - allow teacher, telecaller, and counsellor roles to view and create leads by default
+    if (module === 'leadManagement' && (section === 'leads' || section === 'allFollowups')) {
+        const isLeadAllowedRole = ['teacher', 'telecaller', 'centralizedtelecaller', 'counsellor'].includes(cleanRoleStr);
+        if (isLeadAllowedRole) {
+            if (hasGranularObject && granularPermissions?.leadManagement?.[section]) {
+                const secObj = granularPermissions.leadManagement[section];
+                if (operation === 'view') {
+                    if (secObj.view !== undefined) return secObj.view === true;
+                    return Object.values(secObj).some(v => v === true);
+                }
+                return secObj[operation] === true;
+            }
+            if (operation === 'view' || operation === 'create') return true;
+        }
+    }
+
     // Master Data - Inventory section resolution: accessible to anyone with masterData access or admin roles
     if (module === 'masterData' && section === 'inventory') {
         if (['superadmin', 'admin'].includes(cleanRoleStr)) {
@@ -951,6 +967,19 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
             return true;
         }
         return false;
+    }
+
+    if (module === 'leadManagement') {
+        if (hasGranularObject) {
+            const sections = granularPermissions?.leadManagement;
+            if (sections && Object.keys(sections).length > 0) {
+                return Object.keys(sections).some(secKey => {
+                    const sec = sections[secKey];
+                    return sec && (sec.view !== false || Object.values(sec).some(v => v === true));
+                });
+            }
+        }
+        if (['teacher', 'telecaller', 'centralizedtelecaller', 'counsellor'].includes(normalizedRole)) return true;
     }
     if (module === 'courseManagement') {
         const isCourseTargetRole = [

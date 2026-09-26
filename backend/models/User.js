@@ -204,7 +204,7 @@ userSchema.pre('save', async function () {
     }
 
     if (this.isNew || !this.granularPermissions || Object.keys(this.granularPermissions).length === 0) {
-        if (this.role === 'counsellor' || this.role === 'marketing' || this.role === 'centerIncharge' || this.role === 'zonalManager' || this.role === 'areaManager' || this.role === 'HOD' || this.role === 'hr' || this.role === 'assistantCenterIncharge' || this.role === 'assistantZonalManager') {
+        if (this.role === 'teacher' || this.role === 'counsellor' || this.role === 'telecaller' || this.role === 'centralizedTelecaller' || this.role === 'marketing' || this.role === 'centerIncharge' || this.role === 'zonalManager' || this.role === 'areaManager' || this.role === 'HOD' || this.role === 'hr' || this.role === 'assistantCenterIncharge' || this.role === 'assistantZonalManager') {
             this.granularPermissions = {
                 // ... [existing counsellor permissions]
                 employeeCenter: {

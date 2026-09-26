@@ -201,7 +201,7 @@ const AddLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                     if (isAreaManager) {
                         return areaManagerAllowedRoles.includes(r);
                     }
-                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'areamanager'];
+                    const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'areamanager', 'teacher'];
                     return allowedRoles.includes(r);
                 });
 

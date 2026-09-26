@@ -36,7 +36,7 @@ const FollowUpListModal = ({ onClose, onShowHistory, isDarkMode }) => {
             const userRes = await fetch(`${import.meta.env.VITE_API_URL}/superAdmin/getAllUsers`, { headers: { Authorization: `Bearer ${token}` } });
             if (userRes.ok) {
                 const data = await userRes.json();
-                const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge'];
+                const allowedRoles = ['telecaller', 'centralizedtelecaller', 'counsellor', 'marketing', 'rm', 'centerincharge', 'centreincharge', 'zonalmanager', 'hod', 'assistantzonalmanager', 'assistantcenterincharge', 'teacher'];
                 const leadUsers = (data.users || []).filter(u => {
                     const r = (u.role || "").toLowerCase().replace(/[\s_-]+/g, '');
                     const isActive = u.isActive !== false;

@@ -712,16 +712,31 @@ export const buildLeadQuery = async (queryParams, user) => {
             query.$and.push({ $or: orConditions });
         }
 
-        // Centre restriction: if the user has assigned centres, they can ONLY see data for those centres.
+        // Centre restriction: if the user has assigned centres, they can see data for those centres OR leads they personally created / are assigned to
         if (allUserCentreIn.length > 0) {
             if (query.centre) {
                 const currentIn = query.centre.$in || [];
                 const restrictedIn = currentIn.filter(id => 
                     allUserCentreIn.some(allowedId => allowedId.toString() === id.toString())
                 );
-                query.centre = { $in: restrictedIn.length > 0 ? restrictedIn : [new mongoose.Types.ObjectId()] };
+                delete query.centre;
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { centre: { $in: restrictedIn.length > 0 ? restrictedIn : [new mongoose.Types.ObjectId()] } },
+                        createdCondition,
+                        leadRespCondition
+                    ]
+                });
             } else if (!hasAgentFilter) {
-                query.centre = { $in: allUserCentreIn };
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { centre: { $in: allUserCentreIn } },
+                        createdCondition,
+                        leadRespCondition
+                    ]
+                });
             }
         }
     }
