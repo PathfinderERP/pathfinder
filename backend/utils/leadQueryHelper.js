@@ -586,24 +586,41 @@ export const buildLeadQuery = async (queryParams, user) => {
     // Responsibility filter (Telecaller names / IDs / unique display names)
     if (leadResponsibility && (!Array.isArray(leadResponsibility) || leadResponsibility.length > 0)) {
         const raw = splitCommasOutsideParens(leadResponsibility);
-        const values = raw.map(v => normalizeValue(v)).filter(Boolean);
-        const cleanValues = values.filter(v => v);
+        const values = raw.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
+        const cleanValues = values.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
+
         if (cleanValues.length > 0) {
             const orConditions = [];
             for (const val of cleanValues) {
-                const resolved = await resolveAgentIdentifier(val, user);
-                if (resolved) {
-                    if (resolved.leadMatch) {
-                        orConditions.push(resolved.leadMatch);
-                    }
-                    if (resolved.followUpMatch) {
-                        orConditions.push(resolved.followUpMatch);
-                    }
-                    if (resolved.createdMatch) {
-                        orConditions.push(resolved.createdMatch);
+                let targetName = null;
+                const strVal = String(val).trim();
+
+                // 1. If ObjectId, find User by id to get their name
+                if (val instanceof mongoose.Types.ObjectId || (/^[0-9a-fA-F]{24}$/.test(strVal) && mongoose.Types.ObjectId.isValid(strVal))) {
+                    try {
+                        const u = await User.findById(val).select('name');
+                        if (u && u.name) targetName = u.name.trim();
+                    } catch (e) { }
+                }
+
+                // 2. If "Name (Centre Name)" format, strip the centre suffix
+                if (!targetName) {
+                    const match = strVal.match(/^(.+?)\s*\(.+?\)$/);
+                    if (match) {
+                        targetName = match[1].trim();
+                    } else {
+                        targetName = strVal;
                     }
                 }
+
+                if (targetName) {
+                    const escaped = escapeRegex(targetName);
+                    // Match the owner name (allowing for optional centre suffix in leadResponsibility field)
+                    const nameRegex = new RegExp(`^${escaped}(?:\\s*\\(.*\\))?$`, "i");
+                    orConditions.push({ leadResponsibility: { $regex: nameRegex } });
+                }
             }
+
             if (orConditions.length > 0) {
                 if (query.$and) {
                     query.$and.push({ $or: orConditions });
@@ -655,7 +672,7 @@ export const buildLeadQuery = async (queryParams, user) => {
 
     // Access Control Logic
     const userRole = (user?.role || "").toLowerCase().replace(/\s+/g, "");
-    const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'hr', 'class_coordinator', 'coordinator', 'rm', 'hod', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'];
+    const privilegedRoles = ['superadmin', 'super admin', 'admin', 'centerincharge', 'zonalmanager', 'areamanager', 'hr', 'class_coordinator', 'coordinator', 'rm', 'hod', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'];
     const isPrivileged = privilegedRoles.includes(userRole);
     const isSuperAdmin = ['superadmin', 'super admin', 'digital'].includes(userRole);
 
@@ -694,47 +711,52 @@ export const buildLeadQuery = async (queryParams, user) => {
             followUpCondition.centre = { $in: allUserCentreIn };
         }
 
-        const orConditions = [
-            createdCondition,
-            leadRespCondition,
-            followUpCondition
-        ];
-
-        if (isPrivileged && allUserCentreIn.length > 0) {
-            orConditions.push({ centre: { $in: allUserCentreIn } });
-        }
-
-        // Check if user already has an agent filter applied
-        const hasAgentFilter = Boolean(leadResponsibility && (!Array.isArray(leadResponsibility) || leadResponsibility.length > 0));
-
-        if (!hasAgentFilter) {
-            query.$and = query.$and || [];
-            query.$and.push({ $or: orConditions });
-        }
-
-        // Centre restriction: if the user has assigned centres, they can see data for those centres OR leads they personally created / are assigned to
-        if (allUserCentreIn.length > 0) {
-            if (query.centre) {
-                const currentIn = query.centre.$in || [];
-                const restrictedIn = currentIn.filter(id => 
+        if (query.centre) {
+            // User explicitly requested specific centre(s)
+            const currentIn = query.centre.$in || [];
+            // If user has assigned centres, restrict selection to those allowed centres
+            let allowedCentres = currentIn;
+            if (allUserCentreIn.length > 0) {
+                allowedCentres = currentIn.filter(id => 
                     allUserCentreIn.some(allowedId => allowedId.toString() === id.toString())
                 );
-                delete query.centre;
+            }
+
+            query.centre = { 
+                $in: allowedCentres.length > 0 ? allowedCentres : [new mongoose.Types.ObjectId()] 
+            };
+
+            // If user is NOT privileged (e.g. telecaller), restrict them to their own leads within the selected centre
+            if (!isPrivileged) {
                 query.$and = query.$and || [];
                 query.$and.push({
                     $or: [
-                        { centre: { $in: restrictedIn.length > 0 ? restrictedIn : [new mongoose.Types.ObjectId()] } },
                         createdCondition,
-                        leadRespCondition
+                        leadRespCondition,
+                        followUpCondition
                     ]
                 });
-            } else if (!hasAgentFilter) {
+            }
+        } else {
+            // No specific centre filter selected: apply user's default centre/role scope
+            if (isPrivileged) {
+                if (allUserCentreIn.length > 0) {
+                    query.$and = query.$and || [];
+                    query.$and.push({
+                        $or: [
+                            { centre: { $in: allUserCentreIn } },
+                            createdCondition,
+                            leadRespCondition
+                        ]
+                    });
+                }
+            } else {
                 query.$and = query.$and || [];
                 query.$and.push({
                     $or: [
-                        { centre: { $in: allUserCentreIn } },
                         createdCondition,
-                        leadRespCondition
+                        leadRespCondition,
+                        followUpCondition
                     ]
                 });
             }
