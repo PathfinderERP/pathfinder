@@ -1436,21 +1436,6 @@ export const getDailyCenterDetails = async (req, res) => {
                 createdAt: { $gte: historyStart, $lte: historyEnd }
             }).lean();
 
-            const allNormalAdmissionsHistory = await Admission.find({
-                createdBy: userId,
-                createdAt: { $gte: historyStart, $lte: historyEnd }
-            }).populate('student').lean();
-
-            const allBoardAdmissionsHistory = await BoardCourseAdmission.find({
-                createdBy: userId,
-                createdAt: { $gte: historyStart, $lte: historyEnd }
-            }).populate('studentId').lean();
-
-            const allBoardCounsellingsHistory = await BoardCourseCounselling.find({
-                counselledBy: userId,
-                counselledDate: { $gte: historyStart, $lte: historyEnd }
-            }).populate('studentId').lean();
-
             const allStudentFollowUpsHistory = await StudentFollowUp.find({
                 centre: centerId,
                 calledBy: { $in: [userId, userId.toString()] },
@@ -1502,44 +1487,6 @@ export const getDailyCenterDetails = async (req, res) => {
                     const fuDate = new Date(fu.callDate || fu.createdAt);
                     if (fuDate >= dStart && fuDate <= dEnd) {
                         callDetailsCount++;
-                    }
-                });
-
-                // 3. Process admissions/counsellings for this day
-                const addExtra = (studentDetails) => {
-                    const phone = studentDetails?.mobileNum || '-';
-                    const name = studentDetails?.studentName || 'Unknown Student';
-                    
-                    if (phone !== '-' && existingPhones.has(phone)) return;
-                    if (name !== 'Unknown Student' && existingNames.has(name.toLowerCase())) return;
-                    
-                    callDetailsCount++;
-                    
-                    if (phone !== '-') existingPhones.add(phone);
-                    existingNames.add(name.toLowerCase());
-                };
-
-                allNormalAdmissionsHistory.forEach(adm => {
-                    const admDate = new Date(adm.createdAt);
-                    if (admDate >= dStart && admDate <= dEnd) {
-                        const studentDetails = adm.student?.studentsDetails?.[0];
-                        addExtra(studentDetails);
-                    }
-                });
-
-                allBoardAdmissionsHistory.forEach(adm => {
-                    const admDate = new Date(adm.createdAt);
-                    if (admDate >= dStart && admDate <= dEnd) {
-                        const studentDetails = adm.studentId?.studentsDetails?.[0];
-                        addExtra(studentDetails);
-                    }
-                });
-
-                allBoardCounsellingsHistory.forEach(couns => {
-                    const counsDate = new Date(couns.counselledDate);
-                    if (counsDate >= dStart && counsDate <= dEnd) {
-                        const studentDetails = couns.studentId?.studentsDetails?.[0];
-                        addExtra(studentDetails);
                     }
                 });
 
@@ -1968,160 +1915,7 @@ export const getDailyUserActivity = async (req, res) => {
         const contactedLeadsCount = callDetails.length;
         const freshContactedCount = callDetails.filter(c => c.callType === 'FRESH').length;
 
-        const callsOnly = req.query.callsOnly === 'true' || req.query.callsOnly === true || req.query.leadType === 'ALL' || req.query.leadType === 'TOTAL_CALLS';
 
-        if (!callsOnly) {
-            // Fetch all direct admissions and counselling today to populate them if they are not in lead list
-            const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
-                Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').populate('class', 'name').populate('board', 'boardCourse boardName').lean(),
-                BoardCourseAdmission.find(boardAdmStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean(),
-                BoardCourseCounselling.find(boardCounsStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean()
-            ]);
-
-            const extraPhones = [
-                ...allNormalAdmissionsToday.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum),
-                ...allBoardAdmissionsToday.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum),
-                ...allBoardCounsellingsToday.map(couns => couns.studentId?.studentsDetails?.[0]?.mobileNum)
-            ].filter(p => p && p !== '-');
-
-            let leadMapByPhone = {};
-            if (extraPhones.length > 0) {
-                const leadQuery = { phoneNumber: { $in: extraPhones } };
-                if (centerId) {
-                    leadQuery.centre = centerId;
-                }
-                const leads = await LeadManagement.find(leadQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardCourse boardName').lean();
-                leads.forEach(l => {
-                    leadMapByPhone[l.phoneNumber] = l;
-                });
-            }
-
-            const existingPhones = new Set(callDetails.map(c => c.phoneNumber).filter(p => p && p !== '-'));
-            const existingNames = new Set(callDetails.map(c => (c.studentName || '').toLowerCase()));
-
-            allNormalAdmissionsToday.forEach(adm => {
-                const studentDetails = adm.student?.studentsDetails?.[0];
-                const phone = studentDetails?.mobileNum || '-';
-                const name = studentDetails?.studentName || 'Unknown Student';
-                
-                if (phone !== '-' && existingPhones.has(phone)) return;
-                if (name !== 'Unknown Student' && existingNames.has(name.toLowerCase())) return;
-                
-                const existingLead = phone !== '-' ? leadMapByPhone[phone] : null;
-                
-                callDetails.push({
-                    leadId: existingLead ? existingLead._id : null,
-                    studentName: name,
-                    phoneNumber: phone,
-                    callType: 'ADMISSION',
-                    leadType: existingLead ? existingLead.leadType : 'UNTAGGED',
-                    isCounseled: true,
-                    feedback: 'ADMISSION COMPLETED',
-                    remarks: 'Normal Course Admission',
-                    nextFollowUpDate: null,
-                    date: adm.createdAt || new Date(),
-                    updatedAt: adm.createdAt || new Date(),
-                    leadTick: true,
-                    leadDate: existingLead ? existingLead.createdAt : adm.createdAt,
-                    counselledTick: true,
-                    counselledDate: adm.createdAt,
-                    enrolledTick: true,
-                    enrolledDate: adm.createdAt,
-                    courseName: adm.course?.courseName || existingLead?.course?.courseName || existingLead?.courseText || '-',
-                    className: adm.class?.name || adm.student?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
-                    boardName: adm.board?.boardCourse || adm.board?.boardName || (typeof studentDetails?.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(studentDetails.board) ? studentDetails.board : (existingLead?.board?.boardCourse || existingLead?.board?.boardName || '-')),
-                    schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-',
-                    followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0,
-                    source: existingLead?.source || adm.student?.studentsDetails?.[0]?.source || '-'
-                });
-                
-                if (phone !== '-') existingPhones.add(phone);
-                existingNames.add(name.toLowerCase());
-            });
-
-            allBoardAdmissionsToday.forEach(adm => {
-                const studentDetails = adm.studentId?.studentsDetails?.[0];
-                const phone = studentDetails?.mobileNum || '-';
-                const name = studentDetails?.studentName || 'Unknown Student';
-                
-                if (phone !== '-' && existingPhones.has(phone)) return;
-                if (name !== 'Unknown Student' && existingNames.has(name.toLowerCase())) return;
-                
-                const existingLead = phone !== '-' ? leadMapByPhone[phone] : null;
-                
-                callDetails.push({
-                    leadId: existingLead ? existingLead._id : null,
-                    studentName: name,
-                    phoneNumber: phone,
-                    callType: 'ADMISSION',
-                    leadType: existingLead ? existingLead.leadType : 'UNTAGGED',
-                    isCounseled: true,
-                    feedback: 'BOARD ADMISSION COMPLETED',
-                    remarks: 'Board Course Admission',
-                    nextFollowUpDate: null,
-                    date: adm.createdAt || new Date(),
-                    updatedAt: adm.createdAt || new Date(),
-                    leadTick: true,
-                    leadDate: existingLead ? existingLead.createdAt : adm.createdAt,
-                    counselledTick: true,
-                    counselledDate: adm.createdAt,
-                    enrolledTick: true,
-                    enrolledDate: adm.createdAt,
-                    courseName: adm.boardCourseName || existingLead?.course?.courseName || existingLead?.courseText || '-',
-                    className: adm.lastClass || adm.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
-                    boardName: adm.boardId?.boardCourse || adm.boardId?.boardName || (typeof studentDetails?.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(studentDetails.board) ? studentDetails.board : (existingLead?.board?.boardCourse || existingLead?.board?.boardName || '-')),
-                    schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-',
-                    followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0,
-                    source: existingLead?.source || adm.studentId?.studentsDetails?.[0]?.source || '-'
-                });
-                
-                if (phone !== '-') existingPhones.add(phone);
-                existingNames.add(name.toLowerCase());
-            });
-
-            allBoardCounsellingsToday.forEach(couns => {
-                const studentDetails = couns.studentId?.studentsDetails?.[0];
-                const phone = studentDetails?.mobileNum || '-';
-                const name = studentDetails?.studentName || 'Unknown Student';
-                
-                if (phone !== '-' && existingPhones.has(phone)) return;
-                if (name !== 'Unknown Student' && existingNames.has(name.toLowerCase())) return;
-                
-                const existingLead = phone !== '-' ? leadMapByPhone[phone] : null;
-                const hasAdmission = allBoardAdmissionsToday.some(adm => 
-                    adm.studentId?._id?.toString() === couns.studentId?._id?.toString()
-                );
-                
-                callDetails.push({
-                    leadId: existingLead ? existingLead._id : null,
-                    studentName: name,
-                    phoneNumber: phone,
-                    callType: 'COUNSELLING',
-                    leadType: existingLead ? existingLead.leadType : 'UNTAGGED',
-                    isCounseled: true,
-                    feedback: 'BOARD COUNSELLING COMPLETED',
-                    remarks: 'Board Course Counselling',
-                    nextFollowUpDate: null,
-                    date: couns.counselledDate || new Date(),
-                    updatedAt: couns.counselledDate || new Date(),
-                    leadTick: true,
-                    leadDate: existingLead ? existingLead.createdAt : couns.counselledDate,
-                    counselledTick: true,
-                    counselledDate: couns.counselledDate,
-                    enrolledTick: hasAdmission,
-                    enrolledDate: hasAdmission ? couns.counselledDate : null,
-                    courseName: couns.boardId?.boardName || couns.boardId?.boardCourse || existingLead?.course?.courseName || existingLead?.courseText || '-',
-                    className: couns.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-',
-                    boardName: couns.boardId?.boardCourse || couns.boardId?.boardName || (typeof studentDetails?.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(studentDetails.board) ? studentDetails.board : (existingLead?.board?.boardCourse || existingLead?.board?.boardName || '-')),
-                    schoolName: studentDetails?.schoolName || existingLead?.schoolName || '-',
-                    followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0,
-                    source: existingLead?.source || couns.studentId?.studentsDetails?.[0]?.source || '-'
-                });
-                
-                if (phone !== '-') existingPhones.add(phone);
-                existingNames.add(name.toLowerCase());
-            });
-        }
 
         // Fetch students and admissions in bulk to determine stage status and timestamps
         const phoneNumbers = callDetails.map(c => c.phoneNumber).filter(p => p && p !== '-');
@@ -2343,24 +2137,7 @@ export const exportCenterPerformanceExcel = async (req, res) => {
                 ]
             }).lean();
 
-            const allNormalAdmissionsHistory = await Admission.find({
-                createdBy: userId,
-                createdAt: dateFilter
-            }).populate('student').lean();
-
-            const allBoardAdmissionsHistory = await BoardCourseAdmission.find({
-                createdBy: userId,
-                createdAt: dateFilter
-            }).populate('studentId').lean();
-
-            const allBoardCounsellingsHistory = await BoardCourseCounselling.find({
-                counselledBy: userId,
-                counselledDate: dateFilter
-            }).populate('studentId').lean();
-
             let dailyCalls = 0;
-            const existingPhones = new Set();
-            const existingNames = new Set();
 
             // 1. Process follow-ups for this range
             allLeadsHistory.forEach(lead => {
@@ -2371,12 +2148,6 @@ export const exportCenterPerformanceExcel = async (req, res) => {
 
                 todayFollowUps.forEach(fu => {
                     dailyCalls++;
-                    if (lead.phoneNumber && lead.phoneNumber !== '-') {
-                        existingPhones.add(lead.phoneNumber);
-                    }
-                    if (lead.name) {
-                        existingNames.add(lead.name.toLowerCase());
-                    }
                 });
             });
 
@@ -2385,12 +2156,6 @@ export const exportCenterPerformanceExcel = async (req, res) => {
                 const scDate = new Date(sc.createdAt || sc.callDate);
                 if (scDate >= startDate && scDate <= endDate) {
                     dailyCalls++;
-                    if (sc.studentPhone && sc.studentPhone !== '-') {
-                        existingPhones.add(sc.studentPhone);
-                    }
-                    if (sc.studentName) {
-                        existingNames.add(sc.studentName.toLowerCase());
-                    }
                 }
             });
 
@@ -2400,35 +2165,6 @@ export const exportCenterPerformanceExcel = async (req, res) => {
                 if (fuDate >= startDate && fuDate <= endDate) {
                     dailyCalls++;
                 }
-            });
-
-            // 3. Process admissions/counsellings for this range
-            const addExtra = (studentDetails) => {
-                const phone = studentDetails?.mobileNum || '-';
-                const name = studentDetails?.studentName || 'Unknown Student';
-                
-                if (phone !== '-' && existingPhones.has(phone)) return;
-                if (name !== 'Unknown Student' && existingNames.has(name.toLowerCase())) return;
-                
-                dailyCalls++;
-                
-                if (phone !== '-') existingPhones.add(phone);
-                existingNames.add(name.toLowerCase());
-            };
-
-            allNormalAdmissionsHistory.forEach(adm => {
-                const studentDetails = adm.student?.studentsDetails?.[0];
-                addExtra(studentDetails);
-            });
-
-            allBoardAdmissionsHistory.forEach(adm => {
-                const studentDetails = adm.studentId?.studentsDetails?.[0];
-                addExtra(studentDetails);
-            });
-
-            allBoardCounsellingsHistory.forEach(couns => {
-                const studentDetails = couns.studentId?.studentsDetails?.[0];
-                addExtra(studentDetails);
             });
 
             // 4. Collections
@@ -2664,102 +2400,7 @@ export const exportUserCallingReportExcel = async (req, res) => {
             });
         }
 
-        const callsOnly = req.query.callsOnly === 'true' || req.query.callsOnly === true || req.query.leadType === 'ALL' || req.query.leadType === 'TOTAL_CALLS';
 
-        if (!callsOnly) {
-            // 4. Also fetch admissions/counsellings to align with front-end
-            const normalAdmStudentQuery = { createdBy: userId, createdAt: dateFilter };
-            const boardAdmStudentQuery = { createdBy: userId, createdAt: dateFilter };
-            const boardCounsStudentQuery = { counselledBy: userId, counselledDate: dateFilter };
-            if (centerId && center) {
-                normalAdmStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
-                boardAdmStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
-                boardCounsStudentQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
-            }
-
-            const [allNormalAdmissionsToday, allBoardAdmissionsToday, allBoardCounsellingsToday] = await Promise.all([
-                Admission.find(normalAdmStudentQuery).populate('student').populate('course', 'courseName').populate('class', 'name').populate('board', 'boardCourse boardName').lean(),
-                BoardCourseAdmission.find(boardAdmStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean(),
-                BoardCourseCounselling.find(boardCounsStudentQuery).populate('studentId').populate('boardId', 'boardName boardCourse').lean()
-            ]);
-
-            const extraPhones = [
-                ...allNormalAdmissionsToday.map(adm => adm.student?.studentsDetails?.[0]?.mobileNum),
-                ...allBoardAdmissionsToday.map(adm => adm.studentId?.studentsDetails?.[0]?.mobileNum),
-                ...allBoardCounsellingsToday.map(couns => couns.studentId?.studentsDetails?.[0]?.mobileNum)
-            ].filter(p => p && p !== '-');
-
-            let leadMapByPhone = {};
-            if (extraPhones.length > 0) {
-                const leadQuery = { phoneNumber: { $in: extraPhones } };
-                if (centerId) {
-                    leadQuery.centre = centerId;
-                }
-                const leads = await LeadManagement.find(leadQuery).populate('centre').populate('course', 'courseName').populate('className', 'name').populate('board', 'boardCourse boardName').lean();
-                leads.forEach(l => {
-                    leadMapByPhone[l.phoneNumber] = l;
-                });
-            }
-
-            const existingPhones = new Set(callDetails.map(c => c.phoneNumber).filter(p => p && p !== '-'));
-            const existingNames = new Set(callDetails.map(c => (c.studentName || '').toLowerCase()));
-
-            const addExtra = (admOrCouns, isAdm, typeStr, remarksStr) => {
-                const studentDetails = isAdm 
-                    ? (admOrCouns.student?.studentsDetails?.[0] || admOrCouns.studentId?.studentsDetails?.[0])
-                    : admOrCouns.studentId?.studentsDetails?.[0];
-                const phone = studentDetails?.mobileNum || '-';
-                const name = studentDetails?.studentName || 'Unknown Student';
-                
-                if (phone !== '-' && existingPhones.has(phone)) return;
-                if (name !== 'Unknown Student' && existingNames.has(name.toLowerCase())) return;
-                
-                const existingLead = phone !== '-' ? leadMapByPhone[phone] : null;
-                const itemCentreName = admOrCouns.centre || '-';
-
-                let courseName = '-';
-                let className = '-';
-                let boardName = '-';
-                let schoolName = '-';
-
-                if (isAdm) {
-                    courseName = admOrCouns.course?.courseName || admOrCouns.boardCourseName || existingLead?.course?.courseName || existingLead?.courseText || '-';
-                    className = admOrCouns.class?.name || admOrCouns.student?.examSchema?.[0]?.class || existingLead?.className?.name || '-';
-                    boardName = admOrCouns.board?.boardCourse || admOrCouns.board?.boardName || (typeof studentDetails?.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(studentDetails.board) ? studentDetails.board : (existingLead?.board?.boardCourse || existingLead?.board?.boardName || '-'));
-                    schoolName = studentDetails?.schoolName || existingLead?.schoolName || '-';
-                } else {
-                    courseName = admOrCouns.boardId?.boardName || admOrCouns.boardId?.boardCourse || existingLead?.course?.courseName || existingLead?.courseText || '-';
-                    className = admOrCouns.studentId?.examSchema?.[0]?.class || existingLead?.className?.name || '-';
-                    boardName = admOrCouns.boardId?.boardCourse || admOrCouns.boardId?.boardName || (typeof studentDetails?.board === 'string' && !/^[0-9a-fA-F]{24}$/.test(studentDetails.board) ? studentDetails.board : (existingLead?.board?.boardCourse || existingLead?.board?.boardName || '-'));
-                    schoolName = studentDetails?.schoolName || existingLead?.schoolName || '-';
-                }
-
-                callDetails.push({
-                    centreName: itemCentreName || (existingLead?.centre?.centreName) || '-',
-                    studentName: name,
-                    phoneNumber: phone,
-                    callType: isAdm ? 'ADMISSION' : 'COUNSELLING',
-                    leadType: existingLead ? existingLead.leadType : 'UNTAGGED',
-                    feedback: typeStr,
-                    remarks: remarksStr,
-                    nextFollowUpDate: null,
-                    date: admOrCouns.createdAt || admOrCouns.counselledDate || new Date(),
-                    courseName,
-                    className,
-                    boardName,
-                    schoolName,
-                    followUpCount: existingLead ? (existingLead.followUps?.length || 0) : 0,
-                    source: existingLead?.source || (admOrCouns.student?.studentsDetails?.[0]?.source || admOrCouns.studentId?.studentsDetails?.[0]?.source) || '-'
-                });
-                
-                if (phone !== '-') existingPhones.add(phone);
-                existingNames.add(name.toLowerCase());
-            };
-
-            allNormalAdmissionsToday.forEach(adm => addExtra(adm, true, 'ADMISSION COMPLETED', 'Normal Course Admission'));
-            allBoardAdmissionsToday.forEach(adm => addExtra(adm, true, 'BOARD ADMISSION COMPLETED', 'Board Course Admission'));
-            allBoardCounsellingsToday.forEach(couns => addExtra(couns, false, 'BOARD COUNSELLING COMPLETED', 'Board Course Counselling'));
-        }
 
         // Filter by selected leadType / callType if provided
         if (leadType && leadType !== 'ALL') {
@@ -4294,8 +3935,9 @@ export const getDailyUserAdmissions = async (req, res) => {
         const boardAdmQuery = { createdBy: userId, createdAt: dateFilter };
 
         if (center) {
-            normalAdmQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
-            boardAdmQuery.centre = new RegExp(`^${center.centreName}$`, 'i');
+            const centreRegex = new RegExp(`^${center.centreName}$`, 'i');
+            normalAdmQuery.$or = [{ centre: centreRegex }, { centre: centerId }];
+            boardAdmQuery.$or = [{ centre: centreRegex }, { centre: centerId }];
         }
 
         const [normalAdmissions, boardAdmissions] = await Promise.all([
@@ -4303,7 +3945,7 @@ export const getDailyUserAdmissions = async (req, res) => {
                 .populate('student')
                 .populate('course', 'courseName')
                 .populate('class', 'name')
-                .populate('board', 'boardName')
+                .populate('board', 'boardName boardCourse')
                 .lean(),
             BoardCourseAdmission.find(boardAdmQuery)
                 .populate('studentId')
@@ -4319,9 +3961,10 @@ export const getDailyUserAdmissions = async (req, res) => {
                 admissionId: adm._id,
                 studentName: studentDetails?.studentName || 'Unknown Student',
                 admissionNumber: adm.admissionNumber || 'N/A',
+                phoneNumber: studentDetails?.mobileNum || '-',
                 admissionType: 'NORMAL',
-                className: adm.class?.name || '-',
-                boardName: adm.board?.boardName || '-',
+                className: adm.class?.name || adm.student?.examSchema?.[0]?.class || '-',
+                boardName: adm.board?.boardCourse || adm.board?.boardName || '-',
                 courseName: adm.course?.courseName || '-',
                 totalFees: adm.totalFees || 0,
                 downPayment: adm.downPayment || 0,
@@ -4337,10 +3980,11 @@ export const getDailyUserAdmissions = async (req, res) => {
                 admissionId: adm._id,
                 studentName: studentDetails?.studentName || 'Unknown Student',
                 admissionNumber: adm.admissionNumber || 'N/A',
+                phoneNumber: studentDetails?.mobileNum || '-',
                 admissionType: 'BOARD',
-                className: adm.lastClass || '-',
-                boardName: adm.boardId?.boardName || '-',
-                courseName: adm.boardCourseName || '-',
+                className: adm.lastClass || adm.studentId?.examSchema?.[0]?.class || '-',
+                boardName: adm.boardId?.boardCourse || adm.boardId?.boardName || '-',
+                courseName: adm.boardCourseName || adm.boardId?.boardName || adm.boardId?.boardCourse || '-',
                 totalFees: adm.totalExpectedAmount || 0,
                 downPayment: adm.totalPaidAmount || 0,
                 remainingAmount: (adm.totalExpectedAmount || 0) - (adm.totalPaidAmount || 0),
@@ -4355,6 +3999,209 @@ export const getDailyUserAdmissions = async (req, res) => {
     } catch (error) {
         console.error("GET_DAILY_USER_ADMISSIONS_ERROR:", error);
         res.status(500).json({ message: "Failed to fetch user admissions", error: error.message });
+    }
+};
+
+export const getDailyUserCounselled = async (req, res) => {
+    try {
+        const { userId } = req.params;
+        const { fromDate, toDate, centerId } = req.query;
+
+        const { start: startDate, end: endDate } = parseDateRangeIST(fromDate, toDate);
+        const dateFilter = { $gte: startDate, $lte: endDate };
+
+        const user = await User.findById(userId).select("name").lean();
+        const userRegex = new RegExp(`^${(user?.name || '').trim()}$`, "i");
+
+        let center = null;
+        if (centerId) {
+            center = await CentreSchema.findById(centerId).lean();
+        }
+
+        // 1. Normal counselling leads
+        const normalCounsellingQuery = {
+            isCounseled: true,
+            updatedAt: dateFilter,
+            $or: [
+                { createdBy: userId },
+                { followUps: { $elemMatch: { updatedBy: userRegex, date: dateFilter } } }
+            ]
+        };
+        if (centerId) {
+            normalCounsellingQuery.centre = centerId;
+        }
+
+        // 2. Normal admissions
+        const normalAdmQuery = { createdBy: userId, createdAt: dateFilter };
+        if (center) {
+            const centreRegex = new RegExp(`^${center.centreName}$`, 'i');
+            normalAdmQuery.$or = [{ centre: centreRegex }, { centre: centerId }];
+        }
+
+        // 3. Board counselling
+        const boardCounsQuery = { counselledBy: userId, counselledDate: dateFilter };
+        if (center) {
+            const centreRegex = new RegExp(`^${center.centreName}$`, 'i');
+            boardCounsQuery.$or = [{ centre: centreRegex }, { centre: centerId }];
+        }
+
+        // 4. Board admissions
+        const boardAdmQuery = { createdBy: userId, createdAt: dateFilter };
+        if (center) {
+            const centreRegex = new RegExp(`^${center.centreName}$`, 'i');
+            boardAdmQuery.$or = [{ centre: centreRegex }, { centre: centerId }];
+        }
+
+        const [counselledLeads, normalAdmissions, boardCounsellings, boardAdmissions] = await Promise.all([
+            LeadManagement.find(normalCounsellingQuery)
+                .populate('course', 'courseName')
+                .populate('className', 'name')
+                .populate('board', 'boardName boardCourse')
+                .populate('centre')
+                .lean(),
+            Admission.find(normalAdmQuery)
+                .populate('student')
+                .populate('course', 'courseName')
+                .populate('class', 'name')
+                .populate('board', 'boardName boardCourse')
+                .lean(),
+            BoardCourseCounselling.find(boardCounsQuery)
+                .populate('studentId')
+                .populate('boardId', 'boardName boardCourse')
+                .lean(),
+            BoardCourseAdmission.find(boardAdmQuery)
+                .populate('studentId')
+                .populate('boardId', 'boardName boardCourse')
+                .lean()
+        ]);
+
+        const data = [];
+        const seenPhones = new Set();
+        const seenStudentIds = new Set();
+
+        // 1. Process Normal Counselling Leads
+        counselledLeads.forEach(lead => {
+            const phone = lead.phoneNumber || '-';
+            if (phone !== '-' && seenPhones.has(phone)) return;
+            if (phone !== '-') seenPhones.add(phone);
+
+            data.push({
+                id: lead._id,
+                studentName: lead.name || 'Unknown Student',
+                phoneNumber: phone,
+                counsellingType: 'NORMAL LEAD',
+                courseName: lead.course?.courseName || lead.courseText || '-',
+                className: lead.className?.name || lead.targetClass || '-',
+                boardName: lead.board?.boardCourse || lead.board?.boardName || '-',
+                date: lead.updatedAt || lead.createdAt,
+                status: lead.leadType || 'COUNSELLED',
+                isEnrolled: false,
+                remarks: lead.remarks || lead.feedback || ''
+            });
+        });
+
+        // 2. Process Normal Admissions (counted as counselled)
+        normalAdmissions.forEach(adm => {
+            const studentDetails = adm.student?.studentsDetails?.[0];
+            const sid = adm.student?._id?.toString() || adm.student?.toString();
+            const phone = studentDetails?.mobileNum || '-';
+
+            if (sid && seenStudentIds.has(sid)) return;
+            if (phone !== '-' && seenPhones.has(phone)) {
+                const existing = data.find(d => d.phoneNumber === phone);
+                if (existing) existing.isEnrolled = true;
+                return;
+            }
+            if (sid) seenStudentIds.add(sid);
+            if (phone !== '-') seenPhones.add(phone);
+
+            data.push({
+                id: adm._id,
+                studentName: studentDetails?.studentName || 'Unknown Student',
+                phoneNumber: phone,
+                counsellingType: 'NORMAL ADMISSION',
+                courseName: adm.course?.courseName || '-',
+                className: adm.class?.name || adm.student?.examSchema?.[0]?.class || '-',
+                boardName: adm.board?.boardCourse || adm.board?.boardName || '-',
+                date: adm.createdAt,
+                status: 'ADMITTED',
+                isEnrolled: true,
+                remarks: adm.remarks || 'Direct Admission'
+            });
+        });
+
+        // 3. Process Board Counselling
+        boardCounsellings.forEach(couns => {
+            const studentDetails = couns.studentId?.studentsDetails?.[0];
+            const sid = couns.studentId?._id?.toString() || couns.studentId?.toString();
+            const phone = studentDetails?.mobileNum || '-';
+
+            if (sid && seenStudentIds.has(sid)) return;
+            if (phone !== '-' && seenPhones.has(phone)) return;
+            if (sid) seenStudentIds.add(sid);
+            if (phone !== '-') seenPhones.add(phone);
+
+            // Check if admitted
+            const hasBoardAdm = boardAdmissions.some(adm => 
+                (adm.studentId?._id?.toString() || adm.studentId?.toString()) === sid ||
+                (adm.studentId?.studentsDetails?.[0]?.mobileNum && adm.studentId?.studentsDetails?.[0]?.mobileNum === phone)
+            );
+
+            data.push({
+                id: couns._id,
+                studentName: studentDetails?.studentName || 'Unknown Student',
+                phoneNumber: phone,
+                counsellingType: 'BOARD COUNSELLING',
+                courseName: couns.boardId?.boardCourse || couns.boardId?.boardName || '-',
+                className: couns.studentId?.examSchema?.[0]?.class || '-',
+                boardName: couns.boardId?.boardCourse || couns.boardId?.boardName || '-',
+                date: couns.counselledDate || couns.createdAt,
+                status: 'COUNSELLED',
+                isEnrolled: hasBoardAdm,
+                remarks: couns.remarks || 'Board Course Counselling'
+            });
+        });
+
+        // 4. Process Board Admissions (counted as counselled)
+        boardAdmissions.forEach(adm => {
+            const studentDetails = adm.studentId?.studentsDetails?.[0];
+            const sid = adm.studentId?._id?.toString() || adm.studentId?.toString();
+            const phone = studentDetails?.mobileNum || '-';
+
+            if (sid && seenStudentIds.has(sid)) {
+                const existing = data.find(d => d.id?.toString() === sid || d.phoneNumber === phone);
+                if (existing) existing.isEnrolled = true;
+                return;
+            }
+            if (phone !== '-' && seenPhones.has(phone)) {
+                const existing = data.find(d => d.phoneNumber === phone);
+                if (existing) existing.isEnrolled = true;
+                return;
+            }
+            if (sid) seenStudentIds.add(sid);
+            if (phone !== '-') seenPhones.add(phone);
+
+            data.push({
+                id: adm._id,
+                studentName: studentDetails?.studentName || 'Unknown Student',
+                phoneNumber: phone,
+                counsellingType: 'BOARD ADMISSION',
+                courseName: adm.boardCourseName || adm.boardId?.boardCourse || adm.boardId?.boardName || '-',
+                className: adm.lastClass || adm.studentId?.examSchema?.[0]?.class || '-',
+                boardName: adm.boardId?.boardCourse || adm.boardId?.boardName || '-',
+                date: adm.createdAt,
+                status: 'ADMITTED',
+                isEnrolled: true,
+                remarks: adm.remarks || 'Board Course Admission'
+            });
+        });
+
+        data.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        res.status(200).json(data);
+    } catch (error) {
+        console.error("GET_DAILY_USER_COUNSELLED_ERROR:", error);
+        res.status(500).json({ message: "Failed to fetch user counselled data", error: error.message });
     }
 };
 

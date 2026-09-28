@@ -11,6 +11,7 @@ import {
     exportDailyCallsReportBulkExcel,
     getDailyUserWalkIns,
     getDailyUserAdmissions,
+    getDailyUserCounselled,
     getDailyUserTodaysFollowUps,
     getDailyUserPreviousFollowUps,
     getDailyUserServiceCalls
@@ -33,6 +34,7 @@ router.get("/:centerId", protect, requireGranularPermission("trackingFlagging", 
 router.get("/user/:userId", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserActivity);
 router.get("/user/:userId/walk-ins", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserWalkIns);
 router.get("/user/:userId/admissions", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserAdmissions);
+router.get("/user/:userId/counselled", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserCounselled);
 router.get("/user/:userId/todays-followups", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserTodaysFollowUps);
 router.get("/user/:userId/previous-followups", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserPreviousFollowUps);
 router.get("/user/:userId/service-calls", protect, requireGranularPermission("trackingFlagging", "dailyCenterTracking", "view"), getDailyUserServiceCalls);
