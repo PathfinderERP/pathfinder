@@ -267,6 +267,7 @@ export const createPMOStudent = async (req, res) => {
                     courseFee,
                     totalAmount,
                     billId,
+                    centre: centreObj.centreName,
                     boardCourseName: course,
                 });
 
@@ -1066,6 +1067,7 @@ export const processStudentPayment = async (req, res) => {
             courseFee,
             totalAmount,
             billId,
+            centre: centreObj.centreName,
             boardCourseName: student.course,
         });
 

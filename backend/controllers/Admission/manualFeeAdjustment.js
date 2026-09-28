@@ -68,6 +68,7 @@ export const manualFeeAdjustment = async (req, res) => {
                 paymentMethod: "CASH",
                 remarks: `Manual Balance Adjustment by Super Admin. (Prev: ${originalPaid} -> New: ${parsedTotalPaid})`,
                 recordedBy: req.user.id,
+                centre: admission.centre,
                 courseFee: diff / 1.18,
                 totalAmount: diff
             });

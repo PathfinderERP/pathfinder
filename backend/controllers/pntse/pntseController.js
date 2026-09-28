@@ -227,6 +227,7 @@ export const createPNTSEStudent = async (req, res) => {
                     courseFee,
                     totalAmount,
                     billId,
+                    centre: centreObj.centreName,
                     boardCourseName: course,   // reuse boardCourseName for PNTSE course label
                 });
 
@@ -1100,6 +1101,7 @@ export const processStudentPayment = async (req, res) => {
             courseFee,
             totalAmount,
             billId,
+            centre: centreObj.centreName,
             boardCourseName: student.course,
         });
 

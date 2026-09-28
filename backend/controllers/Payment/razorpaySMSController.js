@@ -284,6 +284,7 @@ export const razorpayWebhookHandler = async (req, res) => {
                     transactionId: paymentLink.id,
                     billingMonth: inst ? new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
                     billId: billId,
+                    centre: admission.centre,
                     courseFee: taxableAmount,
                     cgst: cgst,
                     sgst: sgst,
