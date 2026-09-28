@@ -182,8 +182,8 @@ export const resolveAgentIdentifier = async (val, currentUser = null) => {
         const isDuplicateName = duplicateUsers.length > 1;
         const nameRegex = new RegExp(`^${escapedName}(?:\\s*\\(.*\\))?$`, "i");
 
-        const validCentreObjectIds = centreIds.map(c => {
-            const rawId = (c && c._id ? c._id : c)?.toString();
+        const stringCentreIds = centreIds.map(c => (c && c._id ? c._id : c)?.toString()).filter(Boolean);
+        const validCentreObjectIds = stringCentreIds.map(rawId => {
             try {
                 if (mongoose.Types.ObjectId.isValid(rawId)) {
                     return new mongoose.Types.ObjectId(rawId);
@@ -191,7 +191,7 @@ export const resolveAgentIdentifier = async (val, currentUser = null) => {
             } catch (e) { }
             return null;
         }).filter(Boolean);
-        const allCentreIn = validCentreObjectIds;
+        const allCentreIn = [...new Set([...stringCentreIds, ...validCentreObjectIds])];
 
         const leadMatch = {
             leadResponsibility: { $regex: nameRegex }
@@ -592,32 +592,24 @@ export const buildLeadQuery = async (queryParams, user) => {
         if (cleanValues.length > 0) {
             const orConditions = [];
             for (const val of cleanValues) {
-                let targetName = null;
-                const strVal = String(val).trim();
-
-                // 1. If ObjectId, find User by id to get their name
-                if (val instanceof mongoose.Types.ObjectId || (/^[0-9a-fA-F]{24}$/.test(strVal) && mongoose.Types.ObjectId.isValid(strVal))) {
-                    try {
-                        const u = await User.findById(val).select('name');
-                        if (u && u.name) targetName = u.name.trim();
-                    } catch (e) { }
-                }
-
-                // 2. If "Name (Centre Name)" format, strip the centre suffix
-                if (!targetName) {
+                const resolved = await resolveAgentIdentifier(val, user);
+                if (resolved && resolved.leadMatch) {
+                    orConditions.push(resolved.leadMatch);
+                } else {
+                    let targetName = null;
+                    const strVal = String(val).trim();
                     const match = strVal.match(/^(.+?)\s*\(.+?\)$/);
                     if (match) {
                         targetName = match[1].trim();
                     } else {
                         targetName = strVal;
                     }
-                }
 
-                if (targetName) {
-                    const escaped = escapeRegex(targetName);
-                    // Match the owner name (allowing for optional centre suffix in leadResponsibility field)
-                    const nameRegex = new RegExp(`^${escaped}(?:\\s*\\(.*\\))?$`, "i");
-                    orConditions.push({ leadResponsibility: { $regex: nameRegex } });
+                    if (targetName) {
+                        const escaped = escapeRegex(targetName);
+                        const nameRegex = new RegExp(`^${escaped}(?:\\s*\\(.*\\))?$`, "i");
+                        orConditions.push({ leadResponsibility: { $regex: nameRegex } });
+                    }
                 }
             }
 
