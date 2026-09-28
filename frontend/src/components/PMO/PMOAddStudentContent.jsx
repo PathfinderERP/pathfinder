@@ -798,11 +798,10 @@ const PMOAddStudentContent = () => {
                                 type="text"
                                 name="rollNo"
                                 value={form.rollNo}
-                                onChange={handleChange}
-                                disabled={!!form.studentId || !!form.rollNo}
-                                readOnly={!!form.studentId || !!form.rollNo}
-                                placeholder="Auto-generated or Auto-allocated"
-                                className={`w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-2.5 text-purple-300 font-mono font-bold placeholder-gray-600 focus:outline-none focus:border-purple-500 transition ${(form.studentId || form.rollNo) ? 'opacity-80 cursor-not-allowed bg-gray-900/90' : ''}`}
+                                disabled={true}
+                                readOnly={true}
+                                placeholder="Auto-generated on registration"
+                                className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3.5 py-2.5 text-purple-300 font-mono font-bold placeholder-gray-600 focus:outline-none cursor-not-allowed opacity-90"
                             />
                         </div>
                     </div>

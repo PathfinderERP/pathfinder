@@ -148,5 +148,8 @@ const paymentSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
+paymentSchema.index({ centre: 1, paidDate: -1 });
+paymentSchema.index({ paidDate: -1 });
+
 const Payment = mongoose.model("Payment", paymentSchema);
 export default Payment;

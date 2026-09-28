@@ -156,10 +156,12 @@ export const createPMOStudent = async (req, res) => {
         }
 
         // Determine Roll / Enrollment Number:
-        // Priority 1: User-passed custom roll number (e.g. from carry-forward)
+        // Priority 1: Verified Carry-Forward student from ERP with valid admission/roll number
         // Priority 2: Auto-allocated from existing course enrollment (Normal ERP, Board ERP, PNTSE)
-        // Priority 3: Generate new PMO roll number
-        let rollNo = sanitizedCustomRollNo;
+        // Priority 3: Generate new PMO roll number: PATH{centreCode}{classCode}{3-digit seq}
+        let rollNo = (sanitizedStudentId && sanitizedCustomRollNo && /^(PATH|ERP|ADM)\d+/i.test(sanitizedCustomRollNo))
+            ? sanitizedCustomRollNo.trim()
+            : null;
 
         if (!rollNo && enrollmentCheck.existingEnrollmentNo) {
             rollNo = enrollmentCheck.existingEnrollmentNo;
@@ -167,7 +169,9 @@ export const createPMOStudent = async (req, res) => {
 
         if (!rollNo) {
             // Generate new roll number: PATH{centreCode}{classCode}{3-digit seq}
-            const twoDigitCode = centreObj.centreCode || String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
+            const twoDigitCode = centreObj.centreCode 
+                ? String(centreObj.centreCode).padStart(2, '0') 
+                : String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
             const classNum = parseInt(String(classObj?.name || "").match(/\d+/)?.[0] || "0", 10);
             const classCode = String(classNum).padStart(2, '0');
 
@@ -1197,6 +1201,41 @@ export const updatePMOStudent = async (req, res) => {
             const duplicateEmail = await PMOStudent.findOne({ email: updateData.email });
             if (duplicateEmail) {
                 return res.status(400).json({ message: "Email ID is already registered in PMO" });
+            }
+        }
+
+        // Protect roll number from direct client overwrites
+        delete updateData.rollNo;
+
+        // If class or centre changes, regenerate roll number
+        if ((updateData.centre && String(updateData.centre) !== String(student.centre)) ||
+            (updateData.class && String(updateData.class) !== String(student.class))) {
+            const centreId = updateData.centre || student.centre;
+            const classId = updateData.class || student.class;
+
+            const centreObj = await CentreSchema.findById(centreId);
+            const classObj = await Class.findById(classId);
+            if (centreObj && classObj) {
+                const twoDigitCode = centreObj.centreCode 
+                    ? String(centreObj.centreCode).padStart(2, '0') 
+                    : String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
+                const classNum = parseInt(String(classObj?.name || "").match(/\d+/)?.[0] || "0", 10);
+                const classCode = String(classNum).padStart(2, '0');
+
+                const count = await PMOStudent.countDocuments({ centre: centreId, class: classId });
+                let nextIndex = count + 1;
+                let rollNo;
+                let isUnique = false;
+                while (!isUnique) {
+                    rollNo = `PATH${twoDigitCode}${classCode}${String(nextIndex).padStart(3, '0')}`;
+                    const existing = await PMOStudent.findOne({ rollNo });
+                    if (!existing) {
+                        isUnique = true;
+                    } else {
+                        nextIndex++;
+                    }
+                }
+                updateData.rollNo = rollNo;
             }
         }
 

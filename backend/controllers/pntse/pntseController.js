@@ -127,11 +127,18 @@ export const createPNTSEStudent = async (req, res) => {
             return res.status(400).json({ message: "Class not found" });
         }
 
-        let rollNo = sanitizedCustomRollNo;
+        // Determine roll number:
+        // Priority 1: Verified Carry-Forward student from ERP with valid admission/roll number
+        let rollNo = (sanitizedStudentId && sanitizedCustomRollNo && /^(PATH|ERP|ADM)\d+/i.test(sanitizedCustomRollNo))
+            ? sanitizedCustomRollNo.trim()
+            : null;
+
         if (!rollNo) {
             // Generate roll number: PATH{centreCode}{classCode}{3-digit seq}
-            // Use the 2-digit unique centreCode (e.g. "01"), fallback to enterCode first 2 digits
-            const twoDigitCode = centreObj.centreCode || String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
+            // Use the 2-digit unique centreCode (e.g. "01" or "24"), fallback to enterCode first 2 digits
+            const twoDigitCode = centreObj.centreCode 
+                ? String(centreObj.centreCode).padStart(2, '0') 
+                : String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
 
             // Extract numeric class code (e.g. "6" or "6th" -> "06")
             const classNum = parseInt(String(classObj?.name || "").match(/\d+/)?.[0] || "0", 10);
@@ -1204,6 +1211,9 @@ export const updatePNTSEStudent = async (req, res) => {
             }
         }
 
+        // Protect roll number from direct client overwrites
+        delete updateData.rollNo;
+
         // If class or centre changes, regenerate roll number
         if ((updateData.centre && String(updateData.centre) !== String(student.centre)) ||
             (updateData.class && String(updateData.class) !== String(student.class))) {
@@ -1214,7 +1224,9 @@ export const updatePNTSEStudent = async (req, res) => {
             const classObj = await Class.findById(classId);
             if (centreObj && classObj) {
                 // Generate roll number: PATH{centreCode}{classCode}{3-digit seq}
-                const twoDigitCode = centreObj.centreCode || String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
+                const twoDigitCode = centreObj.centreCode 
+                    ? String(centreObj.centreCode).padStart(2, '0') 
+                    : String(centreObj.enterCode || "00").slice(0, 2).toUpperCase();
 
                 const classNum = parseInt(String(classObj?.name || "").match(/\d+/)?.[0] || "0", 10);
                 const classCode = String(classNum).padStart(2, '0');

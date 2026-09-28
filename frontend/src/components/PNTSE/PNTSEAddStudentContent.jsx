@@ -725,10 +725,10 @@ const PNTSEAddStudentContent = () => {
                                         type="text" 
                                         name="rollNo"
                                         value={form.rollNo} 
-                                        disabled={!!form.studentId}
-                                        onChange={handleChange}
-                                        placeholder="e.g. PATH01000001 — auto-generated on save"
-                                        className={`px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm ${form.studentId ? 'text-cyan-400 font-bold cursor-not-allowed' : 'text-gray-500 cursor-not-allowed'}`} 
+                                        disabled={true}
+                                        readOnly={true}
+                                        placeholder="Auto-generated on save (e.g. PATH2409001)"
+                                        className="px-4 py-2.5 bg-gray-900 border border-gray-800 rounded-xl text-sm text-cyan-400 font-mono font-bold cursor-not-allowed opacity-90" 
                                     />
                                 </div>
                             </div>

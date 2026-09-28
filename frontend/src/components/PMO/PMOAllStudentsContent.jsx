@@ -1850,8 +1850,9 @@ const PMOAllStudentsContent = () => {
                                             type="text"
                                             name="rollNo"
                                             value={editForm.rollNo}
-                                            onChange={handleEditChange}
-                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-purple-300 font-mono font-bold focus:outline-none focus:border-purple-500"
+                                            disabled={true}
+                                            readOnly={true}
+                                            className="w-full bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 text-purple-300 font-mono font-bold focus:outline-none cursor-not-allowed opacity-80"
                                         />
                                     </div>
                                 </div>

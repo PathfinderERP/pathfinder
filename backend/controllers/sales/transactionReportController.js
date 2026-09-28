@@ -163,6 +163,7 @@ export const getTransactionReport = async (req, res) => {
             }
         }
 
+        let targetCentreNames = [];
         if (centreIds) {
             const cIds = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
             const validIds = cIds.filter(id => mongoose.Types.ObjectId.isValid(id.trim()));
@@ -178,11 +179,9 @@ export const getTransactionReport = async (req, res) => {
                 if (!isSuperAdmin) {
                     const allowedLower = allowedCentreNames.map(a => a.toLowerCase().trim());
                     const finalNames = requestedNames.filter(name => allowedLower.includes(name.toLowerCase().trim()));
-                    admissionMatch["effectiveCentre"] = { $in: finalNames.length > 0 ? buildCentreRegexes(finalNames) : ["__NO_MATCH__"] };
-                } else if (requestedNames.length > 0) {
-                    admissionMatch["effectiveCentre"] = { $in: buildCentreRegexes(requestedNames) };
+                    targetCentreNames = finalNames;
                 } else {
-                    admissionMatch["effectiveCentre"] = { $in: ["__NO_MATCH__"] };
+                    targetCentreNames = requestedNames;
                 }
             }
         } else if (zoneCentreNames !== null) {
@@ -191,11 +190,26 @@ export const getTransactionReport = async (req, res) => {
                 const allowedLower = allowedCentreNames.map(a => a.toLowerCase().trim());
                 filteredByZone = filteredByZone.filter(name => allowedLower.includes(name.toLowerCase().trim()));
             }
-            admissionMatch["effectiveCentre"] = { $in: filteredByZone.length > 0 ? buildCentreRegexes(filteredByZone) : ["__NO_MATCH__"] };
+            targetCentreNames = filteredByZone;
         } else {
             // Default: Exclude franchise
             const defaultCentreNames = allowedCentreNames.filter(name => name && !/franchise/i.test(name));
-            admissionMatch["effectiveCentre"] = { $in: defaultCentreNames.length > 0 ? buildCentreRegexes(defaultCentreNames) : ["__NO_MATCH__"] };
+            targetCentreNames = defaultCentreNames;
+        }
+
+        if (targetCentreNames.length > 0) {
+            const centreRegexes = buildCentreRegexes(targetCentreNames);
+            admissionMatch["effectiveCentre"] = { $in: centreRegexes };
+            // Prune payments upfront in baseAttributesMatch using the indexed centre field
+            baseAttributesMatch.$or = [
+                { centre: { $in: centreRegexes } },
+                { centre: null },
+                { centre: { $exists: false } },
+                { centre: "" }
+            ];
+        } else {
+            admissionMatch["effectiveCentre"] = { $in: ["__NO_MATCH__"] };
+            baseAttributesMatch.centre = "__NO_MATCH__";
         }
 
         if (courseIds) {
@@ -324,7 +338,9 @@ export const getTransactionReport = async (req, res) => {
             });
         }
 
-        if (needsAdmissionLookup) {
+        const hasAcademicFilters = Boolean(departmentIds || courseIds || examTagId || boardIds || board || programme);
+
+        if (hasAcademicFilters) {
             chartPipeline.push(
                 { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfoNormal" } },
                 { $lookup: { from: "boardcourseadmissions", localField: "admission", foreignField: "_id", as: "admissionInfoBoard" } },
@@ -385,6 +401,15 @@ export const getTransactionReport = async (req, res) => {
                             { "boardCourseName": { $in: progRegexes } }
                         ]
                     }
+                });
+            }
+        } else {
+            chartPipeline.push({
+                $addFields: { effectiveCentre: "$centre" }
+            });
+            if (targetCentreNames && targetCentreNames.length > 0) {
+                chartPipeline.push({
+                    $match: { effectiveCentre: { $in: buildCentreRegexes(targetCentreNames) } }
                 });
             }
         }
@@ -973,7 +998,7 @@ export const getTransactionReport = async (req, res) => {
             { $match: { effectiveDate: { $gte: startPFY } } }
         ];
 
-        if (needsAdmissionLookup) {
+        if (hasAcademicFilters) {
             statsPipeline.push(
                 { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfoNormal" } },
                 { $lookup: { from: "boardcourseadmissions", localField: "admission", foreignField: "_id", as: "admissionInfoBoard" } },
@@ -1000,6 +1025,15 @@ export const getTransactionReport = async (req, res) => {
                         }
                     }
                 );
+            }
+        } else {
+            statsPipeline.push({
+                $addFields: { effectiveCentre: "$centre" }
+            });
+            if (targetCentreNames && targetCentreNames.length > 0) {
+                statsPipeline.push({
+                    $match: { effectiveCentre: { $in: buildCentreRegexes(targetCentreNames) } }
+                });
             }
         }
 
