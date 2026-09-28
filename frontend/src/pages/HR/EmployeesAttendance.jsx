@@ -6,7 +6,7 @@ import {
     FaSearch, FaFilter, FaSyncAlt, FaChartBar, FaUserTie,
     FaBuilding, FaSitemap, FaCalendarAlt, FaChevronRight,
     FaTimes, FaChevronDown, FaCheck, FaChartLine, FaChartPie, FaUsers, FaUserClock, FaStopwatch, FaArrowUp, FaArrowDown,
-    FaSun, FaMoon
+    FaSun, FaMoon, FaFileExcel
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { format } from "date-fns";
@@ -72,10 +72,13 @@ const CautionChart = ({ data, dataKey, color, title, isDarkMode }) => (
 );
 
 const LiveTimer = ({ checkIn, checkOut, isDarkMode }) => {
-    const [duration, setDuration] = useState("0h 0m");
+    const [duration, setDuration] = useState(checkIn ? "0h 0m" : "--:--");
 
     useEffect(() => {
-        if (!checkIn) return;
+        if (!checkIn) {
+            setDuration("--:--");
+            return;
+        }
 
         const updateTimer = () => {
             const start = new Date(checkIn);
@@ -98,7 +101,7 @@ const LiveTimer = ({ checkIn, checkOut, isDarkMode }) => {
     return <span className={`${isDarkMode ? 'text-white' : 'text-gray-900'} font-black text-sm`}>{duration}</span>;
 };
 
-const PersonnelModal = ({ isOpen, onClose, employees, title, color = "cyan", isDarkMode }) => {
+const PersonnelModal = ({ isOpen, onClose, employees, title, color = "cyan", isDarkMode, onExport }) => {
     if (!isOpen) return null;
 
     return (
@@ -114,15 +117,27 @@ const PersonnelModal = ({ isOpen, onClose, employees, title, color = "cyan", isD
                         </h2>
                         <p className={`text-${color}-500 text-[10px] font-black uppercase tracking-[0.3em] mt-1`}>{employees.length} Personnel under review</p>
                     </div>
-                    <button onClick={onClose} className={`p-2 rounded-[2px] transition-colors group ${isDarkMode ? 'hover:bg-gray-800 text-gray-500 hover:text-white' : 'hover:bg-gray-200 text-gray-400 hover:text-gray-900'}`}>
-                        <FaTimes size={20} className="group-hover:rotate-90 transition-transform" />
-                    </button>
+                    <div className="flex items-center gap-3">
+                        {onExport && employees.length > 0 && (
+                            <button
+                                onClick={onExport}
+                                className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 rounded-[2px] text-xs font-black uppercase tracking-wider transition-all"
+                                title="Export to Excel"
+                            >
+                                <FaFileExcel size={14} />
+                                <span>Export Excel</span>
+                            </button>
+                        )}
+                        <button onClick={onClose} className={`p-2 rounded-[2px] transition-colors group ${isDarkMode ? 'hover:bg-gray-800 text-gray-500 hover:text-white' : 'hover:bg-gray-200 text-gray-400 hover:text-gray-900'}`}>
+                            <FaTimes size={20} className="group-hover:rotate-90 transition-transform" />
+                        </button>
+                    </div>
                 </div>
 
                 <div className={`p-6 overflow-y-auto custom-scrollbar grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ${!isDarkMode && 'bg-white'}`}>
                     {employees.map((att) => (
                         <div key={att._id} className={`${isDarkMode ? 'bg-gray-900/50 border-gray-800' : 'bg-gray-50 border-gray-200'} border p-4 rounded-[2px] flex items-center gap-4 hover:border-${color}-500/30 transition-all group`}>
-                            <div className={`w-14 h-14 rounded-[2px] ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} flex items-center justify-center overflow-hidden border group-hover:scale-105 transition-transform`}>
+                            <div className={`w-14 h-14 rounded-[2px] ${isDarkMode ? 'bg-gray-800 border-gray-700' : 'bg-white border-gray-200'} flex items-center justify-center overflow-hidden border group-hover:scale-105 transition-transform shrink-0`}>
                                 {att.employeeId?.profileImage ? (
                                     <img
                                         src={att.employeeId.profileImage}
@@ -141,12 +156,22 @@ const PersonnelModal = ({ isOpen, onClose, employees, title, color = "cyan", isD
                             <div className="flex-1 min-w-0">
                                 <h4 className={`font-black text-xs uppercase tracking-wide truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{att.employeeId?.name}</h4>
                                 <p className={`text-[9px] font-bold uppercase tracking-widest mb-1 truncate ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>{att.employeeId?.department?.departmentName || 'No Dept'}</p>
-                                <div className="flex items-center gap-2">
+                                <div className="flex items-center gap-2 flex-wrap">
                                     <span className={`text-[8px] font-black px-2 py-0.5 rounded-[2px] truncate uppercase ${isDarkMode ? 'text-gray-400 bg-gray-800' : 'text-gray-500 bg-gray-200'}`}>
                                         {att.employeeId?.designation?.name || 'Employee'}
                                     </span>
-                                    {(!att.checkOut && !att.workingHours) && (
-                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"></span>
+                                    {att.employeeId?.primaryCentre?.centreName && (
+                                        <span className={`text-[8px] font-black px-1.5 py-0.5 rounded-[2px] truncate uppercase ${isDarkMode ? 'text-gray-500 bg-gray-800/60' : 'text-gray-600 bg-gray-100'}`}>
+                                            {att.employeeId.primaryCentre.centreName}
+                                        </span>
+                                    )}
+                                    {att.date && (
+                                        <span className={`text-[8px] font-bold opacity-60 ml-auto`}>
+                                            {format(new Date(att.date), 'dd MMM')}
+                                        </span>
+                                    )}
+                                    {(att.checkIn?.time && !att.checkOut?.time && !att.workingHours) && (
+                                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" title="Currently Working"></span>
                                     )}
                                 </div>
                             </div>
@@ -655,6 +680,7 @@ const EmployeesAttendance = () => {
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showPresentModal, setShowPresentModal] = useState(false);
+    const [showAbsentModal, setShowAbsentModal] = useState(false);
     const [showCautionModal, setShowCautionModal] = useState(false);
     const [showManualMarkModal, setShowManualMarkModal] = useState(false);
     const [manualOverrideInitial, setManualOverrideInitial] = useState(null);
@@ -918,6 +944,12 @@ const EmployeesAttendance = () => {
         if (!attendanceList.length) return toast.error("No data to export");
 
         let exportList = attendanceList;
+        if (activeCaution === 'Absent') {
+            exportList = periodAbsentList;
+        } else if (activeCaution) {
+            exportList = groupedRecords;
+        }
+
         if (filters.search?.trim()) {
             const q = filters.search.trim().toLowerCase();
             exportList = exportList.filter(att =>
@@ -965,8 +997,85 @@ const EmployeesAttendance = () => {
             dateLabel = `${selectedDate}`;
         }
 
-        saveAs(data, `Attendance_Report_${viewMode}_${dateLabel}.xlsx`);
+        const reportName = activeCaution ? `Attendance_${activeCaution}_${viewMode}_${dateLabel}.xlsx` : `Attendance_Report_${viewMode}_${dateLabel}.xlsx`;
+        saveAs(data, reportName);
         toast.success("Excel Report Downloaded");
+    };
+
+    const handleExportAbsentExcel = () => {
+        if (!periodAbsentList.length) return toast.error("No absent records to export");
+
+        const exportData = periodAbsentList.map(att => ({
+            'Date': format(new Date(att.date), 'dd MMM yyyy'),
+            'Employee ID': att.employeeId?.employeeId || 'N/A',
+            'Name': att.employeeId?.name || 'N/A',
+            'Centre': att.employeeId?.primaryCentre?.centreName || (Array.isArray(att.employeeId?.centres) && att.employeeId.centres.length > 0 ? att.employeeId.centres.map(c => c.centreName || c).join(", ") : 'N/A'),
+            'Department': att.employeeId?.department?.departmentName || 'N/A',
+            'Designation': att.employeeId?.designation?.name || 'N/A',
+            'Check In': att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--',
+            'Check Out': att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '--:--',
+            'Duration': att.workingHours ? formatWorkingHours(att.workingHours) : '0h 0m',
+            'Status': 'Absent',
+            'Remarks': att.remarks || (att.isForgotCheckout ? 'Forgot to Checkout (Marked Absent)' : 'Absent (No check-in recorded)')
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        XLSX.utils.book_append_sheet(wb, ws, "Absent Employees");
+        const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+        let dateLabel = '';
+        if (viewMode === 'month') {
+            dateLabel = `${format(new Date(filters.year, filters.month - 1, 1), 'MMMM_yyyy')}`;
+        } else if (viewMode === 'range') {
+            dateLabel = `${filters.fromDate}_to_${filters.toDate}`;
+        } else if (viewMode === 'week') {
+            dateLabel = `Week_${selectedDate}`;
+        } else {
+            dateLabel = `${selectedDate}`;
+        }
+
+        saveAs(data, `Absent_Employees_${viewMode}_${dateLabel}.xlsx`);
+        toast.success("Absent report downloaded successfully");
+    };
+
+    const handleExportPresentExcel = () => {
+        if (!periodPresentList.length) return toast.error("No present records to export");
+
+        const exportData = periodPresentList.map(att => ({
+            'Date': format(new Date(att.date), 'dd MMM yyyy'),
+            'Employee ID': att.employeeId?.employeeId || 'N/A',
+            'Name': att.employeeId?.name || 'N/A',
+            'Centre': att.employeeId?.primaryCentre?.centreName || (Array.isArray(att.employeeId?.centres) && att.employeeId.centres.length > 0 ? att.employeeId.centres.map(c => c.centreName || c).join(", ") : 'N/A'),
+            'Department': att.employeeId?.department?.departmentName || 'N/A',
+            'Designation': att.employeeId?.designation?.name || 'N/A',
+            'Check In': att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--',
+            'Check Out': att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '--:--',
+            'Duration': att.workingHours ? formatWorkingHours(att.workingHours) : '--:--',
+            'Status': att.status === "Week Off" ? "DAY OFF" : (att.status || 'N/A'),
+            'Remarks': att.remarks || ''
+        }));
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        XLSX.utils.book_append_sheet(wb, ws, "Present Employees");
+        const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
+        const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+
+        let dateLabel = '';
+        if (viewMode === 'month') {
+            dateLabel = `${format(new Date(filters.year, filters.month - 1, 1), 'MMMM_yyyy')}`;
+        } else if (viewMode === 'range') {
+            dateLabel = `${filters.fromDate}_to_${filters.toDate}`;
+        } else if (viewMode === 'week') {
+            dateLabel = `Week_${selectedDate}`;
+        } else {
+            dateLabel = `${selectedDate}`;
+        }
+
+        saveAs(data, `Present_Employees_${viewMode}_${dateLabel}.xlsx`);
+        toast.success("Present report downloaded successfully");
     };
 
     const handleReset = () => {
@@ -1019,6 +1128,8 @@ const EmployeesAttendance = () => {
                 } else if (activeCaution === 'Forgot Checkout') {
                     // Check both status and missing checkout
                     matchesCaution = s === 'Forgot to Checkout' || (record.checkIn?.time && !record.checkOut?.time);
+                } else if (activeCaution === 'Absent') {
+                    matchesCaution = s === 'Absent' || record.isAbsent || (!record.checkIn?.time && s !== 'Week Off' && s !== 'Leave' && s !== 'Holiday');
                 }
             }
 
@@ -1047,6 +1158,10 @@ const EmployeesAttendance = () => {
         // In 'day' view, it's everyone in the list (since list is already filtered by backend)
         // In 'week' or 'month' view, counts might show totals for the period
         return attendanceList.filter(a => a.status !== 'Absent' && a.checkIn?.time);
+    }, [attendanceList]);
+
+    const periodAbsentList = useMemo(() => {
+        return attendanceList.filter(a => a.status === 'Absent' || a.isAbsent || (!a.checkIn?.time && a.status !== 'Week Off' && a.status !== 'Leave' && a.status !== 'Holiday'));
     }, [attendanceList]);
 
     // Forgot to Checkout List (Month/Current View)
@@ -1112,6 +1227,16 @@ const EmployeesAttendance = () => {
                 title={`Personnel Present (${viewMode})`}
                 color="emerald"
                 isDarkMode={isDarkMode}
+                onExport={handleExportPresentExcel}
+            />
+            <PersonnelModal
+                isOpen={showAbsentModal}
+                onClose={() => setShowAbsentModal(false)}
+                employees={periodAbsentList}
+                title={`Personnel Absent (${viewMode})`}
+                color="red"
+                isDarkMode={isDarkMode}
+                onExport={handleExportAbsentExcel}
             />
             <PersonnelModal
                 isOpen={showCautionModal}
@@ -1123,8 +1248,10 @@ const EmployeesAttendance = () => {
                     activeCaution === 'Overtime' ? 'indigo' :
                         activeCaution === 'Early Leave' ? 'pink' :
                             activeCaution === 'Half Day' ? 'orange' :
-                                activeCaution === 'Forgot Checkout' ? 'red' : 'lime'
+                                activeCaution === 'Forgot Checkout' ? 'red' :
+                                    activeCaution === 'Absent' ? 'red' : 'lime'
                 )}
+                onExport={handleExportExcel}
             />
             <ManualAttendanceModal
                 isOpen={showManualMarkModal}
@@ -1338,6 +1465,21 @@ const EmployeesAttendance = () => {
                                     subValue={`View Present (${viewMode})`}
                                     icon={<FaCheck />}
                                     color="emerald"
+                                    isDarkMode={isDarkMode}
+                                />
+                            </div>
+
+                            {/* Stat Card: Absent */}
+                            <div className="flex-1 min-w-[160px] cursor-pointer transition-transform hover:scale-[1.02]" onClick={() => {
+                                setActiveCaution('Absent');
+                                setShowAbsentModal(true);
+                            }}>
+                                <StatCard
+                                    title="Absent"
+                                    value={stats?.statusSummary?.absent !== undefined ? stats.statusSummary.absent : periodAbsentList.length}
+                                    subValue={`View Absent (${viewMode})`}
+                                    icon={<FaTimes />}
+                                    color="red"
                                     isDarkMode={isDarkMode}
                                 />
                             </div>
