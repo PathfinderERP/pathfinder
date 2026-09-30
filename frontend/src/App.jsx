@@ -10,6 +10,7 @@ import Finance from "./pages/Finance";
 import Sales from "./pages/Sales";
 import CentreTarget from "./pages/Sales/CentreTarget";
 import ComparisonAnalysis from "./pages/Sales/ComparisonAnalysis";
+import DeactivatedAnalysis from "./pages/Sales/DeactivatedAnalysis";
 import CentreRank from "./pages/Sales/CentreRank";
 import UserRank from "./pages/Sales/UserRank";
 import TargetAchievementReport from "./pages/Sales/TargetAchievementReport";
@@ -274,6 +275,7 @@ function App() {
         <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
         <Route path="/sales/centre-target" element={<ProtectedRoute><CentreTarget /></ProtectedRoute>} />
         <Route path="/sales/comparison-analysis" element={<ProtectedRoute><ComparisonAnalysis /></ProtectedRoute>} />
+        <Route path="/sales/deactivated-analysis" element={<ProtectedRoute><DeactivatedAnalysis /></ProtectedRoute>} />
         <Route path="/sales/centre-rank" element={<ProtectedRoute><CentreRank /></ProtectedRoute>} />
         <Route path="/sales/user-rank" element={<ProtectedRoute><UserRank /></ProtectedRoute>} />
         <Route path="/sales/target-achievement-report" element={<ProtectedRoute><TargetAchievementReport /></ProtectedRoute>} />

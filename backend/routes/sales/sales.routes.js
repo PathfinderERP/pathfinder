@@ -27,9 +27,13 @@ import { saveCourseTarget, getCourseTargetAnalysis, getAdmissionDetails } from "
 import { getComparisonAnalysis, saveComparisonManualData, getDayWiseComparison } from "../../controllers/sales/comparisonAnalysisController.js";
 import { getAverageAdmissionFee } from "../../controllers/sales/averageAdmissionFeeController.js";
 import { getManpowerTargets, saveManpowerTarget } from "../../controllers/sales/manpowerTargetController.js";
+import { getDeactivatedAnalysis, getDeactivatedStudentsList } from "../../controllers/sales/deactivatedAnalysisController.js";
 
 
 const router = express.Router();
+
+router.get("/deactivated-analysis", requireAuth, getDeactivatedAnalysis);
+router.get("/deactivated-analysis/students", requireAuth, getDeactivatedStudentsList);
 
 router.get("/comparison-analysis", requireAuth, getComparisonAnalysis);
 router.post("/comparison-analysis/save", requireAuth, saveComparisonManualData);
