@@ -762,6 +762,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                     {
                         $project: {
                             _id: 1,
+                            createdAt: 1,
+                            updatedAt: 1,
                             date: "$mrDate",
                             receivedDate: "$actualReceivedDate",
                             centre: "$effectiveCentre",
@@ -817,7 +819,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                             }
                         }
                     },
-                    { $sort: { date: -1, billId: -1 } }
+                    { $sort: { createdAt: -1, date: -1, billId: -1 } }
                 ]
             }
         }

@@ -511,7 +511,7 @@ export const getTransactionReport = async (req, res) => {
         }
 
         detailedPipeline.push(
-            { $sort: { effectiveDate: -1, billId: -1 } },
+            { $sort: { createdAt: -1, effectiveDate: -1, billId: -1 } },
             { $limit: 50000 },
             // 2. Lookup Admission Details from both potential collections
             {
@@ -736,6 +736,8 @@ export const getTransactionReport = async (req, res) => {
             },
             {
                 $project: {
+                    createdAt: "$createdAt",
+                    updatedAt: "$updatedAt",
                     transactionId: "$transactionId",
                     // For CHEQUE payments: show ONLY the cheque cleared date (clearedOrRejectedDate / paidDate).
                     // If uncleared/pending, it stays null so no false MR Date is displayed.
@@ -936,7 +938,7 @@ export const getTransactionReport = async (req, res) => {
                 }
             },
             {
-                $sort: { paymentDate: -1, receiptNo: -1 }
+                $sort: { createdAt: -1, receiptNo: -1, paymentDate: -1 }
             }
         );
 

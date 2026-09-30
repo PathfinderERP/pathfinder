@@ -29,8 +29,13 @@ export const sortTransactionsSequentially = (items, { sortField = 'date', sortOr
     if (!Array.isArray(items) || items.length === 0) return [];
 
     return [...items].sort((itemA, itemB) => {
-        const rawDateA = itemA.paymentDate || itemA.date || itemA.mrDate || itemA.createdAt;
-        const rawDateB = itemB.paymentDate || itemB.date || itemB.mrDate || itemB.createdAt;
+        const rawCreatedA = itemA.createdAt || itemA.updatedAt;
+        const rawCreatedB = itemB.createdAt || itemB.updatedAt;
+        const createdA = rawCreatedA ? new Date(rawCreatedA).getTime() : 0;
+        const createdB = rawCreatedB ? new Date(rawCreatedB).getTime() : 0;
+
+        const rawDateA = itemA.paymentDate || itemA.date || itemA.mrDate;
+        const rawDateB = itemB.paymentDate || itemB.date || itemB.mrDate;
         const timeA = rawDateA ? new Date(rawDateA).getTime() : 0;
         const timeB = rawDateB ? new Date(rawDateB).getTime() : 0;
 
@@ -42,16 +47,30 @@ export const sortTransactionsSequentially = (items, { sortField = 'date', sortOr
             const billResult = compareBillNumbers(billA, billB, sortOrder);
             if (billResult !== 0) return billResult;
 
-            // Secondary: Paid Date (descending)
+            // Secondary: Creation Date (descending)
+            if (createdA && createdB && createdA !== createdB) {
+                return createdB - createdA;
+            }
+
+            // Tertiary: Paid Date (descending)
             return timeB - timeA;
         } else {
-            // Primary: Paid Date (MR Date)
+            // Primary: Creation Date (Reverse order of creation - last created transaction comes first)
+            if (createdA && createdB && createdA !== createdB) {
+                return sortOrder === 'asc' ? createdA - createdB : createdB - createdA;
+            }
+            if (createdA && !createdB) return sortOrder === 'asc' ? 1 : -1;
+            if (!createdA && createdB) return sortOrder === 'asc' ? -1 : 1;
+
+            // Secondary: Sequential Bill Number (Newer bill numbers come first in desc)
+            const billResult = compareBillNumbers(billA, billB, sortOrder);
+            if (billResult !== 0) return billResult;
+
+            // Tertiary: Paid Date (MR Date)
             const dateDiff = sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
             if (dateDiff !== 0) return dateDiff;
 
-            // Secondary: Sequential Bill Number
-            // If date is desc, higher bill no comes first (desc); if date is asc, lower bill no first (asc)
-            return compareBillNumbers(billA, billB, sortOrder);
+            return 0;
         }
     });
 };
