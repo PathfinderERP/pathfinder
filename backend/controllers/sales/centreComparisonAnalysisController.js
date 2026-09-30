@@ -82,18 +82,22 @@ export const getCentreComparisonAnalysis = async (req, res) => {
         }
 
         let filterCentresList = null;
-        if (centreIds) {
+        if (centreIds && !String(centreIds).includes("[object Object]")) {
             const reqCentres = (typeof centreIds === "string" ? centreIds.split(",") : centreIds)
-                .map(c => c.toUpperCase().trim())
-                .filter(Boolean);
+                .map(c => (typeof c === "string" ? c.toUpperCase().trim() : ""))
+                .filter(c => Boolean(c) && !c.includes("[OBJECT OBJECT]"));
             filterCentresList = reqCentres.filter(c => activeCentresSet.has(c));
-        } else if (zoneIds) {
-            const zIds = (typeof zoneIds === "string" ? zoneIds.split(",") : zoneIds).map(z => z.trim());
+        } else if (zoneIds && !String(zoneIds).includes("[object Object]")) {
+            const zIds = (typeof zoneIds === "string" ? zoneIds.split(",") : zoneIds)
+                .map(z => (typeof z === "string" ? z.trim() : ""))
+                .filter(z => Boolean(z) && !z.includes("[object Object]"));
             const matchedZones = masterZones.filter(z => zIds.includes(z._id.toString()) || zIds.includes(z.name));
             filterCentresList = matchedZones
                 .flatMap(z => (z.centres || []).map(c => (c.centreName || "").toUpperCase().trim()))
                 .filter(c => activeCentresSet.has(c));
-        } else {
+        }
+
+        if (!filterCentresList || filterCentresList.length === 0) {
             filterCentresList = Array.from(activeCentresSet);
         }
 
@@ -144,9 +148,17 @@ export const getCentreComparisonAnalysis = async (req, res) => {
 
         } else {
             // "month" mode
-            const targetMonths = months
-                ? (typeof months === "string" ? months.split(",") : months).map(m => m.trim()).filter(m => standardMonths.includes(m))
-                : [standardMonths[new Date().getMonth() >= 3 ? new Date().getMonth() - 3 : new Date().getMonth() + 9]]; // Current month
+            let targetMonths = months
+                ? (typeof months === "string" ? months.split(",") : months)
+                    .map(m => (typeof m === "string" ? m.trim() : ""))
+                    .filter(m => standardMonths.includes(m))
+                : [];
+
+            if (targetMonths.length === 0) {
+                const currMonthIdx = new Date().getMonth();
+                const currStdMonth = standardMonths[currMonthIdx >= 3 ? currMonthIdx - 3 : currMonthIdx + 9];
+                targetMonths = [currStdMonth || "September"];
+            }
 
             targetMonths.forEach(m => {
                 const cYear = getCalendarYearForMonth(financialYear, m);
@@ -188,6 +200,9 @@ export const getCentreComparisonAnalysis = async (req, res) => {
 
         // 4. Fetch Admissions for Current & Previous ranges
         const buildDateOrQuery = (field, ranges) => {
+            if (!ranges || ranges.length === 0) {
+                return { [field]: { $exists: true } };
+            }
             if (ranges.length === 1) {
                 return { [field]: { $gte: ranges[0].start, $lte: ranges[0].end } };
             }

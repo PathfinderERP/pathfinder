@@ -118,18 +118,28 @@ const CentreComparisonAnalysis = () => {
             params.set("viewMode", viewMode);
 
             if (viewMode === "month") {
-                if (selectedMonths.length > 0) {
-                    params.set("months", selectedMonths.join(","));
+                const cleanMonths = (selectedMonths || [])
+                    .map(m => (typeof m === "string" ? m : m?.value))
+                    .filter(m => Boolean(m) && !String(m).includes("[object Object]"));
+                if (cleanMonths.length > 0) {
+                    params.set("months", cleanMonths.join(","));
                 }
             } else if (viewMode === "day") {
                 params.set("selectedDate", selectedDate);
             }
 
-            if (selectedCentres.length > 0) {
-                params.set("centreIds", selectedCentres.join(","));
+            const cleanCentres = (selectedCentres || [])
+                .map(c => (typeof c === "string" ? c : c?.value))
+                .filter(c => Boolean(c) && !String(c).includes("[object Object]"));
+            if (cleanCentres.length > 0) {
+                params.set("centreIds", cleanCentres.join(","));
             }
-            if (selectedZones.length > 0) {
-                params.set("zoneIds", selectedZones.join(","));
+
+            const cleanZones = (selectedZones || [])
+                .map(z => (typeof z === "string" ? z : z?.value))
+                .filter(z => Boolean(z) && !String(z).includes("[object Object]"));
+            if (cleanZones.length > 0) {
+                params.set("zoneIds", cleanZones.join(","));
             }
 
             const response = await fetch(
@@ -369,8 +379,8 @@ const CentreComparisonAnalysis = () => {
                             </label>
                             <CustomMultiSelect
                                 options={standardMonths.map(m => ({ value: m, label: m }))}
-                                selectedValues={selectedMonths}
-                                onChange={setSelectedMonths}
+                                value={standardMonths.map(m => ({ value: m, label: m })).filter(opt => selectedMonths.includes(opt.value))}
+                                onChange={(selected) => setSelectedMonths(selected ? selected.map(o => o.value) : [])}
                                 placeholder="Choose Months..."
                                 isDarkMode={isDarkMode}
                             />
@@ -415,8 +425,8 @@ const CentreComparisonAnalysis = () => {
                         </label>
                         <CustomMultiSelect
                             options={zones.map(z => ({ value: z._id, label: z.name }))}
-                            selectedValues={selectedZones}
-                            onChange={setSelectedZones}
+                            value={zones.map(z => ({ value: z._id, label: z.name })).filter(opt => selectedZones.includes(opt.value))}
+                            onChange={(selected) => setSelectedZones(selected ? selected.map(o => o.value) : [])}
                             placeholder="All Zones..."
                             isDarkMode={isDarkMode}
                         />
@@ -429,8 +439,8 @@ const CentreComparisonAnalysis = () => {
                         </label>
                         <CustomMultiSelect
                             options={centres.map(c => ({ value: c.centreName.toUpperCase(), label: c.centreName }))}
-                            selectedValues={selectedCentres}
-                            onChange={setSelectedCentres}
+                            value={centres.map(c => ({ value: c.centreName.toUpperCase(), label: c.centreName })).filter(opt => selectedCentres.includes(opt.value))}
+                            onChange={(selected) => setSelectedCentres(selected ? selected.map(o => o.value) : [])}
                             placeholder="All Active Centres..."
                             isDarkMode={isDarkMode}
                         />
@@ -443,8 +453,8 @@ const CentreComparisonAnalysis = () => {
                         </label>
                         <CustomMultiSelect
                             options={(analysisData?.departments || []).map(d => ({ value: d, label: d }))}
-                            selectedValues={selectedDepartments}
-                            onChange={setSelectedDepartments}
+                            value={(analysisData?.departments || []).map(d => ({ value: d, label: d })).filter(opt => selectedDepartments.includes(opt.value))}
+                            onChange={(selected) => setSelectedDepartments(selected ? selected.map(o => o.value) : [])}
                             placeholder="All Departments..."
                             isDarkMode={isDarkMode}
                         />
@@ -583,13 +593,19 @@ const CentreComparisonAnalysis = () => {
                         <table className="w-full text-left text-xs border-collapse">
                             {/* Table Header */}
                             <thead className={`sticky top-0 z-20 font-black uppercase tracking-wider ${
-                                isDarkMode ? "bg-slate-950/95 text-slate-300" : "bg-slate-100 text-slate-700"
+                                isDarkMode ? "bg-slate-950 text-slate-300" : "bg-slate-100 text-slate-700"
                             }`}>
                                 <tr className="border-b border-slate-800/50">
-                                    <th className="p-3.5 min-w-[200px] sticky left-0 z-30 bg-inherit border-r border-slate-800/30">
+                                    <th className={`p-3.5 w-[210px] min-w-[210px] max-w-[210px] sticky left-0 top-0 z-30 border-r border-slate-800/40 ${
+                                        isDarkMode ? "bg-slate-950" : "bg-slate-100"
+                                    }`}>
                                         Centre / Location
                                     </th>
-                                    <th className="p-3.5 min-w-[120px]">Zone</th>
+                                    <th className={`p-3.5 w-[150px] min-w-[150px] max-w-[150px] sticky left-[210px] top-0 z-30 border-r border-slate-800/40 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.35)] ${
+                                        isDarkMode ? "bg-slate-950" : "bg-slate-100"
+                                    }`}>
+                                        Zone
+                                    </th>
 
                                     {/* Overall Totals Column(s) */}
                                     {(metricMode === "revenue" || metricMode === "both") && (
@@ -643,23 +659,25 @@ const CentreComparisonAnalysis = () => {
                                     filteredRows.map(row => (
                                         <tr
                                             key={row.centre}
-                                            className={`transition-colors hover:bg-cyan-500/5 ${
+                                            className={`group transition-colors ${
                                                 isDarkMode ? "hover:bg-slate-800/40" : "hover:bg-slate-50"
                                             }`}
                                         >
-                                            {/* Centre Name (Sticky Left) */}
-                                            <td className={`p-3.5 font-bold sticky left-0 z-10 border-r border-slate-800/20 ${
-                                                isDarkMode ? "bg-slate-900/90 text-white" : "bg-white text-slate-900"
+                                            {/* Centre Name (Sticky Left 0) */}
+                                            <td className={`p-3.5 font-bold sticky left-0 z-20 w-[210px] min-w-[210px] max-w-[210px] border-r border-slate-800/20 transition-colors ${
+                                                isDarkMode ? "bg-[#0f172a] group-hover:bg-[#1e293b] text-white" : "bg-white group-hover:bg-slate-50 text-slate-900"
                                             }`}>
                                                 <div className="flex items-center gap-2">
-                                                    <span className="w-2 h-2 rounded-full bg-cyan-400" />
-                                                    <span className="truncate">{row.centre}</span>
+                                                    <span className="w-2 h-2 rounded-full bg-cyan-400 shrink-0" />
+                                                    <span className="truncate font-black">{row.centre}</span>
                                                 </div>
                                             </td>
 
-                                            {/* Zone */}
-                                            <td className="p-3.5">
-                                                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-800/60 text-slate-400 border border-slate-700/50">
+                                            {/* Zone (Sticky Left 210px) */}
+                                            <td className={`p-3.5 sticky left-[210px] z-20 w-[150px] min-w-[150px] max-w-[150px] border-r border-slate-800/30 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.25)] transition-colors ${
+                                                isDarkMode ? "bg-[#0f172a] group-hover:bg-[#1e293b] text-slate-300" : "bg-white group-hover:bg-slate-50 text-slate-700"
+                                            }`}>
+                                                <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-800/60 text-slate-400 border border-slate-700/50 truncate block max-w-[130px]" title={row.zone || "General Zone"}>
                                                     {row.zone || "General Zone"}
                                                 </span>
                                             </td>
@@ -737,15 +755,19 @@ const CentreComparisonAnalysis = () => {
                             {/* Table Footer: Column Totals */}
                             {footerTotals && !loading && (
                                 <tfoot className={`sticky bottom-0 z-20 font-black border-t-2 border-slate-700 ${
-                                    isDarkMode ? "bg-slate-950/95 text-white" : "bg-slate-100 text-slate-900"
+                                    isDarkMode ? "bg-slate-950 text-white" : "bg-slate-100 text-slate-900"
                                 }`}>
                                     <tr>
-                                        <td className={`p-3.5 sticky left-0 z-30 uppercase tracking-wider border-r border-slate-800/20 ${
+                                        <td className={`p-3.5 sticky left-0 bottom-0 z-30 w-[210px] min-w-[210px] max-w-[210px] uppercase tracking-wider border-r border-slate-800/40 ${
                                             isDarkMode ? "bg-slate-950 text-cyan-400" : "bg-slate-100 text-cyan-700"
                                         }`}>
                                             Grand Total ({filteredRows.length} Centres)
                                         </td>
-                                        <td className="p-3.5 text-slate-500">—</td>
+                                        <td className={`p-3.5 sticky left-[210px] bottom-0 z-30 w-[150px] min-w-[150px] max-w-[150px] border-r border-slate-800/40 text-slate-500 shadow-[4px_0_12px_-2px_rgba(0,0,0,0.35)] ${
+                                            isDarkMode ? "bg-slate-950" : "bg-slate-100"
+                                        }`}>
+                                            —
+                                        </td>
 
                                         {/* Total Revenue Footer */}
                                         {(metricMode === "revenue" || metricMode === "both") && (
