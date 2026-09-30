@@ -39,19 +39,27 @@ const ComparisonAnalysis = () => {
 
     // Day-wise: current month data for day-level comparison
     const [dayData, setDayData] = useState([]);
+    const [selectedDayDate, setSelectedDayDate] = useState(() => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }));
 
-    // Today's info for day-wise calculations
+    // Selected date info for day-wise calculations
     const todayRef = React.useMemo(() => {
-        const t = new Date();
+        const parts = (selectedDayDate || '').split('-');
+        let t;
+        if (parts.length === 3) {
+            t = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10), 12, 0, 0);
+        } else {
+            t = new Date();
+        }
         const day = t.getDate();
         const daysInMonth = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
         const monthName = t.toLocaleString('en-US', { month: 'long' });
         const todayStr = t.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
         // Previous year same date string
-        const prevT = new Date(t); prevT.setFullYear(prevT.getFullYear() - 1);
+        const prevT = new Date(t);
+        prevT.setFullYear(prevT.getFullYear() - 1);
         const prevDayStr = prevT.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
-        return { day, daysInMonth, monthName, todayStr, prevDayStr };
-    }, []);
+        return { day, daysInMonth, monthName, todayStr, prevDayStr, rawDate: selectedDayDate };
+    }, [selectedDayDate]);
 
     // Track request versions to avoid async race conditions
     const requestVersionRef = useRef(0);
@@ -75,12 +83,12 @@ const ComparisonAnalysis = () => {
         }
     }, [viewMode, selectedCentres, selectedZones]);
 
-    // Re-fetch day data when filters change or day mode activated
+    // Re-fetch day data when filters change, date changes, or day mode activated
     useEffect(() => {
         if (viewMode === 'day') {
             fetchComparisonDataDayWise();
         }
-    }, [viewMode, selectedCentres, selectedZones]);
+    }, [viewMode, selectedCentres, selectedZones, selectedDayDate]);
 
     const fetchMasterData = async () => {
         try {
@@ -210,6 +218,7 @@ const ComparisonAnalysis = () => {
             const params = new URLSearchParams();
             if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
             if (selectedZones.length > 0) params.append("zoneIds", selectedZones.join(","));
+            if (selectedDayDate) params.append("date", selectedDayDate);
 
             // Hit the dedicated day-wise endpoint
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/comparison-analysis/day-data?${params.toString()}`, {
@@ -576,9 +585,38 @@ const ComparisonAnalysis = () => {
                             </span>
                         )}
                         {viewMode === 'day' && (
-                            <span className={`text-xs font-bold px-3 py-1.5 rounded-lg ${isDarkMode ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-orange-50 text-orange-600 border border-orange-200'}`}>
-                                📅 {todayRef.monthName} — Day {todayRef.day} of {todayRef.daysInMonth}
-                            </span>
+                            <div className="flex items-center gap-2">
+                                <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border shadow-sm transition-all ${
+                                    isDarkMode ? 'bg-[#131619] border-gray-700' : 'bg-white border-gray-300'
+                                }`}>
+                                    <span className="text-sm">📅</span>
+                                    <input
+                                        type="date"
+                                        value={selectedDayDate}
+                                        onChange={(e) => setSelectedDayDate(e.target.value)}
+                                        className={`text-xs font-bold bg-transparent outline-none cursor-pointer ${
+                                            isDarkMode ? 'text-orange-400 [color-scheme:dark]' : 'text-orange-600'
+                                        }`}
+                                    />
+                                </div>
+                                <span className={`text-xs font-bold px-3 py-2 rounded-lg ${isDarkMode ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-orange-50 text-orange-600 border border-orange-200'}`}>
+                                    Day {todayRef.day} of {todayRef.daysInMonth}
+                                </span>
+                                {selectedDayDate !== new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }) && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedDayDate(new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }))}
+                                        className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-colors ${
+                                            isDarkMode 
+                                                ? 'bg-gray-800 border-gray-700 hover:bg-gray-700 text-gray-300' 
+                                                : 'bg-gray-100 border-gray-200 hover:bg-gray-200 text-gray-700'
+                                        }`}
+                                        title="Reset to today's date"
+                                    >
+                                        Today
+                                    </button>
+                                )}
+                            </div>
                         )}
                     </div>
 

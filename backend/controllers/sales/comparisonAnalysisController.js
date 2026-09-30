@@ -224,14 +224,15 @@ export const saveComparisonManualData = async (req, res) => {
  */
 export const getDayWiseComparison = async (req, res) => {
     try {
-        const { centreIds, zoneIds } = req.query;
+        const { centreIds, zoneIds, date: queryDate } = req.query;
 
-        // -- Determine today's date in IST --
+        // -- Determine target date in IST --
         const nowIST = new Date();
-        const todayISTStr = nowIST.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
+        const todayISTStr = (queryDate && typeof queryDate === 'string' && queryDate.trim()) ? queryDate.trim().split('T')[0] : nowIST.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
         const todayDate = new Date(`${todayISTStr}T00:00:00+05:30`);
-        const todayDay = nowIST.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', day: 'numeric' }) * 1;
-        const todayMonthName = nowIST.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', month: 'long' });
+        const targetDateObj = new Date(`${todayISTStr}T12:00:00+05:30`);
+        const todayDay = targetDateObj.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', day: 'numeric' }) * 1;
+        const todayMonthName = targetDateObj.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', month: 'long' });
         const todayYear = new Date(todayISTStr).getFullYear(); // calendar year
         const daysInMonth = new Date(todayYear, new Date(todayISTStr).getMonth() + 1, 0).getDate();
 
@@ -321,7 +322,7 @@ export const getDayWiseComparison = async (req, res) => {
             });
         }
 
-        return res.status(200).json({ data, daysInMonth, todayDay, monthName: todayMonthName });
+        return res.status(200).json({ data, daysInMonth, todayDay, monthName: todayMonthName, date: todayISTStr });
     } catch (error) {
         console.error('Error in getDayWiseComparison:', error);
         return res.status(500).json({ message: 'Server error', error: error.message });
