@@ -5,11 +5,25 @@ import {
     FaBullhorn, FaBoxes, FaRegNewspaper, FaRegImage, FaPaperPlane, 
     FaHistory, FaCheckCircle, FaTimesCircle, FaClock, FaBuilding, 
     FaSync, FaExclamationTriangle, FaTimes, FaCommentDots,
-    FaWarehouse, FaEdit, FaTrash, FaUserTie, FaGlobe
+    FaWarehouse, FaEdit, FaTrash, FaUserTie, FaGlobe,
+    FaShoppingBag, FaTshirt, FaBook, FaBookOpen, FaBookmark, FaInfoCircle, FaChevronDown, FaPlus
 } from 'react-icons/fa';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
+
+const MATERIAL_OPTIONS = [
+    { value: "Leaflets", label: "Leaflets", icon: FaRegNewspaper, color: "text-orange-500", bg: "bg-orange-500/10", border: "border-orange-500/30", presets: [500, 1000, 2000, 5000], desc: "Promotional handbills & flyers" },
+    { value: "Banners", label: "Banners", icon: FaRegImage, color: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/30", presets: [2, 5, 10, 20], desc: "Flex banners, standees & signage" },
+    { value: "Bags", label: "Bags", icon: FaShoppingBag, color: "text-teal-400", bg: "bg-teal-500/10", border: "border-teal-500/30", presets: [25, 50, 100, 200], desc: "Promotional student bags" },
+    { value: "T-Shirts", label: "T-Shirts", icon: FaTshirt, color: "text-rose-400", bg: "bg-rose-500/10", border: "border-rose-500/30", presets: [20, 50, 100, 200], desc: "Branded promotional T-shirts" },
+    { value: "Books", label: "Books (KTS / VSO)", icon: FaBook, color: "text-amber-500", bg: "bg-amber-500/10", border: "border-amber-500/30", presets: [25, 50, 100, 250], desc: "Competition & academic series books" }
+];
+
+const BOOK_SUBTYPES = [
+    { value: "KTS Books", label: "KTS Books (Key To Success)", icon: FaBookOpen, desc: "Key To Success Books", color: "text-amber-500" },
+    { value: "VSO Books", label: "VSO Books (Vidyamandir Science Olympiad)", icon: FaBookmark, desc: "Vidyamandir Science Olympiad Books", color: "text-purple-400" }
+];
 
 const MarketingPage = () => {
     const { theme } = useTheme();
@@ -35,8 +49,16 @@ const MarketingPage = () => {
     const [bucketData, setBucketData] = useState({
         leaflets: 0,
         banners: 0,
+        bags: 0,
+        tshirts: 0,
+        ktsBooks: 0,
+        vsoBooks: 0,
         totalLeafletsReceived: 0,
         totalBannersReceived: 0,
+        totalBagsReceived: 0,
+        totalTshirtsReceived: 0,
+        totalKtsBooksReceived: 0,
+        totalVsoBooksReceived: 0,
         lastUpdated: null
     });
     const [bucketStats, setBucketStats] = useState({
@@ -49,10 +71,12 @@ const MarketingPage = () => {
 
     // Requisition Form State
     const [formData, setFormData] = useState({
-        leaflets: "",
-        banners: "",
+        itemType: "Leaflets",
+        bookType: "",
+        quantity: "",
         purpose: ""
     });
+    const [stagedItems, setStagedItems] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     // History & Filter State
@@ -67,8 +91,9 @@ const MarketingPage = () => {
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [selectedReqForEdit, setSelectedReqForEdit] = useState(null);
     const [editForm, setEditForm] = useState({
-        leaflets: "",
-        banners: "",
+        itemType: "Leaflets",
+        bookType: "",
+        quantity: "",
         purpose: ""
     });
     const [savingEdit, setSavingEdit] = useState(false);
@@ -222,63 +247,122 @@ const MarketingPage = () => {
         }
     }, [selectedCentreId, historyScope, fetchCentreBucket, fetchHistory]);
 
-    // Handle Form Change (allows clearing 0 on backspace)
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-        if (name === "leaflets" || name === "banners") {
-            if (value === "") {
-                setFormData(prev => ({ ...prev, [name]: "" }));
-            } else {
-                const num = parseInt(value, 10);
-                setFormData(prev => ({
-                    ...prev,
-                    [name]: isNaN(num) ? "" : Math.max(0, num)
-                }));
-            }
-        } else {
-            setFormData(prev => ({
-                ...prev,
-                [name]: value
-            }));
+    // Add Item to Requisition List (One by One)
+    const handleAddStagedItem = () => {
+        const qty = parseInt(formData.quantity, 10) || 0;
+        if (qty <= 0) {
+            toast.warning("Please specify a quantity greater than 0 before adding.");
+            return;
         }
-    };
 
-    // Increment / Decrement quantity helpers
-    const adjustQuantity = (field, delta) => {
-        setFormData(prev => {
-            const current = parseInt(prev[field], 10) || 0;
-            const updated = Math.max(0, current + delta);
-            return {
-                ...prev,
-                [field]: updated === 0 ? "" : updated
+        if (formData.itemType === 'Books' && !formData.bookType) {
+            toast.warning("Please select a Book Type (KTS Books or VSO Books).");
+            return;
+        }
+
+        const effectiveItemType = formData.itemType === 'Books' ? (formData.bookType || 'KTS Books') : formData.itemType;
+        const itemLabel = formData.itemType === 'Books'
+            ? (formData.bookType === 'KTS Books' ? 'KTS Books (Key To Success)' : 'VSO Books (Vidyamandir Science Olympiad)')
+            : formData.itemType;
+
+        const existingIndex = stagedItems.findIndex(it => 
+            it.itemType === effectiveItemType || (it.baseItem === formData.itemType && it.bookType === formData.bookType)
+        );
+
+        if (existingIndex >= 0) {
+            const updated = [...stagedItems];
+            updated[existingIndex].quantity += qty;
+            if (formData.purpose && !updated[existingIndex].purpose) {
+                updated[existingIndex].purpose = formData.purpose;
+            }
+            setStagedItems(updated);
+            toast.info(`Updated quantity for ${itemLabel} to ${updated[existingIndex].quantity} Pcs`);
+        } else {
+            const newItem = {
+                id: Date.now() + Math.random(),
+                itemType: effectiveItemType,
+                baseItem: formData.itemType,
+                bookType: formData.itemType === 'Books' ? formData.bookType : "",
+                displayName: itemLabel,
+                quantity: qty,
+                purpose: formData.purpose || ""
             };
-        });
+            setStagedItems(prev => [...prev, newItem]);
+            toast.success(`Added ${itemLabel} (${qty} Pcs) to requisition list!`);
+        }
+
+        setFormData(prev => ({
+            ...prev,
+            quantity: "",
+            purpose: ""
+        }));
     };
 
-    // Submit Requisition Request
+    // Remove Item from Requisition List
+    const handleRemoveStagedItem = (id) => {
+        setStagedItems(prev => prev.filter(it => it.id !== id));
+    };
+
+    // Submit Requisition Request (Places all staged items at once)
     const handleSubmit = async (e) => {
-        e.preventDefault();
+        if (e && e.preventDefault) e.preventDefault();
+
         if (!selectedCentreId) {
             toast.warning("Please select a valid assigned centre.");
             return;
         }
 
-        const leafletQty = parseInt(formData.leaflets, 10) || 0;
-        const bannerQty = parseInt(formData.banners, 10) || 0;
+        let itemsToSubmit = [...stagedItems];
 
-        if (leafletQty === 0 && bannerQty === 0) {
-            toast.warning("Please request at least 1 leaflet or 1 banner.");
+        // If the user has also typed something into the input without clicking "+ Add", include it
+        const currentQty = parseInt(formData.quantity, 10) || 0;
+        if (currentQty > 0) {
+            if (formData.itemType === 'Books' && !formData.bookType) {
+                toast.warning("Please select a Book Type (KTS Books or VSO Books).");
+                return;
+            }
+            const effectiveItemType = formData.itemType === 'Books' ? (formData.bookType || 'KTS Books') : formData.itemType;
+            const itemLabel = formData.itemType === 'Books'
+                ? (formData.bookType === 'KTS Books' ? 'KTS Books (Key To Success)' : 'VSO Books (Vidyamandir Science Olympiad)')
+                : formData.itemType;
+
+            const existingIndex = itemsToSubmit.findIndex(it => 
+                it.itemType === effectiveItemType || (it.baseItem === formData.itemType && it.bookType === formData.bookType)
+            );
+
+            if (existingIndex >= 0) {
+                itemsToSubmit[existingIndex].quantity += currentQty;
+            } else {
+                itemsToSubmit.push({
+                    id: Date.now(),
+                    itemType: effectiveItemType,
+                    baseItem: formData.itemType,
+                    bookType: formData.itemType === 'Books' ? formData.bookType : "",
+                    displayName: itemLabel,
+                    quantity: currentQty,
+                    purpose: formData.purpose || ""
+                });
+            }
+        }
+
+        if (itemsToSubmit.length === 0) {
+            toast.warning("Please add at least one material to submit requisition request.");
             return;
         }
 
         try {
             setIsSubmitting(true);
             const token = localStorage.getItem("token");
+
             const payload = {
                 centreId: selectedCentreId,
-                leaflets: leafletQty,
-                banners: bannerQty,
-                purpose: formData.purpose
+                items: itemsToSubmit.map(it => ({
+                    itemType: it.itemType,
+                    bookType: it.bookType,
+                    quantity: it.quantity,
+                    purpose: it.purpose || formData.purpose || ""
+                })),
+                purpose: formData.purpose || ""
             };
 
             const response = await axios.post(`${import.meta.env.VITE_API_URL}/operations/marketing`, payload, {
@@ -286,8 +370,9 @@ const MarketingPage = () => {
             });
 
             if (response.data.success) {
-                toast.success('Requisition request submitted to Hazra HO successfully!');
-                setFormData({ leaflets: "", banners: "", purpose: "" });
+                toast.success(`Requisition request for ${itemsToSubmit.length} material${itemsToSubmit.length > 1 ? 's' : ''} placed successfully to Hazra HO!`);
+                setStagedItems([]);
+                setFormData({ itemType: "Leaflets", bookType: "", quantity: "", purpose: "" });
                 fetchHistory(selectedCentreId, historyScope);
                 fetchCentreBucket(selectedCentreId);
             }
@@ -302,9 +387,57 @@ const MarketingPage = () => {
     // Open Edit Modal
     const handleOpenEdit = (req) => {
         setSelectedReqForEdit(req);
+
+        let initialItemType = "Leaflets";
+        let initialBookType = "";
+        let initialQty = "";
+
+        if (req.ktsBooks > 0) {
+            initialItemType = "Books";
+            initialBookType = "KTS Books";
+            initialQty = req.ktsBooks;
+        } else if (req.vsoBooks > 0) {
+            initialItemType = "Books";
+            initialBookType = "VSO Books";
+            initialQty = req.vsoBooks;
+        } else if (req.books > 0) {
+            initialItemType = "Books";
+            initialBookType = req.bookType || "KTS Books";
+            initialQty = req.books;
+        } else if (req.bags > 0) {
+            initialItemType = "Bags";
+            initialQty = req.bags;
+        } else if (req.tshirts > 0) {
+            initialItemType = "T-Shirts";
+            initialQty = req.tshirts;
+        } else if (req.banners > 0 && (!req.leaflets || req.leaflets === 0)) {
+            initialItemType = "Banners";
+            initialQty = req.banners;
+        } else if (req.leaflets > 0) {
+            initialItemType = "Leaflets";
+            initialQty = req.leaflets;
+        } else if (req.itemType) {
+            const low = req.itemType.toLowerCase();
+            if (low.includes("kts")) {
+                initialItemType = "Books";
+                initialBookType = "KTS Books";
+            } else if (low.includes("vso")) {
+                initialItemType = "Books";
+                initialBookType = "VSO Books";
+            } else if (low.includes("bag")) {
+                initialItemType = "Bags";
+            } else if (low.includes("tshirt") || low.includes("t-shirt")) {
+                initialItemType = "T-Shirts";
+            } else if (low.includes("banner")) {
+                initialItemType = "Banners";
+            }
+            initialQty = req.quantity || "";
+        }
+
         setEditForm({
-            leaflets: req.leaflets || "",
-            banners: req.banners || "",
+            itemType: initialItemType,
+            bookType: initialBookType,
+            quantity: initialQty,
             purpose: req.purpose || ""
         });
         setEditModalOpen(true);
@@ -315,22 +448,35 @@ const MarketingPage = () => {
         e.preventDefault();
         if (!selectedReqForEdit) return;
 
-        const leafletQty = parseInt(editForm.leaflets, 10) || 0;
-        const bannerQty = parseInt(editForm.banners, 10) || 0;
+        const qty = parseInt(editForm.quantity, 10) || 0;
+        if (qty <= 0) {
+            toast.warning("Please specify a quantity greater than 0.");
+            return;
+        }
 
-        if (leafletQty === 0 && bannerQty === 0) {
-            toast.warning("Please specify a quantity greater than 0 for leaflets or banners.");
+        if (editForm.itemType === 'Books' && !editForm.bookType) {
+            toast.warning("Please select a Book Type (KTS Books or VSO Books).");
             return;
         }
 
         try {
             setSavingEdit(true);
             const token = localStorage.getItem("token");
-            const res = await axios.put(`${import.meta.env.VITE_API_URL}/operations/marketing/requisitions/${selectedReqForEdit._id}`, {
-                leaflets: leafletQty,
-                banners: bannerQty,
+            const effectiveItemType = editForm.itemType === 'Books' ? (editForm.bookType || 'KTS Books') : editForm.itemType;
+            const payload = {
+                itemType: effectiveItemType,
+                bookType: editForm.itemType === 'Books' ? editForm.bookType : "",
+                quantity: qty,
+                leaflets: editForm.itemType === 'Leaflets' ? qty : 0,
+                banners: editForm.itemType === 'Banners' ? qty : 0,
+                bags: editForm.itemType === 'Bags' ? qty : 0,
+                tshirts: editForm.itemType === 'T-Shirts' ? qty : 0,
+                ktsBooks: (editForm.itemType === 'Books' && editForm.bookType === 'KTS Books') ? qty : 0,
+                vsoBooks: (editForm.itemType === 'Books' && editForm.bookType === 'VSO Books') ? qty : 0,
                 purpose: editForm.purpose
-            }, {
+            };
+
+            const res = await axios.put(`${import.meta.env.VITE_API_URL}/operations/marketing/requisitions/${selectedReqForEdit._id}`, payload, {
                 headers: { Authorization: `Bearer ${token}` }
             });
 
@@ -351,7 +497,8 @@ const MarketingPage = () => {
 
     // Delete Requisition
     const handleDeleteRequisition = async (req) => {
-        const confirmMsg = `Are you sure you want to delete this requisition for ${req.centreName || 'Centre'} (${req.leaflets} Leaflets, ${req.banners} Banners)?`;
+        const itemLabel = req.itemType || (req.leaflets > 0 ? `${req.leaflets} Leaflets` : '') || (req.banners > 0 ? `${req.banners} Banners` : '') || 'items';
+        const confirmMsg = `Are you sure you want to delete this requisition for ${req.centreName || 'Centre'} (${itemLabel})?`;
         if (!window.confirm(confirmMsg)) {
             return;
         }
@@ -579,10 +726,42 @@ const MarketingPage = () => {
                             </div>
                         </div>
                     </div>
+
+                    {/* In-Hand Materials Stock Overview Strip */}
+                    <div className={`mt-4 p-4 rounded-2xl border flex flex-wrap items-center justify-between gap-3 ${cardBg}`}>
+                        <div className="flex items-center gap-2">
+                            <FaBoxes className="text-orange-500 text-sm" />
+                            <span className="text-xs font-bold uppercase tracking-wider text-gray-400">
+                                Additional In-Hand Materials:
+                            </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-teal-500/10 border border-teal-500/20 text-xs">
+                                <FaShoppingBag className="text-teal-400" />
+                                <span className="text-gray-400 font-semibold">Bags:</span>
+                                <strong className="font-black text-teal-400">{(bucketData.bags || 0).toLocaleString()}</strong>
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs">
+                                <FaTshirt className="text-rose-400" />
+                                <span className="text-gray-400 font-semibold">T-Shirts:</span>
+                                <strong className="font-black text-rose-400">{(bucketData.tshirts || 0).toLocaleString()}</strong>
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs">
+                                <FaBookOpen className="text-amber-500" />
+                                <span className="text-gray-400 font-semibold">KTS Books:</span>
+                                <strong className="font-black text-amber-500">{(bucketData.ktsBooks || 0).toLocaleString()}</strong>
+                            </div>
+                            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-purple-500/10 border border-purple-500/20 text-xs">
+                                <FaBookmark className="text-purple-400" />
+                                <span className="text-gray-400 font-semibold">VSO Books:</span>
+                                <strong className="font-black text-purple-400">{(bucketData.vsoBooks || 0).toLocaleString()}</strong>
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 {/* ═══════════════════════════════════════════════════════════════════ */}
-                {/* 2. REQUISITION REQUEST FORM */}
+                {/* 2. REQUISITION REQUEST FORM (SIMPLE DROPDOWN FORM) */}
                 {/* ═══════════════════════════════════════════════════════════════════ */}
                 <div className={`rounded-3xl p-6 md:p-8 mb-8 border transition-all ${cardBg}`}>
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6 pb-6 border-b border-gray-100 dark:border-gray-800">
@@ -596,7 +775,7 @@ const MarketingPage = () => {
                                 </h2>
                             </div>
                             <p className={`mt-1 text-xs md:text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                Select required quantities for promotional materials to be dispatched by Head Office.
+                                Select material from dropdown and enter required quantity to be dispatched by Head Office.
                             </p>
                         </div>
 
@@ -609,145 +788,187 @@ const MarketingPage = () => {
                     </div>
 
                     <form onSubmit={handleSubmit} noValidate>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                            {/* Leaflets Request Card */}
-                            <div className={`p-6 rounded-3xl border-2 transition-all ${
-                                Number(formData.leaflets) > 0 ? 'border-orange-500/60 bg-orange-500/5' : isDarkMode ? 'border-gray-800 bg-[#0d1117]/50' : 'border-gray-200 bg-gray-50/50'
-                            }`}>
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500">
-                                            <FaRegNewspaper className="text-2xl" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-bold text-orange-500">Leaflets</h3>
-                                            <p className="text-xs text-gray-500">Promotional handbills for campaigns</p>
-                                        </div>
-                                    </div>
-                                    <span className="text-xs font-bold text-gray-400">Pcs</span>
-                                </div>
-
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-6">
+                            {/* Dropdown 1: Select Material */}
+                            <div>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
-                                    Quantity Required
+                                    Requisition Item / Material <span className="text-red-500">*</span>
                                 </label>
-                                <div className="flex items-center gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => adjustQuantity('leaflets', -100)}
-                                        className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg border transition-all ${
-                                            isDarkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-white hover:bg-gray-100 border-gray-300'
-                                        }`}
+                                <div className="relative">
+                                    <select
+                                        name="itemType"
+                                        value={formData.itemType}
+                                        onChange={(e) => {
+                                            const val = e.target.value;
+                                            setFormData(prev => ({
+                                                ...prev,
+                                                itemType: val,
+                                                bookType: val === "Books" ? (prev.bookType || "KTS Books") : "",
+                                                quantity: ""
+                                            }));
+                                        }}
+                                        className={`w-full p-3.5 pr-10 rounded-2xl font-bold text-sm outline-none border transition-all cursor-pointer appearance-none ${inputBg}`}
                                     >
-                                        -
-                                    </button>
-                                    <input
-                                        type="number"
-                                        name="leaflets"
-                                        placeholder="0"
-                                        value={formData.leaflets}
-                                        onChange={handleInputChange}
-                                        min="0"
-                                        step="1"
-                                        className={`flex-1 p-3.5 rounded-xl text-center font-black text-2xl outline-none border transition-all ${inputBg}`}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => adjustQuantity('leaflets', 100)}
-                                        className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg border transition-all ${
-                                            isDarkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-white hover:bg-gray-100 border-gray-300'
-                                        }`}
-                                    >
-                                        +
-                                    </button>
+                                        <option value="Leaflets">Leaflets</option>
+                                        <option value="Banners">Banners</option>
+                                        <option value="Bags">Bags</option>
+                                        <option value="T-Shirts">T-Shirts</option>
+                                        <option value="Books">Books (KTS / VSO)</option>
+                                    </select>
+                                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
+                                        <FaChevronDown className="text-xs" />
+                                    </div>
                                 </div>
-
-                                <div className="flex gap-2 mt-3">
-                                    {[500, 1000, 2000, 5000].map(val => (
-                                        <button
-                                            key={val}
-                                            type="button"
-                                            onClick={() => setFormData(p => ({ ...p, leaflets: (parseInt(p.leaflets, 10) || 0) + val }))}
-                                            className={`flex-1 py-1 text-[11px] font-bold rounded-lg border transition-all ${
-                                                Number(formData.leaflets) === val 
-                                                ? 'bg-orange-500 text-white border-orange-500' 
-                                                : isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-white border-gray-200 text-gray-700'
-                                            }`}
-                                        >
-                                            +{val}
-                                        </button>
-                                    ))}
-                                </div>
+                                <p className="text-[11px] text-gray-400 mt-1.5">
+                                    {formData.itemType === 'Leaflets' && 'Promotional handbills for student outreach'}
+                                    {formData.itemType === 'Banners' && 'Display flex banners & signage for centres'}
+                                    {formData.itemType === 'Bags' && 'Pathfinder branded student bags'}
+                                    {formData.itemType === 'T-Shirts' && 'Pathfinder promotional T-shirts'}
+                                    {formData.itemType === 'Books' && 'Choose book sub-section (KTS Books / VSO Books) below'}
+                                </p>
                             </div>
 
-                            {/* Banners Request Card */}
-                            <div className={`p-6 rounded-3xl border-2 transition-all ${
-                                Number(formData.banners) > 0 ? 'border-blue-500/60 bg-blue-500/5' : isDarkMode ? 'border-gray-800 bg-[#0d1117]/50' : 'border-gray-200 bg-gray-50/50'
-                            }`}>
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-3">
-                                        <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
-                                            <FaRegImage className="text-2xl" />
-                                        </div>
-                                        <div>
-                                            <h3 className="text-lg font-bold text-blue-500">Banners</h3>
-                                            <p className="text-xs text-gray-500">Display flex banners & signage</p>
+                            {/* Dropdown 2: Book Type (Sub Section - ONLY shown when Books is selected) */}
+                            {formData.itemType === "Books" && (
+                                <div className="animate-in fade-in zoom-in-95 duration-200">
+                                    <label className="block text-xs font-bold uppercase tracking-wider text-amber-500 mb-2 flex items-center gap-1.5">
+                                        <FaBook className="text-xs" />
+                                        <span>Book Type (Sub-Section) <span className="text-red-500">*</span></span>
+                                    </label>
+                                    <div className="relative">
+                                        <select
+                                            name="bookType"
+                                            value={formData.bookType}
+                                            onChange={(e) => setFormData(prev => ({ ...prev, bookType: e.target.value }))}
+                                            className={`w-full p-3.5 pr-10 rounded-2xl font-bold text-sm outline-none border-2 border-amber-500/50 bg-amber-500/5 transition-all cursor-pointer appearance-none ${
+                                                isDarkMode ? 'text-amber-400' : 'text-amber-700'
+                                            }`}
+                                        >
+                                            <option value="KTS Books">KTS Books (Key To Success)</option>
+                                            <option value="VSO Books">VSO Books (Vidyamandir Science Olympiad)</option>
+                                        </select>
+                                        <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-amber-500">
+                                            <FaChevronDown className="text-xs" />
                                         </div>
                                     </div>
-                                    <span className="text-xs font-bold text-gray-400">Pcs</span>
+                                    <div className="flex items-center gap-1.5 mt-1.5 px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-500 text-[11px] font-semibold">
+                                        <FaInfoCircle className="flex-shrink-0" />
+                                        <span>Separate requisition will be created for each book type.</span>
+                                    </div>
                                 </div>
+                            )}
 
+                            {/* Quantity Input and Add Button */}
+                            <div className={formData.itemType === "Books" ? "col-span-1" : "md:col-span-1"}>
                                 <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-2">
-                                    Quantity Required
+                                    Quantity Required (Pcs) <span className="text-red-500">*</span>
                                 </label>
-                                <div className="flex items-center gap-3">
+                                <div className="flex gap-2">
+                                    <div className="relative flex-1 flex items-center">
+                                        <input
+                                            type="number"
+                                            name="quantity"
+                                            placeholder="Enter quantity (e.g. 500)"
+                                            value={formData.quantity}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setFormData(prev => ({
+                                                    ...prev,
+                                                    quantity: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0)
+                                                }));
+                                            }}
+                                            min="1"
+                                            step="1"
+                                            className={`w-full p-3.5 pr-12 rounded-2xl font-black text-lg outline-none border transition-all ${inputBg}`}
+                                        />
+                                        <span className="absolute right-3 text-xs font-black uppercase tracking-wider text-gray-400">
+                                            Pcs
+                                        </span>
+                                    </div>
                                     <button
                                         type="button"
-                                        onClick={() => adjustQuantity('banners', -1)}
-                                        className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg border transition-all ${
-                                            isDarkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-white hover:bg-gray-100 border-gray-300'
-                                        }`}
+                                        onClick={handleAddStagedItem}
+                                        className="px-4 py-3.5 rounded-2xl bg-orange-500 hover:bg-orange-600 text-white font-bold text-xs flex items-center gap-1.5 transition-all shadow-md shadow-orange-500/20 active:scale-95 shrink-0"
+                                        title="Add this material to your requisition list"
                                     >
-                                        -
-                                    </button>
-                                    <input
-                                        type="number"
-                                        name="banners"
-                                        placeholder="0"
-                                        value={formData.banners}
-                                        onChange={handleInputChange}
-                                        min="0"
-                                        step="1"
-                                        className={`flex-1 p-3.5 rounded-xl text-center font-black text-2xl outline-none border transition-all ${inputBg}`}
-                                    />
-                                    <button
-                                        type="button"
-                                        onClick={() => adjustQuantity('banners', 1)}
-                                        className={`w-12 h-12 rounded-xl flex items-center justify-center font-bold text-lg border transition-all ${
-                                            isDarkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-white hover:bg-gray-100 border-gray-300'
-                                        }`}
-                                    >
-                                        +
+                                        <FaPlus />
+                                        <span>Add Item</span>
                                     </button>
                                 </div>
 
-                                <div className="flex gap-2 mt-3">
-                                    {[2, 5, 10, 20].map(val => (
+                                {/* Preset Chips */}
+                                <div className="flex flex-wrap gap-1.5 mt-2">
+                                    {(formData.itemType === 'Leaflets' ? [500, 1000, 2000, 5000] :
+                                      formData.itemType === 'Banners' ? [2, 5, 10, 20] :
+                                      [25, 50, 100, 200]).map(val => (
                                         <button
                                             key={val}
                                             type="button"
-                                            onClick={() => setFormData(p => ({ ...p, banners: (parseInt(p.banners, 10) || 0) + val }))}
-                                            className={`flex-1 py-1 text-[11px] font-bold rounded-lg border transition-all ${
-                                                Number(formData.banners) === val 
-                                                ? 'bg-blue-500 text-white border-blue-500' 
-                                                : isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-300' : 'bg-white border-gray-200 text-gray-700'
+                                            onClick={() => setFormData(p => ({ ...p, quantity: val }))}
+                                            className={`px-2.5 py-1 text-[11px] font-bold rounded-lg border transition-all ${
+                                                Number(formData.quantity) === val 
+                                                ? 'bg-orange-500 text-white border-orange-500 shadow-sm' 
+                                                : isDarkMode ? 'bg-gray-800/80 hover:bg-gray-700 border-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 border-gray-200 text-gray-700'
                                             }`}
                                         >
-                                            +{val}
+                                            {val} Pcs
                                         </button>
                                     ))}
                                 </div>
                             </div>
                         </div>
+
+                        {/* Staged Items List - Add one by one, place at once */}
+                        {stagedItems.length > 0 && (
+                            <div className="mb-6 p-4 md:p-5 rounded-2xl bg-orange-500/5 border-2 border-dashed border-orange-500/30 animate-in fade-in duration-300">
+                                <div className="flex items-center justify-between mb-3 pb-2 border-b border-orange-500/20">
+                                    <div className="flex items-center gap-2">
+                                        <span className="px-2.5 py-0.5 rounded-xl bg-orange-500 text-white font-black text-xs">
+                                            {stagedItems.length} {stagedItems.length === 1 ? 'Material' : 'Materials'} Added
+                                        </span>
+                                        <span className={`text-xs font-bold ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                            Ready to place at once ({stagedItems.reduce((acc, it) => acc + (it.quantity || 0), 0).toLocaleString()} Total Pcs)
+                                        </span>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={() => setStagedItems([])}
+                                        className="text-xs text-red-400 hover:text-red-500 font-bold transition-all"
+                                    >
+                                        Clear List
+                                    </button>
+                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                                    {stagedItems.map((item) => (
+                                        <div key={item.id} className={`p-3.5 rounded-xl border flex items-center justify-between gap-3 ${isDarkMode ? 'bg-gray-800/90 border-gray-700' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                            <div className="min-w-0">
+                                                <div className="font-black text-sm text-orange-400 truncate">
+                                                    {item.displayName}
+                                                </div>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    <span className="px-2 py-0.5 rounded-md bg-orange-500/10 text-orange-500 font-black text-xs border border-orange-500/20">
+                                                        {Number(item.quantity).toLocaleString()} Pcs
+                                                    </span>
+                                                    {item.purpose && (
+                                                        <span className="text-[11px] text-gray-400 truncate max-w-[120px]" title={item.purpose}>
+                                                            {item.purpose}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => handleRemoveStagedItem(item.id)}
+                                                className="p-2 rounded-lg text-red-400 hover:text-red-500 hover:bg-red-500/10 transition-all shrink-0"
+                                                title="Remove this item"
+                                            >
+                                                <FaTrash className="text-xs" />
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
 
                         {/* Purpose / Remarks */}
                         <div className="mb-6">
@@ -759,20 +980,44 @@ const MarketingPage = () => {
                                 rows="2"
                                 placeholder="E.g., For school gate distribution campaign starting next Monday..."
                                 value={formData.purpose}
-                                onChange={handleInputChange}
+                                onChange={(e) => setFormData(prev => ({ ...prev, purpose: e.target.value }))}
                                 className={`w-full p-4 rounded-2xl outline-none border text-sm transition-all ${inputBg}`}
                             />
                         </div>
 
-                        {/* Submit Button */}
-                        <div className="flex justify-end items-center gap-4">
+                        {/* Summary & Submit Button Row */}
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 pt-4 border-t border-gray-100 dark:border-gray-800/80">
+                            <div className="flex items-center gap-2 text-xs font-bold text-gray-400">
+                                {stagedItems.length > 0 ? (
+                                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                                        <span>Ready to place:</span>
+                                        <strong className="text-sm font-black">{stagedItems.length} Materials</strong>
+                                        <span>({stagedItems.reduce((acc, it) => acc + (it.quantity || 0), 0).toLocaleString()} Total Pcs)</span>
+                                    </span>
+                                ) : Number(formData.quantity) > 0 ? (
+                                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                                        <span>Requesting:</span>
+                                        <strong className="text-sm font-black">{Number(formData.quantity).toLocaleString()} Pcs</strong>
+                                        <span>of {formData.itemType === 'Books' ? (formData.bookType || 'Books') : formData.itemType}</span>
+                                    </span>
+                                ) : (
+                                    <span>Add materials one by one and place the requisition request at once.</span>
+                                )}
+                            </div>
+
                             <button
                                 type="submit"
-                                disabled={isSubmitting || ((parseInt(formData.leaflets, 10) || 0) === 0 && (parseInt(formData.banners, 10) || 0) === 0) || !selectedCentreId}
-                                className="bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white px-8 py-3.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5"
+                                disabled={isSubmitting || (!selectedCentreId) || (stagedItems.length === 0 && ((parseInt(formData.quantity, 10) || 0) <= 0 || (formData.itemType === 'Books' && !formData.bookType)))}
+                                className="bg-gradient-to-r from-orange-500 via-amber-500 to-yellow-500 hover:from-orange-600 hover:to-yellow-600 text-white px-8 py-3.5 rounded-xl font-bold text-sm flex items-center gap-2 shadow-lg shadow-orange-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed transform hover:-translate-y-0.5 cursor-pointer"
                             >
                                 <FaPaperPlane className={isSubmitting ? 'animate-bounce' : ''} />
-                                <span>{isSubmitting ? 'Submitting to Hazra HO...' : 'Send Requisition to Hazra HO'}</span>
+                                <span>
+                                    {isSubmitting 
+                                        ? 'Submitting to Hazra HO...' 
+                                        : stagedItems.length > 0 
+                                            ? `Place Requisition Request at Once (${stagedItems.length} Materials)` 
+                                            : 'Place Requisition Request'}
+                                </span>
                             </button>
                         </div>
                     </form>
@@ -958,16 +1203,52 @@ const MarketingPage = () => {
                                             {/* Requested Items */}
                                             <td className="p-4">
                                                 <div className="flex flex-col gap-1">
+                                                    {req.ktsBooks > 0 && (
+                                                        <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
+                                                            <FaBookOpen className="text-[11px]" />
+                                                            {req.ktsBooks.toLocaleString()} KTS Books
+                                                        </span>
+                                                    )}
+                                                    {req.vsoBooks > 0 && (
+                                                        <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                                                            <FaBookmark className="text-[11px]" />
+                                                            {req.vsoBooks.toLocaleString()} VSO Books
+                                                        </span>
+                                                    )}
+                                                    {(!req.ktsBooks && !req.vsoBooks && req.books > 0) && (
+                                                        <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
+                                                            <FaBook className="text-[11px]" />
+                                                            {req.books.toLocaleString()} Books {req.bookType ? `(${req.bookType})` : ''}
+                                                        </span>
+                                                    )}
+                                                    {req.bags > 0 && (
+                                                        <span className="text-xs font-bold text-teal-400 flex items-center gap-1.5">
+                                                            <FaShoppingBag className="text-[11px]" />
+                                                            {req.bags.toLocaleString()} Bags
+                                                        </span>
+                                                    )}
+                                                    {req.tshirts > 0 && (
+                                                        <span className="text-xs font-bold text-rose-400 flex items-center gap-1.5">
+                                                            <FaTshirt className="text-[11px]" />
+                                                            {req.tshirts.toLocaleString()} T-Shirts
+                                                        </span>
+                                                    )}
                                                     {req.leaflets > 0 && (
-                                                        <span className="text-xs font-bold text-orange-500 flex items-center gap-1">
-                                                            <FaRegNewspaper className="text-[10px]" />
+                                                        <span className="text-xs font-bold text-orange-500 flex items-center gap-1.5">
+                                                            <FaRegNewspaper className="text-[11px]" />
                                                             {req.leaflets.toLocaleString()} Leaflets
                                                         </span>
                                                     )}
                                                     {req.banners > 0 && (
-                                                        <span className="text-xs font-bold text-blue-500 flex items-center gap-1">
-                                                            <FaRegImage className="text-[10px]" />
+                                                        <span className="text-xs font-bold text-blue-500 flex items-center gap-1.5">
+                                                            <FaRegImage className="text-[11px]" />
                                                             {req.banners.toLocaleString()} Banners
+                                                        </span>
+                                                    )}
+                                                    {(!req.ktsBooks && !req.vsoBooks && !req.books && !req.bags && !req.tshirts && !req.leaflets && !req.banners && req.quantity > 0) && (
+                                                        <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                                                            <FaBoxes className="text-[11px]" />
+                                                            {req.quantity.toLocaleString()} {req.itemType || 'Pcs'}
                                                         </span>
                                                     )}
                                                 </div>
@@ -977,12 +1258,47 @@ const MarketingPage = () => {
                                             <td className="p-4">
                                                 {req.status === 'Approved' ? (
                                                     <div className="flex flex-col gap-1">
-                                                        <span className="text-xs font-black text-green-500">
-                                                            {req.approvedLeaflets || 0} Leaflets
-                                                        </span>
-                                                        <span className="text-xs font-black text-green-500">
-                                                            {req.approvedBanners || 0} Banners
-                                                        </span>
+                                                        {req.approvedKtsBooks > 0 && (
+                                                            <span className="text-xs font-black text-green-500 flex items-center gap-1">
+                                                                <FaBookOpen className="text-[10px]" />
+                                                                {req.approvedKtsBooks.toLocaleString()} KTS Books
+                                                            </span>
+                                                        )}
+                                                        {req.approvedVsoBooks > 0 && (
+                                                            <span className="text-xs font-black text-green-500 flex items-center gap-1">
+                                                                <FaBookmark className="text-[10px]" />
+                                                                {req.approvedVsoBooks.toLocaleString()} VSO Books
+                                                            </span>
+                                                        )}
+                                                        {req.approvedBags > 0 && (
+                                                            <span className="text-xs font-black text-green-500 flex items-center gap-1">
+                                                                <FaShoppingBag className="text-[10px]" />
+                                                                {req.approvedBags.toLocaleString()} Bags
+                                                            </span>
+                                                        )}
+                                                        {req.approvedTshirts > 0 && (
+                                                            <span className="text-xs font-black text-green-500 flex items-center gap-1">
+                                                                <FaTshirt className="text-[10px]" />
+                                                                {req.approvedTshirts.toLocaleString()} T-Shirts
+                                                            </span>
+                                                        )}
+                                                        {req.approvedLeaflets > 0 && (
+                                                            <span className="text-xs font-black text-green-500 flex items-center gap-1">
+                                                                <FaRegNewspaper className="text-[10px]" />
+                                                                {req.approvedLeaflets.toLocaleString()} Leaflets
+                                                            </span>
+                                                        )}
+                                                        {req.approvedBanners > 0 && (
+                                                            <span className="text-xs font-black text-green-500 flex items-center gap-1">
+                                                                <FaRegImage className="text-[10px]" />
+                                                                {req.approvedBanners.toLocaleString()} Banners
+                                                            </span>
+                                                        )}
+                                                        {(!req.approvedKtsBooks && !req.approvedVsoBooks && !req.approvedBags && !req.approvedTshirts && !req.approvedLeaflets && !req.approvedBanners && req.approvedQuantity > 0) && (
+                                                            <span className="text-xs font-black text-green-500">
+                                                                {req.approvedQuantity.toLocaleString()} {req.itemType || 'Pcs'}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 ) : req.status === 'Rejected' ? (
                                                     <span className="text-xs text-red-400 font-medium">None (Rejected)</span>
@@ -1090,101 +1406,87 @@ const MarketingPage = () => {
                             </div>
 
                             <form onSubmit={handleSaveEdit} noValidate className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    {/* Leaflets */}
+                                <div className="space-y-4">
+                                    {/* Material Item Dropdown */}
                                     <div>
-                                        <label className="block text-xs font-bold uppercase tracking-wider text-orange-500 mb-1">
-                                            Leaflets Quantity
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-orange-500 mb-1.5">
+                                            Material Item
                                         </label>
-                                        <div className="flex items-center gap-1.5">
-                                            <button
-                                                type="button"
-                                                onClick={() => setEditForm(p => ({
-                                                    ...p,
-                                                    leaflets: Math.max(0, (parseInt(p.leaflets, 10) || 0) - 50) || ""
-                                                }))}
-                                                className={`w-9 h-11 rounded-lg flex items-center justify-center font-bold border transition-all ${
-                                                    isDarkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-gray-100 hover:bg-gray-200 border-gray-200'
-                                                }`}
-                                            >
-                                                -
-                                            </button>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                step="1"
-                                                placeholder="0"
-                                                value={editForm.leaflets}
+                                        <div className="relative">
+                                            <select
+                                                value={editForm.itemType}
                                                 onChange={(e) => {
-                                                    const val = e.target.value;
+                                                    const nextItem = e.target.value;
                                                     setEditForm(prev => ({
                                                         ...prev,
-                                                        leaflets: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0)
+                                                        itemType: nextItem,
+                                                        bookType: nextItem === 'Books' ? (prev.bookType || 'KTS Books') : ''
                                                     }));
                                                 }}
-                                                className={`flex-1 p-2.5 rounded-xl text-center font-black text-lg outline-none border transition-all ${inputBg}`}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setEditForm(p => ({
-                                                    ...p,
-                                                    leaflets: (parseInt(p.leaflets, 10) || 0) + 50
-                                                }))}
-                                                className={`w-9 h-11 rounded-lg flex items-center justify-center font-bold border transition-all ${
-                                                    isDarkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-gray-100 hover:bg-gray-200 border-gray-200'
-                                                }`}
+                                                className={`w-full p-3 rounded-xl border text-sm font-semibold outline-none appearance-none transition-all ${inputBg}`}
                                             >
-                                                +
-                                            </button>
+                                                {MATERIAL_OPTIONS.map(opt => (
+                                                    <option key={opt.value} value={opt.value} className={isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>
+                                                        {opt.label}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-gray-400">
+                                                <FaChevronDown className="text-xs" />
+                                            </div>
                                         </div>
                                     </div>
 
-                                    {/* Banners */}
-                                    <div>
-                                        <label className="block text-xs font-bold uppercase tracking-wider text-blue-500 mb-1">
-                                            Banners Quantity
-                                        </label>
-                                        <div className="flex items-center gap-1.5">
-                                            <button
-                                                type="button"
-                                                onClick={() => setEditForm(p => ({
-                                                    ...p,
-                                                    banners: Math.max(0, (parseInt(p.banners, 10) || 0) - 1) || ""
-                                                }))}
-                                                className={`w-9 h-11 rounded-lg flex items-center justify-center font-bold border transition-all ${
-                                                    isDarkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-gray-100 hover:bg-gray-200 border-gray-200'
-                                                }`}
-                                            >
-                                                -
-                                            </button>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                step="1"
-                                                placeholder="0"
-                                                value={editForm.banners}
-                                                onChange={(e) => {
-                                                    const val = e.target.value;
-                                                    setEditForm(prev => ({
-                                                        ...prev,
-                                                        banners: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0)
-                                                    }));
-                                                }}
-                                                className={`flex-1 p-2.5 rounded-xl text-center font-black text-lg outline-none border transition-all ${inputBg}`}
-                                            />
-                                            <button
-                                                type="button"
-                                                onClick={() => setEditForm(p => ({
-                                                    ...p,
-                                                    banners: (parseInt(p.banners, 10) || 0) + 1
-                                                }))}
-                                                className={`w-9 h-11 rounded-lg flex items-center justify-center font-bold border transition-all ${
-                                                    isDarkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-gray-100 hover:bg-gray-200 border-gray-200'
-                                                }`}
-                                            >
-                                                +
-                                            </button>
+                                    {/* Books Sub-section Dropdown */}
+                                    {editForm.itemType === 'Books' && (
+                                        <div className="p-3.5 rounded-2xl bg-amber-500/5 border border-amber-500/20 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <label className="block text-xs font-bold uppercase tracking-wider text-amber-500">
+                                                    Book Category <span className="text-red-500">*</span>
+                                                </label>
+                                                <span className="text-[11px] font-bold text-amber-400/90">
+                                                    Separate Requisition
+                                                </span>
+                                            </div>
+                                            <div className="relative">
+                                                <select
+                                                    value={editForm.bookType}
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, bookType: e.target.value }))}
+                                                    className={`w-full p-2.5 rounded-xl border text-sm font-semibold outline-none appearance-none transition-all ${inputBg}`}
+                                                >
+                                                    {BOOK_SUBTYPES.map(st => (
+                                                        <option key={st.value} value={st.value} className={isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>
+                                                            {st.label}
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3 text-amber-400">
+                                                    <FaChevronDown className="text-xs" />
+                                                </div>
+                                            </div>
                                         </div>
+                                    )}
+
+                                    {/* Quantity */}
+                                    <div>
+                                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                                            Quantity Required ({MATERIAL_OPTIONS.find(m => m.id === editForm.itemType)?.unit || 'Pcs'})
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min="1"
+                                            step="1"
+                                            placeholder="Enter required quantity..."
+                                            value={editForm.quantity}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEditForm(prev => ({
+                                                    ...prev,
+                                                    quantity: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0)
+                                                }));
+                                            }}
+                                            className={`w-full p-3 rounded-xl text-left font-black text-lg outline-none border transition-all ${inputBg}`}
+                                        />
                                     </div>
                                 </div>
 

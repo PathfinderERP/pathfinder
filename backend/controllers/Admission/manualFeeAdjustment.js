@@ -6,6 +6,8 @@ import ExamTag from "../../models/Master_data/ExamTag.js";
 import Department from "../../models/Master_data/Department.js";
 import User from "../../models/User.js";
 import Payment from "../../models/Payment/Payment.js";
+import Centre from "../../models/Master_data/Centre.js";
+import { generateBillId } from "../../utils/billIdGenerator.js";
 import { clearCachePattern } from "../../utils/redisCache.js";
 
 /**
@@ -73,6 +75,17 @@ export const manualFeeAdjustment = async (req, res) => {
 
         // 1.5 Create a Payment record for sync if paid amount changed
         if (diff !== 0) {
+            let adjBillId = undefined;
+            if (diff > 0 && admission.centre) {
+                try {
+                    const centreObj = await Centre.findOne({ centreName: admission.centre });
+                    const centreCode = centreObj?.enterCode || centreObj?.centreCode || admission.centre.substring(0, 3).toUpperCase();
+                    adjBillId = await generateBillId(centreCode, new Date());
+                } catch (billErr) {
+                    console.error("Error generating billId for adjustment payment:", billErr);
+                }
+            }
+
             const adjustmentPayment = new Payment({
                 admission: id,
                 installmentNumber: 0,
@@ -86,7 +99,8 @@ export const manualFeeAdjustment = async (req, res) => {
                 recordedBy: req.user.id,
                 centre: admission.centre,
                 courseFee: diff / 1.18,
-                totalAmount: diff
+                totalAmount: diff,
+                ...(adjBillId ? { billId: adjBillId } : {})
             });
             await adjustmentPayment.save();
         }
