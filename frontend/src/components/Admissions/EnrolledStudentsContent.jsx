@@ -316,8 +316,17 @@ const EnrolledStudentsContent = () => {
         'zm',
         'zonalmanager',
         'assistantzonalmanager',
-        'digital'
-    ].includes(userRoleClean) || userRoleClean.includes('zonalmanager') || userRoleClean.includes('digital') || userRoleClean === 'zm';
+        'digital',
+        'assistantcenterincharge',
+        'assistantcentreincharge',
+        'aci'
+    ].includes(userRoleClean) || 
+    userRoleClean.includes('zonalmanager') || 
+    userRoleClean.includes('digital') || 
+    userRoleClean.includes('assistantcenterincharge') ||
+    userRoleClean.includes('assistantcentreincharge') ||
+    userRoleClean === 'zm' ||
+    userRoleClean === 'aci';
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'edit');
     const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate') || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
@@ -853,7 +862,7 @@ const EnrolledStudentsContent = () => {
 
     const handleManualCorrection = async (admissionId) => {
         if (!canFinancialEdit) {
-            toast.error("Unauthorized: Financial correction is restricted to Zonal Manager, Super Admin, and Digital roles.");
+            toast.error("Unauthorized: Financial correction is restricted to authorized roles (Super Admin, Zonal Manager, Digital, Assistant Centre Incharge).");
             return;
         }
 

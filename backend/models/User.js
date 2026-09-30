@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'CentreSchema',
     }],
+    primaryCentre: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'CentreSchema',
+    },
     favourites: [{ // Kept for legacy or general use
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Student'
