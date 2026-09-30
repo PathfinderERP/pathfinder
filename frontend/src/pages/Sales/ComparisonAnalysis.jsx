@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaSync, FaDownload, FaSun, FaMoon, FaChartLine, FaPlus, FaEdit } from "react-icons/fa";
+import { FaFilter, FaSync, FaDownload, FaSun, FaMoon, FaChartLine, FaPlus, FaEdit, FaCalendarAlt, FaChartBar } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
@@ -31,6 +31,12 @@ const ComparisonAnalysis = () => {
     const [comparisonData, setComparisonData] = useState([]);
     const [loading, setLoading] = useState(true);
 
+    // View mode: 'month' | 'year'
+    const [viewMode, setViewMode] = useState('month');
+
+    // Year-wise: full 12-month aggregated data
+    const [yearData, setYearData] = useState([]);
+
     // Track request versions to avoid async race conditions
     const requestVersionRef = useRef(0);
 
@@ -45,6 +51,13 @@ const ComparisonAnalysis = () => {
     useEffect(() => {
         fetchComparisonData();
     }, [selectedCentres, selectedZones, selectedMonths]);
+
+    // Re-fetch year data when filters change (if in year mode) or when year mode is first activated
+    useEffect(() => {
+        if (viewMode === 'year') {
+            fetchComparisonDataAllMonths();
+        }
+    }, [viewMode, selectedCentres, selectedZones]);
 
     const fetchMasterData = async () => {
         try {
@@ -135,6 +148,55 @@ const ComparisonAnalysis = () => {
         }
     };
 
+    // Fetch ALL months for year-wise view (no month filter)
+    const fetchComparisonDataAllMonths = async () => {
+        const currentVersion = ++requestVersionRef.current;
+        setLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const params = new URLSearchParams();
+            if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
+            if (selectedZones.length > 0) params.append("zoneIds", selectedZones.join(","));
+            // No months param → backend returns all months
+
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/comparison-analysis?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const resData = await response.json();
+            if (currentVersion !== requestVersionRef.current) return;
+            if (response.ok) {
+                setYearData(resData.data || []);
+            } else {
+                toast.error(resData.message || "Failed to load year comparison data");
+            }
+        } catch (error) {
+            if (currentVersion !== requestVersionRef.current) return;
+            console.error("Error fetching year comparison data:", error);
+            toast.error("Failed to load year comparison data");
+        } finally {
+            if (currentVersion === requestVersionRef.current) setLoading(false);
+        }
+    };
+
+    // Aggregate year-wise data: sum all months per centre
+    const yearWiseData = React.useMemo(() => {
+        const sourceData = yearData.length > 0 ? yearData : comparisonData;
+        const centreMap = {};
+        sourceData.forEach(row => {
+            const id = row.centre._id;
+            if (!centreMap[id]) {
+                centreMap[id] = { centre: row.centre, target2526: 0, achieved2526: 0, target2627: 0, achieved2627: 0 };
+            }
+            centreMap[id].target2526   += row.target2526   || 0;
+            centreMap[id].achieved2526 += row.achieved2526 || 0;
+            centreMap[id].target2627   += row.target2627   || 0;
+            centreMap[id].achieved2627 += row.achieved2627 || 0;
+        });
+        return Object.values(centreMap).sort((a, b) =>
+            (a.centre.centreName || "").localeCompare(b.centre.centreName || "")
+        );
+    }, [yearData, comparisonData]);
+
     // Filter centres for dropdown by selected zones
     const zoneCentreIds = selectedZones.length > 0
         ? new Set(
@@ -158,16 +220,9 @@ const ComparisonAnalysis = () => {
     };
 
     const handleExport = () => {
-        if (comparisonData.length === 0) {
-            toast.warn("No data to export");
-            return;
-        }
-
-        const exportRows = comparisonData.map(row => {
-            const targetGrowth = calculateGrowth(row.target2526, row.target2627);
-            const achievedGrowth = calculateGrowth(row.achieved2526, row.achieved2627);
-
-            return {
+        if (viewMode === 'month') {
+            if (comparisonData.length === 0) { toast.warn("No data to export"); return; }
+            const exportRows = comparisonData.map(row => ({
                 "Centre Name": row.centre.centreName,
                 "Month": row.month,
                 "2025-2026 Target (Excl GST)": row.target2526,
@@ -176,21 +231,32 @@ const ComparisonAnalysis = () => {
                 "2026-2027 Target (Excl GST)": row.target2627,
                 "2026-2027 Target (With GST)": row.target2627 * 1.18,
                 "2026-2027 Achievement (With GST)": row.achieved2627,
-                "Target Growth %": targetGrowth + "%",
-                "Achievement Growth %": achievedGrowth + "%"
-            };
-        });
-
-        const workbook = XLSX.utils.book_new();
-        const worksheet = XLSX.utils.json_to_sheet(exportRows);
-        XLSX.utils.book_append_sheet(workbook, worksheet, "Comparison Analysis");
-        const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-        const blobData = new Blob([excelBuffer], { type: "application/octet-stream" });
-        saveAs(blobData, `Comparison_Analysis_${new Date().toISOString().split('T')[0]}.xlsx`);
+                "Target Growth %": calculateGrowth(row.target2526, row.target2627) + "%",
+                "Achievement Growth %": calculateGrowth(row.achieved2526, row.achieved2627) + "%"
+            }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportRows), "Month-wise Comparison");
+            saveAs(new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })], { type: "application/octet-stream" }), `Comparison_Month_${new Date().toISOString().split('T')[0]}.xlsx`);
+        } else {
+            if (yearWiseData.length === 0) { toast.warn("No data to export"); return; }
+            const exportRows = yearWiseData.map(row => ({
+                "Centre Name": row.centre.centreName,
+                "FY 2025-2026 Total Target": row.target2526,
+                "FY 2025-2026 Total Achievement": row.achieved2526,
+                "FY 2026-2027 Total Target": row.target2627,
+                "FY 2026-2027 Total Achievement": row.achieved2627,
+                "Target Growth %": calculateGrowth(row.target2526, row.target2627) + "%",
+                "Achievement Growth %": calculateGrowth(row.achieved2526, row.achieved2627) + "%"
+            }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportRows), "Year-wise Comparison");
+            saveAs(new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })], { type: "application/octet-stream" }), `Comparison_Year_${new Date().toISOString().split('T')[0]}.xlsx`);
+        }
     };
 
-    // Aggregate summary stats
-    const aggregatedStats = comparisonData.reduce((acc, row) => {
+    // Aggregate summary stats (reflect active view)
+    const activeRows = viewMode === 'month' ? comparisonData : yearWiseData;
+    const aggregatedStats = activeRows.reduce((acc, row) => {
         acc.totalTarget2526 += row.target2526 || 0;
         acc.totalAchieved2526 += row.achieved2526 || 0;
         acc.totalTarget2627 += row.target2627 || 0;
@@ -237,6 +303,43 @@ const ComparisonAnalysis = () => {
                             <FaDownload size={14} /> Export Excel
                         </button>
                     </div>
+                </div>
+
+                {/* View Mode Toggle */}
+                <div className={`flex items-center gap-1 p-1 rounded-xl w-fit ${isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-gray-100 border border-gray-200'}`}>
+                    <button
+                        onClick={() => setViewMode('month')}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 ${
+                            viewMode === 'month'
+                                ? isDarkMode
+                                    ? 'bg-cyan-500/20 text-cyan-400 shadow-lg shadow-cyan-500/10 border border-cyan-500/30'
+                                    : 'bg-white text-cyan-600 shadow-md border border-cyan-200'
+                                : isDarkMode
+                                    ? 'text-gray-500 hover:text-gray-300'
+                                    : 'text-gray-400 hover:text-gray-600'
+                        }`}
+                    >
+                        <FaCalendarAlt size={13} />
+                        Month-wise
+                    </button>
+                    <button
+                        onClick={() => {
+                            setViewMode('year');
+                            if (yearData.length === 0) fetchComparisonDataAllMonths();
+                        }}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 ${
+                            viewMode === 'year'
+                                ? isDarkMode
+                                    ? 'bg-purple-500/20 text-purple-400 shadow-lg shadow-purple-500/10 border border-purple-500/30'
+                                    : 'bg-white text-purple-600 shadow-md border border-purple-200'
+                                : isDarkMode
+                                    ? 'text-gray-500 hover:text-gray-300'
+                                    : 'text-gray-400 hover:text-gray-600'
+                        }`}
+                    >
+                        <FaChartBar size={13} />
+                        Year-wise
+                    </button>
                 </div>
 
                 {/* Summary Cards */}
@@ -316,21 +419,28 @@ const ComparisonAnalysis = () => {
                                 isDarkMode={isDarkMode}
                             />
                         </div>
-                        <div className="w-64">
-                            <CustomMultiSelect
-                                options={monthNames.map(m => ({ value: m, label: m }))}
-                                value={monthNames.map(m => ({ value: m, label: m })).filter(opt => selectedMonths.includes(opt.value))}
-                                onChange={(selected) => setSelectedMonths(selected ? selected.map(o => o.value) : [])}
-                                placeholder="All Months"
-                                isDarkMode={isDarkMode}
-                            />
-                        </div>
+                        {viewMode === 'month' && (
+                            <div className="w-64">
+                                <CustomMultiSelect
+                                    options={monthNames.map(m => ({ value: m, label: m }))}
+                                    value={monthNames.map(m => ({ value: m, label: m })).filter(opt => selectedMonths.includes(opt.value))}
+                                    onChange={(selected) => setSelectedMonths(selected ? selected.map(o => o.value) : [])}
+                                    placeholder="All Months"
+                                    isDarkMode={isDarkMode}
+                                />
+                            </div>
+                        )}
+                        {viewMode === 'year' && (
+                            <span className={`text-xs font-bold px-3 py-1.5 rounded-lg ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-50 text-purple-600 border border-purple-200'}`}>
+                                All Months (Full FY)
+                            </span>
+                        )}
                     </div>
 
                     <div className="flex items-center gap-3">
                         <button
                             className="p-2.5 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors flex items-center gap-2 font-semibold"
-                            onClick={fetchComparisonData}
+                            onClick={() => viewMode === 'month' ? fetchComparisonData() : fetchComparisonDataAllMonths()}
                         >
                             <FaSync className={loading ? "animate-spin" : ""} /> Sync Data
                         </button>
@@ -344,111 +454,152 @@ const ComparisonAnalysis = () => {
                     </div>
                 </div>
 
-                {/* Table Container */}
-                <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
-                            <thead>
-                                <tr className={`uppercase font-black text-[10px] tracking-wider border-b transition-colors ${isDarkMode ? 'bg-black/20 text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
-                                    <th className={`px-6 py-4 sticky left-0 z-20 ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-gray-50'} border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.3)' }}>Centre Name</th>
-                                    <th className="px-6 py-4">Month</th>
-                                    <th className="px-6 py-4 text-center border-l border-gray-800/40 bg-blue-500/5">25-26 Target</th>
-                                    <th className="px-6 py-4 text-center bg-blue-500/5">25-26 Achievement</th>
-                                    <th className="px-6 py-4 text-center border-l border-gray-800/40 bg-yellow-500/5">26-27 Target</th>
-                                    <th className="px-6 py-4 text-center bg-yellow-500/5">26-27 Achievement</th>
-                                    <th className="px-6 py-4 text-center border-l border-gray-800/40">Target Growth %</th>
-                                    <th className="px-6 py-4 text-center">Ach. Growth %</th>
-                                    <th className="px-6 py-4 text-right">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'} text-xs font-semibold`}>
-                                {loading ? (
-                                    <tr>
-                                        <td colSpan="9" className="px-6 py-12 text-center text-cyan-400 font-bold">
-                                            Loading comparative data...
-                                        </td>
+                {/* ─── MONTH-WISE TABLE ─── */}
+                {viewMode === 'month' && (
+                    <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+                                <thead>
+                                    <tr className={`uppercase font-black text-[10px] tracking-wider border-b transition-colors ${isDarkMode ? 'bg-black/20 text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                        <th className={`px-6 py-4 sticky left-0 z-20 ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-gray-50'} border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.3)' }}>Centre Name</th>
+                                        <th className="px-6 py-4">Month</th>
+                                        <th className="px-6 py-4 text-center border-l border-gray-800/40 bg-blue-500/5">25-26 Target</th>
+                                        <th className="px-6 py-4 text-center bg-blue-500/5">25-26 Achievement</th>
+                                        <th className="px-6 py-4 text-center border-l border-gray-800/40 bg-yellow-500/5">26-27 Target</th>
+                                        <th className="px-6 py-4 text-center bg-yellow-500/5">26-27 Achievement</th>
+                                        <th className="px-6 py-4 text-center border-l border-gray-800/40">Target Growth %</th>
+                                        <th className="px-6 py-4 text-center">Ach. Growth %</th>
+                                        <th className="px-6 py-4 text-right">Actions</th>
                                     </tr>
-                                ) : comparisonData.length === 0 ? (
-                                    <tr>
-                                        <td colSpan="9" className="px-6 py-12 text-center text-gray-500 font-medium">
-                                            No comparison data found. Please adjust filters.
-                                        </td>
-                                    </tr>
-                                ) : (
-                                    comparisonData.map((row, idx) => {
-                                        const targetDiff = calculateGrowth(row.target2526, row.target2627);
-                                        const achievedDiff = calculateGrowth(row.achieved2526, row.achieved2627);
+                                </thead>
+                                <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'} text-xs font-semibold`}>
+                                    {loading ? (
+                                        <tr><td colSpan="9" className="px-6 py-12 text-center text-cyan-400 font-bold">Loading comparative data...</td></tr>
+                                    ) : comparisonData.length === 0 ? (
+                                        <tr><td colSpan="9" className="px-6 py-12 text-center text-gray-500 font-medium">No comparison data found. Please adjust filters.</td></tr>
+                                    ) : (
+                                        comparisonData.map((row, idx) => {
+                                            const targetDiff = calculateGrowth(row.target2526, row.target2627);
+                                            const achievedDiff = calculateGrowth(row.achieved2526, row.achieved2627);
+                                            return (
+                                                <tr key={`${row.centre._id}-${row.month}-${idx}`} className={`${isDarkMode ? 'hover:bg-[#131619] text-gray-400' : 'hover:bg-gray-50 text-gray-700'} transition-all duration-200`}>
+                                                    <td className={`px-6 py-4 font-bold sticky left-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] text-white border-r border-gray-800' : 'bg-white text-gray-900 border-r border-gray-100'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.15)' }}>{row.centre.centreName}</td>
+                                                    <td className={`px-6 py-4 ${isDarkMode ? 'text-cyan-100' : 'text-cyan-700'} font-bold`}>{row.month}</td>
+                                                    <td className="px-6 py-4 font-bold text-center border-l border-gray-800/40 bg-blue-500/5 text-blue-400">{(row.target2526 || 0).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 font-bold text-center bg-blue-500/5 text-emerald-500">{(row.achieved2526 || 0).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 font-bold text-center border-l border-gray-800/40 bg-yellow-500/5 text-yellow-500">{(row.target2627 || 0).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 font-bold text-center bg-yellow-500/5 text-purple-500">{row.achieved2627.toLocaleString(undefined, { maximumFractionDigits: 0 })}</td>
+                                                    <td className={`px-6 py-4 font-black text-center border-l border-gray-800/40 ${targetDiff.startsWith('+') ? 'text-green-500' : targetDiff.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>{targetDiff}%</td>
+                                                    <td className={`px-6 py-4 font-black text-center ${achievedDiff.startsWith('+') ? 'text-green-500' : achievedDiff.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>{achievedDiff}%</td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        {row.targetId2526 ? (
+                                                            <button onClick={() => { setSelectedTarget(row); setShowAddModal(true); }} className="text-cyan-500 hover:text-cyan-400 transition-colors p-1" title="Edit FY 2025-2026 data"><FaEdit size={16} /></button>
+                                                        ) : (
+                                                            <span className="text-[10px] text-gray-600 font-bold uppercase select-none">No Record</span>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
 
+                {/* ─── YEAR-WISE TABLE ─── */}
+                {viewMode === 'year' && (
+                    <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
+                        {/* Banner */}
+                        <div className={`px-6 py-3 flex items-center gap-3 border-b ${isDarkMode ? 'bg-purple-500/5 border-gray-800' : 'bg-purple-50 border-purple-100'}`}>
+                            <FaChartBar className={isDarkMode ? 'text-purple-400' : 'text-purple-600'} />
+                            <span className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
+                                Year-wise Comparison — Full FY 2025-26 vs FY 2026-27 (All Months Aggregated)
+                            </span>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+                                <thead>
+                                    {/* Grouped year headers */}
+                                    <tr className={`uppercase font-black text-[10px] tracking-wider border-b ${isDarkMode ? 'bg-black/20 text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                        <th className={`px-6 py-4 sticky left-0 z-20 ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-gray-50'} border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.3)' }} rowSpan="2">Centre Name</th>
+                                        <th className="px-6 py-3 text-center border-l border-gray-800/40 bg-blue-500/5 text-blue-400" colSpan="2">FY 2025-2026</th>
+                                        <th className="px-6 py-3 text-center border-l border-gray-800/40 bg-yellow-500/5 text-yellow-400" colSpan="2">FY 2026-2027</th>
+                                        <th className="px-6 py-3 text-center border-l border-gray-800/40" rowSpan="2">Target Growth %</th>
+                                        <th className="px-6 py-3 text-center" rowSpan="2">Ach. Growth %</th>
+                                    </tr>
+                                    <tr className={`uppercase font-black text-[10px] tracking-wider border-b ${isDarkMode ? 'bg-black/10 text-gray-500 border-gray-800' : 'bg-gray-50/60 text-gray-400 border-gray-200'}`}>
+                                        <th className="px-6 py-2 text-center border-l border-gray-800/40 bg-blue-500/5 text-blue-400/80">Total Target</th>
+                                        <th className="px-6 py-2 text-center bg-blue-500/5 text-emerald-500/80">Total Achievement</th>
+                                        <th className="px-6 py-2 text-center border-l border-gray-800/40 bg-yellow-500/5 text-yellow-500/80">Total Target</th>
+                                        <th className="px-6 py-2 text-center bg-yellow-500/5 text-purple-500/80">Total Achievement</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'} text-xs font-semibold`}>
+                                    {loading ? (
+                                        <tr><td colSpan="7" className="px-6 py-12 text-center text-purple-400 font-bold">Loading year-wise data...</td></tr>
+                                    ) : yearWiseData.length === 0 ? (
+                                        <tr><td colSpan="7" className="px-6 py-12 text-center text-gray-500 font-medium">No year comparison data found. Please adjust filters.</td></tr>
+                                    ) : (
+                                        yearWiseData.map((row, idx) => {
+                                            const targetDiff   = calculateGrowth(row.target2526,   row.target2627);
+                                            const achievedDiff = calculateGrowth(row.achieved2526, row.achieved2627);
+                                            const pct2526 = row.target2526 > 0 ? ((row.achieved2526 / row.target2526) * 100).toFixed(1) : '0.0';
+                                            const pct2627 = row.target2627 > 0 ? ((row.achieved2627 / row.target2627) * 100).toFixed(1) : '0.0';
+                                            return (
+                                                <tr key={`year-${row.centre._id}-${idx}`} className={`${isDarkMode ? 'hover:bg-[#131619] text-gray-400' : 'hover:bg-gray-50 text-gray-700'} transition-all duration-200`}>
+                                                    <td className={`px-6 py-4 font-bold sticky left-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] text-white border-r border-gray-800' : 'bg-white text-gray-900 border-r border-gray-100'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.15)' }}>{row.centre.centreName}</td>
+                                                    <td className="px-6 py-4 text-center border-l border-gray-800/40 bg-blue-500/5 text-blue-400 font-bold">₹{Math.round(row.target2526).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 text-center bg-blue-500/5">
+                                                        <div className="text-emerald-500 font-bold">₹{Math.round(row.achieved2526).toLocaleString()}</div>
+                                                        <div className={`text-[10px] font-bold mt-0.5 ${parseFloat(pct2526) >= 100 ? 'text-green-500' : parseFloat(pct2526) >= 75 ? 'text-yellow-500' : 'text-red-500'}`}>{pct2526}% of target</div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center border-l border-gray-800/40 bg-yellow-500/5 text-yellow-500 font-bold">₹{Math.round(row.target2627).toLocaleString()}</td>
+                                                    <td className="px-6 py-4 text-center bg-yellow-500/5">
+                                                        <div className="text-purple-500 font-bold">₹{Math.round(row.achieved2627).toLocaleString()}</div>
+                                                        <div className={`text-[10px] font-bold mt-0.5 ${parseFloat(pct2627) >= 100 ? 'text-green-500' : parseFloat(pct2627) >= 75 ? 'text-yellow-500' : 'text-red-500'}`}>{pct2627}% of target</div>
+                                                    </td>
+                                                    <td className={`px-6 py-4 font-black text-center border-l border-gray-800/40 ${targetDiff.startsWith('+') ? 'text-green-500' : targetDiff.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>{targetDiff}%</td>
+                                                    <td className={`px-6 py-4 font-black text-center ${achievedDiff.startsWith('+') ? 'text-green-500' : achievedDiff.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>{achievedDiff}%</td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+
+                                    {/* Grand Total Row */}
+                                    {!loading && yearWiseData.length > 0 && (() => {
+                                        const tt2526  = yearWiseData.reduce((s, r) => s + (r.target2526   || 0), 0);
+                                        const ta2526  = yearWiseData.reduce((s, r) => s + (r.achieved2526 || 0), 0);
+                                        const tt2627  = yearWiseData.reduce((s, r) => s + (r.target2627   || 0), 0);
+                                        const ta2627  = yearWiseData.reduce((s, r) => s + (r.achieved2627 || 0), 0);
+                                        const tgGrowth = calculateGrowth(tt2526, tt2627);
+                                        const taGrowth = calculateGrowth(ta2526, ta2627);
+                                        const tPct2526 = tt2526 > 0 ? ((ta2526 / tt2526) * 100).toFixed(1) : '0.0';
+                                        const tPct2627 = tt2627 > 0 ? ((ta2627 / tt2627) * 100).toFixed(1) : '0.0';
                                         return (
-                                            <tr key={`${row.centre._id}-${row.month}-${idx}`} className={`${isDarkMode ? 'hover:bg-[#131619] text-gray-400' : 'hover:bg-gray-50 text-gray-700'} transition-all duration-200`}>
-                                                
-                                                {/* Centre Name (Sticky) */}
-                                                <td className={`px-6 py-4 font-bold sticky left-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] text-white border-r border-gray-800' : 'bg-white text-gray-900 border-r border-gray-100'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.15)' }}>
-                                                    {row.centre.centreName}
+                                            <tr className={`font-black text-xs border-t-2 ${isDarkMode ? 'border-gray-600 bg-black/30 text-white' : 'border-gray-300 bg-gray-100 text-gray-900'}`}>
+                                                <td className={`px-6 py-4 sticky left-0 z-10 uppercase tracking-widest text-[10px] ${isDarkMode ? 'bg-black/30 border-r border-gray-700' : 'bg-gray-100 border-r border-gray-300'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.15)' }}>Grand Total</td>
+                                                <td className="px-6 py-4 text-center border-l border-gray-800/40 bg-blue-500/5 text-blue-400">₹{Math.round(tt2526).toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-center bg-blue-500/5">
+                                                    <div className="text-emerald-500">₹{Math.round(ta2526).toLocaleString()}</div>
+                                                    <div className={`text-[10px] mt-0.5 ${parseFloat(tPct2526) >= 100 ? 'text-green-500' : parseFloat(tPct2526) >= 75 ? 'text-yellow-500' : 'text-red-500'}`}>{tPct2526}% of target</div>
                                                 </td>
-                                                
-                                                {/* Month */}
-                                                <td className={`px-6 py-4 ${isDarkMode ? 'text-cyan-100' : 'text-cyan-700'} font-bold`}>
-                                                    {row.month}
+                                                <td className="px-6 py-4 text-center border-l border-gray-800/40 bg-yellow-500/5 text-yellow-500">₹{Math.round(tt2627).toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-center bg-yellow-500/5">
+                                                    <div className="text-purple-500">₹{Math.round(ta2627).toLocaleString()}</div>
+                                                    <div className={`text-[10px] mt-0.5 ${parseFloat(tPct2627) >= 100 ? 'text-green-500' : parseFloat(tPct2627) >= 75 ? 'text-yellow-500' : 'text-red-500'}`}>{tPct2627}% of target</div>
                                                 </td>
-
-                                                {/* 2025-2026 Target */}
-                                                <td className="px-6 py-4 font-bold text-center border-l border-gray-800/40 bg-blue-500/5 text-blue-400">
-                                                    {(row.target2526 || 0).toLocaleString()}
-                                                </td>
-
-                                                {/* 2025-2026 Achievement */}
-                                                <td className="px-6 py-4 font-bold text-center bg-blue-500/5 text-emerald-500">
-                                                    {(row.achieved2526 || 0).toLocaleString()}
-                                                </td>
-
-                                                {/* 2026-2027 Target */}
-                                                <td className="px-6 py-4 font-bold text-center border-l border-gray-800/40 bg-yellow-500/5 text-yellow-500">
-                                                    {(row.target2627 || 0).toLocaleString()}
-                                                </td>
-
-                                                {/* 2026-2027 Achievement */}
-                                                <td className="px-6 py-4 font-bold text-center bg-yellow-500/5 text-purple-500">
-                                                    {row.achieved2627.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                                </td>
-
-                                                {/* Target Growth */}
-                                                <td className={`px-6 py-4 font-black text-center border-l border-gray-800/40 ${
-                                                    targetDiff.startsWith('+') ? 'text-green-500' : targetDiff.startsWith('-') ? 'text-red-500' : 'text-gray-400'
-                                                }`}>
-                                                    {targetDiff}%
-                                                </td>
-
-                                                {/* Achievement Growth */}
-                                                <td className={`px-6 py-4 font-black text-center ${
-                                                    achievedDiff.startsWith('+') ? 'text-green-500' : achievedDiff.startsWith('-') ? 'text-red-500' : 'text-gray-400'
-                                                }`}>
-                                                    {achievedDiff}%
-                                                </td>
-
-                                                {/* Edit Action */}
-                                                <td className="px-6 py-4 text-right">
-                                                    {row.targetId2526 ? (
-                                                        <button
-                                                            onClick={() => { setSelectedTarget(row); setShowAddModal(true); }}
-                                                            className="text-cyan-500 hover:text-cyan-400 transition-colors p-1"
-                                                            title="Edit FY 2025-2026 data"
-                                                        >
-                                                            <FaEdit size={16} />
-                                                        </button>
-                                                    ) : (
-                                                        <span className="text-[10px] text-gray-600 font-bold uppercase select-none">No Record</span>
-                                                    )}
-                                                </td>
-
+                                                <td className={`px-6 py-4 text-center border-l border-gray-800/40 ${tgGrowth.startsWith('+') ? 'text-green-500' : tgGrowth.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>{tgGrowth}%</td>
+                                                <td className={`px-6 py-4 text-center ${taGrowth.startsWith('+') ? 'text-green-500' : taGrowth.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>{taGrowth}%</td>
                                             </tr>
                                         );
-                                    })
-                                )}
-                            </tbody>
-                        </table>
+                                    })()}
+                                </tbody>
+                            </table>
+                        </div>
                     </div>
-                </div>
+                )}
 
                 {/* Add/Edit Modal */}
                 {showAddModal && (
