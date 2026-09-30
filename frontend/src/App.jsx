@@ -9,6 +9,7 @@ import StudentRegistration from "./pages/StudentRegistration";
 import Finance from "./pages/Finance";
 import Sales from "./pages/Sales";
 import CentreTarget from "./pages/Sales/CentreTarget";
+import CentreComparisonAnalysis from "./pages/Sales/CentreComparisonAnalysis";
 import ComparisonAnalysis from "./pages/Sales/ComparisonAnalysis";
 import DeactivatedAnalysis from "./pages/Sales/DeactivatedAnalysis";
 import CentreRank from "./pages/Sales/CentreRank";
@@ -274,6 +275,7 @@ function App() {
         <Route path="/expense/create" element={<ProtectedRoute allowedRoles={['superadmin', 'hr', 'accounts']}><CreateExpense /></ProtectedRoute>} />
         <Route path="/sales" element={<ProtectedRoute><Sales /></ProtectedRoute>} />
         <Route path="/sales/centre-target" element={<ProtectedRoute><CentreTarget /></ProtectedRoute>} />
+        <Route path="/sales/centre-comparison-analysis" element={<ProtectedRoute><CentreComparisonAnalysis /></ProtectedRoute>} />
         <Route path="/sales/comparison-analysis" element={<ProtectedRoute><ComparisonAnalysis /></ProtectedRoute>} />
         <Route path="/sales/deactivated-analysis" element={<ProtectedRoute><DeactivatedAnalysis /></ProtectedRoute>} />
         <Route path="/sales/centre-rank" element={<ProtectedRoute><CentreRank /></ProtectedRoute>} />

@@ -301,7 +301,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "sales",
             subItems: [
                 { name: "Centre Target", path: "/sales/centre-target", permissionSection: "centreTarget" },
-                { name: "Comparison Analysis", path: "/sales/comparison-analysis", permissionSection: "centreTarget" },
+                { name: "Centre Comparison Analysis", path: "/sales/centre-comparison-analysis", permissionSection: "centreTarget" },
+                { name: "Revenue Comparison Analysis", path: "/sales/comparison-analysis", permissionSection: "centreTarget" },
                 { name: "Deactivated Analysis", path: "/sales/deactivated-analysis", permissionSection: "centreTarget" },
                 //{ name: "Weekly Weekends Target", path: "/sales/weekly-target", permissionSection: "centreTarget" },
                 { name: "Weekends Target", path: "/sales/final-weekend-target", permissionSection: "centreTarget" },

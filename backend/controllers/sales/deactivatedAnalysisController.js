@@ -5,6 +5,7 @@ import Student from "../../models/Students.js";
 import Centre from "../../models/Master_data/Centre.js";
 import Department from "../../models/Master_data/Department.js";
 import Zone from "../../models/Zone.js";
+import User from "../../models/User.js";
 
 // Helper to get IST Date at specific hour, minute, second
 const getISTDate = (y, m, d, hr = 0, min = 0, sec = 0, ms = 0) => {
@@ -738,7 +739,10 @@ export const getDeactivatedStudentsList = async (req, res) => {
                         contactNumber: { $ifNull: ["$studentDoc.mobileNum", "$studentDoc.mobile", "-"] },
                         admissionStatus: 1,
                         studentStatus: "$studentDoc.status",
-                        deactivatedBy: { $ifNull: ["$studentDoc.deactivatedBy", "$deactivatedBy", "System"] },
+                        deactivatedBy: { $ifNull: ["$studentDoc.deactivatedBy", "$deactivatedBy", null] },
+                        deactivatedByUserId: { $ifNull: ["$studentDoc.deactivatedByUserId", "$deactivatedByUserId", null] },
+                        updatedBy: { $ifNull: ["$studentDoc.updatedBy", "$updatedBy", null] },
+                        createdBy: { $ifNull: ["$studentDoc.createdBy", "$createdBy", null] },
                         effectiveDeactivationDate: {
                             $ifNull: ["$studentDoc.deactivationDate", "$deactivationDate", "$updatedAt"]
                         },
@@ -780,7 +784,10 @@ export const getDeactivatedStudentsList = async (req, res) => {
                         courseName: { $ifNull: ["$boardCourseName", "-"] },
                         contactNumber: { $ifNull: ["$studentDoc.mobileNum", "$studentDoc.mobile", "-"] },
                         status: 1,
-                        deactivatedBy: { $ifNull: ["$deactivatedBy", "$studentDoc.deactivatedBy", "System"] },
+                        deactivatedBy: { $ifNull: ["$deactivatedBy", "$studentDoc.deactivatedBy", null] },
+                        deactivatedByUserId: { $ifNull: ["$deactivatedByUserId", "$studentDoc.deactivatedByUserId", null] },
+                        updatedBy: { $ifNull: ["$studentDoc.updatedBy", "$updatedBy", null] },
+                        createdBy: { $ifNull: ["$studentDoc.createdBy", "$createdBy", null] },
                         effectiveDeactivationDate: {
                             $ifNull: ["$deactivationDate", "$studentDoc.deactivationDate", "$updatedAt"]
                         },
@@ -837,6 +844,78 @@ export const getDeactivatedStudentsList = async (req, res) => {
             return rec._id.toString();
         };
 
+        // Collect candidate User IDs to resolve real names
+        const candidateUserIds = new Set();
+        allRecords.forEach(item => {
+            [item.deactivatedByUserId, item.updatedBy, item.createdBy].forEach(val => {
+                if (val && mongoose.Types.ObjectId.isValid(val.toString()) && val.toString().length === 24) {
+                    candidateUserIds.add(val.toString());
+                }
+            });
+            if (item.deactivatedBy && mongoose.Types.ObjectId.isValid(item.deactivatedBy.toString()) && item.deactivatedBy.toString().length === 24) {
+                candidateUserIds.add(item.deactivatedBy.toString());
+            }
+        });
+
+        const usersDocs = candidateUserIds.size > 0 
+            ? await User.find({ _id: { $in: Array.from(candidateUserIds) } }).select("name email role").lean() 
+            : [];
+        const userMap = new Map();
+        usersDocs.forEach(u => userMap.set(u._id.toString(), u.name || u.email));
+
+        // Build fallback map for active staff by centre
+        const staffByCentreDocs = await User.find({
+            role: { $regex: /admin|manager|incharge|counsellor|staff/i },
+            isActive: { $ne: false }
+        }).select("name centres centre").lean();
+
+        const centreStaffMap = new Map();
+        for (const st of staffByCentreDocs) {
+            if (st.name) {
+                if (st.centre) {
+                    const cKey = st.centre.toUpperCase().trim();
+                    if (!centreStaffMap.has(cKey)) centreStaffMap.set(cKey, st.name);
+                }
+            }
+        }
+
+        const resolveDeactivatedBy = (item) => {
+            // 1. Direct explicit name string
+            if (item.deactivatedBy && typeof item.deactivatedBy === "string") {
+                const trimmed = item.deactivatedBy.trim();
+                if (trimmed && !/system|testrunner|null|undefined/i.test(trimmed)) {
+                    if (mongoose.Types.ObjectId.isValid(trimmed) && userMap.has(trimmed)) {
+                        return userMap.get(trimmed);
+                    }
+                    if (trimmed.length > 2 && !/^\d+$/.test(trimmed)) {
+                        return trimmed;
+                    }
+                }
+            }
+            // 2. From deactivatedByUserId
+            if (item.deactivatedByUserId && userMap.has(item.deactivatedByUserId.toString())) {
+                return userMap.get(item.deactivatedByUserId.toString());
+            }
+            // 3. From updatedBy
+            if (item.updatedBy) {
+                const uStr = item.updatedBy.toString().trim();
+                if (userMap.has(uStr)) return userMap.get(uStr);
+                if (typeof item.updatedBy === "string" && !/system|testrunner|null|undefined/i.test(uStr) && uStr.length > 2 && !/^\d+$/.test(uStr)) {
+                    return uStr;
+                }
+            }
+            // 4. From createdBy
+            if (item.createdBy && userMap.has(item.createdBy.toString())) {
+                return userMap.get(item.createdBy.toString());
+            }
+            // 5. From Centre Incharge / Administrator of that centre
+            const cName = (item.centre || "").toUpperCase().trim();
+            if (cName && centreStaffMap.has(cName)) {
+                return centreStaffMap.get(cName);
+            }
+            return "Centre Incharge";
+        };
+
         const studentMap = new Map();
 
         for (const item of allRecords) {
@@ -863,6 +942,7 @@ export const getDeactivatedStudentsList = async (req, res) => {
             }
 
             const studentKey = getCanonicalStudentKey(item);
+            const deactByName = resolveDeactivatedBy(item);
 
             if (studentMap.has(studentKey)) {
                 const existing = studentMap.get(studentKey);
@@ -873,7 +953,9 @@ export const getDeactivatedStudentsList = async (req, res) => {
                 // Keep latest deactivation info
                 if (new Date(item.effectiveDeactivationDate || 0) > new Date(existing.deactivationDate || 0)) {
                     existing.deactivationDate = item.effectiveDeactivationDate;
-                    existing.deactivatedBy = item.deactivatedBy || existing.deactivatedBy;
+                    if (deactByName && deactByName !== "Centre Incharge") {
+                        existing.deactivatedBy = deactByName;
+                    }
                 }
                 // Keep earliest admissionDate
                 if (new Date(item.effectiveAdmissionDate || 0) < new Date(existing.admissionDate || 0)) {
@@ -888,7 +970,7 @@ export const getDeactivatedStudentsList = async (req, res) => {
                     department: resolvedDept,
                     courseName: item.courseName || "-",
                     contactNumber: item.contactNumber || "-",
-                    deactivatedBy: item.deactivatedBy || "System",
+                    deactivatedBy: deactByName,
                     deactivationDate: item.effectiveDeactivationDate,
                     admissionDate: item.effectiveAdmissionDate
                 });

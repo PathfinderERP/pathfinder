@@ -97,7 +97,7 @@ export const toggleStudentStatus = async (req, res) => {
 
             await Admission.updateMany(
                 { student: studentId },
-                { $set: { admissionStatus: 'INACTIVE' } }
+                { $set: { admissionStatus: 'INACTIVE', deactivationDate, deactivatedBy, deactivatedByUserId } }
             );
 
             const updatedStudent = await Student.findByIdAndUpdate(

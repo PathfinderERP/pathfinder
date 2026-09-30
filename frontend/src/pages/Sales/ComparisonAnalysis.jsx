@@ -442,7 +442,7 @@ const ComparisonAnalysis = () => {
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                     <div>
                         <h1 className={`text-3xl font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'} flex items-center gap-3`}>
-                            <FaChartLine className="text-cyan-400" /> Comparison Analysis
+                            <FaChartLine className="text-cyan-400" /> Revenue Comparison Analysis
                         </h1>
                         <p className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'} font-semibold`}>
                             Compare Target & Achievement between FY 2025-26 & FY 2026-27
