@@ -1,5 +1,6 @@
 import CentreTarget from "../../models/Sales/CentreTarget.js";
 import Centre from "../../models/Master_data/Centre.js";
+import DailyTarget from "../../models/Sales/DailyTarget.js";
 import { calculateCentreTargetAchieved } from "../../services/centreTargetService.js";
 
 const standardMonths = [
@@ -209,5 +210,120 @@ export const saveComparisonManualData = async (req, res) => {
     } catch (error) {
         console.error("Error in saveComparisonManualData:", error);
         res.status(500).json({ message: "Server error", error: error.message });
+    }
+};
+
+/**
+ * GET /sales/comparison-analysis/day-data
+ * Returns per-centre for today:
+ *   - currDayTarget  : today's actual DailyTarget.targetAmount (from daily tracking system)
+ *   - currDayActual  : today's live achievement (via calculateCentreTargetAchieved)
+ *   - prevYearMonthAchieved : last year same month achievement (for pro-rating display)
+ *   - prevYearMonthTarget   : last year same month target
+ *   - daysInMonth, todayDay : for pro-rating the previous year estimate in the frontend
+ */
+export const getDayWiseComparison = async (req, res) => {
+    try {
+        const { centreIds, zoneIds } = req.query;
+
+        // -- Determine today's date in IST --
+        const nowIST = new Date();
+        const todayISTStr = nowIST.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' }); // YYYY-MM-DD
+        const todayDate = new Date(`${todayISTStr}T00:00:00+05:30`);
+        const todayDay = nowIST.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', day: 'numeric' }) * 1;
+        const todayMonthName = nowIST.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', month: 'long' });
+        const todayYear = new Date(todayISTStr).getFullYear(); // calendar year
+        const daysInMonth = new Date(todayYear, new Date(todayISTStr).getMonth() + 1, 0).getDate();
+
+        // -- Build allowed centre list (same permission logic as getComparisonAnalysis) --
+        let allowedCentreIds = [];
+        if (req.user.role !== 'superAdmin') {
+            allowedCentreIds = (req.user.centres || []).map(id => id.toString());
+        }
+
+        let centreQuery = { status: { $ne: 'deactive' } };
+        if (centreIds) {
+            let requested = (typeof centreIds === 'string' ? centreIds.split(',') : centreIds).filter(Boolean);
+            if (req.user.role !== 'superAdmin') {
+                requested = requested.filter(id => allowedCentreIds.includes(id));
+            }
+            centreQuery._id = { $in: requested.length > 0 ? requested : ['000000000000000000000000'] };
+        } else if (zoneIds) {
+            const Zone = (await import('../../models/Zone.js')).default;
+            const rawZoneIds = typeof zoneIds === 'string' ? zoneIds.split(',') : zoneIds;
+            const zoneDocs = await Zone.find({ _id: { $in: rawZoneIds } }).select('centres').lean();
+            const zoneCIds = zoneDocs.flatMap(z => (z.centres || []).map(c => (c._id || c).toString()));
+            let targetIds = zoneCIds;
+            if (req.user.role !== 'superAdmin') targetIds = targetIds.filter(id => allowedCentreIds.includes(id));
+            centreQuery._id = { $in: targetIds.length > 0 ? targetIds : ['000000000000000000000000'] };
+            centreQuery.centreName = { $nin: [/phsps/i, /franchise/i, /rkm/i] };
+        } else {
+            centreQuery.centreName = { $nin: [/phsps/i, /franchise/i, /rkm/i] };
+            if (req.user.role !== 'superAdmin') {
+                centreQuery._id = { $in: allowedCentreIds };
+            }
+        }
+
+        const centres = await Centre.find(centreQuery).sort({ centreName: 1 });
+
+        // -- Fetch today's DailyTarget entries in one query --
+        const dailyTargets = await DailyTarget.find({
+            centre: { $in: centres.map(c => c._id) },
+            date: todayDate
+        }).lean();
+
+        const dailyTargetMap = {};
+        dailyTargets.forEach(dt => {
+            dailyTargetMap[dt.centre.toString()] = dt.targetAmount || 0;
+        });
+
+        // -- Fetch previous year's same month achievement from CentreTarget (FY 2025-2026) --
+        const prevYearRecords = await CentreTarget.find({
+            centre: { $in: centres.map(c => c._id) },
+            financialYear: '2025-2026',
+            month: todayMonthName
+        }).lean();
+
+        const prevYearMap = {};
+        prevYearRecords.forEach(r => {
+            prevYearMap[r.centre.toString()] = {
+                target: r.targetAmount || 0,
+                // Use excl-GST achievement; fall back to achievedAmount ÷ 1.18 if not stored separately
+                achievedExcl: r.achievedAmountExclGST || (r.achievedAmount ? r.achievedAmount / 1.18 : 0)
+            };
+        });
+
+        // -- Compute today's achievement for each centre --
+        const data = [];
+        for (const centre of centres) {
+            const cid = centre._id.toString();
+
+            // Today's set target from daily tracking system
+            const currDayTarget = dailyTargetMap[cid] || 0;
+
+            // Today's live achievement — excl. GST (matches how targets are set)
+            const achievedResult = await calculateCentreTargetAchieved(centre.centreName, todayMonthName, todayYear, todayISTStr, todayISTStr);
+            const currDayActual = achievedResult.totalExclGST || 0;
+
+            // Previous year data (pro-rating done on frontend)
+            const prev = prevYearMap[cid] || { target: 0, achievedExcl: 0 };
+
+            data.push({
+                centre: { _id: centre._id, centreName: centre.centreName },
+                todayDay,
+                daysInMonth,
+                monthName: todayMonthName,
+                todayDateStr: todayISTStr,
+                currDayTarget,
+                currDayActual,
+                prevYearMonthTarget: prev.target,
+                prevYearMonthAchieved: prev.achievedExcl   // excl. GST
+            });
+        }
+
+        return res.status(200).json({ data, daysInMonth, todayDay, monthName: todayMonthName });
+    } catch (error) {
+        console.error('Error in getDayWiseComparison:', error);
+        return res.status(500).json({ message: 'Server error', error: error.message });
     }
 };

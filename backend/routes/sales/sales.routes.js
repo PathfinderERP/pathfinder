@@ -24,7 +24,7 @@ import { getDailyCollectionReport, saveDailyTarget, saveBulkDailyTargets } from 
 import { getBoardReport } from "../../controllers/sales/boardReportController.js";
 import { getWeeklyTarget, getFinalWeekendTarget, overrideWeeklyTarget, overrideWeeklyTargetBulk } from "../../controllers/sales/weeklyTargetController.js";
 import { saveCourseTarget, getCourseTargetAnalysis, getAdmissionDetails } from "../../controllers/sales/courseTargetController.js";
-import { getComparisonAnalysis, saveComparisonManualData } from "../../controllers/sales/comparisonAnalysisController.js";
+import { getComparisonAnalysis, saveComparisonManualData, getDayWiseComparison } from "../../controllers/sales/comparisonAnalysisController.js";
 import { getAverageAdmissionFee } from "../../controllers/sales/averageAdmissionFeeController.js";
 import { getManpowerTargets, saveManpowerTarget } from "../../controllers/sales/manpowerTargetController.js";
 
@@ -33,6 +33,7 @@ const router = express.Router();
 
 router.get("/comparison-analysis", requireAuth, getComparisonAnalysis);
 router.post("/comparison-analysis/save", requireAuth, saveComparisonManualData);
+router.get("/comparison-analysis/day-data", requireAuth, getDayWiseComparison);
 
 router.get("/centre-rank", requireAuth, getCentreRankings);
 router.get("/user-rank/admissions", requireAuth, getUserAdmissionDetails);

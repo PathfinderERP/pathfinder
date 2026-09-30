@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaSync, FaDownload, FaSun, FaMoon, FaChartLine, FaPlus, FaEdit, FaCalendarAlt, FaChartBar } from "react-icons/fa";
+import { FaFilter, FaSync, FaDownload, FaSun, FaMoon, FaChartLine, FaPlus, FaEdit, FaCalendarAlt, FaChartBar, FaRegClock } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
@@ -31,11 +31,27 @@ const ComparisonAnalysis = () => {
     const [comparisonData, setComparisonData] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    // View mode: 'month' | 'year'
+    // View mode: 'month' | 'year' | 'day'
     const [viewMode, setViewMode] = useState('month');
 
     // Year-wise: full 12-month aggregated data
     const [yearData, setYearData] = useState([]);
+
+    // Day-wise: current month data for day-level comparison
+    const [dayData, setDayData] = useState([]);
+
+    // Today's info for day-wise calculations
+    const todayRef = React.useMemo(() => {
+        const t = new Date();
+        const day = t.getDate();
+        const daysInMonth = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate();
+        const monthName = t.toLocaleString('en-US', { month: 'long' });
+        const todayStr = t.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        // Previous year same date string
+        const prevT = new Date(t); prevT.setFullYear(prevT.getFullYear() - 1);
+        const prevDayStr = prevT.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' });
+        return { day, daysInMonth, monthName, todayStr, prevDayStr };
+    }, []);
 
     // Track request versions to avoid async race conditions
     const requestVersionRef = useRef(0);
@@ -56,6 +72,13 @@ const ComparisonAnalysis = () => {
     useEffect(() => {
         if (viewMode === 'year') {
             fetchComparisonDataAllMonths();
+        }
+    }, [viewMode, selectedCentres, selectedZones]);
+
+    // Re-fetch day data when filters change or day mode activated
+    useEffect(() => {
+        if (viewMode === 'day') {
+            fetchComparisonDataDayWise();
         }
     }, [viewMode, selectedCentres, selectedZones]);
 
@@ -178,6 +201,36 @@ const ComparisonAnalysis = () => {
         }
     };
 
+    // Fetch day-wise data: actual daily target (from DailyTarget) + today's live achievement
+    const fetchComparisonDataDayWise = async () => {
+        const currentVersion = ++requestVersionRef.current;
+        setLoading(true);
+        try {
+            const token = localStorage.getItem("token");
+            const params = new URLSearchParams();
+            if (selectedCentres.length > 0) params.append("centreIds", selectedCentres.join(","));
+            if (selectedZones.length > 0) params.append("zoneIds", selectedZones.join(","));
+
+            // Hit the dedicated day-wise endpoint
+            const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/comparison-analysis/day-data?${params.toString()}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const resData = await response.json();
+            if (currentVersion !== requestVersionRef.current) return;
+            if (response.ok) {
+                setDayData(resData.data || []);
+            } else {
+                toast.error(resData.message || "Failed to load day comparison data");
+            }
+        } catch (error) {
+            if (currentVersion !== requestVersionRef.current) return;
+            console.error("Error fetching day comparison data:", error);
+            toast.error("Failed to load day comparison data");
+        } finally {
+            if (currentVersion === requestVersionRef.current) setLoading(false);
+        }
+    };
+
     // Aggregate year-wise data: sum all months per centre
     const yearWiseData = React.useMemo(() => {
         const sourceData = yearData.length > 0 ? yearData : comparisonData;
@@ -196,6 +249,56 @@ const ComparisonAnalysis = () => {
             (a.centre.centreName || "").localeCompare(b.centre.centreName || "")
         );
     }, [yearData, comparisonData]);
+
+    // Day-wise data: uses actual DailyTarget (set in tracking system) for current year
+    // and pro-rates previous year's monthly achievement to today's day
+    const dayWiseData = React.useMemo(() => {
+        const { day, daysInMonth } = todayRef;
+
+        if (dayData.length > 0 && dayData[0].currDayTarget !== undefined) {
+            // New API shape: direct data from /day-data endpoint
+            return dayData.map(row => {
+                const days = row.daysInMonth || daysInMonth || 30;
+                return {
+                    centre: row.centre,
+                    // Previous year: both monthly target and monthly achieved divided by days in month (÷ 30)
+                    prevYearDayTarget: (row.prevYearMonthTarget || 0) / days,
+                    prevYearDayAmt: (row.prevYearMonthAchieved || 0) / days,
+                    prevYearMonthTotal: row.prevYearMonthAchieved || 0,
+                    prevYearTarget: row.prevYearMonthTarget || 0,
+                    daysInMonth: days,
+                    // Current year: actual daily target + actual today's achievement
+                    currYearDayAmt: row.currDayActual || 0,
+                    currYearTarget: row.currDayTarget || 0,   // ← actual daily target from DailyTarget collection
+                    hasDailyTarget: (row.currDayTarget || 0) > 0,
+                };
+            }).sort((a, b) => (a.centre.centreName || "").localeCompare(b.centre.centreName || ""));
+        }
+
+        // Fallback to old comparisonData pro-rating if dedicated API hasn't returned yet
+        const sourceData = comparisonData.filter(r => r.month === todayRef.monthName);
+        const centreMap = {};
+        sourceData.forEach(row => {
+            const id = row.centre._id;
+            if (!centreMap[id]) {
+                const days = daysInMonth || 30;
+                centreMap[id] = {
+                    centre: row.centre,
+                    prevYearDayTarget: (row.target2526 || 0) / days,
+                    prevYearDayAmt: (row.achievedExclGST2526 || row.achieved2526 || 0) / days,
+                    prevYearMonthTotal: row.achievedExclGST2526 || row.achieved2526 || 0,
+                    prevYearTarget: row.target2526 || 0,
+                    daysInMonth: days,
+                    currYearDayAmt: row.achieved2627 || 0,
+                    currYearTarget: (row.target2627 || 0) / days, // fallback
+                    hasDailyTarget: false,
+                };
+            }
+        });
+        return Object.values(centreMap).sort((a, b) =>
+            (a.centre.centreName || "").localeCompare(b.centre.centreName || "")
+        );
+    }, [dayData, comparisonData, todayRef]);
 
     // Filter centres for dropdown by selected zones
     const zoneCentreIds = selectedZones.length > 0
@@ -237,7 +340,7 @@ const ComparisonAnalysis = () => {
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportRows), "Month-wise Comparison");
             saveAs(new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })], { type: "application/octet-stream" }), `Comparison_Month_${new Date().toISOString().split('T')[0]}.xlsx`);
-        } else {
+        } else if (viewMode === 'year') {
             if (yearWiseData.length === 0) { toast.warn("No data to export"); return; }
             const exportRows = yearWiseData.map(row => ({
                 "Centre Name": row.centre.centreName,
@@ -251,23 +354,42 @@ const ComparisonAnalysis = () => {
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportRows), "Year-wise Comparison");
             saveAs(new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })], { type: "application/octet-stream" }), `Comparison_Year_${new Date().toISOString().split('T')[0]}.xlsx`);
+        } else {
+            if (dayWiseData.length === 0) { toast.warn("No data to export"); return; }
+            const exportRows = dayWiseData.map(row => ({
+                "Centre Name": row.centre.centreName,
+                [`${todayRef.prevDayStr} (FY 25-26 Pro-rated)`]: Math.round(row.prevYearDayAmt),
+                [`${todayRef.todayStr} (FY 26-27 Actual)`]: Math.round(row.currYearDayAmt),
+                "YoY Day Growth %": calculateGrowth(row.prevYearDayAmt, row.currYearDayAmt) + "%",
+                "FY 25-26 Full Month Achievement": Math.round(row.prevYearMonthTotal),
+                "FY 26-27 Day Target (Pro-rated)": row.currYearTarget > 0 ? Math.round((row.currYearTarget / todayRef.daysInMonth) * todayRef.day) : 0
+            }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(exportRows), "Day-wise Comparison");
+            saveAs(new Blob([XLSX.write(wb, { bookType: "xlsx", type: "array" })], { type: "application/octet-stream" }), `Comparison_Day_${new Date().toISOString().split('T')[0]}.xlsx`);
         }
     };
 
     // Aggregate summary stats (reflect active view)
-    const activeRows = viewMode === 'month' ? comparisonData : yearWiseData;
-    const aggregatedStats = activeRows.reduce((acc, row) => {
-        acc.totalTarget2526 += row.target2526 || 0;
-        acc.totalAchieved2526 += row.achieved2526 || 0;
-        acc.totalTarget2627 += row.target2627 || 0;
-        acc.totalAchieved2627 += row.achieved2627 || 0;
-        return acc;
-    }, {
-        totalTarget2526: 0,
-        totalAchieved2526: 0,
-        totalTarget2627: 0,
-        totalAchieved2627: 0
-    });
+    const aggregatedStats = React.useMemo(() => {
+        if (viewMode === 'day') {
+            return dayWiseData.reduce((acc, row) => {
+                acc.totalTarget2526 += row.prevYearTarget || 0;
+                acc.totalAchieved2526 += row.prevYearDayAmt || 0;
+                acc.totalTarget2627 += row.currYearTarget || 0;
+                acc.totalAchieved2627 += row.currYearDayAmt || 0;
+                return acc;
+            }, { totalTarget2526: 0, totalAchieved2526: 0, totalTarget2627: 0, totalAchieved2627: 0 });
+        }
+        const activeRows = viewMode === 'month' ? comparisonData : yearWiseData;
+        return activeRows.reduce((acc, row) => {
+            acc.totalTarget2526 += row.target2526 || 0;
+            acc.totalAchieved2526 += row.achieved2526 || 0;
+            acc.totalTarget2627 += row.target2627 || 0;
+            acc.totalAchieved2627 += row.achieved2627 || 0;
+            return acc;
+        }, { totalTarget2526: 0, totalAchieved2526: 0, totalTarget2627: 0, totalAchieved2627: 0 });
+    }, [viewMode, comparisonData, yearWiseData, dayWiseData]);
 
     return (
         <Layout activePage="Sales">
@@ -339,6 +461,24 @@ const ComparisonAnalysis = () => {
                     >
                         <FaChartBar size={13} />
                         Year-wise
+                    </button>
+                    <button
+                        onClick={() => {
+                            setViewMode('day');
+                            if (dayData.length === 0) fetchComparisonDataDayWise();
+                        }}
+                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 ${
+                            viewMode === 'day'
+                                ? isDarkMode
+                                    ? 'bg-orange-500/20 text-orange-400 shadow-lg shadow-orange-500/10 border border-orange-500/30'
+                                    : 'bg-white text-orange-600 shadow-md border border-orange-200'
+                                : isDarkMode
+                                    ? 'text-gray-500 hover:text-gray-300'
+                                    : 'text-gray-400 hover:text-gray-600'
+                        }`}
+                    >
+                        <FaRegClock size={13} />
+                        Day-wise
                     </button>
                 </div>
 
@@ -435,12 +575,17 @@ const ComparisonAnalysis = () => {
                                 All Months (Full FY)
                             </span>
                         )}
+                        {viewMode === 'day' && (
+                            <span className={`text-xs font-bold px-3 py-1.5 rounded-lg ${isDarkMode ? 'bg-orange-500/10 text-orange-400 border border-orange-500/20' : 'bg-orange-50 text-orange-600 border border-orange-200'}`}>
+                                📅 {todayRef.monthName} — Day {todayRef.day} of {todayRef.daysInMonth}
+                            </span>
+                        )}
                     </div>
 
                     <div className="flex items-center gap-3">
                         <button
                             className="p-2.5 bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors flex items-center gap-2 font-semibold"
-                            onClick={() => viewMode === 'month' ? fetchComparisonData() : fetchComparisonDataAllMonths()}
+                            onClick={() => viewMode === 'month' ? fetchComparisonData() : viewMode === 'year' ? fetchComparisonDataAllMonths() : fetchComparisonDataDayWise()}
                         >
                             <FaSync className={loading ? "animate-spin" : ""} /> Sync Data
                         </button>
@@ -592,6 +737,149 @@ const ComparisonAnalysis = () => {
                                                 </td>
                                                 <td className={`px-6 py-4 text-center border-l border-gray-800/40 ${tgGrowth.startsWith('+') ? 'text-green-500' : tgGrowth.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>{tgGrowth}%</td>
                                                 <td className={`px-6 py-4 text-center ${taGrowth.startsWith('+') ? 'text-green-500' : taGrowth.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>{taGrowth}%</td>
+                                            </tr>
+                                        );
+                                    })()}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+
+                {/* ─── DAY-WISE TABLE ─── */}
+                {viewMode === 'day' && (
+                    <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
+                        {/* Banner */}
+                        <div className={`px-6 py-3 flex flex-wrap items-center gap-3 border-b ${isDarkMode ? 'bg-orange-500/5 border-gray-800' : 'bg-orange-50 border-orange-100'}`}>
+                            <FaRegClock className={isDarkMode ? 'text-orange-400' : 'text-orange-600'} />
+                            <span className={`text-xs font-black uppercase tracking-widest ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}>
+                                Day-wise Comparison — {todayRef.monthName} Day {todayRef.day}
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded ${isDarkMode ? 'bg-gray-800 text-gray-400' : 'bg-white text-gray-500 border border-gray-200'}`}>
+                                Previous Year: {todayRef.prevDayStr} (Target & Achieved ÷ {todayRef.daysInMonth} days)
+                            </span>
+                            <span className={`text-[10px] font-bold px-2 py-1 rounded ${isDarkMode ? 'bg-orange-500/10 text-orange-300' : 'bg-orange-100 text-orange-700'}`}>
+                                Current Year: {todayRef.todayStr} (live actual)
+                            </span>
+                        </div>
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
+                                <thead>
+                                    <tr className={`uppercase font-black text-[10px] tracking-wider border-b ${isDarkMode ? 'bg-black/20 text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-200'}`}>
+                                        <th className={`px-6 py-4 sticky left-0 z-20 ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-gray-50'} border-r ${isDarkMode ? 'border-gray-800' : 'border-gray-100'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.3)' }} rowSpan="2">Centre Name</th>
+                                        <th className="px-6 py-3 text-center border-l border-gray-800/40 bg-blue-500/5 text-blue-400" colSpan="2">
+                                            FY 2025-26 &nbsp;·&nbsp; {todayRef.prevDayStr}
+                                        </th>
+                                        <th className="px-6 py-3 text-center border-l border-gray-800/40 bg-orange-500/5 text-orange-400" colSpan="2">
+                                            FY 2026-27 &nbsp;·&nbsp; {todayRef.todayStr}
+                                        </th>
+                                        <th className="px-6 py-3 text-center border-l border-gray-800/40" rowSpan="2">Target Growth %</th>
+                                        <th className="px-6 py-3 text-center" rowSpan="2">Ach. Growth %</th>
+                                    </tr>
+                                    <tr className={`uppercase font-black text-[10px] tracking-wider border-b ${isDarkMode ? 'bg-black/10 text-gray-500 border-gray-800' : 'bg-gray-50/60 text-gray-400 border-gray-200'}`}>
+                                        <th className="px-6 py-2 text-center border-l border-gray-800/40 bg-blue-500/5 text-blue-400/80">
+                                            Day Target (÷{todayRef.daysInMonth})
+                                        </th>
+                                        <th className="px-6 py-2 text-center bg-blue-500/5 text-emerald-500/80">Day Achieved (÷{todayRef.daysInMonth})</th>
+                                        <th className="px-6 py-2 text-center border-l border-gray-800/40 bg-orange-500/5 text-orange-400/80">Today's Target (Daily Tracking)</th>
+                                        <th className="px-6 py-2 text-center bg-orange-500/5 text-purple-500/80">Day Actual (Excl. GST)</th>
+                                    </tr>
+                                </thead>
+                                <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'} text-xs font-semibold`}>
+                                    {loading ? (
+                                        <tr><td colSpan="7" className="px-6 py-12 text-center text-orange-400 font-bold">Loading day-wise data...</td></tr>
+                                    ) : dayWiseData.length === 0 ? (
+                                        <tr><td colSpan="7" className="px-6 py-12 text-center text-gray-500 font-medium">No day comparison data found. Please adjust filters.</td></tr>
+                                    ) : (
+                                        dayWiseData.map((row, idx) => {
+                                            const targetGrowth = calculateGrowth(row.prevYearDayTarget, row.currYearTarget);
+                                            const achGrowth = calculateGrowth(row.prevYearDayAmt, row.currYearDayAmt);
+                                            // Today's target for current year (from daily tracking)
+                                            const currDayTarget = row.currYearTarget || 0;
+                                            const pctOfDayTarget = currDayTarget > 0
+                                                ? ((row.currYearDayAmt / currDayTarget) * 100).toFixed(1)
+                                                : '0.0';
+                                            return (
+                                                <tr key={`day-${row.centre._id}-${idx}`} className={`${isDarkMode ? 'hover:bg-[#131619] text-gray-400' : 'hover:bg-gray-50 text-gray-700'} transition-all duration-200`}>
+                                                    {/* Centre Name sticky */}
+                                                    <td className={`px-6 py-4 font-bold sticky left-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] text-white border-r border-gray-800' : 'bg-white text-gray-900 border-r border-gray-100'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.15)' }}>
+                                                        {row.centre.centreName}
+                                                    </td>
+
+                                                    {/* Prev year day target — divided by actual month days */}
+                                                    <td className="px-6 py-4 text-center border-l border-gray-800/40 bg-blue-500/5">
+                                                        <div className="text-blue-400 font-bold">₹{Math.round(row.prevYearDayTarget).toLocaleString()}</div>
+                                                        <div className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                            target ÷{row.daysInMonth || todayRef.daysInMonth} days
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Prev year day achieved — divided by actual month days */}
+                                                    <td className="px-6 py-4 text-center bg-blue-500/5">
+                                                        <div className="text-emerald-500 font-bold">₹{Math.round(row.prevYearDayAmt).toLocaleString()}</div>
+                                                        <div className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                            achieved ÷{row.daysInMonth || todayRef.daysInMonth} days
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Current year day target — from DailyTarget (daily tracking system) */}
+                                                    <td className="px-6 py-4 text-center border-l border-gray-800/40 bg-orange-500/5">
+                                                        <div className="text-orange-400 font-bold">₹{Math.round(row.currYearTarget).toLocaleString()}</div>
+                                                        {row.hasDailyTarget ? (
+                                                            <div className="text-[10px] font-bold mt-0.5 text-green-500">
+                                                                ✓ Daily Tracking Target
+                                                            </div>
+                                                        ) : (
+                                                            <div className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                                not set
+                                                            </div>
+                                                        )}
+                                                    </td>
+
+                                                    {/* Current year day actual — excl. GST */}
+                                                    <td className="px-6 py-4 text-center bg-orange-500/5">
+                                                        <div className="text-purple-500 font-bold">₹{Math.round(row.currYearDayAmt).toLocaleString()}</div>
+                                                        <div className={`text-[10px] font-bold mt-0.5 ${parseFloat(pctOfDayTarget) >= 100 ? 'text-green-500' : parseFloat(pctOfDayTarget) >= 75 ? 'text-yellow-500' : 'text-red-500'}`}>
+                                                            {pctOfDayTarget}% · excl.GST
+                                                        </div>
+                                                    </td>
+
+                                                    {/* Target Growth % */}
+                                                    <td className={`px-6 py-4 font-black text-center border-l border-gray-800/40 ${targetGrowth.startsWith('+') ? 'text-green-500' : targetGrowth.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>
+                                                        {targetGrowth}%
+                                                    </td>
+
+                                                    {/* Ach. Growth % */}
+                                                    <td className={`px-6 py-4 font-black text-center ${achGrowth.startsWith('+') ? 'text-green-500' : achGrowth.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>
+                                                        {achGrowth}%
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })
+                                    )}
+
+                                    {/* Grand Total Row */}
+                                    {!loading && dayWiseData.length > 0 && (() => {
+                                        const tPrevDayTgt = dayWiseData.reduce((s, r) => s + (r.prevYearDayTarget || 0), 0);
+                                        const tPrevDayAch = dayWiseData.reduce((s, r) => s + (r.prevYearDayAmt    || 0), 0);
+                                        const tCurrTgt    = dayWiseData.reduce((s, r) => s + (r.currYearTarget    || 0), 0);
+                                        const tCurrAct    = dayWiseData.reduce((s, r) => s + (r.currYearDayAmt    || 0), 0);
+                                        const tCurrDayTgt = tCurrTgt;
+                                        const tTargetGrowth = calculateGrowth(tPrevDayTgt, tCurrTgt);
+                                        const tAchGrowth    = calculateGrowth(tPrevDayAch, tCurrAct);
+                                        const tPct        = tCurrDayTgt > 0 ? ((tCurrAct / tCurrDayTgt) * 100).toFixed(1) : '0.0';
+                                        return (
+                                            <tr className={`font-black text-xs border-t-2 ${isDarkMode ? 'border-gray-600 bg-black/30 text-white' : 'border-gray-300 bg-gray-100 text-gray-900'}`}>
+                                                <td className={`px-6 py-4 sticky left-0 z-10 uppercase tracking-widest text-[10px] ${isDarkMode ? 'bg-black/30 border-r border-gray-700' : 'bg-gray-100 border-r border-gray-300'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.15)' }}>Grand Total</td>
+                                                <td className="px-6 py-4 text-center border-l border-gray-800/40 bg-blue-500/5 text-blue-400">₹{Math.round(tPrevDayTgt).toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-center bg-blue-500/5 text-emerald-500">₹{Math.round(tPrevDayAch).toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-center border-l border-gray-800/40 bg-orange-500/5 text-orange-400">₹{Math.round(tCurrDayTgt).toLocaleString()}</td>
+                                                <td className="px-6 py-4 text-center bg-orange-500/5">
+                                                    <div className="text-purple-500">₹{Math.round(tCurrAct).toLocaleString()}</div>
+                                                    <div className={`text-[10px] mt-0.5 ${parseFloat(tPct) >= 100 ? 'text-green-500' : parseFloat(tPct) >= 75 ? 'text-yellow-500' : 'text-red-500'}`}>{tPct}% of day target</div>
+                                                </td>
+                                                <td className={`px-6 py-4 text-center border-l border-gray-800/40 ${tTargetGrowth.startsWith('+') ? 'text-green-500' : tTargetGrowth.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>{tTargetGrowth}%</td>
+                                                <td className={`px-6 py-4 text-center ${tAchGrowth.startsWith('+') ? 'text-green-500' : tAchGrowth.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>{tAchGrowth}%</td>
                                             </tr>
                                         );
                                     })()}
