@@ -264,22 +264,51 @@ const ComparisonAnalysis = () => {
     const dayWiseData = React.useMemo(() => {
         const { day, daysInMonth } = todayRef;
 
+        // Map month-wise comparison data for current day's month
+        const monthMap = {};
+        comparisonData.forEach(r => {
+            if (r.month?.toLowerCase() === todayRef.monthName?.toLowerCase()) {
+                monthMap[r.centre._id?.toString()] = r;
+            }
+        });
+
         if (dayData.length > 0 && dayData[0].currDayTarget !== undefined) {
             // New API shape: direct data from /day-data endpoint
             return dayData.map(row => {
                 const days = row.daysInMonth || daysInMonth || 30;
+                const cid = row.centre._id?.toString();
+                const mData = monthMap[cid];
+
+                let prevTarget = row.prevYearMonthTarget || 0;
+                let prevAchieved = row.prevYearMonthAchieved || 0;
+                let currTarget = row.currDayTarget || 0;
+                let currActual = row.currDayActual || 0;
+
+                // When centre target and achievement is 0 in month-wise tab section,
+                // the achieved and target amount should not be shown in day-wise
+                if (mData) {
+                    if ((mData.target2526 || 0) === 0 && (mData.achieved2526 || 0) === 0) {
+                        prevTarget = 0;
+                        prevAchieved = 0;
+                    }
+                    if ((mData.target2627 || 0) === 0 && (mData.achieved2627 || 0) === 0) {
+                        currTarget = 0;
+                        currActual = 0;
+                    }
+                }
+
                 return {
                     centre: row.centre,
                     // Previous year: both monthly target and monthly achieved divided by days in month (÷ 30)
-                    prevYearDayTarget: (row.prevYearMonthTarget || 0) / days,
-                    prevYearDayAmt: (row.prevYearMonthAchieved || 0) / days,
-                    prevYearMonthTotal: row.prevYearMonthAchieved || 0,
-                    prevYearTarget: row.prevYearMonthTarget || 0,
+                    prevYearDayTarget: prevTarget / days,
+                    prevYearDayAmt: prevAchieved / days,
+                    prevYearMonthTotal: prevAchieved,
+                    prevYearTarget: prevTarget,
                     daysInMonth: days,
                     // Current year: actual daily target + actual today's achievement
-                    currYearDayAmt: row.currDayActual || 0,
-                    currYearTarget: row.currDayTarget || 0,   // ← actual daily target from DailyTarget collection
-                    hasDailyTarget: (row.currDayTarget || 0) > 0,
+                    currYearDayAmt: currActual,
+                    currYearTarget: currTarget,
+                    hasDailyTarget: currTarget > 0,
                 };
             }).sort((a, b) => (a.centre.centreName || "").localeCompare(b.centre.centreName || ""));
         }
@@ -291,15 +320,20 @@ const ComparisonAnalysis = () => {
             const id = row.centre._id;
             if (!centreMap[id]) {
                 const days = daysInMonth || 30;
+                const prevTarget = (row.target2526 || 0) === 0 && (row.achieved2526 || 0) === 0 ? 0 : (row.target2526 || 0);
+                const prevAchieved = (row.target2526 || 0) === 0 && (row.achieved2526 || 0) === 0 ? 0 : (row.achievedExclGST2526 || row.achieved2526 || 0);
+                const currTarget = (row.target2627 || 0) === 0 && (row.achieved2627 || 0) === 0 ? 0 : (row.target2627 || 0);
+                const currAchieved = (row.target2627 || 0) === 0 && (row.achieved2627 || 0) === 0 ? 0 : (row.achieved2627 || 0);
+
                 centreMap[id] = {
                     centre: row.centre,
-                    prevYearDayTarget: (row.target2526 || 0) / days,
-                    prevYearDayAmt: (row.achievedExclGST2526 || row.achieved2526 || 0) / days,
-                    prevYearMonthTotal: row.achievedExclGST2526 || row.achieved2526 || 0,
-                    prevYearTarget: row.target2526 || 0,
+                    prevYearDayTarget: prevTarget / days,
+                    prevYearDayAmt: prevAchieved / days,
+                    prevYearMonthTotal: prevAchieved,
+                    prevYearTarget: prevTarget,
                     daysInMonth: days,
-                    currYearDayAmt: row.achieved2627 || 0,
-                    currYearTarget: (row.target2627 || 0) / days, // fallback
+                    currYearDayAmt: currAchieved,
+                    currYearTarget: currTarget / days,
                     hasDailyTarget: false,
                 };
             }
@@ -383,7 +417,7 @@ const ComparisonAnalysis = () => {
     const aggregatedStats = React.useMemo(() => {
         if (viewMode === 'day') {
             return dayWiseData.reduce((acc, row) => {
-                acc.totalTarget2526 += row.prevYearTarget || 0;
+                acc.totalTarget2526 += row.prevYearDayTarget || 0;
                 acc.totalAchieved2526 += row.prevYearDayAmt || 0;
                 acc.totalTarget2627 += row.currYearTarget || 0;
                 acc.totalAchieved2627 += row.currYearDayAmt || 0;
@@ -495,7 +529,7 @@ const ComparisonAnalysis = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
                     <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-5 rounded-2xl border transition-all duration-300`}>
                         <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                            FY 2025-2026 Total Target
+                            {viewMode === 'day' ? 'FY 2025-2026 Day Target' : 'FY 2025-2026 Total Target'}
                         </span>
                         <div className="text-2xl font-black text-blue-500 mt-1">
                             ₹{Math.round(aggregatedStats.totalTarget2526).toLocaleString()}
@@ -503,7 +537,7 @@ const ComparisonAnalysis = () => {
                     </div>
                     <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-5 rounded-2xl border transition-all duration-300`}>
                         <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                            FY 2025-2026 Total Achieved
+                            {viewMode === 'day' ? 'FY 2025-2026 Day Achieved' : 'FY 2025-2026 Total Achieved'}
                         </span>
                         <div className="text-2xl font-black text-emerald-500 mt-1">
                             ₹{Math.round(aggregatedStats.totalAchieved2526).toLocaleString()}
@@ -511,7 +545,7 @@ const ComparisonAnalysis = () => {
                     </div>
                     <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-5 rounded-2xl border transition-all duration-300`}>
                         <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                            FY 2026-2027 Total Target
+                            {viewMode === 'day' ? "FY 2026-2027 Today's Target" : 'FY 2026-2027 Total Target'}
                         </span>
                         <div className="text-2xl font-black text-yellow-500 mt-1">
                             ₹{Math.round(aggregatedStats.totalTarget2627).toLocaleString()}
@@ -522,7 +556,7 @@ const ComparisonAnalysis = () => {
                     </div>
                     <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'} p-5 rounded-2xl border transition-all duration-300`}>
                         <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                            FY 2026-2027 Total Achieved
+                            {viewMode === 'day' ? "FY 2026-2027 Today's Achieved" : 'FY 2026-2027 Total Achieved'}
                         </span>
                         <div className="text-2xl font-black text-purple-500 mt-1">
                             ₹{Math.round(aggregatedStats.totalAchieved2627).toLocaleString()}
@@ -819,7 +853,7 @@ const ComparisonAnalysis = () => {
                                             Day Target (÷{todayRef.daysInMonth})
                                         </th>
                                         <th className="px-6 py-2 text-center bg-blue-500/5 text-emerald-500/80">Day Achieved (÷{todayRef.daysInMonth})</th>
-                                        <th className="px-6 py-2 text-center border-l border-gray-800/40 bg-orange-500/5 text-orange-400/80">Today's Target (Daily Tracking)</th>
+                                        <th className="px-6 py-2 text-center border-l border-gray-800/40 bg-orange-500/5 text-orange-400/80">Today's Target (Daily Collection)</th>
                                         <th className="px-6 py-2 text-center bg-orange-500/5 text-purple-500/80">Day Actual (Excl. GST)</th>
                                     </tr>
                                 </thead>
@@ -846,27 +880,43 @@ const ComparisonAnalysis = () => {
 
                                                     {/* Prev year day target — divided by actual month days */}
                                                     <td className="px-6 py-4 text-center border-l border-gray-800/40 bg-blue-500/5">
-                                                        <div className="text-blue-400 font-bold">₹{Math.round(row.prevYearDayTarget).toLocaleString()}</div>
-                                                        <div className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                            target ÷{row.daysInMonth || todayRef.daysInMonth} days
+                                                        <div className="text-blue-400 font-bold">
+                                                            {Math.round(row.prevYearDayTarget) > 0 ? `₹${Math.round(row.prevYearDayTarget).toLocaleString()}` : '0'}
                                                         </div>
+                                                        {Math.round(row.prevYearDayTarget) > 0 && (
+                                                            <div className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                                target ÷{row.daysInMonth || todayRef.daysInMonth} days
+                                                            </div>
+                                                        )}
                                                     </td>
 
                                                     {/* Prev year day achieved — divided by actual month days */}
                                                     <td className="px-6 py-4 text-center bg-blue-500/5">
-                                                        <div className="text-emerald-500 font-bold">₹{Math.round(row.prevYearDayAmt).toLocaleString()}</div>
-                                                        <div className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
-                                                            achieved ÷{row.daysInMonth || todayRef.daysInMonth} days
+                                                        <div className="text-emerald-500 font-bold">
+                                                            {Math.round(row.prevYearDayAmt) > 0 ? `₹${Math.round(row.prevYearDayAmt).toLocaleString()}` : '0'}
                                                         </div>
+                                                        {Math.round(row.prevYearDayAmt) > 0 && (
+                                                            <div className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                                achieved ÷{row.daysInMonth || todayRef.daysInMonth} days
+                                                            </div>
+                                                        )}
                                                     </td>
 
                                                     {/* Current year day target — from DailyTarget (daily tracking system) */}
                                                     <td className="px-6 py-4 text-center border-l border-gray-800/40 bg-orange-500/5">
-                                                        <div className="text-orange-400 font-bold">₹{Math.round(row.currYearTarget).toLocaleString()}</div>
-                                                        {row.hasDailyTarget ? (
-                                                            <div className="text-[10px] font-bold mt-0.5 text-green-500">
-                                                                ✓ Daily Tracking Target
-                                                            </div>
+                                                        <div className="text-orange-400 font-bold">
+                                                            {Math.round(row.currYearTarget) > 0 ? `₹${Math.round(row.currYearTarget).toLocaleString()}` : '0'}
+                                                        </div>
+                                                        {row.currYearTarget > 0 ? (
+                                                            row.hasDailyTarget ? (
+                                                                <div className="text-[10px] font-bold mt-0.5 text-green-500">
+                                                                    ✓ Daily Collection Target
+                                                                </div>
+                                                            ) : (
+                                                                <div className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
+                                                                    not set
+                                                                </div>
+                                                            )
                                                         ) : (
                                                             <div className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-gray-600' : 'text-gray-400'}`}>
                                                                 not set
@@ -876,10 +926,18 @@ const ComparisonAnalysis = () => {
 
                                                     {/* Current year day actual — excl. GST */}
                                                     <td className="px-6 py-4 text-center bg-orange-500/5">
-                                                        <div className="text-purple-500 font-bold">₹{Math.round(row.currYearDayAmt).toLocaleString()}</div>
-                                                        <div className={`text-[10px] font-bold mt-0.5 ${parseFloat(pctOfDayTarget) >= 100 ? 'text-green-500' : parseFloat(pctOfDayTarget) >= 75 ? 'text-yellow-500' : 'text-red-500'}`}>
-                                                            {pctOfDayTarget}% · excl.GST
+                                                        <div className="text-purple-500 font-bold">
+                                                            {Math.round(row.currYearDayAmt) > 0 ? `₹${Math.round(row.currYearDayAmt).toLocaleString()}` : '0'}
                                                         </div>
+                                                        {row.currYearDayAmt > 0 && currDayTarget > 0 ? (
+                                                            <div className={`text-[10px] font-bold mt-0.5 ${parseFloat(pctOfDayTarget) >= 100 ? 'text-green-500' : parseFloat(pctOfDayTarget) >= 75 ? 'text-yellow-500' : 'text-red-500'}`}>
+                                                                {pctOfDayTarget}% · excl.GST
+                                                            </div>
+                                                        ) : row.currYearDayAmt > 0 ? (
+                                                            <div className={`text-[10px] font-semibold mt-0.5 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                                                excl.GST
+                                                            </div>
+                                                        ) : null}
                                                     </td>
 
                                                     {/* Target Growth % */}
