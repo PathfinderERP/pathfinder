@@ -2,6 +2,7 @@ import CentreTarget from "../../models/Sales/CentreTarget.js";
 import Centre from "../../models/Master_data/Centre.js";
 import DailyTarget from "../../models/Sales/DailyTarget.js";
 import { calculateCentreTargetAchieved } from "../../services/centreTargetService.js";
+import { getDailyCollectionReportData } from "../../services/dailyCollectionService.js";
 
 const standardMonths = [
     "April", "May", "June", "July", "August", "September", 
@@ -267,16 +268,17 @@ export const getDayWiseComparison = async (req, res) => {
 
         const centres = await Centre.find(centreQuery).sort({ centreName: 1 });
 
-        // -- Fetch today's DailyTarget entries in one query --
-        const dailyTargets = await DailyTarget.find({
-            centre: { $in: centres.map(c => c._id) },
-            date: todayDate
-        }).lean();
-
-        const dailyTargetMap = {};
-        dailyTargets.forEach(dt => {
-            dailyTargetMap[dt.centre.toString()] = dt.targetAmount || 0;
-        });
+        // -- Fetch targets from Daily Collection module (same dynamic targets as daily collection report) --
+        let dailyCollectionTargets = {};
+        try {
+            const dailyReport = await getDailyCollectionReportData({
+                query: { date: todayISTStr, centreIds, zoneIds },
+                user: req.user
+            });
+            dailyCollectionTargets = dailyReport.centreTargets || {};
+        } catch (err) {
+            console.error("Error fetching daily collection targets in getDayWiseComparison:", err);
+        }
 
         // -- Fetch previous year's same month achievement from CentreTarget (FY 2025-2026) --
         const prevYearRecords = await CentreTarget.find({
@@ -287,10 +289,26 @@ export const getDayWiseComparison = async (req, res) => {
 
         const prevYearMap = {};
         prevYearRecords.forEach(r => {
+            const hasAchieved = (r.achievedAmount && r.achievedAmount > 0);
             prevYearMap[r.centre.toString()] = {
                 target: r.targetAmount || 0,
-                // Use excl-GST achievement; fall back to achievedAmount ÷ 1.18 if not stored separately
-                achievedExcl: r.achievedAmountExclGST || (r.achievedAmount ? r.achievedAmount / 1.18 : 0)
+                // Only use achievedExcl if achievedAmount > 0; if achievedAmount is 0, achievement is 0!
+                achievedExcl: hasAchieved ? (r.achievedAmountExclGST || (r.achievedAmount / 1.18)) : 0
+            };
+        });
+
+        // -- Fetch current year's month target from CentreTarget (FY 2026-2027) --
+        const currYearRecords = await CentreTarget.find({
+            centre: { $in: centres.map(c => c._id) },
+            financialYear: '2026-2027',
+            month: todayMonthName
+        }).lean();
+
+        const currYearMap = {};
+        currYearRecords.forEach(r => {
+            currYearMap[r.centre.toString()] = {
+                target: r.targetAmount || 0,
+                achievedAmount: r.achievedAmount || 0
             };
         });
 
@@ -299,15 +317,25 @@ export const getDayWiseComparison = async (req, res) => {
         for (const centre of centres) {
             const cid = centre._id.toString();
 
-            // Today's set target from daily tracking system
-            const currDayTarget = dailyTargetMap[cid] || 0;
-
-            // Today's live achievement — excl. GST (matches how targets are set)
-            const achievedResult = await calculateCentreTargetAchieved(centre.centreName, todayMonthName, todayYear, todayISTStr, todayISTStr);
-            const currDayActual = achievedResult.totalExclGST || 0;
+            // Match today's target from daily collection module
+            const cleanName = (centre.centreName || "").trim().toLowerCase();
+            const matchKey = Object.keys(dailyCollectionTargets).find(k => k.trim().toLowerCase() === cleanName);
+            let currDayTarget = matchKey ? (dailyCollectionTargets[matchKey] || 0) : 0;
 
             // Previous year data (pro-rating done on frontend)
             const prev = prevYearMap[cid] || { target: 0, achievedExcl: 0 };
+            const currMonth = currYearMap[cid] || { target: 0, achievedAmount: 0 };
+
+            // Today's live achievement — excl. GST (matches how targets are set)
+            const achievedResult = await calculateCentreTargetAchieved(centre.centreName, todayMonthName, todayYear, todayISTStr, todayISTStr);
+            let currDayActual = achievedResult.totalExclGST || 0;
+
+            // If in month-wise for current year the centre has 0 target and 0 achievement,
+            // do not show day target and day achievement in day-wise
+            if (currMonth.target === 0 && currMonth.achievedAmount === 0) {
+                currDayTarget = 0;
+                currDayActual = 0;
+            }
 
             data.push({
                 centre: { _id: centre._id, centreName: centre.centreName },
