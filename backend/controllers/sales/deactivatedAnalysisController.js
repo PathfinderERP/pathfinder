@@ -150,19 +150,26 @@ export const getDeactivatedAnalysis = async (req, res) => {
         const fyStartPrevYear = getISTDate(fyStartYear - 1, 3, 1, 0, 0, 0, 0);
         const fyEndPrevYear = getISTDate(fyStartYear, 2, 31, 23, 59, 59, 999);
 
-        // 2. Fetch Master Data
+        // 2. Fetch Master Data - Only ACTIVE Centres
         const [masterCentres, masterZones, masterDepartments] = await Promise.all([
-            Centre.find({ status: { $ne: "deactive" } }).select("centreName enterCode").lean(),
-            Zone.find({ isActive: true }).select("name centres").populate("centres", "centreName").lean(),
+            Centre.find({ status: { $ne: "deactive" } }).select("centreName enterCode status").lean(),
+            Zone.find({ isActive: true }).select("name centres").populate("centres", "centreName status").lean(),
             Department.find().select("departmentName").lean()
         ]);
+
+        // Build Set of valid Active Centre names (excluding franchised / external special formats)
+        const activeCentresSet = new Set(
+            masterCentres
+                .map(c => (c.centreName || "").toUpperCase().trim())
+                .filter(c => c && !c.match(/phsps|franchise|rkm/i))
+        );
 
         // Map centreName -> zoneName
         const centreZoneMap = {};
         masterZones.forEach(z => {
             (z.centres || []).forEach(c => {
                 const cName = (c.centreName || "").toUpperCase().trim();
-                if (cName) centreZoneMap[cName] = z.name;
+                if (cName && activeCentresSet.has(cName)) centreZoneMap[cName] = z.name;
             });
         });
 
@@ -181,31 +188,33 @@ export const getDeactivatedAnalysis = async (req, res) => {
                     const matched = masterCentres.find(mc => mc._id.toString() === id.toString());
                     return matched ? matched.centreName.toUpperCase().trim() : null;
                 })
-                .filter(Boolean);
+                .filter(c => c && activeCentresSet.has(c));
         }
 
-        // Filter Centres by requested zones/centres
+        // Filter Centres by requested zones/centres strictly from active centres
         let filterCentresList = null;
         if (requestedCentres) {
-            filterCentresList = (typeof requestedCentres === "string" ? requestedCentres.split(",") : requestedCentres)
+            const requested = (typeof requestedCentres === "string" ? requestedCentres.split(",") : requestedCentres)
                 .map(c => c.toUpperCase().trim())
                 .filter(Boolean);
+            filterCentresList = requested.filter(c => activeCentresSet.has(c));
         } else if (requestedZones) {
             const zoneIds = (typeof requestedZones === "string" ? requestedZones.split(",") : requestedZones).map(z => z.trim());
             const matchedZones = masterZones.filter(z => zoneIds.includes(z._id.toString()) || zoneIds.includes(z.name));
             filterCentresList = matchedZones
                 .flatMap(z => (z.centres || []).map(c => (c.centreName || "").toUpperCase().trim()))
-                .filter(Boolean);
+                .filter(c => activeCentresSet.has(c));
+        } else {
+            filterCentresList = Array.from(activeCentresSet);
         }
 
         // Apply role restriction
         if (allowedCentreNames !== null) {
-            if (filterCentresList !== null) {
-                filterCentresList = filterCentresList.filter(c => allowedCentreNames.includes(c));
-            } else {
-                filterCentresList = allowedCentreNames;
-            }
+            filterCentresList = filterCentresList.filter(c => allowedCentreNames.includes(c));
         }
+
+        const activeFilterSet = new Set(filterCentresList);
+        const centresToDisplay = filterCentresList;
 
         // 3. Query All Admissions (Normal + Board) with Deactivation Indicators
         const sessionFilter = session ? { session: session } : {};
@@ -368,11 +377,7 @@ export const getDeactivatedAnalysis = async (req, res) => {
         const deptSet = new Set();
         const centreRowsMap = {};
 
-        // Pre-populate with all allowed centres
-        const centresToDisplay = filterCentresList !== null
-            ? filterCentresList
-            : masterCentres.map(c => c.centreName.toUpperCase().trim()).filter(c => !c.match(/phsps|franchise|rkm/i));
-
+        // Pre-populate with all allowed active centres
         centresToDisplay.forEach(cName => {
             if (!cName) return;
             centreRowsMap[cName] = {
@@ -395,32 +400,31 @@ export const getDeactivatedAnalysis = async (req, res) => {
 
         // Process all admissions
         for (const item of allAdmissions) {
-            const cName = item.centre || "UNSPECIFIED";
+            const cName = item.centre || "";
+
+            // CRITICAL: Strictly skip admissions that do not belong to active centres
+            if (!activeFilterSet.has(cName)) {
+                continue;
+            }
+
             const admDate = item.effectiveAdmissionDate ? new Date(item.effectiveAdmissionDate) : null;
             const deactDate = item.effectiveDeactivationDate ? new Date(item.effectiveDeactivationDate) : null;
             const isDeact = Boolean(item.isDeactivated);
             const dept = resolveDeptName(item);
             const studentKey = getCanonicalStudentKey(item);
 
-            // Compute global monthly/yearly benchmarks across allowed centres
-            if (filterCentresList === null || filterCentresList.includes(cName)) {
-                if (admDate) {
-                    if (admDate >= thisMonthStart && admDate <= thisMonthEnd) thisMonthAdmittedSet.add(studentKey);
-                    if (admDate >= prevMonthStart && admDate <= prevMonthEnd) prevMonthAdmittedSet.add(studentKey);
-                    if (admDate >= fyStartThisYear && admDate <= fyEndThisYear) thisYearAdmittedSet.add(studentKey);
-                    if (admDate >= fyStartPrevYear && admDate <= fyEndPrevYear) prevYearAdmittedSet.add(studentKey);
-                }
-                if (isDeact && deactDate) {
-                    if (deactDate >= thisMonthStart && deactDate <= thisMonthEnd) thisMonthDeactivatedSet.add(studentKey);
-                    if (deactDate >= prevMonthStart && deactDate <= prevMonthEnd) prevMonthDeactivatedSet.add(studentKey);
-                    if (deactDate >= fyStartThisYear && deactDate <= fyEndThisYear) thisYearDeactivatedSet.add(studentKey);
-                    if (deactDate >= fyStartPrevYear && deactDate <= fyEndPrevYear) prevYearDeactivatedSet.add(studentKey);
-                }
+            // Compute global monthly/yearly benchmarks across active centres
+            if (admDate) {
+                if (admDate >= thisMonthStart && admDate <= thisMonthEnd) thisMonthAdmittedSet.add(studentKey);
+                if (admDate >= prevMonthStart && admDate <= prevMonthEnd) prevMonthAdmittedSet.add(studentKey);
+                if (admDate >= fyStartThisYear && admDate <= fyEndThisYear) thisYearAdmittedSet.add(studentKey);
+                if (admDate >= fyStartPrevYear && admDate <= fyEndPrevYear) prevYearAdmittedSet.add(studentKey);
             }
-
-            // Apply Centre Filter for selected period matrix
-            if (filterCentresList !== null && !filterCentresList.includes(cName)) {
-                continue;
+            if (isDeact && deactDate) {
+                if (deactDate >= thisMonthStart && deactDate <= thisMonthEnd) thisMonthDeactivatedSet.add(studentKey);
+                if (deactDate >= prevMonthStart && deactDate <= prevMonthEnd) prevMonthDeactivatedSet.add(studentKey);
+                if (deactDate >= fyStartThisYear && deactDate <= fyEndThisYear) thisYearDeactivatedSet.add(studentKey);
+                if (deactDate >= fyStartPrevYear && deactDate <= fyEndPrevYear) prevYearDeactivatedSet.add(studentKey);
             }
 
             // Check if record matches selected period filter
@@ -671,14 +675,24 @@ export const getDeactivatedStudentsList = async (req, res) => {
             year
         });
 
-        const normCentre = centre ? centre.toUpperCase().trim() : null;
+        // Fetch Active Centres and Department map
+        const [masterDepartments, activeCentresDocs] = await Promise.all([
+            Department.find().select("departmentName").lean(),
+            Centre.find({ status: { $ne: "deactive" } }).select("centreName").lean()
+        ]);
 
-        // Fetch Department map
-        const masterDepartments = await Department.find().select("departmentName").lean();
+        const activeCentresSet = new Set(
+            activeCentresDocs
+                .map(c => (c.centreName || "").toUpperCase().trim())
+                .filter(c => c && !c.match(/phsps|franchise|rkm/i))
+        );
+
         const deptMap = {};
         masterDepartments.forEach(d => {
             deptMap[d._id.toString()] = d.departmentName;
         });
+
+        const normCentre = centre ? centre.toUpperCase().trim() : null;
 
         // Query Normal Admissions
         const normalMatches = {
@@ -827,6 +841,9 @@ export const getDeactivatedStudentsList = async (req, res) => {
 
         for (const item of allRecords) {
             const resolvedDept = resolveDeptName(item);
+
+            // Strictly Active Centres only
+            if (!activeCentresSet.has(item.centre)) continue;
 
             // Filter Centre
             if (normCentre && normCentre !== "TOTAL" && item.centre !== normCentre) continue;

@@ -145,7 +145,7 @@ const DeactivatedAnalysis = () => {
             if (cRes.ok) {
                 const cData = await cRes.json();
                 const list = Array.isArray(cData) ? cData : (cData.data || []);
-                setCentres(list.filter(c => !c.centreName?.match(/phsps|franchise|rkm/i)));
+                setCentres(list.filter(c => c.status !== "deactive" && !c.centreName?.match(/phsps|franchise|rkm/i)));
             }
 
             if (zRes.ok) {
