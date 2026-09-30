@@ -6,7 +6,8 @@ import {
     FaShieldAlt, FaClock, FaCheckCircle, FaTimesCircle, FaBoxes, 
     FaSearch, FaFilter, FaSync, FaRegNewspaper, FaRegImage, 
     FaBuilding, FaUserTie, FaCheck, FaTimes, FaWarehouse, 
-    FaArrowLeft, FaCommentDots, FaEdit, FaSave, FaInfoCircle, FaExclamationTriangle
+    FaArrowLeft, FaCommentDots, FaEdit, FaSave, FaInfoCircle, FaExclamationTriangle,
+    FaShoppingBag, FaTshirt, FaBook, FaBookmark, FaBookOpen
 } from 'react-icons/fa';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
@@ -51,7 +52,11 @@ const MarketingApprovalPage = () => {
         approvedRequests: 0,
         rejectedRequests: 0,
         totalLeafletsDispatched: 0,
-        totalBannersDispatched: 0
+        totalBannersDispatched: 0,
+        totalBagsDispatched: 0,
+        totalTshirtsDispatched: 0,
+        totalKtsBooksDispatched: 0,
+        totalVsoBooksDispatched: 0
     });
 
     // Filters
@@ -65,6 +70,10 @@ const MarketingApprovalPage = () => {
     const [approvalForm, setApprovalForm] = useState({
         approvedLeaflets: 0,
         approvedBanners: 0,
+        approvedBags: 0,
+        approvedTshirts: 0,
+        approvedKtsBooks: 0,
+        approvedVsoBooks: 0,
         approverRemarks: ""
     });
     const [approving, setApproving] = useState(false);
@@ -85,7 +94,14 @@ const MarketingApprovalPage = () => {
 
     // Edit Bucket Modal (SuperAdmin only)
     const [editingBucket, setEditingBucket] = useState(null);
-    const [editBucketForm, setEditBucketForm] = useState({ leaflets: 0, banners: 0 });
+    const [editBucketForm, setEditBucketForm] = useState({ 
+        leaflets: 0, 
+        banners: 0,
+        bags: 0,
+        tshirts: 0,
+        ktsBooks: 0,
+        vsoBooks: 0
+    });
     const [savingBucketEdit, setSavingBucketEdit] = useState(false);
 
     // 1. Fetch Centres
@@ -163,8 +179,12 @@ const MarketingApprovalPage = () => {
     const handleOpenApproval = async (req) => {
         setSelectedReqForApproval(req);
         setApprovalForm({
-            approvedLeaflets: req.status === 'Approved' ? (req.approvedLeaflets !== undefined ? req.approvedLeaflets : req.leaflets) : (req.leaflets || ""),
-            approvedBanners: req.status === 'Approved' ? (req.approvedBanners !== undefined ? req.approvedBanners : req.banners) : (req.banners || ""),
+            approvedLeaflets: req.status === 'Approved' ? (req.approvedLeaflets !== undefined ? req.approvedLeaflets : (req.leaflets || 0)) : (req.leaflets || 0),
+            approvedBanners: req.status === 'Approved' ? (req.approvedBanners !== undefined ? req.approvedBanners : (req.banners || 0)) : (req.banners || 0),
+            approvedBags: req.status === 'Approved' ? (req.approvedBags !== undefined ? req.approvedBags : (req.bags || 0)) : (req.bags || 0),
+            approvedTshirts: req.status === 'Approved' ? (req.approvedTshirts !== undefined ? req.approvedTshirts : (req.tshirts || 0)) : (req.tshirts || 0),
+            approvedKtsBooks: req.status === 'Approved' ? (req.approvedKtsBooks !== undefined ? req.approvedKtsBooks : (req.ktsBooks || 0)) : (req.ktsBooks || 0),
+            approvedVsoBooks: req.status === 'Approved' ? (req.approvedVsoBooks !== undefined ? req.approvedVsoBooks : (req.vsoBooks || 0)) : (req.vsoBooks || 0),
             approverRemarks: req.approverRemarks || ""
         });
         setApproveModalOpen(true);
@@ -200,6 +220,10 @@ const MarketingApprovalPage = () => {
             const payload = {
                 approvedLeaflets: parseInt(approvalForm.approvedLeaflets, 10) || 0,
                 approvedBanners: parseInt(approvalForm.approvedBanners, 10) || 0,
+                approvedBags: parseInt(approvalForm.approvedBags, 10) || 0,
+                approvedTshirts: parseInt(approvalForm.approvedTshirts, 10) || 0,
+                approvedKtsBooks: parseInt(approvalForm.approvedKtsBooks, 10) || 0,
+                approvedVsoBooks: parseInt(approvalForm.approvedVsoBooks, 10) || 0,
                 approverRemarks: approvalForm.approverRemarks
             };
 
@@ -272,7 +296,11 @@ const MarketingApprovalPage = () => {
             const token = localStorage.getItem("token");
             const payload = {
                 leaflets: parseInt(editBucketForm.leaflets, 10) || 0,
-                banners: parseInt(editBucketForm.banners, 10) || 0
+                banners: parseInt(editBucketForm.banners, 10) || 0,
+                bags: parseInt(editBucketForm.bags, 10) || 0,
+                tshirts: parseInt(editBucketForm.tshirts, 10) || 0,
+                ktsBooks: parseInt(editBucketForm.ktsBooks, 10) || 0,
+                vsoBooks: parseInt(editBucketForm.vsoBooks, 10) || 0
             };
             const res = await axios.put(
                 `${import.meta.env.VITE_API_URL}/operations/marketing/bucket/${editingBucket.centreId}`,
@@ -450,6 +478,54 @@ const MarketingApprovalPage = () => {
                     </div>
                 </div>
 
+                {/* Dispatched Materials Summary Bar */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+                    <div className={`p-3.5 rounded-2xl border flex items-center gap-3 transition-all ${cardBg}`}>
+                        <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500">
+                            <FaBook className="text-base" />
+                        </div>
+                        <div>
+                            <div className="text-[10px] uppercase font-bold tracking-wider text-amber-500">KTS Books Dispatched</div>
+                            <div className="text-base font-black text-amber-400 tabular-nums">
+                                {(overviewStats.totalKtsBooksDispatched || 0).toLocaleString()} <span className="text-[10px] font-normal text-gray-400">Pcs</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className={`p-3.5 rounded-2xl border flex items-center gap-3 transition-all ${cardBg}`}>
+                        <div className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
+                            <FaBookmark className="text-base" />
+                        </div>
+                        <div>
+                            <div className="text-[10px] uppercase font-bold tracking-wider text-purple-400">VSO Books Dispatched</div>
+                            <div className="text-base font-black text-purple-300 tabular-nums">
+                                {(overviewStats.totalVsoBooksDispatched || 0).toLocaleString()} <span className="text-[10px] font-normal text-gray-400">Pcs</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className={`p-3.5 rounded-2xl border flex items-center gap-3 transition-all ${cardBg}`}>
+                        <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500">
+                            <FaShoppingBag className="text-base" />
+                        </div>
+                        <div>
+                            <div className="text-[10px] uppercase font-bold tracking-wider text-emerald-500">Bags Dispatched</div>
+                            <div className="text-base font-black text-emerald-400 tabular-nums">
+                                {(overviewStats.totalBagsDispatched || 0).toLocaleString()} <span className="text-[10px] font-normal text-gray-400">Pcs</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div className={`p-3.5 rounded-2xl border flex items-center gap-3 transition-all ${cardBg}`}>
+                        <div className="p-2 rounded-xl bg-violet-500/10 text-violet-400">
+                            <FaTshirt className="text-base" />
+                        </div>
+                        <div>
+                            <div className="text-[10px] uppercase font-bold tracking-wider text-violet-400">T-Shirts Dispatched</div>
+                            <div className="text-base font-black text-violet-300 tabular-nums">
+                                {(overviewStats.totalTshirtsDispatched || 0).toLocaleString()} <span className="text-[10px] font-normal text-gray-400">Pcs</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* ═══════════════════════════════════════════════════════════════════ */}
                 {/* FILTERS & SEARCH */}
                 {/* ═══════════════════════════════════════════════════════════════════ */}
@@ -586,17 +662,47 @@ const MarketingApprovalPage = () => {
 
                                             {/* Requested Material */}
                                             <td className="p-4">
-                                                <div className="flex flex-col gap-1">
+                                                <div className="flex flex-col gap-1.5">
+                                                    {req.ktsBooks > 0 && (
+                                                        <span className="text-xs font-bold text-amber-500 flex items-center gap-1.5">
+                                                            <FaBook className="text-[11px]" />
+                                                            {req.ktsBooks.toLocaleString()} KTS Books
+                                                        </span>
+                                                    )}
+                                                    {req.vsoBooks > 0 && (
+                                                        <span className="text-xs font-bold text-purple-400 flex items-center gap-1.5">
+                                                            <FaBookmark className="text-[11px]" />
+                                                            {req.vsoBooks.toLocaleString()} VSO Books
+                                                        </span>
+                                                    )}
+                                                    {req.bags > 0 && (
+                                                        <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                                                            <FaShoppingBag className="text-[11px]" />
+                                                            {req.bags.toLocaleString()} Bags
+                                                        </span>
+                                                    )}
+                                                    {req.tshirts > 0 && (
+                                                        <span className="text-xs font-bold text-violet-400 flex items-center gap-1.5">
+                                                            <FaTshirt className="text-[11px]" />
+                                                            {req.tshirts.toLocaleString()} T-Shirts
+                                                        </span>
+                                                    )}
                                                     {req.leaflets > 0 && (
-                                                        <span className="text-xs font-bold text-orange-500 flex items-center gap-1">
-                                                            <FaRegNewspaper className="text-[10px]" />
+                                                        <span className="text-xs font-bold text-orange-500 flex items-center gap-1.5">
+                                                            <FaRegNewspaper className="text-[11px]" />
                                                             {req.leaflets.toLocaleString()} Leaflets
                                                         </span>
                                                     )}
                                                     {req.banners > 0 && (
-                                                        <span className="text-xs font-bold text-blue-500 flex items-center gap-1">
-                                                            <FaRegImage className="text-[10px]" />
+                                                        <span className="text-xs font-bold text-blue-500 flex items-center gap-1.5">
+                                                            <FaRegImage className="text-[11px]" />
                                                             {req.banners.toLocaleString()} Banners
+                                                        </span>
+                                                    )}
+                                                    {!req.ktsBooks && !req.vsoBooks && !req.bags && !req.tshirts && !req.leaflets && !req.banners && req.quantity > 0 && (
+                                                        <span className="text-xs font-bold text-gray-300 flex items-center gap-1.5">
+                                                            <FaBoxes className="text-[11px]" />
+                                                            {req.quantity} {req.itemType || 'Pcs'}
                                                         </span>
                                                     )}
                                                 </div>
@@ -606,12 +712,41 @@ const MarketingApprovalPage = () => {
                                             <td className="p-4">
                                                 {req.status === 'Approved' ? (
                                                     <div className="flex flex-col gap-1">
-                                                        <span className="text-xs font-black text-green-500">
-                                                            {req.approvedLeaflets || 0} Leaflets
-                                                        </span>
-                                                        <span className="text-xs font-black text-green-500">
-                                                            {req.approvedBanners || 0} Banners
-                                                        </span>
+                                                        {req.approvedKtsBooks > 0 && (
+                                                            <span className="text-xs font-black text-green-500">
+                                                                {req.approvedKtsBooks.toLocaleString()} KTS Books
+                                                            </span>
+                                                        )}
+                                                        {req.approvedVsoBooks > 0 && (
+                                                            <span className="text-xs font-black text-green-500">
+                                                                {req.approvedVsoBooks.toLocaleString()} VSO Books
+                                                            </span>
+                                                        )}
+                                                        {req.approvedBags > 0 && (
+                                                            <span className="text-xs font-black text-green-500">
+                                                                {req.approvedBags.toLocaleString()} Bags
+                                                            </span>
+                                                        )}
+                                                        {req.approvedTshirts > 0 && (
+                                                            <span className="text-xs font-black text-green-500">
+                                                                {req.approvedTshirts.toLocaleString()} T-Shirts
+                                                            </span>
+                                                        )}
+                                                        {req.approvedLeaflets > 0 && (
+                                                            <span className="text-xs font-black text-green-500">
+                                                                {req.approvedLeaflets.toLocaleString()} Leaflets
+                                                            </span>
+                                                        )}
+                                                        {req.approvedBanners > 0 && (
+                                                            <span className="text-xs font-black text-green-500">
+                                                                {req.approvedBanners.toLocaleString()} Banners
+                                                            </span>
+                                                        )}
+                                                        {!(req.approvedKtsBooks > 0) && !(req.approvedVsoBooks > 0) && !(req.approvedBags > 0) && !(req.approvedTshirts > 0) && !(req.approvedLeaflets > 0) && !(req.approvedBanners > 0) && (
+                                                            <span className="text-xs font-black text-green-500">
+                                                                {req.approvedQuantity || req.quantity || 0} {req.itemType || 'Pcs'}
+                                                            </span>
+                                                        )}
                                                         {req.approvedBy?.name && (
                                                             <span className="text-[10px] text-gray-400">
                                                                 By: {req.approvedBy.name}
@@ -761,59 +896,191 @@ const MarketingApprovalPage = () => {
                                     </span>
                                     {loadingReqBucket && <FaSync className="animate-spin text-xs text-orange-500" />}
                                 </div>
-                                <div className="grid grid-cols-2 gap-4 text-center">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 text-center">
                                     <div className="p-2 rounded-xl bg-orange-500/10">
-                                        <span className="text-[10px] text-gray-400 font-bold uppercase">Leaflets in Hand</span>
-                                        <p className="text-xl font-black text-orange-500">{selectedReqBucket?.leaflets || 0}</p>
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase">Leaflets</span>
+                                        <p className="text-base font-black text-orange-500">{(selectedReqBucket?.leaflets || 0).toLocaleString()}</p>
                                     </div>
                                     <div className="p-2 rounded-xl bg-blue-500/10">
-                                        <span className="text-[10px] text-gray-400 font-bold uppercase">Banners in Hand</span>
-                                        <p className="text-xl font-black text-blue-500">{selectedReqBucket?.banners || 0}</p>
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase">Banners</span>
+                                        <p className="text-base font-black text-blue-500">{(selectedReqBucket?.banners || 0).toLocaleString()}</p>
+                                    </div>
+                                    <div className="p-2 rounded-xl bg-emerald-500/10">
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase">Bags</span>
+                                        <p className="text-base font-black text-emerald-400">{(selectedReqBucket?.bags || 0).toLocaleString()}</p>
+                                    </div>
+                                    <div className="p-2 rounded-xl bg-violet-500/10">
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase">T-Shirts</span>
+                                        <p className="text-base font-black text-violet-300">{(selectedReqBucket?.tshirts || 0).toLocaleString()}</p>
+                                    </div>
+                                    <div className="p-2 rounded-xl bg-amber-500/10">
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase">KTS Books</span>
+                                        <p className="text-base font-black text-amber-400">{(selectedReqBucket?.ktsBooks || 0).toLocaleString()}</p>
+                                    </div>
+                                    <div className="p-2 rounded-xl bg-purple-500/10">
+                                        <span className="text-[10px] text-gray-400 font-bold uppercase">VSO Books</span>
+                                        <p className="text-base font-black text-purple-300">{(selectedReqBucket?.vsoBooks || 0).toLocaleString()}</p>
                                     </div>
                                 </div>
                             </div>
 
                             <form onSubmit={handleSubmitApproval} noValidate className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    {/* Approved Leaflets */}
-                                    <div>
-                                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
-                                            Approved Leaflets
-                                        </label>
-                                        <input
-                                            type="number"
-                                            placeholder="0"
-                                            value={approvalForm.approvedLeaflets}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setApprovalForm({ ...approvalForm, approvedLeaflets: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
-                                            }}
-                                            min="0"
-                                            step="1"
-                                            className={`w-full p-3 rounded-xl font-black text-lg outline-none border transition-all ${inputBg}`}
-                                        />
-                                        <span className="text-[10px] text-gray-400">Requested: {selectedReqForApproval.leaflets}</span>
-                                    </div>
+                                <div className="space-y-3">
+                                    {/* KTS Books Approval */}
+                                    {(selectedReqForApproval.ktsBooks > 0 || selectedReqForApproval.bookType === 'KTS Books' || selectedReqForApproval.itemType === 'KTS Books') && (
+                                        <div className="p-3 rounded-2xl bg-amber-500/5 border border-amber-500/20">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="text-xs font-bold uppercase tracking-wider text-amber-500 flex items-center gap-1.5">
+                                                    <FaBook className="text-xs" /> Approved KTS Books
+                                                </label>
+                                                <span className="text-[11px] font-bold text-amber-400">
+                                                    Requested: {selectedReqForApproval.ktsBooks || selectedReqForApproval.quantity || 0} Pcs
+                                                </span>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                value={approvalForm.approvedKtsBooks}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setApprovalForm({ ...approvalForm, approvedKtsBooks: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                                }}
+                                                min="0"
+                                                step="1"
+                                                className={`w-full p-2.5 rounded-xl font-black text-lg outline-none border transition-all ${inputBg}`}
+                                            />
+                                        </div>
+                                    )}
 
-                                    {/* Approved Banners */}
-                                    <div>
-                                        <label className="block text-xs font-bold uppercase tracking-wider text-gray-500 mb-1">
-                                            Approved Banners
-                                        </label>
-                                        <input
-                                            type="number"
-                                            placeholder="0"
-                                            value={approvalForm.approvedBanners}
-                                            onChange={(e) => {
-                                                const val = e.target.value;
-                                                setApprovalForm({ ...approvalForm, approvedBanners: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
-                                            }}
-                                            min="0"
-                                            step="1"
-                                            className={`w-full p-3 rounded-xl font-black text-lg outline-none border transition-all ${inputBg}`}
-                                        />
-                                        <span className="text-[10px] text-gray-400">Requested: {selectedReqForApproval.banners}</span>
-                                    </div>
+                                    {/* VSO Books Approval */}
+                                    {(selectedReqForApproval.vsoBooks > 0 || selectedReqForApproval.bookType === 'VSO Books' || selectedReqForApproval.itemType === 'VSO Books') && (
+                                        <div className="p-3 rounded-2xl bg-purple-500/5 border border-purple-500/20">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="text-xs font-bold uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                                                    <FaBookmark className="text-xs" /> Approved VSO Books
+                                                </label>
+                                                <span className="text-[11px] font-bold text-purple-300">
+                                                    Requested: {selectedReqForApproval.vsoBooks || selectedReqForApproval.quantity || 0} Pcs
+                                                </span>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                value={approvalForm.approvedVsoBooks}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setApprovalForm({ ...approvalForm, approvedVsoBooks: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                                }}
+                                                min="0"
+                                                step="1"
+                                                className={`w-full p-2.5 rounded-xl font-black text-lg outline-none border transition-all ${inputBg}`}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Bags Approval */}
+                                    {(selectedReqForApproval.bags > 0 || selectedReqForApproval.itemType === 'Bags') && (
+                                        <div className="p-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/20">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="text-xs font-bold uppercase tracking-wider text-emerald-400 flex items-center gap-1.5">
+                                                    <FaShoppingBag className="text-xs" /> Approved Bags
+                                                </label>
+                                                <span className="text-[11px] font-bold text-emerald-400">
+                                                    Requested: {selectedReqForApproval.bags || selectedReqForApproval.quantity || 0} Pcs
+                                                </span>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                value={approvalForm.approvedBags}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setApprovalForm({ ...approvalForm, approvedBags: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                                }}
+                                                min="0"
+                                                step="1"
+                                                className={`w-full p-2.5 rounded-xl font-black text-lg outline-none border transition-all ${inputBg}`}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* T-Shirts Approval */}
+                                    {(selectedReqForApproval.tshirts > 0 || selectedReqForApproval.itemType === 'T-Shirts') && (
+                                        <div className="p-3 rounded-2xl bg-violet-500/5 border border-violet-500/20">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="text-xs font-bold uppercase tracking-wider text-violet-400 flex items-center gap-1.5">
+                                                    <FaTshirt className="text-xs" /> Approved T-Shirts
+                                                </label>
+                                                <span className="text-[11px] font-bold text-violet-300">
+                                                    Requested: {selectedReqForApproval.tshirts || selectedReqForApproval.quantity || 0} Pcs
+                                                </span>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                value={approvalForm.approvedTshirts}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setApprovalForm({ ...approvalForm, approvedTshirts: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                                }}
+                                                min="0"
+                                                step="1"
+                                                className={`w-full p-2.5 rounded-xl font-black text-lg outline-none border transition-all ${inputBg}`}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Leaflets Approval */}
+                                    {(selectedReqForApproval.leaflets > 0 || selectedReqForApproval.itemType === 'Leaflets' || (!selectedReqForApproval.itemType && !selectedReqForApproval.ktsBooks && !selectedReqForApproval.vsoBooks && !selectedReqForApproval.bags && !selectedReqForApproval.tshirts && !selectedReqForApproval.banners)) && (
+                                        <div>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="block text-xs font-bold uppercase tracking-wider text-orange-500">
+                                                    Approved Leaflets
+                                                </label>
+                                                <span className="text-[10px] text-gray-400">
+                                                    Requested: {selectedReqForApproval.leaflets || selectedReqForApproval.quantity || 0}
+                                                </span>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                value={approvalForm.approvedLeaflets}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setApprovalForm({ ...approvalForm, approvedLeaflets: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                                }}
+                                                min="0"
+                                                step="1"
+                                                className={`w-full p-3 rounded-xl font-black text-lg outline-none border transition-all ${inputBg}`}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Banners Approval */}
+                                    {(selectedReqForApproval.banners > 0 || selectedReqForApproval.itemType === 'Banners') && (
+                                        <div>
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="block text-xs font-bold uppercase tracking-wider text-blue-500">
+                                                    Approved Banners
+                                                </label>
+                                                <span className="text-[10px] text-gray-400">
+                                                    Requested: {selectedReqForApproval.banners || selectedReqForApproval.quantity || 0}
+                                                </span>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                value={approvalForm.approvedBanners}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setApprovalForm({ ...approvalForm, approvedBanners: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                                }}
+                                                min="0"
+                                                step="1"
+                                                className={`w-full p-3 rounded-xl font-black text-lg outline-none border transition-all ${inputBg}`}
+                                            />
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Remarks */}
@@ -884,7 +1151,7 @@ const MarketingApprovalPage = () => {
                                 <div className="mb-4 p-3 rounded-2xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs flex items-start gap-2.5">
                                     <FaExclamationTriangle className="text-base shrink-0 mt-0.5 text-red-400" />
                                     <span>
-                                        <strong>Reversal Warning:</strong> This request was previously approved ({selectedReqForRejection.approvedLeaflets || 0} leaflets, {selectedReqForRejection.approvedBanners || 0} banners). Rejecting it now will deduct these quantities from <strong>{selectedReqForRejection.centreName}</strong>'s bucket stock.
+                                        <strong>Reversal Warning:</strong> This request was previously approved. Rejecting it now will deduct the approved material quantities from <strong>{selectedReqForRejection.centreName}</strong>'s bucket stock.
                                     </span>
                                 </div>
                             )}
@@ -987,37 +1254,52 @@ const MarketingApprovalPage = () => {
                                         <thead className={`text-xs uppercase font-bold tracking-wider sticky top-0 ${isDarkMode ? 'bg-[#0d1117] text-gray-400' : 'bg-gray-100 text-gray-600'}`}>
                                             <tr>
                                                 <th className="p-3 rounded-tl-xl">Centre Name</th>
-                                                <th className="p-3 text-right">Leaflets in Bucket</th>
-                                                <th className="p-3 text-right">Banners in Bucket</th>
-                                                <th className="p-3 text-right">Lifetime Leaflets</th>
-                                                <th className="p-3 text-right">Lifetime Banners</th>
+                                                <th className="p-3 text-right">Leaflets</th>
+                                                <th className="p-3 text-right">Banners</th>
+                                                <th className="p-3 text-right">Bags</th>
+                                                <th className="p-3 text-right">T-Shirts</th>
+                                                <th className="p-3 text-right">KTS Books</th>
+                                                <th className="p-3 text-right">VSO Books</th>
                                                 {isSuperAdmin && <th className="p-3 text-center rounded-tr-xl">Action</th>}
                                             </tr>
                                         </thead>
                                         <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
                                             {filteredBuckets.map((b) => (
                                                 <tr key={b.centreId} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
-                                                    <td className="p-3 font-bold text-gray-200">
+                                                    <td className="p-3 font-bold text-gray-200 whitespace-nowrap">
                                                         {b.centreName}
                                                     </td>
-                                                    <td className="p-3 text-right font-black text-orange-500 tabular-nums text-base">
+                                                    <td className="p-3 text-right font-black text-orange-500 tabular-nums">
                                                         {(b.leaflets || 0).toLocaleString()}
                                                     </td>
-                                                    <td className="p-3 text-right font-black text-blue-500 tabular-nums text-base">
+                                                    <td className="p-3 text-right font-black text-blue-500 tabular-nums">
                                                         {(b.banners || 0).toLocaleString()}
                                                     </td>
-                                                    <td className="p-3 text-right text-xs text-gray-400 tabular-nums">
-                                                        {(b.totalLeafletsReceived || 0).toLocaleString()}
+                                                    <td className="p-3 text-right font-black text-emerald-400 tabular-nums">
+                                                        {(b.bags || 0).toLocaleString()}
                                                     </td>
-                                                    <td className="p-3 text-right text-xs text-gray-400 tabular-nums">
-                                                        {(b.totalBannersReceived || 0).toLocaleString()}
+                                                    <td className="p-3 text-right font-black text-violet-300 tabular-nums">
+                                                        {(b.tshirts || 0).toLocaleString()}
+                                                    </td>
+                                                    <td className="p-3 text-right font-black text-amber-400 tabular-nums">
+                                                        {(b.ktsBooks || 0).toLocaleString()}
+                                                    </td>
+                                                    <td className="p-3 text-right font-black text-purple-300 tabular-nums">
+                                                        {(b.vsoBooks || 0).toLocaleString()}
                                                     </td>
                                                     {isSuperAdmin && (
                                                         <td className="p-3 text-center">
                                                             <button
                                                                 onClick={() => {
                                                                     setEditingBucket(b);
-                                                                    setEditBucketForm({ leaflets: b.leaflets || 0, banners: b.banners || 0 });
+                                                                    setEditBucketForm({ 
+                                                                        leaflets: b.leaflets || 0, 
+                                                                        banners: b.banners || 0,
+                                                                        bags: b.bags || 0,
+                                                                        tshirts: b.tshirts || 0,
+                                                                        ktsBooks: b.ktsBooks || 0,
+                                                                        vsoBooks: b.vsoBooks || 0
+                                                                    });
                                                                 }}
                                                                 className="p-1.5 rounded-lg text-gray-400 hover:text-orange-400 hover:bg-orange-500/10 transition-all"
                                                                 title="Adjust bucket stock"
@@ -1050,7 +1332,7 @@ const MarketingApprovalPage = () => {
                 {/* ═══════════════════════════════════════════════════════════════════ */}
                 {editingBucket && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-                        <div className={`w-full max-w-sm rounded-3xl p-6 border shadow-2xl transition-all ${cardBg}`}>
+                        <div className={`w-full max-w-md rounded-3xl p-6 border shadow-2xl transition-all ${cardBg}`}>
                             <div className="flex items-center justify-between pb-3 mb-4 border-b border-gray-800">
                                 <h4 className="font-black text-sm">Adjust {editingBucket.centreName} Stock</h4>
                                 <button onClick={() => setEditingBucket(null)} className="text-gray-400 hover:text-white">
@@ -1059,34 +1341,96 @@ const MarketingApprovalPage = () => {
                             </div>
 
                             <form onSubmit={handleSaveBucketEdit} className="space-y-4">
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 mb-1">Leaflets Count</label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        placeholder="0"
-                                        value={editBucketForm.leaflets}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setEditBucketForm({ ...editBucketForm, leaflets: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
-                                        }}
-                                        className={`w-full p-2.5 rounded-xl font-bold border text-sm outline-none ${inputBg}`}
-                                    />
-                                </div>
+                                <div className="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-bold text-orange-500 mb-1">Leaflets</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            placeholder="0"
+                                            value={editBucketForm.leaflets}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEditBucketForm({ ...editBucketForm, leaflets: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                            }}
+                                            className={`w-full p-2.5 rounded-xl font-bold border text-sm outline-none ${inputBg}`}
+                                        />
+                                    </div>
 
-                                <div>
-                                    <label className="block text-xs font-bold text-gray-400 mb-1">Banners Count</label>
-                                    <input
-                                        type="number"
-                                        min="0"
-                                        placeholder="0"
-                                        value={editBucketForm.banners}
-                                        onChange={(e) => {
-                                            const val = e.target.value;
-                                            setEditBucketForm({ ...editBucketForm, banners: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
-                                        }}
-                                        className={`w-full p-2.5 rounded-xl font-bold border text-sm outline-none ${inputBg}`}
-                                    />
+                                    <div>
+                                        <label className="block text-xs font-bold text-blue-500 mb-1">Banners</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            placeholder="0"
+                                            value={editBucketForm.banners}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEditBucketForm({ ...editBucketForm, banners: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                            }}
+                                            className={`w-full p-2.5 rounded-xl font-bold border text-sm outline-none ${inputBg}`}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-emerald-400 mb-1">Bags</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            placeholder="0"
+                                            value={editBucketForm.bags}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEditBucketForm({ ...editBucketForm, bags: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                            }}
+                                            className={`w-full p-2.5 rounded-xl font-bold border text-sm outline-none ${inputBg}`}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-violet-400 mb-1">T-Shirts</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            placeholder="0"
+                                            value={editBucketForm.tshirts}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEditBucketForm({ ...editBucketForm, tshirts: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                            }}
+                                            className={`w-full p-2.5 rounded-xl font-bold border text-sm outline-none ${inputBg}`}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-amber-500 mb-1">KTS Books</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            placeholder="0"
+                                            value={editBucketForm.ktsBooks}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEditBucketForm({ ...editBucketForm, ktsBooks: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                            }}
+                                            className={`w-full p-2.5 rounded-xl font-bold border text-sm outline-none ${inputBg}`}
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-xs font-bold text-purple-400 mb-1">VSO Books</label>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            placeholder="0"
+                                            value={editBucketForm.vsoBooks}
+                                            onChange={(e) => {
+                                                const val = e.target.value;
+                                                setEditBucketForm({ ...editBucketForm, vsoBooks: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                            }}
+                                            className={`w-full p-2.5 rounded-xl font-bold border text-sm outline-none ${inputBg}`}
+                                        />
+                                    </div>
                                 </div>
 
                                 <div className="flex justify-end gap-2 pt-2">

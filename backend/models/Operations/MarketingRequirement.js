@@ -21,20 +21,51 @@ const marketingRequirementSchema = new mongoose.Schema({
     },
     leaflets: {
         type: Number,
-        required: true,
         default: 0,
         min: 0
     },
     banners: {
         type: Number,
-        required: true,
+        default: 0,
+        min: 0
+    },
+    bags: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    tshirts: {
+        type: Number,
         default: 0,
         min: 0
     },
     books: {
         type: Number,
-        required: false,
-        default: 0
+        default: 0,
+        min: 0
+    },
+    bookType: {
+        type: String,
+        default: ""
+    },
+    ktsBooks: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    vsoBooks: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    itemType: {
+        type: String,
+        default: ""
+    },
+    quantity: {
+        type: Number,
+        default: 0,
+        min: 0
     },
     purpose: {
         type: String,
@@ -50,6 +81,30 @@ const marketingRequirementSchema = new mongoose.Schema({
         default: 0
     },
     approvedBanners: {
+        type: Number,
+        default: 0
+    },
+    approvedBags: {
+        type: Number,
+        default: 0
+    },
+    approvedTshirts: {
+        type: Number,
+        default: 0
+    },
+    approvedKtsBooks: {
+        type: Number,
+        default: 0
+    },
+    approvedVsoBooks: {
+        type: Number,
+        default: 0
+    },
+    approvedBooks: {
+        type: Number,
+        default: 0
+    },
+    approvedQuantity: {
         type: Number,
         default: 0
     },

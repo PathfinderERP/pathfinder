@@ -21,11 +21,47 @@ const marketingCentreBucketSchema = new mongoose.Schema({
         default: 0,
         min: 0
     },
+    bags: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    tshirts: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    ktsBooks: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
+    vsoBooks: {
+        type: Number,
+        default: 0,
+        min: 0
+    },
     totalLeafletsReceived: {
         type: Number,
         default: 0
     },
     totalBannersReceived: {
+        type: Number,
+        default: 0
+    },
+    totalBagsReceived: {
+        type: Number,
+        default: 0
+    },
+    totalTshirtsReceived: {
+        type: Number,
+        default: 0
+    },
+    totalKtsBooksReceived: {
+        type: Number,
+        default: 0
+    },
+    totalVsoBooksReceived: {
         type: Number,
         default: 0
     },

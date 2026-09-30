@@ -2,6 +2,9 @@ import CashTransfer from "../../models/Finance/CashTransfer.js";
 import Payment from "../../models/Payment/Payment.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
+import PNTSEStudent from "../../models/PNTSEStudent.js";
+import PMOStudent from "../../models/PMOStudent.js";
+import Student from "../../models/Students.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import User from "../../models/User.js";
 import mongoose from "mongoose";
@@ -489,5 +492,283 @@ export const getCentreTransferDetails = async (req, res) => {
     } catch (error) {
         console.error("GET_CENTRE_TRANSFER_DETAILS_ERROR:", error);
         res.status(500).json({ message: "Error fetching centre transfer details", error: error.message });
+    }
+};
+
+// GET Student Cash Breakdown for a Cash Transfer
+export const getCashTransferStudents = async (req, res) => {
+    try {
+        const { transferId } = req.params;
+        const transfer = await CashTransfer.findById(transferId)
+            .populate("fromCentre", "centreName centreCode")
+            .populate("toCentre", "centreName centreCode");
+
+        if (!transfer) {
+            return res.status(404).json({ success: false, message: "Cash transfer record not found." });
+        }
+
+        const centre = transfer.fromCentre;
+        if (!centre) {
+            return res.status(404).json({ success: false, message: "Originating centre not found for this transfer." });
+        }
+
+        // Determine date range for this cash collection period
+        let startDate, endDate;
+        if (transfer.fromDate && transfer.toDate) {
+            startDate = new Date(transfer.fromDate);
+            startDate.setHours(0, 0, 0, 0);
+
+            endDate = new Date(transfer.toDate);
+            endDate.setHours(23, 59, 59, 999);
+        } else {
+            const baseDate = new Date(transfer.debitedDate || transfer.transferDate || transfer.createdAt);
+            startDate = new Date(baseDate);
+            startDate.setDate(startDate.getDate() - 30);
+            startDate.setHours(0, 0, 0, 0);
+
+            endDate = new Date(baseDate);
+            endDate.setHours(23, 59, 59, 999);
+        }
+
+        const centreRegex = new RegExp(`^${centre.centreName.trim()}$`, "i");
+
+        // 1. Gather all candidate IDs from Admission, BoardCourseAdmission, PNTSE, and PMO for this centre
+        const [centreAdmissions, centreBoardAdmissions, centrePntse, centrePmo] = await Promise.all([
+            Admission.find({
+                $or: [
+                    { centre: centreRegex },
+                    { primaryCentre: centre._id }
+                ]
+            }).select('_id'),
+            BoardCourseAdmission.find({ centre: centreRegex }).select('_id'),
+            PNTSEStudent.find({ centre: centre._id }).select('_id'),
+            PMOStudent.find({ centre: centre._id }).select('_id')
+        ]);
+
+        const centreTargetIds = [
+            ...centreAdmissions.map(a => a._id),
+            ...centreBoardAdmissions.map(b => b._id),
+            ...centrePntse.map(p => p._id),
+            ...centrePmo.map(m => m._id)
+        ];
+
+        const matchConditions = [
+            { paymentMethod: "CASH" },
+            { status: { $in: ["PAID", "PARTIAL"] } },
+            { paidAmount: { $gt: 0 } },
+            { effectiveDate: { $gte: startDate, $lte: endDate } },
+            {
+                $or: [
+                    { centre: centreRegex },
+                    { centre: centre._id.toString() },
+                    ...(centreTargetIds.length > 0 ? [{ admission: { $in: centreTargetIds } }] : [])
+                ]
+            }
+        ];
+
+        const payments = await Payment.aggregate([
+            {
+                $addFields: {
+                    effectiveDate: { $ifNull: ["$receivedDate", { $ifNull: ["$paidDate", "$createdAt"] }] }
+                }
+            },
+            {
+                $match: {
+                    $and: matchConditions
+                }
+            },
+            {
+                $sort: { effectiveDate: -1 }
+            }
+        ]);
+
+        // 2. Collect references from the retrieved payments to resolve student details
+        const admissionIds = payments.map(p => p.admission).filter(Boolean);
+        const paymentIds = payments.map(p => p._id);
+        const billIds = payments.map(p => p.billId).filter(Boolean);
+
+        const [admissions, boardAdmissions, pntseStudents, pmoStudents] = await Promise.all([
+            admissionIds.length > 0 ? Admission.find({
+                $or: [
+                    { _id: { $in: admissionIds } },
+                    { admissionNumber: { $in: billIds } }
+                ]
+            }).populate("student") : [],
+
+            admissionIds.length > 0 ? BoardCourseAdmission.find({
+                $or: [
+                    { _id: { $in: admissionIds } },
+                    { admissionNumber: { $in: billIds } }
+                ]
+            }).populate("studentId") : [],
+
+            PNTSEStudent.find({
+                $or: [
+                    ...(admissionIds.length > 0 ? [{ _id: { $in: admissionIds } }] : []),
+                    ...(billIds.length > 0 ? [{ billId: { $in: billIds } }] : []),
+                    { paymentId: { $in: paymentIds } }
+                ]
+            }),
+
+            PMOStudent.find({
+                $or: [
+                    ...(admissionIds.length > 0 ? [{ _id: { $in: admissionIds } }] : []),
+                    ...(billIds.length > 0 ? [{ billId: { $in: billIds } }] : []),
+                    { paymentId: { $in: paymentIds } }
+                ]
+            })
+        ]);
+
+        const infoMap = new Map();
+
+        // Standard ERP Admissions
+        admissions.forEach(a => {
+            const studentDoc = a.student;
+            const sName = studentDoc?.studentName || 
+                          studentDoc?.studentsDetails?.[0]?.studentName || 
+                          a.studentName || 
+                          "";
+            const enrollNo = a.admissionNumber || "";
+            const entry = { studentName: sName, enrollmentNo: enrollNo };
+            infoMap.set(a._id.toString(), entry);
+            if (a.admissionNumber) infoMap.set(a.admissionNumber, entry);
+        });
+
+        // Board Admissions
+        boardAdmissions.forEach(b => {
+            const sName = b.studentName || 
+                          b.studentId?.studentName || 
+                          b.studentId?.studentsDetails?.[0]?.studentName || 
+                          "";
+            const enrollNo = b.admissionNumber || "";
+            const entry = { studentName: sName, enrollmentNo: enrollNo };
+            infoMap.set(b._id.toString(), entry);
+            if (b.admissionNumber) infoMap.set(b.admissionNumber, entry);
+        });
+
+        // PNTSE Students
+        pntseStudents.forEach(p => {
+            const sName = p.name || p.studentName || "";
+            const enrollNo = p.rollNo || p.studentId || "";
+            const entry = { studentName: sName, enrollmentNo: enrollNo };
+            infoMap.set(p._id.toString(), entry);
+            if (p.billId) infoMap.set(p.billId, entry);
+            if (p.paymentId) infoMap.set(p.paymentId.toString(), entry);
+        });
+
+        // PMO Students
+        pmoStudents.forEach(p => {
+            const sName = p.name || p.studentName || "";
+            const enrollNo = p.rollNo || p.studentId || "";
+            const entry = { studentName: sName, enrollmentNo: enrollNo };
+            infoMap.set(p._id.toString(), entry);
+            if (p.billId) infoMap.set(p.billId, entry);
+            if (p.paymentId) infoMap.set(p.paymentId.toString(), entry);
+        });
+
+        // Query companion bills for admissions where payments have missing billId
+        const missingBillAdmissionIds = payments
+            .filter(p => (!p.billId || p.billId === "—") && p.admission)
+            .map(p => p.admission);
+
+        const companionBillsMap = new Map();
+        if (missingBillAdmissionIds.length > 0) {
+            try {
+                const companionPayments = await Payment.find({
+                    admission: { $in: missingBillAdmissionIds },
+                    billId: { $exists: true, $ne: null, $nin: ["", "—"] }
+                }).select("admission billId").lean();
+
+                companionPayments.forEach(cp => {
+                    const admKey = cp.admission.toString();
+                    if (!companionBillsMap.has(admKey)) {
+                        companionBillsMap.set(admKey, cp.billId);
+                    }
+                });
+            } catch (err) {
+                console.error("Error looking up companion bills:", err);
+            }
+        }
+
+        const studentPayments = payments.map(p => {
+            let matched = infoMap.get(p.admission?.toString()) ||
+                          infoMap.get(p.billId) ||
+                          infoMap.get(p._id?.toString());
+
+            let sName = matched?.studentName || "";
+            let enrollNo = matched?.enrollmentNo || "";
+
+            // Fallback 1: Extract from remarks (e.g. "PNTSE Registration Fee - MADHUSHREE SAHOO")
+            if (!sName && p.remarks) {
+                if (p.remarks.includes('-')) {
+                    const parts = p.remarks.split('-');
+                    const candidate = parts[parts.length - 1].trim();
+                    if (candidate && candidate.length > 1) {
+                        sName = candidate;
+                    }
+                } else if (/fee|student/i.test(p.remarks)) {
+                    sName = p.remarks.trim();
+                }
+            }
+
+            // Fallback 2: Check accountHolderName
+            if (!sName && p.accountHolderName && p.accountHolderName.trim()) {
+                sName = p.accountHolderName.trim();
+            }
+
+            // Final fallback defaults
+            if (!sName) {
+                sName = "Student";
+            }
+            if (!enrollNo) {
+                enrollNo = p.billId ? p.billId.replace(/PATH\/(CT|AB|HZ|MD|BK|SL)\//, '').split('/')[0] : "—";
+                if (!enrollNo || enrollNo === "—") enrollNo = "—";
+            }
+
+            // Resolve Bill Number
+            let billNumber = p.billId;
+            if (!billNumber || billNumber === "—") {
+                const companionBill = companionBillsMap.get(p.admission?.toString());
+                if (companionBill) {
+                    billNumber = `${companionBill} (Adj)`;
+                } else if (p.remarks && /manual.*adjustment/i.test(p.remarks)) {
+                    billNumber = enrollNo && enrollNo !== "—" ? `ADJ-${enrollNo}` : `ADJ-${p._id.toString().slice(-6)}`;
+                } else {
+                    billNumber = "—";
+                }
+            }
+
+            return {
+                _id: p._id,
+                receivingDate: p.receivedDate || p.paidDate || p.createdAt,
+                studentName: sName,
+                enrollmentNo: enrollNo,
+                billNo: billNumber || "—",
+                amount: p.paidAmount || 0,
+                installmentNumber: p.installmentNumber
+            };
+        });
+
+        const totalCalculated = studentPayments.reduce((sum, item) => sum + (item.amount || 0), 0);
+
+        return res.status(200).json({
+            success: true,
+            transfer: {
+                _id: transfer._id,
+                serialNumber: transfer.serialNumber,
+                amount: transfer.amount,
+                fromCentre: centre.centreName,
+                toCentre: transfer.toCentre?.centreName,
+                fromDate: transfer.fromDate,
+                toDate: transfer.toDate,
+                status: transfer.status
+            },
+            totalStudents: studentPayments.length,
+            totalCalculatedAmount: totalCalculated,
+            students: studentPayments
+        });
+    } catch (error) {
+        console.error("GET_CASH_TRANSFER_STUDENTS_ERROR:", error);
+        return res.status(500).json({ success: false, message: "Error fetching student cash breakdown", error: error.message });
     }
 };
