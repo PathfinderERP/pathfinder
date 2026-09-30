@@ -8,7 +8,8 @@ export const getMyProfile = async (req, res) => {
         const userId = req.user._id;
 
         const user = await User.findById(userId)
-            .populate("centres", "centreName enterCode")
+            .populate("centres", "centreName centreCode enterCode")
+            .populate("primaryCentre", "centreName centreCode")
             .populate("assignedScript")
             .select("-password"); // Exclude password from response
 
@@ -16,9 +17,12 @@ export const getMyProfile = async (req, res) => {
             return res.status(404).json({ message: "User not found" });
         }
 
-        // Fetch profile image and designation from Employee record
+        // Fetch profile image, designation, and primaryCentre from Employee record
         const userObj = user.toObject();
-        const employee = await Employee.findOne({ user: user._id }).populate("designation", "name");
+        const employee = await Employee.findOne({ user: user._id })
+            .populate("designation", "name")
+            .populate("primaryCentre", "centreName centreCode");
+
         if (employee) {
             if (employee.profileImage) {
                 userObj.profileImage = await getSignedFileUrl(employee.profileImage);
@@ -26,6 +30,29 @@ export const getMyProfile = async (req, res) => {
             // Attach designation name from Employee record (overrides any string in User model)
             if (employee.designation && employee.designation.name) {
                 userObj.designation = employee.designation.name;
+            }
+            if (employee.primaryCentre) {
+                userObj.primaryCentre = employee.primaryCentre;
+                userObj.centre = employee.primaryCentre;
+            }
+        }
+
+        // Fallback: If primaryCentre not on employee, check user.primaryCentre or Hazra in centres
+        if (!userObj.primaryCentre) {
+            if (user.primaryCentre) {
+                userObj.primaryCentre = user.primaryCentre;
+                userObj.centre = user.primaryCentre;
+            } else {
+                const hazra = (userObj.centres || []).find(c => 
+                    (c && typeof c === 'object' && c.centreName && c.centreName.toLowerCase().includes('hazra'))
+                );
+                if (hazra) {
+                    userObj.primaryCentre = hazra;
+                    userObj.centre = hazra;
+                } else if (userObj.centres && userObj.centres.length > 0) {
+                    userObj.primaryCentre = userObj.centres[0];
+                    userObj.centre = userObj.centres[0];
+                }
             }
         }
 

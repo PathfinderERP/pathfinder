@@ -416,28 +416,55 @@ const DailyTrackingLog = () => {
         };
 
         const initCentres = async () => {
+            let freshUser = currentUser;
+            try {
+                const res = await fetch(`${apiUrl}/profile/me`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (res.ok && data.user) {
+                    freshUser = data.user;
+                    localStorage.setItem("user", JSON.stringify(freshUser));
+                }
+            } catch (err) {
+                console.error("Failed to fetch fresh user profile:", err);
+            }
+
+            const primaryId = (freshUser.primaryCentre?._id || freshUser.primaryCentre || freshUser.centre?._id || freshUser.centre)?.toString();
+            const primaryName = (freshUser.primaryCentre?.centreName || freshUser.centre?.centreName || "").toLowerCase();
+
             if (isSuperAdmin) {
-                await fetchAllCentres();
-            } else {
-                let freshUser = currentUser;
                 try {
-                    const res = await fetch(`${apiUrl}/profile/me`, {
+                    const res = await fetch(`${apiUrl}/centre?status=active&fetchAll=true`, {
                         headers: { Authorization: `Bearer ${token}` }
                     });
                     const data = await res.json();
-                    if (res.ok && data.user) {
-                        freshUser = data.user;
-                        localStorage.setItem("user", JSON.stringify(freshUser));
+                    if (res.ok && Array.isArray(data)) {
+                        const sorted = [...data].sort((a, b) => {
+                            const aIsPrimary = (primaryId && a._id?.toString() === primaryId) || (primaryName && a.centreName?.toLowerCase() === primaryName) || a.centreName?.toLowerCase().includes("hazra");
+                            const bIsPrimary = (primaryId && b._id?.toString() === primaryId) || (primaryName && b.centreName?.toLowerCase() === primaryName) || b.centreName?.toLowerCase().includes("hazra");
+                            if (aIsPrimary && !bIsPrimary) return -1;
+                            if (!aIsPrimary && bIsPrimary) return 1;
+                            return (a.centreName || "").localeCompare(b.centreName || "");
+                        });
+                        setAvailableCentres(sorted);
                     }
                 } catch (err) {
-                    console.error("Failed to fetch fresh user profile:", err);
+                    console.error("Failed to fetch all centres:", err);
                 }
-
+            } else {
                 const userCentres = freshUser.centres || [];
-                if (freshUser.centre && !userCentres.some(c => c._id === (freshUser.centre._id || freshUser.centre))) {
+                if (freshUser.centre && !userCentres.some(c => (c._id || c)?.toString() === primaryId)) {
                     userCentres.push(typeof freshUser.centre === 'object' ? freshUser.centre : { _id: freshUser.centre, centreName: 'Primary Centre' });
                 }
-                setAvailableCentres(userCentres);
+                const sorted = [...userCentres].sort((a, b) => {
+                    const aIsPrimary = (primaryId && a._id?.toString() === primaryId) || (primaryName && a.centreName?.toLowerCase() === primaryName) || a.centreName?.toLowerCase().includes("hazra");
+                    const bIsPrimary = (primaryId && b._id?.toString() === primaryId) || (primaryName && b.centreName?.toLowerCase() === primaryName) || b.centreName?.toLowerCase().includes("hazra");
+                    if (aIsPrimary && !bIsPrimary) return -1;
+                    if (!aIsPrimary && bIsPrimary) return 1;
+                    return (a.centreName || "").localeCompare(b.centreName || "");
+                });
+                setAvailableCentres(sorted);
             }
         };
 
@@ -496,12 +523,25 @@ const DailyTrackingLog = () => {
     useEffect(() => {
         if (availableCentres.length > 0 && !selectedEntryCentre) {
             const userObj = JSON.parse(localStorage.getItem("user") || "{}");
-            const primaryId = userObj.centre?._id || userObj.centre;
-            const hasPrimary = availableCentres.some(c => c._id === primaryId);
-            if (hasPrimary) {
-                setSelectedEntryCentre(primaryId);
-            } else {
-                setSelectedEntryCentre(availableCentres[0]._id);
+            const primaryId = (userObj.primaryCentre?._id || userObj.primaryCentre || userObj.centre?._id || userObj.centre)?.toString();
+            const primaryName = (userObj.primaryCentre?.centreName || userObj.centre?.centreName || "").toLowerCase();
+
+            let matched = null;
+            if (primaryId) {
+                matched = availableCentres.find(c => c._id?.toString() === primaryId);
+            }
+            if (!matched && primaryName) {
+                matched = availableCentres.find(c => c.centreName?.toLowerCase() === primaryName);
+            }
+            if (!matched) {
+                matched = availableCentres.find(c => c.centreName?.toLowerCase().includes("hazra"));
+            }
+            if (!matched) {
+                matched = availableCentres[0];
+            }
+
+            if (matched) {
+                setSelectedEntryCentre(matched._id);
             }
         }
     }, [availableCentres, selectedEntryCentre]);

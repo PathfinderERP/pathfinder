@@ -17,13 +17,29 @@ export const manualFeeAdjustment = async (req, res) => {
         const { id } = req.params;
         const { totalFees, totalPaidAmount, numberOfInstallments } = req.body;
 
-        // Role restriction: Only Super Admin, ZM / Zonal Manager, and Digital roles
+        // Role restriction: Super Admin, ZM / Zonal Manager, Digital, and Assistant Centre Incharge roles
         const userRole = (req.user?.role || '').toLowerCase().replace(/[\s\-_]+/g, '');
-        const allowedRoles = ['superadmin', 'superadmins', 'zm', 'zonalmanager', 'assistantzonalmanager', 'digital'];
-        const isAllowed = allowedRoles.includes(userRole) || userRole.includes('zonalmanager') || userRole.includes('digital') || userRole === 'zm';
+        const allowedRoles = [
+            'superadmin', 
+            'superadmins', 
+            'zm', 
+            'zonalmanager', 
+            'assistantzonalmanager', 
+            'digital',
+            'assistantcenterincharge',
+            'assistantcentreincharge',
+            'aci'
+        ];
+        const isAllowed = allowedRoles.includes(userRole) || 
+            userRole.includes('zonalmanager') || 
+            userRole.includes('digital') || 
+            userRole.includes('assistantcenterincharge') ||
+            userRole.includes('assistantcentreincharge') ||
+            userRole === 'zm' ||
+            userRole === 'aci';
 
         if (!isAllowed) {
-            return res.status(403).json({ message: "Access denied. Only Super Admin, Zonal Manager, or Digital roles can perform manual financial corrections." });
+            return res.status(403).json({ message: "Access denied. Only Super Admin, Zonal Manager, Digital, or Assistant Centre Incharge roles can perform manual financial corrections." });
         }
 
         const admission = await Admission.findById(id).populate('student');

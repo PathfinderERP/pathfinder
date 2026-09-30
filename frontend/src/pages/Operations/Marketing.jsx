@@ -5,7 +5,7 @@ import {
     FaBullhorn, FaBoxes, FaRegNewspaper, FaRegImage, FaPaperPlane, 
     FaHistory, FaCheckCircle, FaTimesCircle, FaClock, FaBuilding, 
     FaSync, FaExclamationTriangle, FaTimes, FaCommentDots,
-    FaWarehouse, FaEdit, FaTrash
+    FaWarehouse, FaEdit, FaTrash, FaUserTie, FaGlobe
 } from 'react-icons/fa';
 import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
@@ -59,6 +59,7 @@ const MarketingPage = () => {
     const [history, setHistory] = useState([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
     const [statusFilter, setStatusFilter] = useState("all");
+    const [historyScope, setHistoryScope] = useState("my"); // "my" | "centre" | "all"
     const [searchQuery, setSearchQuery] = useState("");
     const [deletingId, setDeletingId] = useState(null);
 
@@ -79,6 +80,18 @@ const MarketingPage = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
+            // Also fetch fresh user profile to ensure primaryCentre is always up-to-date
+            let userObj = currentUser;
+            try {
+                const pRes = await axios.get(`${import.meta.env.VITE_API_URL}/profile/me`, { headers });
+                if (pRes.data?.user) {
+                    userObj = pRes.data.user;
+                    localStorage.setItem("user", JSON.stringify(userObj));
+                }
+            } catch (err) {
+                userObj = JSON.parse(localStorage.getItem("user") || "{}");
+            }
+
             // Fetch centres based on user access
             const endpoint = isSuperAdmin 
                 ? `${import.meta.env.VITE_API_URL}/centre?fetchAll=true`
@@ -86,16 +99,53 @@ const MarketingPage = () => {
 
             const res = await axios.get(endpoint, { headers });
             const list = Array.isArray(res.data) ? res.data : [];
-            setAssignedCentres(list);
 
-            if (list.length > 0) {
-                // If previously saved centre exists and is in list, keep it
+            const primaryId = userObj.primaryCentre?._id || userObj.primaryCentre || userObj.centre?._id || userObj.centre;
+            const primaryName = (userObj.primaryCentre?.centreName || userObj.centre?.centreName || "").toLowerCase();
+
+            // Sort list so Primary Centre (Hazra H.O) appears at the very top
+            const sortedList = [...list].sort((a, b) => {
+                const aIsPrimary = (primaryId && a._id?.toString() === primaryId.toString()) || 
+                                   (primaryName && a.centreName?.toLowerCase() === primaryName) || 
+                                   a.centreName?.toLowerCase().includes("hazra");
+                const bIsPrimary = (primaryId && b._id?.toString() === primaryId.toString()) || 
+                                   (primaryName && b.centreName?.toLowerCase() === primaryName) || 
+                                   b.centreName?.toLowerCase().includes("hazra");
+                if (aIsPrimary && !bIsPrimary) return -1;
+                if (!aIsPrimary && bIsPrimary) return 1;
+                return (a.centreName || "").localeCompare(b.centreName || "");
+            });
+
+            setAssignedCentres(sortedList);
+
+            if (sortedList.length > 0) {
+                const userManuallySelected = sessionStorage.getItem("userManuallySelectedMarketingCentre");
                 const savedCentre = sessionStorage.getItem("selectedMarketingCentre");
-                const matched = list.find(c => c._id === savedCentre);
-                if (matched) {
-                    setSelectedCentreId(matched._id);
-                } else {
-                    setSelectedCentreId(list[0]._id);
+
+                let target = null;
+                // If user manually switched the dropdown in this session, honor their selection
+                if (userManuallySelected && savedCentre) {
+                    target = sortedList.find(c => c._id?.toString() === savedCentre.toString());
+                }
+
+                // Otherwise, default directly to Primary Centre (Hazra H.O)
+                if (!target) {
+                    if (primaryId) {
+                        target = sortedList.find(c => c._id?.toString() === primaryId.toString());
+                    }
+                    if (!target && primaryName) {
+                        target = sortedList.find(c => c.centreName?.toLowerCase() === primaryName);
+                    }
+                    if (!target) {
+                        target = sortedList.find(c => c.centreName?.toLowerCase().includes("hazra"));
+                    }
+                    if (!target) {
+                        target = sortedList[0];
+                    }
+                }
+
+                if (target) {
+                    setSelectedCentreId(target._id);
                 }
             }
         } catch (error) {
@@ -104,7 +154,7 @@ const MarketingPage = () => {
         } finally {
             setLoadingCentres(false);
         }
-    }, [isSuperAdmin]);
+    }, [isSuperAdmin, currentUser]);
 
     useEffect(() => {
         fetchCentres();
@@ -133,12 +183,22 @@ const MarketingPage = () => {
     }, []);
 
     // 3. Fetch Requisition History
-    const fetchHistory = useCallback(async (centreId) => {
-        if (!centreId) return;
+    const fetchHistory = useCallback(async (centreId, scope = historyScope) => {
         try {
             setLoadingHistory(true);
             const token = localStorage.getItem("token");
-            const res = await axios.get(`${import.meta.env.VITE_API_URL}/operations/marketing?centreId=${centreId}`, {
+            let url = `${import.meta.env.VITE_API_URL}/operations/marketing`;
+            if (scope === 'my') {
+                url += `?myRequests=true`;
+            } else if (scope === 'centre' && centreId) {
+                url += `?centreId=${centreId}`;
+            } else if (scope === 'all') {
+                url += `?centreId=all`;
+            } else if (centreId) {
+                url += `?centreId=${centreId}`;
+            }
+
+            const res = await axios.get(url, {
                 headers: { Authorization: `Bearer ${token}` }
             });
             if (res.data.success) {
@@ -149,16 +209,18 @@ const MarketingPage = () => {
         } finally {
             setLoadingHistory(false);
         }
-    }, []);
+    }, [historyScope]);
 
-    // Trigger data loading when selectedCentreId changes
+    // Trigger data loading when selectedCentreId or historyScope changes
     useEffect(() => {
         if (selectedCentreId) {
             sessionStorage.setItem("selectedMarketingCentre", selectedCentreId);
             fetchCentreBucket(selectedCentreId);
-            fetchHistory(selectedCentreId);
+            fetchHistory(selectedCentreId, historyScope);
+        } else if (historyScope === 'my' || historyScope === 'all') {
+            fetchHistory(null, historyScope);
         }
-    }, [selectedCentreId, fetchCentreBucket, fetchHistory]);
+    }, [selectedCentreId, historyScope, fetchCentreBucket, fetchHistory]);
 
     // Handle Form Change (allows clearing 0 on backspace)
     const handleInputChange = (e) => {
@@ -226,7 +288,7 @@ const MarketingPage = () => {
             if (response.data.success) {
                 toast.success('Requisition request submitted to Hazra HO successfully!');
                 setFormData({ leaflets: "", banners: "", purpose: "" });
-                fetchHistory(selectedCentreId);
+                fetchHistory(selectedCentreId, historyScope);
                 fetchCentreBucket(selectedCentreId);
             }
         } catch (error) {
@@ -276,7 +338,7 @@ const MarketingPage = () => {
                 toast.success("Requisition updated successfully! Updated details are now visible in Marketing Approval.");
                 setEditModalOpen(false);
                 setSelectedReqForEdit(null);
-                fetchHistory(selectedCentreId);
+                fetchHistory(selectedCentreId, historyScope);
                 fetchCentreBucket(selectedCentreId);
             }
         } catch (error) {
@@ -301,7 +363,7 @@ const MarketingPage = () => {
             });
             if (res.data.success) {
                 toast.success("Requisition deleted successfully.");
-                fetchHistory(selectedCentreId);
+                fetchHistory(selectedCentreId, historyScope);
                 fetchCentreBucket(selectedCentreId);
             }
         } catch (error) {
@@ -319,7 +381,8 @@ const MarketingPage = () => {
             const matchesSearch = !searchQuery.trim() || 
                 (item.purpose && item.purpose.toLowerCase().includes(searchQuery.toLowerCase())) ||
                 (item.centreName && item.centreName.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                (item.destinationCentreName && item.destinationCentreName.toLowerCase().includes(searchQuery.toLowerCase()));
+                (item.destinationCentreName && item.destinationCentreName.toLowerCase().includes(searchQuery.toLowerCase())) ||
+                (item.requestedBy?.name && item.requestedBy.name.toLowerCase().includes(searchQuery.toLowerCase()));
             return matchesStatus && matchesSearch;
         });
     }, [history, statusFilter, searchQuery]);
@@ -365,7 +428,11 @@ const MarketingPage = () => {
                             ) : assignedCentres.length > 1 || isSuperAdmin ? (
                                 <select
                                     value={selectedCentreId}
-                                    onChange={(e) => setSelectedCentreId(e.target.value)}
+                                    onChange={(e) => {
+                                        setSelectedCentreId(e.target.value);
+                                        sessionStorage.setItem("userManuallySelectedMarketingCentre", "true");
+                                        sessionStorage.setItem("selectedMarketingCentre", e.target.value);
+                                    }}
                                     className={`text-sm font-bold bg-transparent outline-none cursor-pointer ${isDarkMode ? 'text-orange-400' : 'text-orange-600'}`}
                                 >
                                     {assignedCentres.map((c) => (
@@ -715,34 +782,100 @@ const MarketingPage = () => {
                 {/* 3. REQUISITION HISTORY TABLE */}
                 {/* ═══════════════════════════════════════════════════════════════════ */}
                 <div className={`rounded-3xl p-6 md:p-8 border transition-all ${cardBg}`}>
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                    <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
                         <div className="flex items-center gap-3">
                             <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-500">
                                 <FaHistory className="text-lg" />
                             </div>
                             <div>
-                                <h2 className="text-xl font-black">Requisition History</h2>
+                                <div className="flex items-center gap-2">
+                                    <h2 className="text-xl font-black">Requisition History</h2>
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-black bg-orange-500/10 text-orange-500 border border-orange-500/20">
+                                        {filteredHistory.length}
+                                    </span>
+                                </div>
                                 <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                    Status of all material requisition requests submitted by {currentCentreObj?.centreName || 'Centre'}
+                                    {historyScope === 'my' 
+                                        ? `Showing requisitions submitted through your profile (${currentUser.name || 'You'}) across all centres`
+                                        : historyScope === 'all'
+                                        ? "Showing requisitions submitted across all centres in the organization"
+                                        : `Status of all material requisition requests submitted for ${currentCentreObj?.centreName || 'Selected Centre'}`
+                                    }
                                 </p>
                             </div>
                         </div>
 
-                        {/* Status Filter Tabs */}
-                        <div className="flex items-center gap-1.5 p-1 rounded-xl bg-gray-100 dark:bg-gray-800">
-                            {['all', 'Pending', 'Approved', 'Rejected'].map(st => (
+                        {/* Scope Selector and Status Filter Tabs */}
+                        <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto justify-between lg:justify-end">
+                            {/* Scope Selector */}
+                            <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700">
                                 <button
-                                    key={st}
-                                    onClick={() => setStatusFilter(st)}
-                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                        statusFilter === st 
-                                        ? 'bg-orange-500 text-white shadow-sm' 
+                                    type="button"
+                                    onClick={() => {
+                                        setHistoryScope("my");
+                                        fetchHistory(selectedCentreId, "my");
+                                    }}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                        historyScope === 'my' 
+                                        ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm' 
                                         : isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-black'
                                     }`}
                                 >
-                                    {st === 'all' ? 'All' : st}
+                                    <FaUserTie className="text-[11px]" />
+                                    <span>My Submissions</span>
                                 </button>
-                            ))}
+
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setHistoryScope("centre");
+                                        fetchHistory(selectedCentreId, "centre");
+                                    }}
+                                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                        historyScope === 'centre' 
+                                        ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm' 
+                                        : isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-black'
+                                    }`}
+                                >
+                                    <FaBuilding className="text-[11px]" />
+                                    <span>{currentCentreObj?.centreName || 'Centre'}</span>
+                                </button>
+
+                                {isSuperAdmin && (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            setHistoryScope("all");
+                                            fetchHistory(selectedCentreId, "all");
+                                        }}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                            historyScope === 'all' 
+                                            ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-sm' 
+                                            : isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-black'
+                                        }`}
+                                    >
+                                        <FaGlobe className="text-[11px]" />
+                                        <span>All Centres</span>
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Status Filter Tabs */}
+                            <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800">
+                                {['all', 'Pending', 'Approved', 'Rejected'].map(st => (
+                                    <button
+                                        key={st}
+                                        onClick={() => setStatusFilter(st)}
+                                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                                            statusFilter === st 
+                                            ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900 shadow-sm' 
+                                            : isDarkMode ? 'text-gray-400 hover:text-white' : 'text-gray-600 hover:text-black'
+                                        }`}
+                                    >
+                                        {st === 'all' ? 'All' : st}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
 
@@ -766,6 +899,7 @@ const MarketingPage = () => {
                                         <th className="p-4 rounded-tl-xl">Date & Time</th>
                                         <th className="p-4">Centre</th>
                                         <th className="p-4">Destination</th>
+                                        <th className="p-4">Requested By</th>
                                         <th className="p-4">Requested Items</th>
                                         <th className="p-4">Approved Quantity</th>
                                         <th className="p-4">Status</th>
@@ -797,6 +931,28 @@ const MarketingPage = () => {
                                                     <FaBuilding className="text-[10px]" />
                                                     {req.destinationCentreName || "HAZRA H.O"}
                                                 </span>
+                                            </td>
+
+                                            {/* Requested By */}
+                                            <td className="p-4 whitespace-nowrap">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-7 h-7 rounded-lg bg-orange-500/10 text-orange-500 flex items-center justify-center font-bold text-xs uppercase">
+                                                        {(req.requestedBy?.name || req.user?.name || 'U').charAt(0)}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-xs flex items-center gap-1.5">
+                                                            <span>{req.requestedBy?.name || req.user?.name || "Unknown"}</span>
+                                                            {((req.requestedBy?._id || req.requestedBy || req.user?._id || req.user)?.toString() === (currentUser._id || currentUser.id)?.toString()) && (
+                                                                <span className="px-1.5 py-0.2 rounded text-[10px] font-black bg-orange-500/20 text-orange-400 border border-orange-500/30">
+                                                                    You
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                        <div className="text-[10px] text-gray-400 capitalize">
+                                                            {req.requestedBy?.role || req.user?.role || "Staff"}
+                                                        </div>
+                                                    </div>
+                                                </div>
                                             </td>
 
                                             {/* Requested Items */}

@@ -202,16 +202,26 @@ export const createRequirement = async (req, res) => {
 // GET Requisitions with filters and pagination
 export const getRequirements = async (req, res) => {
     try {
-        const { centreId, status, search, limit = 100, page = 1 } = req.query;
+        const { centreId, status, search, myRequests, limit = 100, page = 1 } = req.query;
         const user = req.user;
         const userRole = (user?.role || "").toLowerCase().replace(/\s+/g, "");
         const isSuperAdmin = userRole === "superadmin";
 
-        const query = {};
+        const andClauses = [];
 
-        // If specific centre filter is requested
-        if (centreId && centreId !== 'all') {
-            query.centre = centreId;
+        // If explicitly requesting user's own profile submissions
+        if (myRequests === 'true' || myRequests === true) {
+            andClauses.push({
+                $or: [
+                    { requestedBy: user._id },
+                    { user: user._id }
+                ]
+            });
+            if (centreId && centreId !== 'all') {
+                andClauses.push({ centre: centreId });
+            }
+        } else if (centreId && centreId !== 'all') {
+            andClauses.push({ centre: centreId });
         } else if (!isSuperAdmin) {
             // For normal users, check if they are an approver role (e.g. at Hazra HO or admin)
             const userCentres = (user?.centres || []).map(c => c.toString());
@@ -220,27 +230,33 @@ export const getRequirements = async (req, res) => {
             const isManagerOrAdmin = ['admin', 'marketing', 'zonalmanager', 'areamanager'].includes(userRole);
 
             if (!isHazraUser && !isManagerOrAdmin) {
-                // Regular centre user: only show their centre requests
-                if (userCentres.length > 0) {
-                    query.centre = { $in: userCentres };
-                } else {
-                    return res.status(200).json({ success: true, data: [], total: 0 });
-                }
+                // Regular centre user: show their centre requests OR requests they submitted
+                andClauses.push({
+                    $or: [
+                        { centre: { $in: userCentres } },
+                        { requestedBy: user._id },
+                        { user: user._id }
+                    ]
+                });
             }
         }
 
         if (status && status !== 'all') {
-            query.status = status;
+            andClauses.push({ status });
         }
 
         if (search && search.trim()) {
             const regex = new RegExp(search.trim(), 'i');
-            query.$or = [
-                { centreName: regex },
-                { purpose: regex },
-                { destinationCentreName: regex }
-            ];
+            andClauses.push({
+                $or: [
+                    { centreName: regex },
+                    { purpose: regex },
+                    { destinationCentreName: regex }
+                ]
+            });
         }
+
+        const query = andClauses.length > 0 ? { $and: andClauses } : {};
 
         const skip = (Math.max(1, parseInt(page, 10)) - 1) * parseInt(limit, 10);
 

@@ -23,7 +23,8 @@ export default async function adminTeacherLogin(req, res) {
             return res.status(400).json({ message: "Invalid credentials" });
         }
 
-        const employee = await Employee.findOne({ user: user._id });
+        const employee = await Employee.findOne({ user: user._id })
+            .populate("primaryCentre", "centreName centreCode");
         const profileImageUrl = employee?.profileImage ? await getSignedFileUrl(employee.profileImage) : null;
         const token = generateToken(user);
 
@@ -56,6 +57,13 @@ export default async function adminTeacherLogin(req, res) {
         //     console.error("External portal login networking error:", portalError.message);
         // }
 
+        let primaryCentre = employee?.primaryCentre || user.primaryCentre;
+        if (!primaryCentre && user.centres && user.centres.length > 0) {
+            const hazra = user.centres.find(c => 
+                c && (c.centreName || "").toLowerCase().includes("hazra")
+            );
+            primaryCentre = hazra || user.centres[0];
+        }
 
         res.status(200).json({
             message: "Login successfully",
@@ -67,6 +75,8 @@ export default async function adminTeacherLogin(req, res) {
                 employeeId: user.employeeId,
                 role: user.role,
                 centres: user.centres,
+                primaryCentre: primaryCentre,
+                centre: primaryCentre,
                 profileImage: profileImageUrl,
                 permissions: user.permissions || [],
                 granularPermissions: user.granularPermissions || {},
