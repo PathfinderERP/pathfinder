@@ -319,6 +319,7 @@ export const PERMISSION_MODULES = {
         sections: {
             store: { label: "Store", operations: ["view", "create", "edit", "delete"] },
             marketing: { label: "Marketing", operations: ["view", "create", "edit", "delete"] },
+            marketingApproval: { label: "Marketing Approval", operations: ["view", "create", "edit", "delete"] },
             academics: { label: "Academics", operations: ["view", "create", "edit", "delete"] },
             examSchedule: { label: "Exam Schedule", operations: ["view", "create", "edit", "delete"] }
         }
@@ -840,6 +841,23 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         }
     }
 
+    // Marketing Approval resolution: strictly requires explicit permission or SuperAdmin
+    if (module === 'marketingApproval' || (module === 'operations' && section === 'marketingApproval') || section === 'marketingApproval') {
+        if (cleanRoleStr === 'superadmin') return true;
+        if (!hasGranularObject) return false;
+
+        const mktAppSec = granularPermissions?.marketingApproval?.approval ||
+                          granularPermissions?.marketingApproval?.requisitions ||
+                          granularPermissions?.operations?.marketingApproval;
+
+        if (!mktAppSec || typeof mktAppSec !== 'object') return false;
+        if (operation === 'view') {
+            if (mktAppSec.view !== undefined) return mktAppSec.view === true;
+            return Object.values(mktAppSec).some(v => v === true);
+        }
+        return mktAppSec[operation] === true;
+    }
+
     // Grant automatic access to marketingCRM module ONLY if custom granularPermissions are not set
     if (module === 'marketingCRM') {
         if (hasGranularObject) {
@@ -1034,6 +1052,19 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
             });
         }
         if (normalizedRole !== 'teacher') return true;
+    }
+
+    if (module === 'marketingApproval') {
+        if (cleanRoleStr === 'superadmin') return true;
+        if (!hasGranularObject) return false;
+        const sections = granularPermissions?.marketingApproval || granularPermissions?.operations?.marketingApproval;
+        if (!sections) return false;
+        if (sections.approval || sections.requisitions) {
+            const sec = sections.approval || sections.requisitions;
+            if (sec.view !== undefined) return sec.view === true;
+            return Object.values(sec).some(v => v === true);
+        }
+        return Object.keys(sections).length > 0;
     }
 
     if (!granularPermissions || !granularPermissions[module]) return false;

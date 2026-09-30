@@ -266,6 +266,20 @@ export const requireGranularPermission = (module, section, action) => {
                 }
             }
 
+            // Marketing Approval access check
+            if (!hasAccess && (module === 'marketingApproval' || (module === 'operations' && section === 'marketingApproval') || section === 'marketingApproval')) {
+                const mktAppPerm = user.granularPermissions?.marketingApproval?.approval ||
+                                   user.granularPermissions?.marketingApproval?.requisitions ||
+                                   user.granularPermissions?.operations?.marketingApproval;
+                if (mktAppPerm) {
+                    if (action === "view") {
+                        hasAccess = mktAppPerm.view !== undefined ? mktAppPerm.view === true : Object.values(mktAppPerm).some(v => v === true);
+                    } else {
+                        hasAccess = mktAppPerm[action] === true;
+                    }
+                }
+            }
+
             if (!hasAccess) {
                 if (action === "view") {
                     if (user.granularPermissions?.[module]?.[section]?.view !== undefined) {
