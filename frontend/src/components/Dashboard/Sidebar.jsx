@@ -406,6 +406,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             subItems: [
                 { name: "Store", path: "/operations/store", permissionSection: "store" },
                 { name: "Marketing", path: "/operations/marketing", permissionSection: "marketing" },
+                { name: "Marketing Approval", path: "/operations/marketing-approval", permissionSection: "marketingApproval" },
                 { name: "Academics", path: "/operations/academics", permissionSection: "academics" },
                 { name: "Exam Schedule", path: "/operations/exam-schedule", icon: <FaCalendarAlt />, permissionSection: "examSchedule" },
             ]
@@ -511,7 +512,20 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 }
                 return hasPermission(user, item.permissionModule, item.permissionSection, "view");
             }
-            else if (hasModuleAccess(user, item.permissionModule)) {
+            else if (
+                hasModuleAccess(user, item.permissionModule) ||
+                (item.subItems && item.subItems.some(sub => {
+                    const permModule = sub.permissionModule || item.permissionModule;
+                    const permSection = sub.permissionSection;
+                    if (sub.permissionAction) {
+                        return hasPermission(user, permModule, permSection, sub.permissionAction);
+                    }
+                    if (permSection) {
+                        return hasPermission(user, permModule, permSection, "view");
+                    }
+                    return hasModuleAccess(user, permModule);
+                }))
+            ) {
                 if (item.subItems) {
                     const accessibleSubItems = item.subItems.filter(sub => {
                         const permModule = sub.permissionModule || item.permissionModule;
