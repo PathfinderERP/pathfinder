@@ -1,3 +1,5 @@
+import mongoose from "mongoose";
+import User from "../../models/User.js";
 import LeadManagement from "../../models/LeadManagement.js";
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
@@ -135,11 +137,30 @@ export const getConversionDetails = async (req, res) => {
                 "studentsDetails.mobileNum": 1, 
                 "studentsDetails.whatsappNumber": 1, 
                 "studentsDetails.studentEmail": 1, 
-                "guardians.guardianEmail": 1 
+                "guardians.guardianEmail": 1,
+                "leadBy": 1,
+                "counselledBy": 1,
+                "createdBy": 1
             }
         ).lean();
 
-        // Student ID to details: { names, phones, emails }
+        // Resolve user IDs from student leadBy and counselledBy
+        const userIdsToResolve = [];
+        admittedStudents.forEach(s => {
+            if (s.leadBy && mongoose.Types.ObjectId.isValid(s.leadBy)) {
+                userIdsToResolve.push(s.leadBy);
+            }
+            if (s.counselledBy && mongoose.Types.ObjectId.isValid(s.counselledBy)) {
+                userIdsToResolve.push(s.counselledBy);
+            }
+        });
+        const resolvedUsers = userIdsToResolve.length > 0 
+            ? await User.find({ _id: { $in: userIdsToResolve } }, { name: 1 }).lean()
+            : [];
+        const userMap = new Map();
+        resolvedUsers.forEach(u => userMap.set(u._id.toString(), u.name));
+
+        // Student ID to details: { names, phones, emails, leadByName, counselledByName }
         const studentInfoMap = new Map();
         admittedStudents.forEach(s => {
             const sid = s._id.toString();
@@ -149,7 +170,16 @@ export const getConversionDetails = async (req, res) => {
                 ...(s.studentsDetails || []).map(d => d.studentEmail).filter(Boolean),
                 ...(s.guardians || []).map(g => g.guardianEmail).filter(Boolean)
             ];
-            studentInfoMap.set(sid, { names, phones, emails });
+            const leadByName = (s.leadBy && userMap.get(s.leadBy.toString())) || "";
+            let counselledByName = "";
+            if (s.counselledBy && userMap.has(s.counselledBy.toString())) {
+                counselledByName = userMap.get(s.counselledBy.toString());
+            } else if (s.counselledBy && typeof s.counselledBy === 'string' && s.counselledBy !== 'N/A') {
+                counselledByName = s.counselledBy;
+            }
+            const studentCreatedBy = (s.createdBy && typeof s.createdBy === 'string') ? s.createdBy : "";
+
+            studentInfoMap.set(sid, { names, phones, emails, leadByName, counselledByName, studentCreatedBy });
         });
 
         // Map cleaned phone -> array of admission details
@@ -167,7 +197,7 @@ export const getConversionDetails = async (req, res) => {
             const sid = adm.student?.toString();
             const sInfo = sid ? studentInfoMap.get(sid) : null;
             const courseTitle = adm.course?.courseName || adm.boardCourseName || adm.board?.boardCourse || adm.board?.name || "";
-            const admittedByName = adm.createdBy?.name || "";
+            const admittedByName = adm.createdBy?.name || sInfo?.leadByName || sInfo?.counselledByName || sInfo?.studentCreatedBy || "";
             const enrollNo = adm.admissionNumber || "";
             const amount = adm.downPayment ?? 0;
             const email = sInfo?.emails?.[0] || "";
@@ -195,10 +225,10 @@ export const getConversionDetails = async (req, res) => {
                 amount = (adm.examFeePaid || 0) + (adm.additionalThingsPaid || 0);
             }
             const boardTitle = adm.boardCourseName || adm.boardId?.boardCourse || adm.boardId?.name || "Board Course";
-            const admittedByName = adm.createdBy?.name || "";
-            const enrollNo = adm.admissionNumber || "";
             const sid = adm.studentId?.toString();
             const sInfo = sid ? studentInfoMap.get(sid) : null;
+            const admittedByName = adm.createdBy?.name || sInfo?.leadByName || sInfo?.counselledByName || sInfo?.studentCreatedBy || "";
+            const enrollNo = adm.admissionNumber || "";
             const email = sInfo?.emails?.[0] || "";
             const studentNames = [
                 adm.studentName,
@@ -244,16 +274,7 @@ export const getConversionDetails = async (req, res) => {
             const leadCourseName = lead.course?.courseName || lead.courseText || leadCourseFallback || lead.board?.name || "NA";
             const enrollmentNo = matchedEntry?.enrollNo || "NA";
             const email = lead.email ? lead.email.trim() : (matchedEntry?.email || "NA");
-            let admittedBy = matchedEntry?.admittedByName || "";
-            if (!admittedBy && lead.marketingBy) {
-                admittedBy = lead.marketingBy;
-            }
-            if (!admittedBy && lead.createdBy?.name) {
-                admittedBy = lead.createdBy.name;
-            }
-            if (!admittedBy) {
-                admittedBy = "NA";
-            }
+            const admittedBy = matchedEntry?.admittedByName || "NA";
             const admissionDate = matchedEntry?.admissionDate || null;
             const source = lead.source || (lead.isBulkUpload ? "BULK UPLOAD" : (lead.isWalkIn ? "WALK-IN" : "DIRECT / MANUAL"));
 
