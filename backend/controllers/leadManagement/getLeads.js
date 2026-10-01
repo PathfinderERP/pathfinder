@@ -14,6 +14,7 @@ import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js
 import BoardCourseCounselling from "../../models/Admission/BoardCourseCounselling.js";
 import Campaign from "../../models/Campaign.js";
 import Class from "../../models/Master_data/Class.js";
+import { getMatchingLeadIds } from "../../utils/leadStudentMatcher.js";
 
 
 
@@ -63,9 +64,10 @@ export const getLeads = async (req, res) => {
         // Build Filter
         const query = await buildLeadQuery(req.query, req.user);
 
-        // Build Stats Filter (ignores followUpStatus card filtering to keep counters consistent)
+        // Build Stats Filter (ignores followUpStatus and leadType card filtering to keep conversion counters consistent)
         const statsParams = { ...req.query };
         delete statsParams.followUpStatus;
+        delete statsParams.leadType;
         const statsQuery = await buildLeadQuery(statsParams, req.user);
 
         const totalLeads = await LeadManagement.countDocuments(query);
@@ -116,48 +118,18 @@ export const getLeads = async (req, res) => {
         }
         const walkInCount = await LeadManagement.countDocuments(walkInQuery);
 
-        // Gather all admitted and counselled student mobile numbers
-        const [normalStudentIds, boardStudentIds, directEnrolledMobiles, directEnrolledWhatsapp, boardAdmittedMobiles, boardCounsellingMobiles, studentMobiles, studentWhatsapp] = await Promise.all([
-            Admission.distinct("student"),
-            BoardCourseAdmission.distinct("studentId"),
-            Student.find({ isEnrolled: true }).distinct("studentsDetails.mobileNum"),
-            Student.find({ isEnrolled: true }).distinct("studentsDetails.whatsappNumber"),
-            BoardCourseAdmission.distinct("mobileNum"),
-            BoardCourseCounselling.distinct("mobileNum"),
-            Student.distinct("studentsDetails.mobileNum"),
-            Student.distinct("studentsDetails.whatsappNumber")
-        ]);
-
-        const allAdmittedStudentIds = [...new Set([...normalStudentIds, ...boardStudentIds])];
-
-        const admittedStudentsFromDetails = await Student.find({
-            _id: { $in: allAdmittedStudentIds }
-        }).select("studentsDetails.mobileNum studentsDetails.whatsappNumber").lean();
-
-        const phonesFromDetails = admittedStudentsFromDetails.flatMap(s => (s.studentsDetails || []).flatMap(d => [d.mobileNum, d.whatsappNumber])).filter(Boolean);
-
-        const allAdmittedPhoneNumbers = [...new Set([
-            ...directEnrolledMobiles,
-            ...directEnrolledWhatsapp,
-            ...boardAdmittedMobiles,
-            ...phonesFromDetails
-        ])].filter(Boolean);
-
-        const allCounsellingPhoneNumbers = [...new Set([
-            ...allAdmittedPhoneNumbers,
-            ...boardCounsellingMobiles,
-            ...studentMobiles,
-            ...studentWhatsapp
-        ])].filter(Boolean);
-
-        // Compute counselled and admitted counts
-        const counselledQuery = { ...statsQuery };
-        delete counselledQuery.isCounseled;
-        if (counselledQuery.$and) {
-            counselledQuery.$and = counselledQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
+        // Prepare query for conversion stats without default isCounseled: { $ne: true } constraint
+        const statsQueryWithoutCounseled = { ...statsQuery };
+        delete statsQueryWithoutCounseled.isCounseled;
+        if (statsQueryWithoutCounseled.$and) {
+            statsQueryWithoutCounseled.$and = statsQueryWithoutCounseled.$and.filter(c => !c.hasOwnProperty('isCounseled'));
         }
 
-        const counselledBaseQuery = { ...counselledQuery };
+        // Gather admitted and counselled leads using (phone + student name) matching
+        const { matchingAdmittedIds, matchingCounsellingIds } = await getMatchingLeadIds(statsQueryWithoutCounseled);
+
+        // Compute counselled and admitted counts
+        const counselledBaseQuery = { ...statsQueryWithoutCounseled };
         const counselledAnd = counselledBaseQuery.$and ? [...counselledBaseQuery.$and] : [];
         if (counselledBaseQuery.$or) {
             counselledAnd.push({ $or: counselledBaseQuery.$or });
@@ -166,31 +138,19 @@ export const getLeads = async (req, res) => {
         counselledAnd.push({
             $or: [
                 { isCounseled: true },
-                { phoneNumber: { $in: allCounsellingPhoneNumbers } },
-                { secondPhoneNumber: { $in: allCounsellingPhoneNumbers } }
+                { _id: { $in: matchingCounsellingIds } }
             ]
         });
         counselledBaseQuery.$and = counselledAnd;
         const counselledCount = await LeadManagement.countDocuments(counselledBaseQuery);
 
-        const admittedLeadQuery = { ...statsQuery };
-        delete admittedLeadQuery.isCounseled;
-        if (admittedLeadQuery.$and) {
-            admittedLeadQuery.$and = admittedLeadQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
-        }
-
-        const phoneAdmittedOr = [
-            { phoneNumber: { $in: allAdmittedPhoneNumbers } },
-            { secondPhoneNumber: { $in: allAdmittedPhoneNumbers } }
-        ];
-
-        const admittedBaseQuery = { ...admittedLeadQuery };
+        const admittedBaseQuery = { ...statsQueryWithoutCounseled };
         const baseAnd = admittedBaseQuery.$and ? [...admittedBaseQuery.$and] : [];
         if (admittedBaseQuery.$or) {
             baseAnd.push({ $or: admittedBaseQuery.$or });
             delete admittedBaseQuery.$or;
         }
-        baseAnd.push({ $or: phoneAdmittedOr });
+        baseAnd.push({ _id: { $in: matchingAdmittedIds } });
         admittedBaseQuery.$and = baseAnd;
 
         const admittedCount = await LeadManagement.countDocuments(admittedBaseQuery);

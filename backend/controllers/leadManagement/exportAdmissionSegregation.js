@@ -5,6 +5,7 @@ import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js
 import BoardCourseCounselling from "../../models/Admission/BoardCourseCounselling.js";
 import XLSX from "xlsx";
 import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
+import { getMatchingLeadIds } from "../../utils/leadStudentMatcher.js";
 
 export const exportAdmissionSegregation = async (req, res) => {
     try {
@@ -17,51 +18,17 @@ export const exportAdmissionSegregation = async (req, res) => {
             baseQuery.$and = baseQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
         }
 
-        // --- Gather all admitted phone numbers (same logic as getConversionDetails) ---
-        const [
-            normalStudentIds,
-            boardStudentIds,
-            directEnrolledMobiles,
-            directEnrolledWhatsapp,
-            boardAdmittedMobiles,
-        ] = await Promise.all([
-            Admission.distinct("student"),
-            BoardCourseAdmission.distinct("studentId"),
-            Student.find({ isEnrolled: true }).distinct("studentsDetails.mobileNum"),
-            Student.find({ isEnrolled: true }).distinct("studentsDetails.whatsappNumber"),
-            BoardCourseAdmission.distinct("mobileNum"),
-        ]);
-
-        const allAdmittedStudentIds = [...new Set([...normalStudentIds, ...boardStudentIds])];
-
-        const admittedStudentsFromDetails = await Student.find({
-            _id: { $in: allAdmittedStudentIds }
-        }).select("studentsDetails.mobileNum studentsDetails.whatsappNumber").lean();
-
-        const phonesFromDetails = admittedStudentsFromDetails
-            .flatMap(s => (s.studentsDetails || []).flatMap(d => [d.mobileNum, d.whatsappNumber]))
-            .filter(Boolean);
-
-        const allAdmittedPhoneNumbers = [...new Set([
-            ...directEnrolledMobiles,
-            ...directEnrolledWhatsapp,
-            ...boardAdmittedMobiles,
-            ...phonesFromDetails
-        ])].filter(Boolean);
+        // --- Gather matching admitted lead IDs using (phone + student name) matching ---
+        const { matchingAdmittedIds } = await getMatchingLeadIds(baseQuery);
 
         // --- Build admitted leads query ---
-        const admittedCondition = [
-            { phoneNumber: { $in: allAdmittedPhoneNumbers } },
-            { secondPhoneNumber: { $in: allAdmittedPhoneNumbers } }
-        ];
-
         const admittedQuery = JSON.parse(JSON.stringify(baseQuery)); // deep clone
         admittedQuery.$and = admittedQuery.$and || [];
         if (admittedQuery.$or) {
             admittedQuery.$and.push({ $or: admittedQuery.$or });
             delete admittedQuery.$or;
         }
-        admittedQuery.$and.push({ $or: admittedCondition });
+        admittedQuery.$and.push({ _id: { $in: matchingAdmittedIds } });
 
         // --- Fetch all admitted leads ---
         const allAdmittedLeads = await LeadManagement.find(admittedQuery)

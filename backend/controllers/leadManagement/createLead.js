@@ -1,6 +1,7 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import CampaignLead from "../../models/CampaignLead.js";
 import Sources from "../../models/Master_data/Sources.js";
+import { cleanPhoneNumber, isNameMatch } from "../../utils/leadStudentMatcher.js";
 
 export const createLead = async (req, res) => {
     try {
@@ -52,33 +53,55 @@ export const createLead = async (req, res) => {
             return res.status(400).json({ message: "enter the correct phone number" });
         }
 
-        const checkPhoneNumber = async (phone) => {
+        const checkDuplicateLead = async (phone, leadName) => {
             const cleanPhone = phone !== undefined && phone !== null ? String(phone).trim() : "";
             if (cleanPhone === "") return null;
+            const p10 = cleanPhoneNumber(cleanPhone);
+
             // Check in LeadManagement
-            const matchLead = await LeadManagement.findOne({
-                $or: [{ phoneNumber: cleanPhone }, { secondPhoneNumber: cleanPhone }]
-            }).lean();
-            if (matchLead) return matchLead;
+            const matchingLeads = await LeadManagement.find({
+                $or: [
+                    { phoneNumber: cleanPhone },
+                    { secondPhoneNumber: cleanPhone },
+                    ...(p10 ? [{ phoneNumber: p10 }, { secondPhoneNumber: p10 }] : [])
+                ]
+            }).select('name phoneNumber secondPhoneNumber').lean();
+
+            for (const l of matchingLeads) {
+                if (isNameMatch(leadName, l.name)) {
+                    return l;
+                }
+            }
             
             // Check in CampaignLead
-            const matchCampaign = await CampaignLead.findOne({
-                $or: [{ phoneNumber: cleanPhone }, { secondPhoneNumber: cleanPhone }]
-            }).lean();
-            return matchCampaign;
+            const matchingCampaigns = await CampaignLead.find({
+                $or: [
+                    { phoneNumber: cleanPhone },
+                    { secondPhoneNumber: cleanPhone },
+                    ...(p10 ? [{ phoneNumber: p10 }, { secondPhoneNumber: p10 }] : [])
+                ]
+            }).select('name phoneNumber secondPhoneNumber').lean();
+
+            for (const cl of matchingCampaigns) {
+                if (isNameMatch(leadName, cl.name)) {
+                    return cl;
+                }
+            }
+
+            return null;
         };
 
         if (phoneStr !== "") {
-            const dup = await checkPhoneNumber(phoneStr);
+            const dup = await checkDuplicateLead(phoneStr, name);
             if (dup) {
-                return res.status(400).json({ message: `A lead already exists with the phone number: ${phoneStr}.` });
+                return res.status(400).json({ message: `A lead already exists for '${name}' with phone number: ${phoneStr}.` });
             }
         }
 
         if (secondPhoneStr !== "") {
-            const dup = await checkPhoneNumber(secondPhoneStr);
+            const dup = await checkDuplicateLead(secondPhoneStr, name);
             if (dup) {
-                return res.status(400).json({ message: `A lead already exists with the secondary phone number: ${secondPhoneStr}.` });
+                return res.status(400).json({ message: `A lead already exists for '${name}' with secondary phone number: ${secondPhoneStr}.` });
             }
         }
 

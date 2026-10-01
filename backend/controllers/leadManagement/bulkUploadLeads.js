@@ -8,6 +8,7 @@ import Boards from "../../models/Master_data/Boards.js";
 import Course from "../../models/Master_data/Courses.js";
 import Sources from "../../models/Master_data/Sources.js";
 import User from "../../models/User.js";
+import { cleanPhoneNumber, isNameMatch } from "../../utils/leadStudentMatcher.js";
 
 /**
  * POST /lead-management/bulk-upload
@@ -198,30 +199,50 @@ export const bulkUploadLeads = async (req, res) => {
             if (row.phoneNumber) incomingPhones.add(row.phoneNumber);
         });
 
-        // Find existing phone numbers in database (only checking the primary phoneNumber field)
-        const existingPhones = new Set();
+        // Find existing leads in database by phone numbers, storing their names
+        // Map: cleanPhone -> Array of existing names
+        const existingPhoneNamesMap = new Map();
         if (incomingPhones.size > 0) {
             const phoneList = Array.from(incomingPhones);
             const [leadsWithPhones, campaignLeadsWithPhones] = await Promise.all([
                 LeadManagement.find({
-                    phoneNumber: { $in: phoneList }
-                }, 'phoneNumber').lean(),
+                    $or: [
+                        { phoneNumber: { $in: phoneList } },
+                        { secondPhoneNumber: { $in: phoneList } }
+                    ]
+                }, 'name phoneNumber secondPhoneNumber').lean(),
                 CampaignLead.find({
-                    phoneNumber: { $in: phoneList }
-                }, 'phoneNumber').lean()
+                    $or: [
+                        { phoneNumber: { $in: phoneList } },
+                        { secondPhoneNumber: { $in: phoneList } }
+                    ]
+                }, 'name phoneNumber secondPhoneNumber').lean()
             ]);
 
+            const recordPhone = (phone, name) => {
+                if (!phone || !name) return;
+                const pClean = cleanPhoneNumber(phone);
+                if (!pClean) return;
+                if (!existingPhoneNamesMap.has(pClean)) {
+                    existingPhoneNamesMap.set(pClean, []);
+                }
+                existingPhoneNamesMap.get(pClean).push(name);
+            };
+
             leadsWithPhones.forEach(l => {
-                if (l.phoneNumber) existingPhones.add(l.phoneNumber.trim());
+                recordPhone(l.phoneNumber, l.name);
+                recordPhone(l.secondPhoneNumber, l.name);
             });
             campaignLeadsWithPhones.forEach(l => {
-                if (l.phoneNumber) existingPhones.add(l.phoneNumber.trim());
+                recordPhone(l.phoneNumber, l.name);
+                recordPhone(l.secondPhoneNumber, l.name);
             });
         }
 
         // Filter valid leads and check for duplicates (both against DB and within the file)
         const valid = [];
-        const seenPhonesInImport = new Set();
+        // Map: cleanPhone -> Array of names seen in this import file
+        const seenInImportMap = new Map();
         const skippedDetails = [];
         let skipped = 0;
 
@@ -266,13 +287,22 @@ export const bulkUploadLeads = async (req, res) => {
             let isDuplicate = false;
             let duplicateReason = "";
 
-            if (p) {
-                if (existingPhones.has(p)) {
+            const cleanP = cleanPhoneNumber(p);
+            if (cleanP) {
+                // Check against database: duplicate if same phone AND matching name
+                const existingNames = existingPhoneNamesMap.get(cleanP) || [];
+                const matchedExistingName = existingNames.find(exName => isNameMatch(row.name, exName));
+                if (matchedExistingName) {
                     isDuplicate = true;
-                    duplicateReason = `Phone number '${p}' already exists in database.`;
-                } else if (seenPhonesInImport.has(p)) {
-                    isDuplicate = true;
-                    duplicateReason = `Phone number '${p}' is duplicated within the uploaded file.`;
+                    duplicateReason = `A lead with phone '${p}' and student name '${row.name}' already exists in database.`;
+                } else {
+                    // Check against already seen rows in this import
+                    const seenNames = seenInImportMap.get(cleanP) || [];
+                    const matchedSeenName = seenNames.find(sName => isNameMatch(row.name, sName));
+                    if (matchedSeenName) {
+                        isDuplicate = true;
+                        duplicateReason = `A lead with phone '${p}' and student name '${row.name}' is duplicated within the uploaded file.`;
+                    }
                 }
             }
 
@@ -286,7 +316,12 @@ export const bulkUploadLeads = async (req, res) => {
                 continue;
             }
 
-            if (p) seenPhonesInImport.add(p);
+            if (cleanP) {
+                if (!seenInImportMap.has(cleanP)) {
+                    seenInImportMap.set(cleanP, []);
+                }
+                seenInImportMap.get(cleanP).push(row.name);
+            }
 
             valid.push(row);
         }

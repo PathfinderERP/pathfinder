@@ -1,9 +1,11 @@
 import LeadManagement from "../../models/LeadManagement.js";
 import CampaignLead from "../../models/CampaignLead.js";
 
+import { isNameMatch } from "../../utils/leadStudentMatcher.js";
+
 export const checkDuplicatePhone = async (req, res) => {
     try {
-        const { phone, excludeLeadId } = req.query;
+        const { phone, name, excludeLeadId } = req.query;
         const result = { taken: false, name: "" };
 
         if (phone && phone.trim() !== "") {
@@ -14,11 +16,16 @@ export const checkDuplicatePhone = async (req, res) => {
                 $or: [{ phoneNumber: cleanPhone }, { secondPhoneNumber: cleanPhone }],
                 ...(excludeLeadId ? { _id: { $ne: excludeLeadId } } : {})
             };
-            const existingLead = await LeadManagement.findOne(queryLead).select("name phoneNumber").lean();
-            if (existingLead) {
-                result.taken = true;
-                result.name = existingLead.name || "Existing Lead";
-                return res.status(200).json(result);
+            const existingLeads = await LeadManagement.find(queryLead).select("name phoneNumber").lean();
+            if (existingLeads.length > 0) {
+                const matchedLead = name 
+                    ? existingLeads.find(l => isNameMatch(name, l.name))
+                    : existingLeads[0];
+                if (matchedLead) {
+                    result.taken = true;
+                    result.name = matchedLead.name || "Existing Lead";
+                    return res.status(200).json(result);
+                }
             }
 
             // Check CampaignLead
@@ -26,11 +33,16 @@ export const checkDuplicatePhone = async (req, res) => {
                 $or: [{ phoneNumber: cleanPhone }, { secondPhoneNumber: cleanPhone }],
                 ...(excludeLeadId ? { _id: { $ne: excludeLeadId } } : {})
             };
-            const existingCampaign = await CampaignLead.findOne(queryCampaign).select("name phoneNumber").lean();
-            if (existingCampaign) {
-                result.taken = true;
-                result.name = existingCampaign.name || "Existing Campaign Lead";
-                return res.status(200).json(result);
+            const existingCampaigns = await CampaignLead.find(queryCampaign).select("name phoneNumber").lean();
+            if (existingCampaigns.length > 0) {
+                const matchedCampaign = name
+                    ? existingCampaigns.find(c => isNameMatch(name, c.name))
+                    : existingCampaigns[0];
+                if (matchedCampaign) {
+                    result.taken = true;
+                    result.name = matchedCampaign.name || "Existing Campaign Lead";
+                    return res.status(200).json(result);
+                }
             }
         }
 

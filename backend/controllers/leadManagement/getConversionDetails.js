@@ -4,6 +4,7 @@ import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import BoardCourseCounselling from "../../models/Admission/BoardCourseCounselling.js";
 import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
+import { getMatchingLeadIds, isNameMatch, cleanPhoneNumber } from "../../utils/leadStudentMatcher.js";
 
 export const getConversionDetails = async (req, res) => {
     try {
@@ -14,83 +15,34 @@ export const getConversionDetails = async (req, res) => {
             return res.status(400).json({ message: "Invalid type parameter." });
         }
 
-        // Build base query (we bypass the default isCounseled restriction for this lookup)
+        // Build base query (we bypass the default isCounseled and followUpStatus restrictions for this lookup)
         const queryParams = { ...req.query };
         delete queryParams.followUpStatus;
+        delete queryParams.leadType;
         const baseQuery = await buildLeadQuery(queryParams, req.user);
         delete baseQuery.isCounseled;
         if (baseQuery.$and) {
             baseQuery.$and = baseQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
         }
 
-        // Gather phone numbers like getLeads.js does
-        const [
-            normalStudentIds,
-            boardStudentIds,
-            directEnrolledMobiles,
-            directEnrolledWhatsapp,
-            boardAdmittedMobiles,
-            boardCounsellingMobiles,
-            studentMobiles,
-            studentWhatsapp
-        ] = await Promise.all([
-            Admission.distinct("student"),
-            BoardCourseAdmission.distinct("studentId"),
-            Student.find({ isEnrolled: true }).distinct("studentsDetails.mobileNum"),
-            Student.find({ isEnrolled: true }).distinct("studentsDetails.whatsappNumber"),
-            BoardCourseAdmission.distinct("mobileNum"),
-            BoardCourseCounselling.distinct("mobileNum"),
-            Student.distinct("studentsDetails.mobileNum"),
-            Student.distinct("studentsDetails.whatsappNumber")
-        ]);
-
-        const allAdmittedStudentIds = [...new Set([...normalStudentIds, ...boardStudentIds])];
-
-        const admittedStudentsFromDetails = await Student.find({
-            _id: { $in: allAdmittedStudentIds }
-        }).select("studentsDetails.mobileNum studentsDetails.whatsappNumber").lean();
-
-        const phonesFromDetails = admittedStudentsFromDetails.flatMap(s => (s.studentsDetails || []).flatMap(d => [d.mobileNum, d.whatsappNumber])).filter(Boolean);
-
-        const allAdmittedPhoneNumbers = [...new Set([
-            ...directEnrolledMobiles,
-            ...directEnrolledWhatsapp,
-            ...boardAdmittedMobiles,
-            ...phonesFromDetails
-        ])].filter(Boolean);
-
-        const allCounsellingPhoneNumbers = [...new Set([
-            ...allAdmittedPhoneNumbers,
-            ...boardCounsellingMobiles,
-            ...studentMobiles,
-            ...studentWhatsapp
-        ])].filter(Boolean);
+        // Gather matching admitted and counselled lead IDs using (phone + student name) matching
+        const { matchingAdmittedIds, matchingCounsellingIds } = await getMatchingLeadIds(baseQuery);
 
         // Apply type-specific filter
         if (normalizedType === "admitted") {
-            const admittedCondition = [
-                { phoneNumber: { $in: allAdmittedPhoneNumbers } },
-                { secondPhoneNumber: { $in: allAdmittedPhoneNumbers } }
-            ];
-            if (baseQuery.$or) {
-                baseQuery.$and = baseQuery.$and || [];
-                baseQuery.$and.push({ $or: baseQuery.$or });
-                delete baseQuery.$or;
-                baseQuery.$and.push({ $or: admittedCondition });
-            } else {
-                baseQuery.$or = admittedCondition;
-            }
-        } else if (normalizedType === "uploaded_admissions" || normalizedType === "uploaded_admitted") {
-            const admittedCondition = [
-                { phoneNumber: { $in: allAdmittedPhoneNumbers } },
-                { secondPhoneNumber: { $in: allAdmittedPhoneNumbers } }
-            ];
             baseQuery.$and = baseQuery.$and || [];
             if (baseQuery.$or) {
                 baseQuery.$and.push({ $or: baseQuery.$or });
                 delete baseQuery.$or;
             }
-            baseQuery.$and.push({ $or: admittedCondition });
+            baseQuery.$and.push({ _id: { $in: matchingAdmittedIds } });
+        } else if (normalizedType === "uploaded_admissions" || normalizedType === "uploaded_admitted") {
+            baseQuery.$and = baseQuery.$and || [];
+            if (baseQuery.$or) {
+                baseQuery.$and.push({ $or: baseQuery.$or });
+                delete baseQuery.$or;
+            }
+            baseQuery.$and.push({ _id: { $in: matchingAdmittedIds } });
             baseQuery.$and.push({
                 $or: [
                     { isBulkUpload: true },
@@ -100,16 +52,12 @@ export const getConversionDetails = async (req, res) => {
                 ]
             });
         } else if (normalizedType === "manual_admissions" || normalizedType === "manual_admitted") {
-            const admittedCondition = [
-                { phoneNumber: { $in: allAdmittedPhoneNumbers } },
-                { secondPhoneNumber: { $in: allAdmittedPhoneNumbers } }
-            ];
             baseQuery.$and = baseQuery.$and || [];
             if (baseQuery.$or) {
                 baseQuery.$and.push({ $or: baseQuery.$or });
                 delete baseQuery.$or;
             }
-            baseQuery.$and.push({ $or: admittedCondition });
+            baseQuery.$and.push({ _id: { $in: matchingAdmittedIds } });
             baseQuery.$and.push({
                 $and: [
                     {
@@ -142,22 +90,20 @@ export const getConversionDetails = async (req, res) => {
             });
         } else {
             // counselled
-            const counselledCondition = [
-                { isCounseled: true },
-                { phoneNumber: { $in: allCounsellingPhoneNumbers } },
-                { secondPhoneNumber: { $in: allCounsellingPhoneNumbers } }
-            ];
+            baseQuery.$and = baseQuery.$and || [];
             if (baseQuery.$or) {
-                baseQuery.$and = baseQuery.$and || [];
                 baseQuery.$and.push({ $or: baseQuery.$or });
                 delete baseQuery.$or;
-                baseQuery.$and.push({ $or: counselledCondition });
-            } else {
-                baseQuery.$or = counselledCondition;
             }
+            baseQuery.$and.push({
+                $or: [
+                    { isCounseled: true },
+                    { _id: { $in: matchingCounsellingIds } }
+                ]
+            });
         }
 
-                const leads = await LeadManagement.find(baseQuery)
+        const leads = await LeadManagement.find(baseQuery)
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
@@ -165,49 +111,79 @@ export const getConversionDetails = async (req, res) => {
             .populate('createdBy', 'name')
             .sort({ createdAt: -1 });
 
-        // Retrieve down payment values, admitted course/board titles, and who admitted the student
+        // Retrieve down payment values, admitted course/board titles, who admitted the student, and enrollment number
         const [normalAdmissions, boardAdmissions] = await Promise.all([
-            Admission.find({}, { student: 1, course: 1, board: 1, boardCourseName: 1, downPayment: 1, createdBy: 1 })
+            Admission.find({}, { admissionNumber: 1, student: 1, course: 1, board: 1, boardCourseName: 1, downPayment: 1, createdBy: 1, admissionDate: 1, createdAt: 1 })
                 .populate("course", "courseName")
                 .populate("board", "boardCourse name")
                 .populate("createdBy", "name")
                 .lean(),
-            BoardCourseAdmission.find({}, { studentId: 1, mobileNum: 1, boardId: 1, boardCourseName: 1, programme: 1, installments: { $slice: 1 }, examFeePaid: 1, additionalThingsPaid: 1, createdBy: 1 })
+            BoardCourseAdmission.find({}, { admissionNumber: 1, studentId: 1, mobileNum: 1, boardId: 1, boardCourseName: 1, programme: 1, installments: { $slice: 1 }, examFeePaid: 1, additionalThingsPaid: 1, createdBy: 1, admissionDate: 1, createdAt: 1 })
                 .populate("boardId", "boardCourse name")
                 .populate("createdBy", "name")
                 .lean()
         ]);
 
-        const downPaymentMap = new Map();
-        const courseNameMap = new Map();
-        const admittedByMap = new Map();
-
         const studentIds = normalAdmissions.map(a => a.student?.toString()).filter(Boolean);
-        const admittedStudents = await Student.find({ _id: { $in: studentIds } }, { "studentsDetails.mobileNum": 1, "studentsDetails.whatsappNumber": 1 }).lean();
-        
-        const studentIdToPhones = new Map();
+        const boardStudentIds = boardAdmissions.map(a => a.studentId?.toString()).filter(Boolean);
+        const allStudentIds = [...new Set([...studentIds, ...boardStudentIds])];
+
+        const admittedStudents = await Student.find(
+            { _id: { $in: allStudentIds } },
+            { 
+                "studentsDetails.studentName": 1, 
+                "studentsDetails.mobileNum": 1, 
+                "studentsDetails.whatsappNumber": 1, 
+                "studentsDetails.studentEmail": 1, 
+                "guardians.guardianEmail": 1 
+            }
+        ).lean();
+
+        // Student ID to details: { names, phones, emails }
+        const studentInfoMap = new Map();
         admittedStudents.forEach(s => {
-            const phones = (s.studentsDetails || []).flatMap(d => [d.mobileNum, d.whatsappNumber]).filter(Boolean).map(p => p.trim());
-            studentIdToPhones.set(s._id.toString(), phones);
+            const sid = s._id.toString();
+            const names = (s.studentsDetails || []).map(d => d.studentName).filter(Boolean);
+            const phones = (s.studentsDetails || []).flatMap(d => [d.mobileNum, d.whatsappNumber]).filter(Boolean).map(p => cleanPhoneNumber(p)).filter(Boolean);
+            const emails = [
+                ...(s.studentsDetails || []).map(d => d.studentEmail).filter(Boolean),
+                ...(s.guardians || []).map(g => g.guardianEmail).filter(Boolean)
+            ];
+            studentInfoMap.set(sid, { names, phones, emails });
         });
+
+        // Map cleaned phone -> array of admission details
+        const phoneToAdmissionEntries = new Map();
+        const addAdmissionEntry = (phone, entry) => {
+            const cp = cleanPhoneNumber(phone);
+            if (!cp) return;
+            if (!phoneToAdmissionEntries.has(cp)) {
+                phoneToAdmissionEntries.set(cp, []);
+            }
+            phoneToAdmissionEntries.get(cp).push(entry);
+        };
 
         normalAdmissions.forEach(adm => {
             const sid = adm.student?.toString();
+            const sInfo = sid ? studentInfoMap.get(sid) : null;
             const courseTitle = adm.course?.courseName || adm.boardCourseName || adm.board?.boardCourse || adm.board?.name || "";
             const admittedByName = adm.createdBy?.name || "";
-            if (sid) {
-                const amount = adm.downPayment ?? 0;
-                downPaymentMap.set(sid, amount);
-                if (courseTitle) courseNameMap.set(sid, courseTitle);
-                if (admittedByName) admittedByMap.set(sid, admittedByName);
+            const enrollNo = adm.admissionNumber || "";
+            const amount = adm.downPayment ?? 0;
+            const email = sInfo?.emails?.[0] || "";
+            const studentNames = sInfo?.names || [];
 
-                const phones = studentIdToPhones.get(sid) || [];
-                phones.forEach(p => {
-                    downPaymentMap.set(p, amount);
-                    if (courseTitle) courseNameMap.set(p, courseTitle);
-                    if (admittedByName) admittedByMap.set(p, admittedByName);
-                });
-            }
+            const entry = {
+                studentNames,
+                amount,
+                courseTitle,
+                admittedByName,
+                enrollNo,
+                email,
+                admissionDate: adm.admissionDate || adm.createdAt || null
+            };
+
+            (sInfo?.phones || []).forEach(p => addAdmissionEntry(p, entry));
         });
 
         boardAdmissions.forEach(adm => {
@@ -220,59 +196,77 @@ export const getConversionDetails = async (req, res) => {
             }
             const boardTitle = adm.boardCourseName || adm.boardId?.boardCourse || adm.boardId?.name || "Board Course";
             const admittedByName = adm.createdBy?.name || "";
+            const enrollNo = adm.admissionNumber || "";
+            const sid = adm.studentId?.toString();
+            const sInfo = sid ? studentInfoMap.get(sid) : null;
+            const email = sInfo?.emails?.[0] || "";
+            const studentNames = [
+                adm.studentName,
+                ...(sInfo?.names || [])
+            ].filter(Boolean);
 
-            if (adm.studentId) {
-                downPaymentMap.set(adm.studentId.toString(), amount);
-                if (boardTitle) courseNameMap.set(adm.studentId.toString(), boardTitle);
-                if (admittedByName) admittedByMap.set(adm.studentId.toString(), admittedByName);
-            }
+            const entry = {
+                studentNames,
+                amount,
+                courseTitle: boardTitle,
+                admittedByName,
+                enrollNo,
+                email,
+                admissionDate: adm.admissionDate || adm.createdAt || null
+            };
+
             if (adm.mobileNum) {
-                const phone = adm.mobileNum.trim();
-                downPaymentMap.set(phone, amount);
-                if (boardTitle) courseNameMap.set(phone, boardTitle);
-                if (admittedByName) admittedByMap.set(phone, admittedByName);
+                addAdmissionEntry(adm.mobileNum, entry);
             }
+            (sInfo?.phones || []).forEach(p => addAdmissionEntry(p, entry));
         });
 
         const leadsWithPayments = leads.map(lead => {
-            let downPayment = 0;
-            let admittedCourseName = "";
-            let admittedBy = "";
+            const cp1 = cleanPhoneNumber(lead.phoneNumber);
+            const cp2 = cleanPhoneNumber(lead.secondPhoneNumber);
 
-            const p1 = lead.phoneNumber ? lead.phoneNumber.trim() : "";
-            const p2 = lead.secondPhoneNumber ? lead.secondPhoneNumber.trim() : "";
+            const candidateEntries = [
+                ...(phoneToAdmissionEntries.get(cp1) || []),
+                ...(phoneToAdmissionEntries.get(cp2) || [])
+            ];
 
-            if (p1 && downPaymentMap.has(p1)) {
-                downPayment = downPaymentMap.get(p1);
-            } else if (p2 && downPaymentMap.has(p2)) {
-                downPayment = downPaymentMap.get(p2);
+            // Match by student name if multiple candidates, else take first
+            let matchedEntry = null;
+            if (candidateEntries.length > 0) {
+                matchedEntry = candidateEntries.find(entry => 
+                    (entry.studentNames || []).some(sn => isNameMatch(lead.name, sn))
+                ) || candidateEntries[0];
             }
 
-            if (p1 && courseNameMap.has(p1)) {
-                admittedCourseName = courseNameMap.get(p1);
-            } else if (p2 && courseNameMap.has(p2)) {
-                admittedCourseName = courseNameMap.get(p2);
+            const downPayment = matchedEntry ? matchedEntry.amount : 0;
+            const admittedCourseName = matchedEntry?.courseTitle || "";
+            const leadCourseFallback = lead.board?.boardCourse ? `${lead.board.boardCourse}${lead.className?.name ? ' Class ' + lead.className.name : ''} Board Course` : "";
+            const leadCourseName = lead.course?.courseName || lead.courseText || leadCourseFallback || lead.board?.name || "NA";
+            const enrollmentNo = matchedEntry?.enrollNo || "NA";
+            const email = lead.email ? lead.email.trim() : (matchedEntry?.email || "NA");
+            let admittedBy = matchedEntry?.admittedByName || "";
+            if (!admittedBy && lead.marketingBy) {
+                admittedBy = lead.marketingBy;
             }
-
-            if (p1 && admittedByMap.has(p1)) {
-                admittedBy = admittedByMap.get(p1);
-            } else if (p2 && admittedByMap.has(p2)) {
-                admittedBy = admittedByMap.get(p2);
-            }
-
-            if (!admittedCourseName) {
-                admittedCourseName = lead.course?.courseName || lead.board?.boardCourse || lead.board?.name || "";
-            }
-
             if (!admittedBy && lead.createdBy?.name) {
                 admittedBy = lead.createdBy.name;
             }
+            if (!admittedBy) {
+                admittedBy = "NA";
+            }
+            const admissionDate = matchedEntry?.admissionDate || null;
+            const source = lead.source || (lead.isBulkUpload ? "BULK UPLOAD" : (lead.isWalkIn ? "WALK-IN" : "DIRECT / MANUAL"));
 
             return {
                 ...lead.toObject ? lead.toObject() : lead,
                 downPayment,
-                admittedCourseName,
-                admittedBy: admittedBy || "—"
+                admittedCourseName: admittedCourseName || "NA",
+                leadCourseName: leadCourseName || "NA",
+                enrollmentNo: enrollmentNo || "NA",
+                email: email || "NA",
+                admittedBy: admittedBy || "NA",
+                admissionDate,
+                source
             };
         });
 

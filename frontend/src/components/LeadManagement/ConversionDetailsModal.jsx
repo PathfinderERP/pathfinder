@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { FaTimes, FaSearch, FaUser, FaUserCheck, FaPhoneAlt, FaEnvelope, FaBuilding, FaGraduationCap, FaAward, FaCalendarAlt } from 'react-icons/fa';
+import { FaTimes, FaSearch, FaUser, FaUserCheck, FaPhoneAlt, FaEnvelope, FaBuilding, FaGraduationCap, FaAward, FaCalendarAlt, FaIdCard, FaBullhorn } from 'react-icons/fa';
 
 const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) => {
     const [searchQuery, setSearchQuery] = useState('');
@@ -13,8 +13,12 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                 (lead.name || '').toLowerCase().includes(q) ||
                 (lead.phoneNumber || '').includes(q) ||
                 (lead.email || '').toLowerCase().includes(q) ||
+                (lead.enrollmentNo || '').toLowerCase().includes(q) ||
                 (lead.schoolName || '').toLowerCase().includes(q) ||
-                (lead.admittedBy || '').toLowerCase().includes(q)
+                (lead.admittedBy || '').toLowerCase().includes(q) ||
+                (lead.source || '').toLowerCase().includes(q) ||
+                (lead.leadCourseName || '').toLowerCase().includes(q) ||
+                (lead.admittedCourseName || '').toLowerCase().includes(q)
             );
         });
     }, [leads, searchQuery]);
@@ -82,7 +86,8 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                             {filteredLeads.map((lead, idx) => {
                                 const boardCourseFallback = lead.board?.boardCourse ? `${lead.board.boardCourse}${lead.className?.name ? ' Class ' + lead.className.name : ''} Board Course` : '';
-                                const courseDisplay = lead.admittedCourseName || lead.course?.courseName || boardCourseFallback || lead.board?.name || '—';
+                                const leadCourseDisplay = lead.leadCourseName && lead.leadCourseName !== 'NA' ? lead.leadCourseName : (lead.course?.courseName || lead.courseText || boardCourseFallback || lead.board?.name || 'NA');
+                                const admittedCourseDisplay = lead.admittedCourseName && lead.admittedCourseName !== 'NA' ? lead.admittedCourseName : 'NA';
                                 return (
                                     <div
                                         key={lead._id || idx}
@@ -92,7 +97,7 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                                             <h3 className={`text-sm font-bold uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                                 {lead.name}
                                             </h3>
-                                            <div className="flex gap-1.5 items-center shrink-0">
+                                            <div className="flex gap-1.5 items-center shrink-0 flex-wrap justify-end">
                                                 {lead.downPayment > 0 && (
                                                     <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                                         Down Payment: ₹{Math.round(lead.downPayment).toLocaleString("en-IN")}
@@ -101,6 +106,11 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                                                 <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${lead.leadType === "HOT LEAD" ? "bg-red-500/10 text-red-400 border border-red-500/20" : "bg-purple-500/10 text-purple-400 border border-purple-500/20"}`}>
                                                     {lead.leadType || "Lead"}
                                                 </span>
+                                                {lead.source && (
+                                                    <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                                        {lead.source}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
 
@@ -112,7 +122,7 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                                             </div>
                                             <div className="flex items-center gap-2">
                                                 <FaEnvelope size={10} className="text-purple-500" />
-                                                <span className="truncate">{lead.email || '—'}</span>
+                                                <span className="truncate">{lead.email && lead.email !== '—' ? lead.email : 'NA'}</span>
                                             </div>
                                             <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-800/30 dark:border-gray-800/50">
                                                 <div className="flex items-center gap-1.5">
@@ -124,9 +134,30 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                                                     <span className="truncate">{lead.className?.name || '—'}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 col-span-2">
+                                                    <FaAward size={10} className="text-amber-400 shrink-0" />
+                                                    <span className="truncate">
+                                                        <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Lead Course:</span>
+                                                        <span className={`font-bold ${isDarkMode ? 'text-amber-300' : 'text-amber-700'}`} title={leadCourseDisplay}>
+                                                            {leadCourseDisplay}
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 col-span-2">
                                                     <FaAward size={10} className="text-purple-400 shrink-0" />
-                                                    <span className={`truncate font-bold ${isDarkMode ? 'text-purple-300' : 'text-purple-700'}`} title={courseDisplay}>
-                                                        {courseDisplay}
+                                                    <span className="truncate">
+                                                        <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Admitted Course:</span>
+                                                        <span className={`font-bold ${isDarkMode ? 'text-purple-300' : 'text-purple-700'}`} title={admittedCourseDisplay}>
+                                                            {admittedCourseDisplay}
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 col-span-2">
+                                                    <FaIdCard size={10} className="text-cyan-400 shrink-0" />
+                                                    <span className="truncate">
+                                                        <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Enrollment No:</span>
+                                                        <span className={`font-black uppercase tracking-wider text-[10px] ${isDarkMode ? 'text-cyan-300' : 'text-cyan-700'}`}>
+                                                            {lead.enrollmentNo && lead.enrollmentNo !== '—' ? lead.enrollmentNo : 'NA'}
+                                                        </span>
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 col-span-2">
@@ -134,13 +165,27 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                                                     <span className="truncate">
                                                         <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Admitted By:</span>
                                                         <span className={`font-black uppercase tracking-wider text-[10px] ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                                                            {lead.admittedBy || '—'}
+                                                            {lead.admittedBy && lead.admittedBy !== '—' ? lead.admittedBy : 'NA'}
+                                                        </span>
+                                                    </span>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 col-span-2">
+                                                    <FaBullhorn size={10} className="text-blue-400 shrink-0" />
+                                                    <span className="truncate">
+                                                        <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Source:</span>
+                                                        <span className={`font-black uppercase tracking-wider text-[10px] ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}>
+                                                            {lead.source || 'NA'}
                                                         </span>
                                                     </span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5 col-span-2">
                                                     <FaCalendarAlt size={10} className="text-gray-500 shrink-0" />
-                                                    <span>{lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : '—'}</span>
+                                                    <span className="truncate">
+                                                        <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Lead Created Date:</span>
+                                                        <span className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                            {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : 'NA'}
+                                                        </span>
+                                                    </span>
                                                 </div>
                                             </div>
                                         </div>
