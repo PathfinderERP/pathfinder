@@ -959,19 +959,24 @@ export const getTransactionReport = async (req, res) => {
         // Financial Year Logic (April - March)
         const fyStartYear = nowInIST.getMonth() >= 3 ? currentYear : currentYear - 1;
         const startCFY = getISTDate(fyStartYear, 3, 1, 0, 0, 0, 0);
-        const endCFY = getISTDate(fyStartYear + 1, 2, 31, 23, 59, 59, 999);
 
         const startPFY = getISTDate(fyStartYear - 1, 3, 1, 0, 0, 0, 0);
         const endPFY = getISTDate(fyStartYear, 2, 31, 23, 59, 59, 999);
 
+        const todayStart = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth(), nowInIST.getDate(), 0, 0, 0, 0);
+        const todayEnd = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth(), nowInIST.getDate(), 23, 59, 59, 999);
+
+        // Cap Current Financial Year (YTD) and Current Month (MTD) to the end of today
+        // This ensures operational metrics never count future-dated payments prematurely
+        const endOfCFY = getISTDate(fyStartYear + 1, 2, 31, 23, 59, 59, 999);
+        const endCFY = endOfCFY < todayEnd ? endOfCFY : todayEnd;
+
         const currentMonthStart = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth(), 1, 0, 0, 0, 0);
-        const currentMonthEnd = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth() + 1, 0, 23, 59, 59, 999);
+        const endOfCurrentMonth = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth() + 1, 0, 23, 59, 59, 999);
+        const currentMonthEnd = endOfCurrentMonth < todayEnd ? endOfCurrentMonth : todayEnd;
 
         const prevMonthStart = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth() - 1, 1, 0, 0, 0, 0);
         const prevMonthEnd = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth(), 0, 23, 59, 59, 999);
-
-        const todayStart = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth(), nowInIST.getDate(), 0, 0, 0, 0);
-        const todayEnd = getISTDate(nowInIST.getFullYear(), nowInIST.getMonth(), nowInIST.getDate(), 23, 59, 59, 999);
 
         const statsPipeline = [
             { $match: baseAttributesMatch },
@@ -1121,22 +1126,22 @@ export const getTransactionReport = async (req, res) => {
             detailedReport: detailedData,        // New
             totalRevenue,
             stats: {
-                currentYear: stats.currentYearWithGst,
-                currentYearRevenue: stats.currentYearWithoutGst,
-                previousYear: stats.previousYearWithGst,
-                previousYearRevenue: stats.previousYearWithoutGst,
-                currentMonth: stats.currentMonthWithGst,
-                currentMonthRevenue: stats.currentMonthWithoutGst,
-                previousMonth: stats.previousMonthWithGst,
-                previousMonthRevenue: stats.previousMonthWithoutGst,
-                todayCollection: stats.todayWithGst || 0,
-                todayRevenue: stats.todayWithoutGst || 0,
+                currentYear: Math.round(stats.currentYearWithGst || 0),
+                currentYearRevenue: Math.round(stats.currentYearWithoutGst || 0),
+                previousYear: Math.round(stats.previousYearWithGst || 0),
+                previousYearRevenue: Math.round(stats.previousYearWithoutGst || 0),
+                currentMonth: Math.round(stats.currentMonthWithGst || 0),
+                currentMonthRevenue: Math.round(stats.currentMonthWithoutGst || 0),
+                previousMonth: Math.round(stats.previousMonthWithGst || 0),
+                previousMonthRevenue: Math.round(stats.previousMonthWithoutGst || 0),
+                todayCollection: Math.round(stats.todayWithGst || 0),
+                todayRevenue: Math.round(stats.todayWithoutGst || 0),
                 currentYearLabel: `${fyStartYear}-${(fyStartYear + 1).toString().slice(-2)}`,
                 previousYearLabel: `${fyStartYear - 1}-${fyStartYear.toString().slice(-2)}`,
                 currentMonthLabel: now.toLocaleString('default', { month: 'long' }),
                 previousMonthLabel: prevMonthStart.toLocaleString('default', { month: 'long' }),
-                selectionTotalWithGst: result.paymentMethods.reduce((acc, curr) => acc + curr.value, 0),
-                selectionTotalBase: result.paymentMethods.reduce((acc, curr) => acc + (curr.revenueWithoutGst || 0), 0)
+                selectionTotalWithGst: Math.round(result.paymentMethods.reduce((acc, curr) => acc + curr.value, 0)),
+                selectionTotalBase: Math.round(result.paymentMethods.reduce((acc, curr) => acc + (curr.revenueWithoutGst || 0), 0))
             }
         };
 

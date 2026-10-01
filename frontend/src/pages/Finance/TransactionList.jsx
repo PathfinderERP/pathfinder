@@ -650,7 +650,7 @@ const TransactionList = () => {
                         <div className="text-right flex-1">
                             <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
                                 <span className={`text-[10px] font-black ${subText} uppercase tracking-tighter`}>Total (With GST)</span>
-                                <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.currentYear ? stats.currentYear.toLocaleString('en-IN') : 0}</h3>
+                                <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.currentYear ? Math.round(stats.currentYear).toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <div className="flex flex-col">
                                 <span className={`text-[10px] font-black ${isDark ? 'text-green-400' : 'text-green-400'} uppercase tracking-tighter`}>Revenue (Base)</span>
@@ -669,7 +669,7 @@ const TransactionList = () => {
                         <div className="text-right flex-1">
                             <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
                                 <span className={`text-[10px] font-black ${subText} uppercase tracking-tighter`}>Total (With GST)</span>
-                                <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.previousMonth ? stats.previousMonth.toLocaleString('en-IN') : 0}</h3>
+                                <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.previousMonth ? Math.round(stats.previousMonth).toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <div className="flex flex-col">
                                 <span className={`text-[10px] font-black ${isDark ? 'text-purple-400' : 'text-purple-400'} uppercase tracking-tighter`}>Revenue (Base)</span>
@@ -688,7 +688,7 @@ const TransactionList = () => {
                         <div className="text-right flex-1">
                             <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
                                 <span className={`text-[10px] font-black ${subText} uppercase tracking-tighter`}>Total (With GST)</span>
-                                <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.currentMonth ? stats.currentMonth.toLocaleString('en-IN') : 0}</h3>
+                                <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.currentMonth ? Math.round(stats.currentMonth).toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <div className="flex flex-col">
                                 <span className={`text-[10px] font-black ${isDark ? 'text-blue-400' : 'text-blue-400'} uppercase tracking-tighter`}>Revenue (Base)</span>
@@ -707,7 +707,7 @@ const TransactionList = () => {
                         <div className="text-right flex-1">
                             <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
                                 <span className={`text-[10px] font-black ${subText} uppercase tracking-tighter`}>Total (With GST)</span>
-                                <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.todayCollection ? stats.todayCollection.toLocaleString('en-IN') : 0}</h3>
+                                <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.todayCollection ? Math.round(stats.todayCollection).toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <div className="flex flex-col">
                                 <span className={`text-[10px] font-black ${isDark ? 'text-green-400' : 'text-green-400'} uppercase tracking-tighter`}>Revenue (Base)</span>
