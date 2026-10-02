@@ -13,6 +13,16 @@ import axios from 'axios';
 import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import { hasPermission } from '../../config/permissions';
+import CustomMultiSelect from '../../components/common/CustomMultiSelect';
+
+const MATERIAL_FILTER_OPTIONS = [
+    { value: "Leaflets", label: "Leaflets" },
+    { value: "Banners", label: "Banners" },
+    { value: "Bags", label: "Bags" },
+    { value: "T-Shirts", label: "T-Shirts" },
+    { value: "KTS Books", label: "KTS Books" },
+    { value: "VSO Books", label: "VSO Books" }
+];
 
 const MarketingApprovalPage = () => {
     const { theme } = useTheme();
@@ -62,7 +72,41 @@ const MarketingApprovalPage = () => {
     // Filters
     const [statusFilter, setStatusFilter] = useState("all");
     const [centreFilter, setCentreFilter] = useState("all");
+    const [selectedMaterials, setSelectedMaterials] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
+
+    // Filter requisitions by selected materials (multi-select)
+    const filteredRequisitions = useMemo(() => {
+        if (!selectedMaterials || selectedMaterials.length === 0) {
+            return requisitions;
+        }
+
+        const selectedVals = selectedMaterials.map(m => (m.value || m).toLowerCase());
+
+        return requisitions.filter(req => {
+            return selectedVals.some(mat => {
+                if (mat.includes('leaflet')) {
+                    return (req.leaflets > 0) || (req.approvedLeaflets > 0) || (req.itemType && req.itemType.toLowerCase().includes('leaflet'));
+                }
+                if (mat.includes('banner')) {
+                    return (req.banners > 0) || (req.approvedBanners > 0) || (req.itemType && req.itemType.toLowerCase().includes('banner'));
+                }
+                if (mat.includes('bag')) {
+                    return (req.bags > 0) || (req.approvedBags > 0) || (req.itemType && req.itemType.toLowerCase().includes('bag'));
+                }
+                if (mat.includes('tshirt') || mat.includes('t-shirt')) {
+                    return (req.tshirts > 0) || (req.approvedTshirts > 0) || (req.itemType && (req.itemType.toLowerCase().includes('tshirt') || req.itemType.toLowerCase().includes('t-shirt')));
+                }
+                if (mat.includes('kts')) {
+                    return (req.ktsBooks > 0) || (req.approvedKtsBooks > 0) || (req.bookType && req.bookType.toLowerCase().includes('kts')) || (req.itemType && req.itemType.toLowerCase().includes('kts'));
+                }
+                if (mat.includes('vso')) {
+                    return (req.vsoBooks > 0) || (req.approvedVsoBooks > 0) || (req.bookType && req.bookType.toLowerCase().includes('vso')) || (req.itemType && req.itemType.toLowerCase().includes('vso'));
+                }
+                return false;
+            });
+        });
+    }, [requisitions, selectedMaterials]);
 
     // Modal: Approve
     const [approveModalOpen, setApproveModalOpen] = useState(false);
@@ -79,6 +123,8 @@ const MarketingApprovalPage = () => {
     const [approving, setApproving] = useState(false);
     const [selectedReqBucket, setSelectedReqBucket] = useState(null);
     const [loadingReqBucket, setLoadingReqBucket] = useState(false);
+    const [hazraStock, setHazraStock] = useState(null);
+    const [loadingHazraStock, setLoadingHazraStock] = useState(false);
 
     // Modal: Reject
     const [rejectModalOpen, setRejectModalOpen] = useState(false);
@@ -178,13 +224,21 @@ const MarketingApprovalPage = () => {
     // Open Approval Modal
     const handleOpenApproval = async (req) => {
         setSelectedReqForApproval(req);
+
+        const leafDef = req.leaflets || (req.itemType?.toLowerCase().includes('leaflet') ? req.quantity : 0) || 0;
+        const banDef  = req.banners  || (req.itemType?.toLowerCase().includes('banner') ? req.quantity : 0) || 0;
+        const bagDef  = req.bags     || (req.itemType?.toLowerCase().includes('bag') ? req.quantity : 0) || 0;
+        const tshDef  = req.tshirts  || ((req.itemType?.toLowerCase().includes('tshirt') || req.itemType?.toLowerCase().includes('t-shirt')) ? req.quantity : 0) || 0;
+        const ktsDef  = req.ktsBooks || (req.bookType?.toLowerCase().includes('kts') || req.itemType?.toLowerCase().includes('kts') ? (req.books || req.quantity) : 0) || 0;
+        const vsoDef  = req.vsoBooks || (req.bookType?.toLowerCase().includes('vso') || req.itemType?.toLowerCase().includes('vso') ? (req.books || req.quantity) : 0) || 0;
+
         setApprovalForm({
-            approvedLeaflets: req.status === 'Approved' ? (req.approvedLeaflets !== undefined ? req.approvedLeaflets : (req.leaflets || 0)) : (req.leaflets || 0),
-            approvedBanners: req.status === 'Approved' ? (req.approvedBanners !== undefined ? req.approvedBanners : (req.banners || 0)) : (req.banners || 0),
-            approvedBags: req.status === 'Approved' ? (req.approvedBags !== undefined ? req.approvedBags : (req.bags || 0)) : (req.bags || 0),
-            approvedTshirts: req.status === 'Approved' ? (req.approvedTshirts !== undefined ? req.approvedTshirts : (req.tshirts || 0)) : (req.tshirts || 0),
-            approvedKtsBooks: req.status === 'Approved' ? (req.approvedKtsBooks !== undefined ? req.approvedKtsBooks : (req.ktsBooks || 0)) : (req.ktsBooks || 0),
-            approvedVsoBooks: req.status === 'Approved' ? (req.approvedVsoBooks !== undefined ? req.approvedVsoBooks : (req.vsoBooks || 0)) : (req.vsoBooks || 0),
+            approvedLeaflets: req.status === 'Approved' ? (req.approvedLeaflets !== undefined ? req.approvedLeaflets : leafDef) : leafDef,
+            approvedBanners: req.status === 'Approved' ? (req.approvedBanners !== undefined ? req.approvedBanners : banDef) : banDef,
+            approvedBags: req.status === 'Approved' ? (req.approvedBags !== undefined ? req.approvedBags : bagDef) : bagDef,
+            approvedTshirts: req.status === 'Approved' ? (req.approvedTshirts !== undefined ? req.approvedTshirts : tshDef) : tshDef,
+            approvedKtsBooks: req.status === 'Approved' ? (req.approvedKtsBooks !== undefined ? req.approvedKtsBooks : ktsDef) : ktsDef,
+            approvedVsoBooks: req.status === 'Approved' ? (req.approvedVsoBooks !== undefined ? req.approvedVsoBooks : vsoDef) : vsoDef,
             approverRemarks: req.approverRemarks || ""
         });
         setApproveModalOpen(true);
@@ -206,6 +260,22 @@ const MarketingApprovalPage = () => {
             } finally {
                 setLoadingReqBucket(false);
             }
+        }
+
+        // Fetch Hazra Central Warehouse stock
+        try {
+            setLoadingHazraStock(true);
+            const token = localStorage.getItem("token");
+            const hRes = await axios.get(`${import.meta.env.VITE_API_URL}/operations/marketing-stock`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (hRes.data?.success) {
+                setHazraStock(hRes.data.stock);
+            }
+        } catch (err) {
+            console.error("Error fetching Hazra central stock:", err);
+        } finally {
+            setLoadingHazraStock(false);
         }
     };
 
@@ -563,6 +633,18 @@ const MarketingApprovalPage = () => {
                             </select>
                         </div>
 
+                        {/* Material Multi-selection Filter */}
+                        <div className="w-56 min-w-[200px]">
+                            <CustomMultiSelect
+                                isMulti
+                                options={MATERIAL_FILTER_OPTIONS}
+                                value={selectedMaterials}
+                                onChange={(val) => setSelectedMaterials(val || [])}
+                                placeholder="Filter Materials..."
+                                maxShowTags={1}
+                            />
+                        </div>
+
                         {/* Status Filter Tabs */}
                         <div className="flex items-center gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800">
                             {['all', 'Pending', 'Approved', 'Rejected'].map(st => (
@@ -590,7 +672,7 @@ const MarketingApprovalPage = () => {
                         <div>
                             <h2 className="text-xl font-black">All Centre Requisitions</h2>
                             <p className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                                Showing {requisitions.length} requisition records
+                                Showing {filteredRequisitions.length} requisition records
                             </p>
                         </div>
                     </div>
@@ -600,11 +682,11 @@ const MarketingApprovalPage = () => {
                             <FaSync className="animate-spin text-3xl mx-auto mb-3 text-orange-500" />
                             <p className="text-sm font-medium">Loading requisitions...</p>
                         </div>
-                    ) : requisitions.length === 0 ? (
+                    ) : filteredRequisitions.length === 0 ? (
                         <div className="py-16 text-center text-gray-500">
                             <FaBoxes className="text-4xl mx-auto mb-3 opacity-30" />
                             <p className="font-bold text-base">No requisitions match your filters</p>
-                            <p className="text-xs mt-1">Try changing the status or centre filter.</p>
+                            <p className="text-xs mt-1">Try changing the material, status or centre filter.</p>
                         </div>
                     ) : (
                         <div className="overflow-x-auto">
@@ -623,7 +705,7 @@ const MarketingApprovalPage = () => {
                                     </tr>
                                 </thead>
                                 <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'}`}>
-                                    {requisitions.map((req) => (
+                                    {filteredRequisitions.map((req) => (
                                         <tr key={req._id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
                                             {/* Date */}
                                             <td className="p-4 whitespace-nowrap">
@@ -887,6 +969,49 @@ const MarketingApprovalPage = () => {
                                     </span>
                                 </div>
                             )}
+
+                            {/* Hazra Central Warehouse Available Stock (Deducted From) */}
+                            <div className={`p-3.5 rounded-2xl mb-4 border ${isDarkMode ? 'bg-indigo-950/20 border-indigo-500/30' : 'bg-indigo-50/70 border-indigo-200'}`}>
+                                <div className="flex justify-between items-center mb-2">
+                                    <div className="flex items-center gap-1.5">
+                                        <FaWarehouse className="text-xs text-indigo-400" />
+                                        <span className="text-xs font-bold text-indigo-400 uppercase tracking-wider">
+                                            Hazra Central Main Stock Available
+                                        </span>
+                                    </div>
+                                    {loadingHazraStock && <FaSync className="animate-spin text-xs text-indigo-500" />}
+                                </div>
+                                <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 text-center text-xs">
+                                    <div className="p-1.5 rounded-lg bg-orange-500/10">
+                                        <span className="text-[9px] text-gray-400 font-bold block uppercase">Leaflets</span>
+                                        <span className="font-extrabold text-orange-400">{(hazraStock?.leaflets ?? 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="p-1.5 rounded-lg bg-blue-500/10">
+                                        <span className="text-[9px] text-gray-400 font-bold block uppercase">Banners</span>
+                                        <span className="font-extrabold text-blue-400">{(hazraStock?.banners ?? 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="p-1.5 rounded-lg bg-emerald-500/10">
+                                        <span className="text-[9px] text-gray-400 font-bold block uppercase">Bags</span>
+                                        <span className="font-extrabold text-emerald-400">{(hazraStock?.bags ?? 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="p-1.5 rounded-lg bg-violet-500/10">
+                                        <span className="text-[9px] text-gray-400 font-bold block uppercase">T-Shirts</span>
+                                        <span className="font-extrabold text-violet-400">{(hazraStock?.tshirts ?? 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="p-1.5 rounded-lg bg-amber-500/10">
+                                        <span className="text-[9px] text-gray-400 font-bold block uppercase">KTS Books</span>
+                                        <span className="font-extrabold text-amber-400">{(hazraStock?.ktsBooks ?? 0).toLocaleString()}</span>
+                                    </div>
+                                    <div className="p-1.5 rounded-lg bg-purple-500/10">
+                                        <span className="text-[9px] text-gray-400 font-bold block uppercase">VSO Books</span>
+                                        <span className="font-extrabold text-purple-400">{(hazraStock?.vsoBooks ?? 0).toLocaleString()}</span>
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-indigo-400/80 mt-2 flex items-center gap-1">
+                                    <FaInfoCircle className="text-[9px]" />
+                                    <span>Approved units will be automatically deducted from Hazra central main stock.</span>
+                                </p>
+                            </div>
 
                             {/* Current Centre Bucket Info */}
                             <div className={`p-4 rounded-2xl mb-6 border ${isDarkMode ? 'bg-[#0d1117] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>

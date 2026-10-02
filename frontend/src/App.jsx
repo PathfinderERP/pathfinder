@@ -192,6 +192,7 @@ import CEOLeadAnalytics from "./pages/CEOLeadAnalytics";
 
 import Store from "./pages/Operations/Store";
 import MarketingOperations from "./pages/Operations/Marketing";
+import MarketingStock from "./pages/Operations/MarketingStock";
 import MarketingApproval from "./pages/Operations/MarketingApproval";
 import AcademicsOperations from "./pages/Operations/Academics";
 import ExamSchedule from "./pages/Operations/ExamSchedule";
@@ -342,6 +343,7 @@ function App() {
         {/* Operations Routes */}
         <Route path="/operations/store" element={<ProtectedRoute><Store /></ProtectedRoute>} />
         <Route path="/operations/marketing" element={<ProtectedRoute><MarketingOperations /></ProtectedRoute>} />
+        <Route path="/operations/marketing-stock" element={<ProtectedRoute><MarketingStock /></ProtectedRoute>} />
         <Route path="/operations/marketing-approval" element={<ProtectedRoute><MarketingApproval /></ProtectedRoute>} />
         <Route path="/operations/academics" element={<ProtectedRoute><AcademicsOperations /></ProtectedRoute>} />
         <Route path="/operations/exam-schedule" element={<ProtectedRoute><ExamSchedule /></ProtectedRoute>} />

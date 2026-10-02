@@ -93,6 +93,7 @@ import followUpRoutes from "./routes/followUp/followUp.routes.js";
 
 import allocationRoutes from "./routes/Inventory/allocation.routes.js";
 import marketingOperationsRoutes from "./routes/Operations/marketing.routes.js";
+import marketingStockRoutes from "./routes/Operations/marketingStock.routes.js";
 import dailyTrackingRoutes from "./routes/Operations/dailyTrackingRoutes.js";
 import examScheduleRoutes from "./routes/Operations/examSchedule.routes.js";
 import redFlagRoutes from "./routes/redFlag.routes.js";
@@ -227,6 +228,7 @@ app.use("/api/community", communityRoutes);
 app.use("/api/student-portal", studentPortalRoutes);
 app.use("/api/inventory/allocation", allocationRoutes);
 app.use("/api/operations/marketing", marketingOperationsRoutes);
+app.use("/api/operations/marketing-stock", marketingStockRoutes);
 app.use("/api/operations/daily-tracking", dailyTrackingRoutes);
 app.use("/api/operations/exam-schedule", examScheduleRoutes);
 app.use("/api/red-flags", redFlagRoutes);

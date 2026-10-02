@@ -1,5 +1,6 @@
 import MarketingRequirement from "../../models/Operations/MarketingRequirement.js";
 import MarketingCentreBucket from "../../models/Operations/MarketingCentreBucket.js";
+import MarketingStockMovement from "../../models/Operations/MarketingStockMovement.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 
 // Helper to find Hazra HO Centre
@@ -574,46 +575,105 @@ export const approveRequisition = async (req, res) => {
         await requirement.save();
 
         // ═══════════════════════════════════════════════════════════════════
-        // UPDATE CENTRE'S MARKETING BUCKET DIRECTLY (Delta Adjustment)
+        // UPDATE CENTRE'S MARKETING BUCKET & HAZRA CENTRAL WAREHOUSE
         // ═══════════════════════════════════════════════════════════════════
-        let bucket = await MarketingCentreBucket.findOne({ centre: requirement.centre });
-        if (!bucket) {
-            const centreDoc = await CentreSchema.findById(requirement.centre);
-            bucket = new MarketingCentreBucket({
-                centre: requirement.centre,
-                centreName: centreDoc ? centreDoc.centreName : requirement.centreName,
-                leaflets: 0,
-                banners: 0,
-                bags: 0,
-                tshirts: 0,
-                ktsBooks: 0,
-                vsoBooks: 0,
-                totalLeafletsReceived: 0,
-                totalBannersReceived: 0,
-                totalBagsReceived: 0,
-                totalTshirtsReceived: 0,
-                totalKtsBooksReceived: 0,
-                totalVsoBooksReceived: 0
-            });
+        const hazraDoc = await getHazraHOCentre();
+        const isHazraRequesting = hazraDoc && requirement.centre && (requirement.centre.toString() === hazraDoc._id.toString());
+
+        let bucket = null;
+        if (!isHazraRequesting && requirement.centre) {
+            bucket = await MarketingCentreBucket.findOne({ centre: requirement.centre });
+            if (!bucket) {
+                const centreDoc = await CentreSchema.findById(requirement.centre);
+                bucket = new MarketingCentreBucket({
+                    centre: requirement.centre,
+                    centreName: centreDoc ? centreDoc.centreName : requirement.centreName,
+                    leaflets: 0,
+                    banners: 0,
+                    bags: 0,
+                    tshirts: 0,
+                    ktsBooks: 0,
+                    vsoBooks: 0,
+                    totalLeafletsReceived: 0,
+                    totalBannersReceived: 0,
+                    totalBagsReceived: 0,
+                    totalTshirtsReceived: 0,
+                    totalKtsBooksReceived: 0,
+                    totalVsoBooksReceived: 0
+                });
+            }
+
+            bucket.leaflets = Math.max(0, (bucket.leaflets || 0) + diffLeaflets);
+            bucket.banners  = Math.max(0, (bucket.banners || 0) + diffBanners);
+            bucket.bags     = Math.max(0, (bucket.bags || 0) + diffBags);
+            bucket.tshirts  = Math.max(0, (bucket.tshirts || 0) + diffTshirts);
+            bucket.ktsBooks = Math.max(0, (bucket.ktsBooks || 0) + diffKts);
+            bucket.vsoBooks = Math.max(0, (bucket.vsoBooks || 0) + diffVso);
+
+            bucket.totalLeafletsReceived = Math.max(0, (bucket.totalLeafletsReceived || 0) + diffLeaflets);
+            bucket.totalBannersReceived  = Math.max(0, (bucket.totalBannersReceived || 0) + diffBanners);
+            bucket.totalBagsReceived     = Math.max(0, (bucket.totalBagsReceived || 0) + diffBags);
+            bucket.totalTshirtsReceived  = Math.max(0, (bucket.totalTshirtsReceived || 0) + diffTshirts);
+            bucket.totalKtsBooksReceived = Math.max(0, (bucket.totalKtsBooksReceived || 0) + diffKts);
+            bucket.totalVsoBooksReceived = Math.max(0, (bucket.totalVsoBooksReceived || 0) + diffVso);
+            bucket.lastUpdated = new Date();
+            bucket.updatedBy = req.user?._id;
+
+            await bucket.save();
         }
 
-        bucket.leaflets = Math.max(0, (bucket.leaflets || 0) + diffLeaflets);
-        bucket.banners  = Math.max(0, (bucket.banners || 0) + diffBanners);
-        bucket.bags     = Math.max(0, (bucket.bags || 0) + diffBags);
-        bucket.tshirts  = Math.max(0, (bucket.tshirts || 0) + diffTshirts);
-        bucket.ktsBooks = Math.max(0, (bucket.ktsBooks || 0) + diffKts);
-        bucket.vsoBooks = Math.max(0, (bucket.vsoBooks || 0) + diffVso);
+        // Deduct from Hazra central warehouse (Main Stock)
+        if (hazraDoc) {
+            let hazraBucket = await MarketingCentreBucket.findOne({ centre: hazraDoc._id });
+            if (!hazraBucket) {
+                hazraBucket = new MarketingCentreBucket({
+                    centre: hazraDoc._id,
+                    centreName: hazraDoc.centreName || "HAZRA H.O",
+                    leaflets: 0,
+                    banners: 0,
+                    bags: 0,
+                    tshirts: 0,
+                    ktsBooks: 0,
+                    vsoBooks: 0
+                });
+            }
 
-        bucket.totalLeafletsReceived = Math.max(0, (bucket.totalLeafletsReceived || 0) + diffLeaflets);
-        bucket.totalBannersReceived  = Math.max(0, (bucket.totalBannersReceived || 0) + diffBanners);
-        bucket.totalBagsReceived     = Math.max(0, (bucket.totalBagsReceived || 0) + diffBags);
-        bucket.totalTshirtsReceived  = Math.max(0, (bucket.totalTshirtsReceived || 0) + diffTshirts);
-        bucket.totalKtsBooksReceived = Math.max(0, (bucket.totalKtsBooksReceived || 0) + diffKts);
-        bucket.totalVsoBooksReceived = Math.max(0, (bucket.totalVsoBooksReceived || 0) + diffVso);
-        bucket.lastUpdated = new Date();
-        bucket.updatedBy = req.user?._id;
+            hazraBucket.leaflets = Math.max(0, (hazraBucket.leaflets || 0) - diffLeaflets);
+            hazraBucket.banners  = Math.max(0, (hazraBucket.banners || 0) - diffBanners);
+            hazraBucket.bags     = Math.max(0, (hazraBucket.bags || 0) - diffBags);
+            hazraBucket.tshirts  = Math.max(0, (hazraBucket.tshirts || 0) - diffTshirts);
+            hazraBucket.ktsBooks = Math.max(0, (hazraBucket.ktsBooks || 0) - diffKts);
+            hazraBucket.vsoBooks = Math.max(0, (hazraBucket.vsoBooks || 0) - diffVso);
+            hazraBucket.lastUpdated = new Date();
+            hazraBucket.updatedBy = req.user?._id;
+            await hazraBucket.save();
 
-        await bucket.save();
+            const netDiffTotal = diffLeaflets + diffBanners + diffBags + diffTshirts + diffKts + diffVso;
+            if (netDiffTotal !== 0) {
+                const itemDetails = [];
+                if (diffLeaflets !== 0) itemDetails.push({ material: 'Leaflets', quantity: -diffLeaflets, newStock: hazraBucket.leaflets });
+                if (diffBanners !== 0)  itemDetails.push({ material: 'Banners', quantity: -diffBanners, newStock: hazraBucket.banners });
+                if (diffBags !== 0)     itemDetails.push({ material: 'Bags', quantity: -diffBags, newStock: hazraBucket.bags });
+                if (diffTshirts !== 0)  itemDetails.push({ material: 'T-Shirts', quantity: -diffTshirts, newStock: hazraBucket.tshirts });
+                if (diffKts !== 0)      itemDetails.push({ material: 'KTS Books', quantity: -diffKts, newStock: hazraBucket.ktsBooks });
+                if (diffVso !== 0)      itemDetails.push({ material: 'VSO Books', quantity: -diffVso, newStock: hazraBucket.vsoBooks });
+
+                await MarketingStockMovement.create({
+                    movementType: 'REQUISITION_DISPATCH',
+                    centre: hazraDoc._id,
+                    centreName: hazraDoc.centreName,
+                    targetCentre: requirement.centre,
+                    targetCentreName: requirement.centreName,
+                    requisition: requirement._id,
+                    material: itemDetails.map(d => `${d.material} (${d.quantity})`).join(', '),
+                    quantity: Math.abs(netDiffTotal),
+                    items: itemDetails,
+                    purpose: requirement.purpose || "Requisition Approved Dispatch",
+                    remarks: `Requisition approved for ${requirement.centreName}${approverRemarks ? ` - Note: ${approverRemarks}` : ''}`,
+                    performedBy: req.user?._id
+                });
+            }
+        }
 
         const updatedReq = await MarketingRequirement.findById(requirement._id)
             .populate('centre', 'centreName centreCode')
@@ -673,25 +733,59 @@ export const rejectRequisition = async (req, res) => {
             const deductVso      = requirement.approvedVsoBooks || 0;
 
             if (deductLeaflets > 0 || deductBanners > 0 || deductBags > 0 || deductTshirts > 0 || deductKts > 0 || deductVso > 0) {
-                let bucket = await MarketingCentreBucket.findOne({ centre: requirement.centre });
-                if (bucket) {
-                    bucket.leaflets = Math.max(0, (bucket.leaflets || 0) - deductLeaflets);
-                    bucket.banners  = Math.max(0, (bucket.banners || 0) - deductBanners);
-                    bucket.bags     = Math.max(0, (bucket.bags || 0) - deductBags);
-                    bucket.tshirts  = Math.max(0, (bucket.tshirts || 0) - deductTshirts);
-                    bucket.ktsBooks = Math.max(0, (bucket.ktsBooks || 0) - deductKts);
-                    bucket.vsoBooks = Math.max(0, (bucket.vsoBooks || 0) - deductVso);
+                const hazraDoc = await getHazraHOCentre();
+                const isHazraRequesting = hazraDoc && requirement.centre && (requirement.centre.toString() === hazraDoc._id.toString());
 
-                    bucket.totalLeafletsReceived = Math.max(0, (bucket.totalLeafletsReceived || 0) - deductLeaflets);
-                    bucket.totalBannersReceived  = Math.max(0, (bucket.totalBannersReceived || 0) - deductBanners);
-                    bucket.totalBagsReceived     = Math.max(0, (bucket.totalBagsReceived || 0) - deductBags);
-                    bucket.totalTshirtsReceived  = Math.max(0, (bucket.totalTshirtsReceived || 0) - deductTshirts);
-                    bucket.totalKtsBooksReceived = Math.max(0, (bucket.totalKtsBooksReceived || 0) - deductKts);
-                    bucket.totalVsoBooksReceived = Math.max(0, (bucket.totalVsoBooksReceived || 0) - deductVso);
+                if (!isHazraRequesting && requirement.centre) {
+                    let bucket = await MarketingCentreBucket.findOne({ centre: requirement.centre });
+                    if (bucket) {
+                        bucket.leaflets = Math.max(0, (bucket.leaflets || 0) - deductLeaflets);
+                        bucket.banners  = Math.max(0, (bucket.banners || 0) - deductBanners);
+                        bucket.bags     = Math.max(0, (bucket.bags || 0) - deductBags);
+                        bucket.tshirts  = Math.max(0, (bucket.tshirts || 0) - deductTshirts);
+                        bucket.ktsBooks = Math.max(0, (bucket.ktsBooks || 0) - deductKts);
+                        bucket.vsoBooks = Math.max(0, (bucket.vsoBooks || 0) - deductVso);
 
-                    bucket.lastUpdated = new Date();
-                    bucket.updatedBy = req.user?._id;
-                    await bucket.save();
+                        bucket.totalLeafletsReceived = Math.max(0, (bucket.totalLeafletsReceived || 0) - deductLeaflets);
+                        bucket.totalBannersReceived  = Math.max(0, (bucket.totalBannersReceived || 0) - deductBanners);
+                        bucket.totalBagsReceived     = Math.max(0, (bucket.totalBagsReceived || 0) - deductBags);
+                        bucket.totalTshirtsReceived  = Math.max(0, (bucket.totalTshirtsReceived || 0) - deductTshirts);
+                        bucket.totalKtsBooksReceived = Math.max(0, (bucket.totalKtsBooksReceived || 0) - deductKts);
+                        bucket.totalVsoBooksReceived = Math.max(0, (bucket.totalVsoBooksReceived || 0) - deductVso);
+
+                        bucket.lastUpdated = new Date();
+                        bucket.updatedBy = req.user?._id;
+                        await bucket.save();
+                    }
+                }
+
+                // Restore stock back into Hazra central warehouse
+                if (hazraDoc) {
+                    let hazraBucket = await MarketingCentreBucket.findOne({ centre: hazraDoc._id });
+                    if (hazraBucket) {
+                        hazraBucket.leaflets = (hazraBucket.leaflets || 0) + deductLeaflets;
+                        hazraBucket.banners  = (hazraBucket.banners || 0) + deductBanners;
+                        hazraBucket.bags     = (hazraBucket.bags || 0) + deductBags;
+                        hazraBucket.tshirts  = (hazraBucket.tshirts || 0) + deductTshirts;
+                        hazraBucket.ktsBooks = (hazraBucket.ktsBooks || 0) + deductKts;
+                        hazraBucket.vsoBooks = (hazraBucket.vsoBooks || 0) + deductVso;
+                        hazraBucket.lastUpdated = new Date();
+                        hazraBucket.updatedBy = req.user?._id;
+                        await hazraBucket.save();
+
+                        const netRestore = deductLeaflets + deductBanners + deductBags + deductTshirts + deductKts + deductVso;
+                        await MarketingStockMovement.create({
+                            movementType: 'REQUISITION_REVERSAL',
+                            centre: hazraDoc._id,
+                            centreName: hazraDoc.centreName,
+                            targetCentre: requirement.centre,
+                            targetCentreName: requirement.centreName,
+                            requisition: requirement._id,
+                            quantity: netRestore,
+                            remarks: `Requisition reversed to Rejected for ${requirement.centreName} - Reason: ${rejectionReason}`,
+                            performedBy: req.user?._id
+                        });
+                    }
                 }
             }
         }
@@ -885,6 +979,38 @@ export const deleteRequisition = async (req, res) => {
                         $set: { lastUpdated: new Date() }
                     }
                 );
+
+                // Restore stock back into Hazra central warehouse
+                const hazraDoc = await getHazraHOCentre();
+                if (hazraDoc) {
+                    await MarketingCentreBucket.findOneAndUpdate(
+                        { centre: hazraDoc._id },
+                        {
+                            $inc: {
+                                leaflets: appLeaflets,
+                                banners: appBanners,
+                                bags: appBags,
+                                tshirts: appTshirts,
+                                ktsBooks: appKts,
+                                vsoBooks: appVso
+                            },
+                            $set: { lastUpdated: new Date() }
+                        }
+                    );
+
+                    const netRestore = appLeaflets + appBanners + appBags + appTshirts + appKts + appVso;
+                    await MarketingStockMovement.create({
+                        movementType: 'REQUISITION_REVERSAL',
+                        centre: hazraDoc._id,
+                        centreName: hazraDoc.centreName,
+                        targetCentre: requirement.centre,
+                        targetCentreName: requirement.centreName,
+                        requisition: requirement._id,
+                        quantity: netRestore,
+                        remarks: `Approved requisition deleted - Restored stock to Hazra main warehouse`,
+                        performedBy: req.user?._id
+                    });
+                }
             }
         }
 

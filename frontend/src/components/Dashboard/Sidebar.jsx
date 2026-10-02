@@ -408,6 +408,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             subItems: [
                 { name: "Store", path: "/operations/store", permissionSection: "store" },
                 { name: "Marketing", path: "/operations/marketing", permissionSection: "marketing" },
+                { name: "Marketing Stock", path: "/operations/marketing-stock", permissionSection: "marketingStock" },
                 { name: "Marketing Approval", path: "/operations/marketing-approval", permissionSection: "marketingApproval" },
                 { name: "Academics", path: "/operations/academics", permissionSection: "academics" },
                 { name: "Exam Schedule", path: "/operations/exam-schedule", icon: <FaCalendarAlt />, permissionSection: "examSchedule" },
