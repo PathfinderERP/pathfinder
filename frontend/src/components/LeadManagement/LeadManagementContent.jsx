@@ -825,10 +825,6 @@ const LeadManagementContent = () => {
     const handleSelectLead = (e, leadId) => {
         e.stopPropagation();
         if (e.target.checked) {
-            if (selectedLeads.length >= 5) {
-                toast.warn("At a time you can select a maximum of 5 students for bulk counselling.");
-                return;
-            }
             setSelectedLeads(prev => [...prev, leadId]);
         } else {
             setSelectedLeads(prev => prev.filter(id => id !== leadId));
@@ -838,12 +834,8 @@ const LeadManagementContent = () => {
     };
 
     const handleOpenBulkCounseling = () => {
-        if (selectedLeads.length < 2) {
-            toast.warn("Please select more than 1 student (up to 5) for bulk counselling.");
-            return;
-        }
-        if (selectedLeads.length > 5) {
-            toast.warn("At a time you can bring a maximum of 5 students to counselling. Please select up to 5 students.");
+        if (selectedLeads.length === 0 && !isAllFilteredSelected) {
+            toast.warn("Please select at least 1 student for bulk counselling.");
             return;
         }
         setShowBulkCounselingModal(true);
@@ -1293,12 +1285,12 @@ const LeadManagementContent = () => {
                                 <FaEdit /> Update Multiple Data ({isAllFilteredSelected ? totalLeads : selectedLeads.length})
                             </button>
                         )}
-                        {selectedLeads.length > 1 && (
+                        {(selectedLeads.length > 0 || isAllFilteredSelected) && (
                             <button
                                 onClick={handleOpenBulkCounseling}
                                 className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 rounded-[2px] shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all flex items-center gap-2.5 font-black text-[10px] uppercase tracking-widest active:scale-95 cursor-pointer"
                             >
-                                <FaUserGraduate size={13} /> Bulk Counselling ({selectedLeads.length})
+                                <FaUserGraduate size={13} /> Bulk Counselling ({isAllFilteredSelected ? totalLeads : selectedLeads.length})
                             </button>
                         )}
                         {canDelete && selectedLeads.length > 0 && (
@@ -2301,15 +2293,15 @@ const LeadManagementContent = () => {
                 />
             )}
 
-            {/* Floating Bulk Counseling Toolbar when > 1 leads selected */}
-            {selectedLeads.length > 1 && (
+            {/* Floating Bulk Counseling Toolbar when leads selected */}
+            {(selectedLeads.length > 1 || isAllFilteredSelected) && (
                 <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#161b22]/95 backdrop-blur-md border border-cyan-500/40 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-4 animate-fade-in">
                     <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-cyan-500 text-black flex items-center justify-center text-xs font-black">
-                            {selectedLeads.length}
+                        <span className="min-w-6 h-6 px-1.5 rounded-full bg-cyan-500 text-black flex items-center justify-center text-xs font-black">
+                            {isAllFilteredSelected ? totalLeads : selectedLeads.length}
                         </span>
                         <span className="text-xs font-bold uppercase tracking-wider text-gray-200">
-                            Students Selected {selectedLeads.length > 5 ? '(Max 5 allowed)' : '(Max 5)'}
+                            Students Selected
                         </span>
                     </div>
                     <div className="h-5 w-[1px] bg-gray-700" />
@@ -2334,6 +2326,9 @@ const LeadManagementContent = () => {
                 isOpen={showBulkCounselingModal}
                 onClose={() => setShowBulkCounselingModal(false)}
                 selectedLeadIds={selectedLeads}
+                isAllFilteredSelected={isAllFilteredSelected}
+                filters={{ ...filters, search: searchTerm }}
+                totalLeads={totalLeads}
                 leads={leads}
                 isDarkMode={isDarkMode}
                 onSuccess={() => {

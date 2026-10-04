@@ -744,22 +744,26 @@ const DailyCollection = () => {
                 const headers = [
                     "Centre Name",
                     "Daily Target (Dynamic Adjusted - Excl. GST)",
+                    "Pending Target (Excl. GST)",
                     ...paymentMethodsList,
                     "Total (With GST)",
                     "Total (Without GST)"
                 ];
 
                 const rows = sortedAggregated.map(([centre, data]) => {
+                    const isPhsps = /phsps/i.test(centre);
+                    const withoutGst = data.totalWithoutGst !== undefined ? data.totalWithoutGst : (isPhsps ? data.total : (data.total / 1.18));
+                    const target = centreTargets[centre] || 0;
+                    const pendingTarget = target - withoutGst;
                     const row = [
                         centre,
-                        centreTargets[centre] || 0
+                        target,
+                        Number(pendingTarget.toFixed(2)) || 0
                     ];
                     paymentMethodsList.forEach(method => {
                         row.push(data[method] || 0);
                     });
                     row.push(data.total || 0);
-                    const isPhsps = /phsps/i.test(centre);
-                    const withoutGst = data.totalWithoutGst !== undefined ? data.totalWithoutGst : (isPhsps ? data.total : (data.total / 1.18));
                     row.push(Number(withoutGst.toFixed(2)) || 0);
                     return row;
                 });
@@ -771,6 +775,7 @@ const DailyCollection = () => {
                 sheet["!cols"] = [
                     { wch: 25 }, // Centre Name
                     { wch: 25 }, // Daily Target
+                    { wch: 25 }, // Pending Target
                     ...paymentMethodsList.map(() => ({ wch: 15 })), // Payment Methods
                     { wch: 18 }, // Total With GST
                     { wch: 18 }  // Total Without GST
@@ -1900,6 +1905,9 @@ const DailyCollection = () => {
                                                 )}
                                             </div>
                                         </th>
+                                        <th className="px-4 py-3 text-right font-bold text-rose-500 whitespace-nowrap">
+                                            Pending Target (Excl. GST)
+                                        </th>
                                         {paymentMethodsList.map(method => (
                                             <th key={method} className="px-4 py-3 text-right">{method}</th>
                                         ))}
@@ -1986,12 +1994,14 @@ const DailyCollection = () => {
                                                 {sortedData.map(([centre, data]) => {
                                                     const isPhsps = /phsps/i.test(centre);
                                                     const rowWithoutGst = data.totalWithoutGst !== undefined ? data.totalWithoutGst : (isPhsps ? data.total : (data.total / 1.18));
+                                                    const target = centreTargets[centre] || 0;
+                                                    const pendingTarget = target - rowWithoutGst;
                                                     return (
                                                         <tr key={centre} className={tableRowHoverClass}>
                                                             <td className={`px-4 py-4 font-bold ${cardTextClass}`}>
                                                                 <div className="flex items-center gap-2">
                                                                     <span>{centre}</span>
-                                                                    {rowWithoutGst < (centreTargets[centre] || 0) && (
+                                                                    {rowWithoutGst < target && (
                                                                         <span className="inline-flex items-center text-red-500 hover:scale-110 transition-transform cursor-help" title="Total (without GST) is less than daily target (without GST)">
                                                                             <FaFlag className="animate-pulse text-red-500" size={14} />
                                                                         </span>
@@ -2081,6 +2091,9 @@ const DailyCollection = () => {
                                                                     </div>
                                                                 )}
                                                             </td>
+                                                            <td className={`px-4 py-4 text-right font-bold ${pendingTarget > 0 ? (isDarkMode ? "text-rose-400" : "text-rose-600") : (isDarkMode ? "text-emerald-400" : "text-emerald-600")}`}>
+                                                                {formatAmount(pendingTarget)}
+                                                            </td>
                                                             {paymentMethodsList.map(method => (
                                                                 <td key={method} className={`px-4 py-4 text-right ${tableDataTextClass}`}>
                                                                     {data[method] ? formatAmount(data[method]) : "0"}
@@ -2115,6 +2128,9 @@ const DailyCollection = () => {
                                                                 </span>
                                                             )}
                                                         </div>
+                                                    </td>
+                                                    <td className={`px-4 py-4 text-right font-bold ${(totalTarget - totalWithoutGst) > 0 ? (isDarkMode ? "text-rose-400" : "text-rose-600") : (isDarkMode ? "text-emerald-400" : "text-emerald-600")}`}>
+                                                        {formatAmount(totalTarget - totalWithoutGst)}
                                                     </td>
                                                     {paymentMethodsList.map(method => (
                                                         <td key={method} className="px-4 py-4 text-right text-gray-400">{formatAmount(totalPaymentMethods[method] || 0)}</td>

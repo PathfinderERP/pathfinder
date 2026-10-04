@@ -20,6 +20,9 @@ const BulkCounselingModal = ({
     isOpen,
     onClose,
     selectedLeadIds = [],
+    isAllFilteredSelected = false,
+    filters = {},
+    totalLeads = 0,
     leads = [],
     isDarkMode = true,
     onSuccess
@@ -35,7 +38,7 @@ const BulkCounselingModal = ({
 
     // Sync selected leads
     useEffect(() => {
-        if (isOpen && selectedLeadIds.length > 0) {
+        if (isOpen) {
             const matched = leads.filter(l => selectedLeadIds.includes(l._id));
             setSelectedStudents(matched);
 
@@ -44,25 +47,30 @@ const BulkCounselingModal = ({
             setWalkInDone(allWalkIn);
             setSelectedCourseType(null);
         }
-    }, [isOpen, selectedLeadIds, leads]);
+    }, [isOpen, selectedLeadIds, leads, isAllFilteredSelected]);
 
     if (!isOpen) return null;
 
+    const displayCount = isAllFilteredSelected ? totalLeads : selectedLeadIds.length;
     const pendingWalkInCount = selectedStudents.filter(l => !l.isWalkIn && l.source?.toLowerCase() !== 'walk in').length;
 
     // Handle marking selected leads as Walk-In
     const handleMarkWalkIn = async () => {
-        if (selectedLeadIds.length === 0) return;
+        if (selectedLeadIds.length === 0 && !isAllFilteredSelected) return;
         setIsWalkingIn(true);
         try {
             const token = localStorage.getItem("token");
+            const body = isAllFilteredSelected
+                ? { filters, isAllFilteredSelected: true }
+                : { leadIds: selectedLeadIds };
+
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/bulk-walk-in`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ leadIds: selectedLeadIds })
+                body: JSON.stringify(body)
             });
 
             const data = await response.json();
@@ -101,16 +109,23 @@ const BulkCounselingModal = ({
         setIsConverting(true);
         try {
             const token = localStorage.getItem("token");
+            const body = {
+                courseType: selectedCourseType
+            };
+            if (isAllFilteredSelected) {
+                body.filters = filters;
+                body.isAllFilteredSelected = true;
+            } else {
+                body.leadIds = selectedLeadIds;
+            }
+
             const response = await fetch(`${import.meta.env.VITE_API_URL}/lead-management/bulk-counseling`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({
-                    leadIds: selectedLeadIds,
-                    courseType: selectedCourseType
-                })
+                body: JSON.stringify(body)
             });
 
             const data = await response.json();
@@ -156,11 +171,11 @@ const BulkCounselingModal = ({
                                     Bulk Counselling Conversion
                                 </h3>
                                 <span className="px-2.5 py-0.5 text-[10px] font-black uppercase tracking-widest rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-                                    {selectedStudents.length} / 5 Students
+                                    {displayCount} Students Selected
                                 </span>
                             </div>
                             <p className={`text-[11px] font-semibold ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
-                                Bring up to 5 students from Lead Management directly to Counselling
+                                Bring selected students from Lead Management directly to Counselling
                             </p>
                         </div>
                     </div>
@@ -181,11 +196,13 @@ const BulkCounselingModal = ({
                     <div>
                         <div className="flex items-center justify-between mb-3">
                             <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
-                                Selected Students ({selectedStudents.length})
+                                Selected Students ({displayCount})
                             </span>
-                            <span className="text-[10px] font-bold text-gray-400">
-                                Maximum 5 at a time
-                            </span>
+                            {isAllFilteredSelected && (
+                                <span className="text-[10px] font-bold text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/20">
+                                    All {totalLeads} filter matching records
+                                </span>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
@@ -295,7 +312,7 @@ const BulkCounselingModal = ({
                                 ) : (
                                     <>
                                         <FaWalking size={14} />
-                                        <span>{walkInDone ? "Re-tag Walk In" : `Click Walk In (${pendingWalkInCount} Pending)`}</span>
+                                        <span>{walkInDone ? "Re-tag Walk In" : isAllFilteredSelected ? `Click Walk In (${totalLeads} Records)` : `Click Walk In (${pendingWalkInCount} Pending)`}</span>
                                     </>
                                 )}
                             </button>
@@ -424,7 +441,7 @@ const BulkCounselingModal = ({
                         ) : (
                             <span className="text-emerald-400 flex items-center gap-1.5">
                                 <FaCheckCircle size={11} />
-                                Ready to convert {selectedStudents.length} {selectedStudents.length === 1 ? 'student' : 'students'} to {selectedCourseType === 'board' ? 'Board' : 'Normal'} Counselling
+                                Ready to convert {displayCount} {displayCount === 1 ? 'student' : 'students'} to {selectedCourseType === 'board' ? 'Board' : 'Normal'} Counselling
                             </span>
                         )}
                     </div>

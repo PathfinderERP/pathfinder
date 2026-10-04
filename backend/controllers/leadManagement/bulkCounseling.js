@@ -4,6 +4,7 @@ import BoardCourseCounselling from "../../models/Admission/BoardCourseCounsellin
 import Department from "../../models/Master_data/Department.js";
 import Boards from "../../models/Master_data/Boards.js";
 import mongoose from "mongoose";
+import { buildLeadQuery } from "../../utils/leadQueryHelper.js";
 
 const sanitizePhone = (phone, fallback = "9876543210") => {
     if (!phone) return fallback;
@@ -14,25 +15,26 @@ const sanitizePhone = (phone, fallback = "9876543210") => {
 };
 
 /**
- * Bulk mark leads as Walk-In (Maximum 5 at a time)
+ * Bulk mark leads as Walk-In (Unlimited / filtered selection)
  */
 export const bulkTagWalkIn = async (req, res) => {
     try {
-        const { leadIds } = req.body;
+        const { leadIds, filters, isAllFilteredSelected } = req.body;
 
-        if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
+        let query = {};
+        if (isAllFilteredSelected && filters) {
+            query = await buildLeadQuery(filters, req.user);
+        } else if (leadIds && Array.isArray(leadIds) && leadIds.length > 0) {
+            query = { _id: { $in: leadIds } };
+        } else {
             return res.status(400).json({ message: "No leads selected for Walk-In tagging." });
-        }
-
-        if (leadIds.length > 5) {
-            return res.status(400).json({ message: "You can tag a maximum of 5 students as Walk-In at a time." });
         }
 
         const now = new Date();
         const walkInBy = req.user?.id || req.user?._id;
 
-        await LeadManagement.updateMany(
-            { _id: { $in: leadIds } },
+        const updateResult = await LeadManagement.updateMany(
+            query,
             {
                 $set: {
                     isWalkIn: true,
@@ -43,13 +45,12 @@ export const bulkTagWalkIn = async (req, res) => {
             }
         );
 
-        const updatedLeads = await LeadManagement.find({ _id: { $in: leadIds } })
-            .populate(['className', 'centre', 'course', 'board']);
+        const updatedCount = updateResult.modifiedCount || updateResult.nModified || updateResult.matchedCount || 0;
 
         return res.status(200).json({
             success: true,
-            message: `${leadIds.length} ${leadIds.length === 1 ? 'student' : 'students'} tagged as Walk-In successfully.`,
-            leads: updatedLeads
+            message: `${updatedCount} ${updatedCount === 1 ? 'student' : 'students'} tagged as Walk-In successfully.`,
+            count: updatedCount
         });
     } catch (err) {
         console.error("Bulk Tag Walk-In error:", err);
@@ -58,19 +59,20 @@ export const bulkTagWalkIn = async (req, res) => {
 };
 
 /**
- * Bulk convert leads to Counselling (Maximum 5 at a time)
+ * Bulk convert leads to Counselling (Unlimited / filtered selection)
  * Can convert to either Normal Course Counselling or Board Course Counselling
  */
 export const bulkConvertToCounseling = async (req, res) => {
     try {
-        const { leadIds, courseType, remarks, departmentId, boardId } = req.body;
+        const { leadIds, filters, isAllFilteredSelected, courseType, remarks, departmentId, boardId } = req.body;
 
-        if (!leadIds || !Array.isArray(leadIds) || leadIds.length === 0) {
+        let query = {};
+        if (isAllFilteredSelected && filters) {
+            query = await buildLeadQuery(filters, req.user);
+        } else if (leadIds && Array.isArray(leadIds) && leadIds.length > 0) {
+            query = { _id: { $in: leadIds } };
+        } else {
             return res.status(400).json({ message: "No students selected for counselling conversion." });
-        }
-
-        if (leadIds.length > 5) {
-            return res.status(400).json({ message: "At a time you can bring a maximum of 5 students to counselling." });
         }
 
         if (!courseType || !['normal', 'board'].includes(courseType)) {
@@ -78,11 +80,11 @@ export const bulkConvertToCounseling = async (req, res) => {
         }
 
         // Fetch the leads with populated references
-        const leads = await LeadManagement.find({ _id: { $in: leadIds } })
+        const leads = await LeadManagement.find(query)
             .populate(['className', 'centre', 'course', 'board']);
 
         if (leads.length === 0) {
-            return res.status(404).json({ message: "No valid leads found with the provided IDs." });
+            return res.status(404).json({ message: "No valid leads found matching the criteria." });
         }
 
         // Enforce Walk-In check: without clicking Walk-In, conversion is prohibited
@@ -90,7 +92,8 @@ export const bulkConvertToCounseling = async (req, res) => {
         if (notWalkInLeads.length > 0) {
             return res.status(400).json({
                 message: "All selected students must be marked as Walk-In first before converting to counselling.",
-                pendingWalkInNames: notWalkInLeads.map(l => l.name)
+                pendingWalkInNames: notWalkInLeads.slice(0, 5).map(l => l.name),
+                pendingCount: notWalkInLeads.length
             });
         }
 
