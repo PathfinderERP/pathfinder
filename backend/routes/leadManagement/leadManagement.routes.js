@@ -34,6 +34,7 @@ import { checkDuplicatePhone } from "../../controllers/leadManagement/checkDupli
 
 import { getConversionDetails } from "../../controllers/leadManagement/getConversionDetails.js";
 import { exportAdmissionSegregation } from "../../controllers/leadManagement/exportAdmissionSegregation.js";
+import { bulkTagWalkIn, bulkConvertToCounseling } from "../../controllers/leadManagement/bulkCounseling.js";
 
 const router = express.Router();
 const upload = multer({ 
@@ -81,6 +82,8 @@ router.post("/bulk-delete", requireAuth, bulkDeleteLeads);
 router.post("/bulk-delete-filtered", requireAuth, bulkDeleteLeadsByFilter);
 router.post("/bulk-contacted", requireAuth, bulkContactedLeads);
 router.post("/bulk-update", requireAuth, bulkUpdateLeads);
+router.post("/bulk-walk-in", requireAuth, bulkTagWalkIn);
+router.post("/bulk-counseling", requireAuth, bulkConvertToCounseling);
 router.post("/clean-duplicates", requireAuth, cleanDuplicates);
 
 // Campaign / Ads routes

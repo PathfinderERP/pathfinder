@@ -18,6 +18,7 @@ import LeadTrendChart from "./LeadTrendChart"; // Added Import
 import CentreCallBarChart from "./CentreCallBarChart";
 import FollowUpActivityModal from "./FollowUpActivityModal";
 import BulkUpdateLeadModal from "./BulkUpdateLeadModal";
+import BulkCounselingModal from "./BulkCounselingModal";
 import { CardSkeleton, TableRowSkeleton, FeedItemSkeleton } from "../common/Skeleton";
 import LeadJourneyModal from "./LeadJourneyModal";
 import ConversionDetailsModal from "./ConversionDetailsModal";
@@ -45,6 +46,7 @@ const LeadManagementContent = () => {
     const [showHistoryModal, setShowHistoryModal] = useState(false);
     const [showFollowUpListModal, setShowFollowUpListModal] = useState(false);
     const [showBulkUpdateModal, setShowBulkUpdateModal] = useState(false);
+    const [showBulkCounselingModal, setShowBulkCounselingModal] = useState(false);
     const [selectedLead, setSelectedLead] = useState(null);
     const [selectedDetailLead, setSelectedDetailLead] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
@@ -823,12 +825,28 @@ const LeadManagementContent = () => {
     const handleSelectLead = (e, leadId) => {
         e.stopPropagation();
         if (e.target.checked) {
+            if (selectedLeads.length >= 5) {
+                toast.warn("At a time you can select a maximum of 5 students for bulk counselling.");
+                return;
+            }
             setSelectedLeads(prev => [...prev, leadId]);
         } else {
             setSelectedLeads(prev => prev.filter(id => id !== leadId));
             // If we were in "select all filtered" mode, we're not anymore
             setIsAllFilteredSelected(false);
         }
+    };
+
+    const handleOpenBulkCounseling = () => {
+        if (selectedLeads.length < 2) {
+            toast.warn("Please select more than 1 student (up to 5) for bulk counselling.");
+            return;
+        }
+        if (selectedLeads.length > 5) {
+            toast.warn("At a time you can bring a maximum of 5 students to counselling. Please select up to 5 students.");
+            return;
+        }
+        setShowBulkCounselingModal(true);
     };
 
     const handleSelectAll = (e) => {
@@ -1273,6 +1291,14 @@ const LeadManagementContent = () => {
                                 className="px-6 py-3 bg-teal-500 text-black hover:bg-teal-400 rounded-[2px] shadow-[0_0_20px_rgba(20,184,166,0.2)] transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest"
                             >
                                 <FaEdit /> Update Multiple Data ({isAllFilteredSelected ? totalLeads : selectedLeads.length})
+                            </button>
+                        )}
+                        {selectedLeads.length > 1 && (
+                            <button
+                                onClick={handleOpenBulkCounseling}
+                                className="px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-600 text-white hover:from-cyan-400 hover:to-blue-500 rounded-[2px] shadow-[0_0_20px_rgba(6,182,212,0.3)] transition-all flex items-center gap-2.5 font-black text-[10px] uppercase tracking-widest active:scale-95 cursor-pointer"
+                            >
+                                <FaUserGraduate size={13} /> Bulk Counselling ({selectedLeads.length})
                             </button>
                         )}
                         {canDelete && selectedLeads.length > 0 && (
@@ -2274,6 +2300,49 @@ const LeadManagementContent = () => {
                     isDarkMode={isDarkMode}
                 />
             )}
+
+            {/* Floating Bulk Counseling Toolbar when > 1 leads selected */}
+            {selectedLeads.length > 1 && (
+                <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-[#161b22]/95 backdrop-blur-md border border-cyan-500/40 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center gap-4 animate-fade-in">
+                    <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded-full bg-cyan-500 text-black flex items-center justify-center text-xs font-black">
+                            {selectedLeads.length}
+                        </span>
+                        <span className="text-xs font-bold uppercase tracking-wider text-gray-200">
+                            Students Selected {selectedLeads.length > 5 ? '(Max 5 allowed)' : '(Max 5)'}
+                        </span>
+                    </div>
+                    <div className="h-5 w-[1px] bg-gray-700" />
+                    <button
+                        onClick={handleOpenBulkCounseling}
+                        className="px-4 py-2 bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-white rounded-lg text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-cyan-500/25 active:scale-95 transition-all cursor-pointer"
+                    >
+                        <FaUserGraduate size={12} /> Bulk Counselling
+                    </button>
+                    <button
+                        onClick={clearSelection}
+                        className="p-1.5 text-gray-400 hover:text-white rounded-md transition-colors cursor-pointer"
+                        title="Clear Selection"
+                    >
+                        <FaTimes size={13} />
+                    </button>
+                </div>
+            )}
+
+            {/* Bulk Counseling Modal */}
+            <BulkCounselingModal
+                isOpen={showBulkCounselingModal}
+                onClose={() => setShowBulkCounselingModal(false)}
+                selectedLeadIds={selectedLeads}
+                leads={leads}
+                isDarkMode={isDarkMode}
+                onSuccess={() => {
+                    clearSelection();
+                    fetchLeads();
+                    fetchLeadStats();
+                    fetchFollowUpStats();
+                }}
+            />
         </div>
     );
 };
