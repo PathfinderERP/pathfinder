@@ -14,13 +14,17 @@ import {
     FaLayerGroup,
     FaArrowUp,
     FaArrowDown,
-    FaSearch
+    FaSearch,
+    FaChartPie,
+    FaTable,
+    FaColumns
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
+import CentrePieComparison from "../../components/Sales/CentrePieComparison";
 
 const standardMonths = [
     "April", "May", "June", "July", "August", "September",
@@ -34,6 +38,7 @@ const CentreComparisonAnalysis = () => {
     // Master Filters State
     const [centres, setCentres] = useState([]);
     const [zones, setZones] = useState([]);
+    const [sessions, setSessions] = useState([]);
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedZones, setSelectedZones] = useState([]);
     const [selectedDepartments, setSelectedDepartments] = useState([]);
@@ -43,6 +48,9 @@ const CentreComparisonAnalysis = () => {
 
     // Metric Mode: "revenue" | "admissions" | "both"
     const [metricMode, setMetricMode] = useState("both");
+
+    // Display Format: "both" | "charts" | "table"
+    const [displayMode, setDisplayMode] = useState("both");
 
     // Month Selector: Default to current month
     const currentMonthName = useMemo(() => {
@@ -86,9 +94,10 @@ const CentreComparisonAnalysis = () => {
             const token = localStorage.getItem("token");
             const headers = { Authorization: `Bearer ${token}` };
 
-            const [cRes, zRes] = await Promise.all([
+            const [cRes, zRes, sRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers }),
-                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers })
+                fetch(`${import.meta.env.VITE_API_URL}/zone`, { headers }),
+                fetch(`${import.meta.env.VITE_API_URL}/session/list`, { headers })
             ]);
 
             if (cRes.ok) {
@@ -101,6 +110,12 @@ const CentreComparisonAnalysis = () => {
                 const zData = await zRes.json();
                 const zList = Array.isArray(zData) ? zData : (zData.data || zData.zones || []);
                 setZones(zList.filter(z => z.isActive !== false));
+            }
+
+            if (sRes.ok) {
+                const sData = await sRes.json();
+                const sList = Array.isArray(sData) ? sData : (sData.sessions || sData.data || []);
+                setSessions(sList);
             }
         } catch (error) {
             console.error("Error loading master data:", error);
@@ -365,6 +380,33 @@ const CentreComparisonAnalysis = () => {
                             </button>
                         ))}
                     </div>
+
+                    {/* View Format Segmented Control */}
+                    <div className="flex items-center gap-2">
+                        <span className="text-xs font-black uppercase tracking-wider text-slate-400 mr-2 flex items-center gap-1.5">
+                            <FaColumns className="text-purple-400" /> Display:
+                        </span>
+                        {[
+                            { key: "both", label: "Split (Both)", icon: FaColumns },
+                            { key: "charts", label: "Pie Charts", icon: FaChartPie },
+                            { key: "table", label: "Table Matrix", icon: FaTable }
+                        ].map(fmt => (
+                            <button
+                                key={fmt.key}
+                                onClick={() => setDisplayMode(fmt.key)}
+                                className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 ${
+                                    displayMode === fmt.key
+                                        ? "bg-purple-500/20 text-purple-300 border border-purple-500/40 shadow-sm"
+                                        : isDarkMode
+                                            ? "bg-slate-800/40 text-slate-400 border border-transparent hover:bg-slate-800"
+                                            : "bg-slate-100 text-slate-600 border border-transparent hover:bg-slate-200"
+                                }`}
+                            >
+                                <fmt.icon className="text-xs" />
+                                <span>{fmt.label}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* 3. Filter Controls Bar */}
@@ -585,7 +627,20 @@ const CentreComparisonAnalysis = () => {
                     </div>
                 </div>
 
-                {/* 5. Matrix Comparison Table */}
+                {/* 5. Pie Chart Side-by-Side Comparison */}
+                {(displayMode === "both" || displayMode === "charts") && !loading && (
+                    <CentrePieComparison
+                        rows={filteredRows}
+                        departments={activeDepartments}
+                        sessions={sessions}
+                        initialMetric={metricMode === "both" ? "revenue" : metricMode}
+                        isDarkMode={isDarkMode}
+                        viewMode={viewMode}
+                    />
+                )}
+
+                {/* 6. Matrix Comparison Table */}
+                {(displayMode === "both" || displayMode === "table") && (
                 <div className={`rounded-2xl border overflow-hidden shadow-xl ${
                     isDarkMode ? "bg-slate-900/70 border-slate-800/80" : "bg-white border-slate-200"
                 }`}>
@@ -825,6 +880,7 @@ const CentreComparisonAnalysis = () => {
                         </table>
                     </div>
                 </div>
+                )}
             </div>
         </Layout>
     );
