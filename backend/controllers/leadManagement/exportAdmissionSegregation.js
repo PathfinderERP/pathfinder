@@ -22,13 +22,14 @@ export const exportAdmissionSegregation = async (req, res) => {
         const { matchingAdmittedIds } = await getMatchingLeadIds(baseQuery);
 
         // --- Build admitted leads query ---
-        const admittedQuery = JSON.parse(JSON.stringify(baseQuery)); // deep clone
-        admittedQuery.$and = admittedQuery.$and || [];
+        const admittedQuery = { ...baseQuery };
+        const andList = admittedQuery.$and ? [...admittedQuery.$and] : [];
         if (admittedQuery.$or) {
-            admittedQuery.$and.push({ $or: admittedQuery.$or });
+            andList.push({ $or: admittedQuery.$or });
             delete admittedQuery.$or;
         }
-        admittedQuery.$and.push({ _id: { $in: matchingAdmittedIds } });
+        andList.push({ _id: { $in: matchingAdmittedIds } });
+        admittedQuery.$and = andList;
 
         // --- Fetch all admitted leads ---
         const allAdmittedLeads = await LeadManagement.find(admittedQuery)
