@@ -671,8 +671,13 @@ const ManageBoardAdmission = () => {
     };
 
     const handleAddInstallments = async () => {
-        if (!addInstCount || addInstCount < 1) {
+        const count = parseInt(addInstCount, 10);
+        if (!count || count < 1) {
             toast.error("Please enter at least 1 month.");
+            return;
+        }
+        if (count > 24) {
+            toast.error("You can add maximum 24 months at a time.");
             return;
         }
         setIsAddingInst(true);
@@ -684,10 +689,10 @@ const ManageBoardAdmission = () => {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${token}`
                 },
-                body: JSON.stringify({ numberOfMonths: addInstCount })
+                body: JSON.stringify({ numberOfMonths: count })
             });
             if (response.ok) {
-                toast.success(`${addInstCount} installment(s) added successfully!`);
+                toast.success(`${count} installment(s) added successfully!`);
                 setShowAddInstModal(false);
                 setAddInstCount(1);
                 fetchData();
@@ -1011,8 +1016,9 @@ const ManageBoardAdmission = () => {
                                                 const last = sorted[sorted.length - 1];
                                                 const lastDate = last?.dueDate ? new Date(last.dueDate) : null;
                                                 const previews = [];
-                                                if (lastDate) {
-                                                    for (let i = 1; i <= Math.min(addInstCount, 6); i++) {
+                                                const numCount = parseInt(addInstCount, 10) || 0;
+                                                if (lastDate && numCount > 0) {
+                                                    for (let i = 1; i <= Math.min(numCount, 6); i++) {
                                                         const d = new Date(Date.UTC(lastDate.getUTCFullYear(), lastDate.getUTCMonth() + i, 1, 12, 0, 0));
                                                         previews.push(d.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }));
                                                     }
@@ -1030,8 +1036,8 @@ const ManageBoardAdmission = () => {
                                                                 {previews.map((m, i) => (
                                                                     <span key={i} className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded text-[10px] font-black uppercase">{m}</span>
                                                                 ))}
-                                                                {addInstCount > 6 && (
-                                                                    <span className="px-2 py-0.5 bg-gray-700 text-gray-400 rounded text-[10px] font-black">+{addInstCount - 6} more</span>
+                                                                {numCount > 6 && (
+                                                                    <span className="px-2 py-0.5 bg-gray-700 text-gray-400 rounded text-[10px] font-black">+{numCount - 6} more</span>
                                                                 )}
                                                             </div>
                                                         )}
@@ -1046,7 +1052,22 @@ const ManageBoardAdmission = () => {
                                                     min={1}
                                                     max={24}
                                                     value={addInstCount}
-                                                    onChange={(e) => setAddInstCount(Math.max(1, Math.min(24, parseInt(e.target.value) || 1)))}
+                                                    onChange={(e) => {
+                                                        const val = e.target.value;
+                                                        if (val === '') {
+                                                            setAddInstCount('');
+                                                        } else {
+                                                            const parsed = parseInt(val, 10);
+                                                            if (!isNaN(parsed)) {
+                                                                setAddInstCount(Math.min(24, Math.max(0, parsed)));
+                                                            }
+                                                        }
+                                                    }}
+                                                    onBlur={() => {
+                                                        if (!addInstCount || Number(addInstCount) < 1) {
+                                                            setAddInstCount(1);
+                                                        }
+                                                    }}
                                                     className={`w-full p-3 rounded-lg border text-sm font-black transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
                                                         isDarkMode
                                                             ? 'bg-gray-800 border-gray-700 text-white'
@@ -1067,7 +1088,7 @@ const ManageBoardAdmission = () => {
                                                 </button>
                                                 <button
                                                     onClick={handleAddInstallments}
-                                                    disabled={isAddingInst}
+                                                    disabled={isAddingInst || !addInstCount || Number(addInstCount) < 1}
                                                     className="flex-1 py-3 rounded-lg font-black text-xs uppercase bg-emerald-600 hover:bg-emerald-500 text-white transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                                                 >
                                                     {isAddingInst ? (
@@ -1075,7 +1096,7 @@ const ManageBoardAdmission = () => {
                                                     ) : (
                                                         <FaPlus className="text-[10px]" />
                                                     )}
-                                                    {isAddingInst ? 'Adding...' : `Add ${addInstCount} Month${addInstCount > 1 ? 's' : ''}`}
+                                                    {isAddingInst ? 'Adding...' : `Add ${addInstCount || 0} Month${Number(addInstCount) > 1 ? 's' : ''}`}
                                                 </button>
                                             </div>
                                         </div>
