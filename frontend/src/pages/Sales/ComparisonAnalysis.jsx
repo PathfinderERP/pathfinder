@@ -1,12 +1,28 @@
 import React, { useState, useEffect, useRef } from "react";
 import Layout from "../../components/Layout";
-import { FaFilter, FaSync, FaDownload, FaSun, FaMoon, FaChartLine, FaPlus, FaEdit, FaCalendarAlt, FaChartBar, FaRegClock } from "react-icons/fa";
+import {
+    FaFilter,
+    FaSync,
+    FaDownload,
+    FaSun,
+    FaMoon,
+    FaChartLine,
+    FaPlus,
+    FaEdit,
+    FaCalendarAlt,
+    FaChartBar,
+    FaRegClock,
+    FaChartPie,
+    FaTable,
+    FaColumns
+} from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useTheme } from "../../context/ThemeContext";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 import AddComparisonTargetModal from "../../components/Sales/AddComparisonTargetModal";
+import RevenuePieComparison from "../../components/Sales/RevenuePieComparison";
 
 const monthNames = [
     "April", "May", "June", "July", "August", "September",
@@ -33,6 +49,9 @@ const ComparisonAnalysis = () => {
 
     // View mode: 'month' | 'year' | 'day'
     const [viewMode, setViewMode] = useState('month');
+
+    // Display mode: 'both' | 'charts' | 'table'
+    const [displayMode, setDisplayMode] = useState('both');
 
     // Year-wise: full 12-month aggregated data
     const [yearData, setYearData] = useState([]);
@@ -262,7 +281,7 @@ const ComparisonAnalysis = () => {
     // Day-wise data: uses actual DailyTarget (set in tracking system) for current year
     // and pro-rates previous year's monthly achievement to today's day
     const dayWiseData = React.useMemo(() => {
-        const { day, daysInMonth } = todayRef;
+        const { daysInMonth } = todayRef;
 
         // Map month-wise comparison data for current day's month
         const monthMap = {};
@@ -470,59 +489,88 @@ const ComparisonAnalysis = () => {
                     </div>
                 </div>
 
-                {/* View Mode Toggle */}
-                <div className={`flex items-center gap-1 p-1 rounded-xl w-fit ${isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-gray-100 border border-gray-200'}`}>
-                    <button
-                        onClick={() => setViewMode('month')}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 ${
-                            viewMode === 'month'
-                                ? isDarkMode
-                                    ? 'bg-cyan-500/20 text-cyan-400 shadow-lg shadow-cyan-500/10 border border-cyan-500/30'
-                                    : 'bg-white text-cyan-600 shadow-md border border-cyan-200'
-                                : isDarkMode
-                                    ? 'text-gray-500 hover:text-gray-300'
-                                    : 'text-gray-400 hover:text-gray-600'
-                        }`}
-                    >
-                        <FaCalendarAlt size={13} />
-                        Month-wise
-                    </button>
-                    <button
-                        onClick={() => {
-                            setViewMode('year');
-                            if (yearData.length === 0) fetchComparisonDataAllMonths();
-                        }}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 ${
-                            viewMode === 'year'
-                                ? isDarkMode
-                                    ? 'bg-purple-500/20 text-purple-400 shadow-lg shadow-purple-500/10 border border-purple-500/30'
-                                    : 'bg-white text-purple-600 shadow-md border border-purple-200'
-                                : isDarkMode
-                                    ? 'text-gray-500 hover:text-gray-300'
-                                    : 'text-gray-400 hover:text-gray-600'
-                        }`}
-                    >
-                        <FaChartBar size={13} />
-                        Year-wise
-                    </button>
-                    <button
-                        onClick={() => {
-                            setViewMode('day');
-                            if (dayData.length === 0) fetchComparisonDataDayWise();
-                        }}
-                        className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 ${
-                            viewMode === 'day'
-                                ? isDarkMode
-                                    ? 'bg-orange-500/20 text-orange-400 shadow-lg shadow-orange-500/10 border border-orange-500/30'
-                                    : 'bg-white text-orange-600 shadow-md border border-orange-200'
-                                : isDarkMode
-                                    ? 'text-gray-500 hover:text-gray-300'
-                                    : 'text-gray-400 hover:text-gray-600'
-                        }`}
-                    >
-                        <FaRegClock size={13} />
-                        Day-wise
-                    </button>
+                {/* View Mode & Display Format Navigation */}
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                    {/* View Mode Toggle */}
+                    <div className={`flex items-center gap-1 p-1 rounded-xl w-fit ${isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-gray-100 border border-gray-200'}`}>
+                        <button
+                            onClick={() => setViewMode('month')}
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 ${
+                                viewMode === 'month'
+                                    ? isDarkMode
+                                        ? 'bg-cyan-500/20 text-cyan-400 shadow-lg shadow-cyan-500/10 border border-cyan-500/30'
+                                        : 'bg-white text-cyan-600 shadow-md border border-cyan-200'
+                                    : isDarkMode
+                                        ? 'text-gray-500 hover:text-gray-300'
+                                        : 'text-gray-400 hover:text-gray-600'
+                            }`}
+                        >
+                            <FaCalendarAlt size={13} />
+                            Month-wise
+                        </button>
+                        <button
+                            onClick={() => {
+                                setViewMode('year');
+                                if (yearData.length === 0) fetchComparisonDataAllMonths();
+                            }}
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 ${
+                                viewMode === 'year'
+                                    ? isDarkMode
+                                        ? 'bg-purple-500/20 text-purple-400 shadow-lg shadow-purple-500/10 border border-purple-500/30'
+                                        : 'bg-white text-purple-600 shadow-md border border-purple-200'
+                                    : isDarkMode
+                                        ? 'text-gray-500 hover:text-gray-300'
+                                        : 'text-gray-400 hover:text-gray-600'
+                            }`}
+                        >
+                            <FaChartBar size={13} />
+                            Year-wise
+                        </button>
+                        <button
+                            onClick={() => {
+                                setViewMode('day');
+                                if (dayData.length === 0) fetchComparisonDataDayWise();
+                            }}
+                            className={`flex items-center gap-2 px-5 py-2.5 rounded-lg font-bold text-sm transition-all duration-200 ${
+                                viewMode === 'day'
+                                    ? isDarkMode
+                                        ? 'bg-orange-500/20 text-orange-400 shadow-lg shadow-orange-500/10 border border-orange-500/30'
+                                        : 'bg-white text-orange-600 shadow-md border border-orange-200'
+                                    : isDarkMode
+                                        ? 'text-gray-500 hover:text-gray-300'
+                                        : 'text-gray-400 hover:text-gray-600'
+                            }`}
+                        >
+                            <FaRegClock size={13} />
+                            Day-wise
+                        </button>
+                    </div>
+
+                    {/* Display Format Segmented Control */}
+                    <div className={`flex items-center gap-1 p-1 rounded-xl w-fit ${isDarkMode ? 'bg-[#1a1f24] border border-gray-800' : 'bg-gray-100 border border-gray-200'}`}>
+                        {[
+                            { key: "both", label: "Split (Both)", icon: FaColumns },
+                            { key: "charts", label: "Pie Charts", icon: FaChartPie },
+                            { key: "table", label: "Table Matrix", icon: FaTable }
+                        ].map(fmt => (
+                            <button
+                                key={fmt.key}
+                                onClick={() => setDisplayMode(fmt.key)}
+                                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-xs transition-all duration-200 ${
+                                    displayMode === fmt.key
+                                        ? isDarkMode
+                                            ? 'bg-purple-500/20 text-purple-400 shadow-md border border-purple-500/30'
+                                            : 'bg-white text-purple-600 shadow-md border border-purple-200'
+                                        : isDarkMode
+                                            ? 'text-gray-400 hover:text-gray-200'
+                                            : 'text-gray-500 hover:text-gray-700'
+                                }`}
+                            >
+                                <fmt.icon size={12} />
+                                <span>{fmt.label}</span>
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
                 {/* Summary Cards */}
@@ -671,8 +719,20 @@ const ComparisonAnalysis = () => {
                     </div>
                 </div>
 
+                {/* Pie Chart Comparison */}
+                {(displayMode === "both" || displayMode === "charts") && !loading && (
+                    <RevenuePieComparison
+                        viewMode={viewMode}
+                        comparisonData={comparisonData}
+                        yearWiseData={yearWiseData}
+                        dayWiseData={dayWiseData}
+                        sessions={sessions}
+                        isDarkMode={isDarkMode}
+                    />
+                )}
+
                 {/* ─── MONTH-WISE TABLE ─── */}
-                {viewMode === 'month' && (
+                {(displayMode === "both" || displayMode === "table") && viewMode === 'month' && (
                     <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
                         <div className="overflow-x-auto">
                             <table className="w-full text-left" style={{ borderCollapse: 'separate', borderSpacing: 0 }}>
@@ -726,7 +786,7 @@ const ComparisonAnalysis = () => {
                 )}
 
                 {/* ─── YEAR-WISE TABLE ─── */}
-                {viewMode === 'year' && (
+                {(displayMode === "both" || displayMode === "table") && viewMode === 'year' && (
                     <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
                         {/* Banner */}
                         <div className={`px-6 py-3 flex items-center gap-3 border-b ${isDarkMode ? 'bg-purple-500/5 border-gray-800' : 'bg-purple-50 border-purple-100'}`}>
@@ -819,7 +879,7 @@ const ComparisonAnalysis = () => {
                 )}
 
                 {/* ─── DAY-WISE TABLE ─── */}
-                {viewMode === 'day' && (
+                {(displayMode === "both" || displayMode === "table") && viewMode === 'day' && (
                     <div className={`${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-xl'} rounded-xl border overflow-hidden`}>
                         {/* Banner */}
                         <div className={`px-6 py-3 flex flex-wrap items-center gap-3 border-b ${isDarkMode ? 'bg-orange-500/5 border-gray-800' : 'bg-orange-50 border-orange-100'}`}>
