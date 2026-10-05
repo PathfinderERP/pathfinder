@@ -676,8 +676,8 @@ const LeadManagementContent = () => {
 
             // Pass all active filters
             Object.entries(filters).forEach(([key, value]) => {
-                // Ignore leadType & followUpStatus for conversion stats just like backend summary counts do
-                if (key === 'leadType' || key === 'followUpStatus') return;
+                // Ignore followUpStatus for conversion stats
+                if (key === 'followUpStatus') return;
 
                 if (Array.isArray(value)) {
                     if (value.length > 0) {

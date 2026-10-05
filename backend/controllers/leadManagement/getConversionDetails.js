@@ -20,7 +20,6 @@ export const getConversionDetails = async (req, res) => {
         // Build base query (we bypass the default isCounseled and followUpStatus restrictions for this lookup)
         const queryParams = { ...req.query };
         delete queryParams.followUpStatus;
-        delete queryParams.leadType;
         const baseQuery = await buildLeadQuery(queryParams, req.user);
         delete baseQuery.isCounseled;
         if (baseQuery.$and) {

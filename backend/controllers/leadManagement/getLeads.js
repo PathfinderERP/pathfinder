@@ -64,58 +64,54 @@ export const getLeads = async (req, res) => {
         // Build Filter
         const query = await buildLeadQuery(req.query, req.user);
 
-        // Build Stats Filter (ignores followUpStatus and leadType card filtering to keep conversion counters consistent)
+        // Build Stats Filter (ignores only followUpStatus card filtering to avoid mutual exclusion between contacted/uncontacted/walkin)
         const statsParams = { ...req.query };
         delete statsParams.followUpStatus;
-        delete statsParams.leadType;
         const statsQuery = await buildLeadQuery(statsParams, req.user);
 
         const totalLeads = await LeadManagement.countDocuments(query);
 
         // Compute contacted count using $and to preserve feedback and other followUps constraints
         const contactedQuery = { ...statsQuery };
-        if (statsQuery.$and) {
-            contactedQuery.$and = [...statsQuery.$and];
-        } else {
-            contactedQuery.$and = [];
+        const contactedAnd = contactedQuery.$and ? [...contactedQuery.$and] : [];
+        if (contactedQuery.$or) {
+            contactedAnd.push({ $or: contactedQuery.$or });
+            delete contactedQuery.$or;
         }
-        contactedQuery.$and.push({ followUps: { $exists: true, $not: { $size: 0 } } });
+        contactedAnd.push({ followUps: { $exists: true, $not: { $size: 0 } } });
+        contactedQuery.$and = contactedAnd;
         const contactedCount = await LeadManagement.countDocuments(contactedQuery);
 
         // Compute remaining count using $and
         const remainingQuery = { ...statsQuery };
-        if (statsQuery.$and) {
-            remainingQuery.$and = [...statsQuery.$and];
-        } else {
-            remainingQuery.$and = [];
+        const remainingAnd = remainingQuery.$and ? [...remainingQuery.$and] : [];
+        if (remainingQuery.$or) {
+            remainingAnd.push({ $or: remainingQuery.$or });
+            delete remainingQuery.$or;
         }
-        remainingQuery.$and.push({ followUps: { $size: 0 } });
+        remainingAnd.push({
+            $or: [
+                { followUps: { $size: 0 } },
+                { followUps: { $exists: false } }
+            ]
+        });
+        remainingQuery.$and = remainingAnd;
         const remainingCount = await LeadManagement.countDocuments(remainingQuery);
 
         // Compute walk-in count based on statsQuery to avoid followUpStatus restriction
         const walkInQuery = { ...statsQuery };
-        if (statsQuery.$and) {
-            walkInQuery.$and = [...statsQuery.$and];
-        } else {
-            walkInQuery.$and = [];
-        }
-        if (statsQuery.$or) {
-            walkInQuery.$or = [...statsQuery.$or];
-        }
-
+        const walkInAnd = walkInQuery.$and ? [...walkInQuery.$and] : [];
         if (walkInQuery.$or) {
-            walkInQuery.$and.push({
-                $or: [
-                    { isWalkIn: true },
-                    { source: { $regex: /^walk[- ]?in$/i } }
-                ]
-            });
-        } else {
-            walkInQuery.$or = [
+            walkInAnd.push({ $or: walkInQuery.$or });
+            delete walkInQuery.$or;
+        }
+        walkInAnd.push({
+            $or: [
                 { isWalkIn: true },
                 { source: { $regex: /^walk[- ]?in$/i } }
-            ];
-        }
+            ]
+        });
+        walkInQuery.$and = walkInAnd;
         const walkInCount = await LeadManagement.countDocuments(walkInQuery);
 
         // Prepare query for conversion stats without default isCounseled: { $ne: true } constraint
