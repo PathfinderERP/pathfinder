@@ -2647,11 +2647,8 @@ export const getDailyTrackingDetails = async (req, res) => {
 
                 const andConditions = [normalQueryCondition];
 
-                if (centerObjectIdList.length > 0 || centerNamesList.length > 0) {
-                    const centerOrs = [];
-                    if (centerObjectIdList.length > 0) centerOrs.push({ centre: { $in: centerObjectIdList } });
-                    if (centerNamesList.length > 0) centerOrs.push({ centre: { $in: centerNamesList } });
-                    andConditions.push({ $or: centerOrs });
+                if (centerObjectIdList.length > 0) {
+                    andConditions.push({ centre: { $in: centerObjectIdList } });
                 }
 
                 if (hasUserFilter) {
