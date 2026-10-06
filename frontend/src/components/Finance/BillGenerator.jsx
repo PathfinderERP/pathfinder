@@ -3,12 +3,14 @@ import { FaFileInvoice, FaDownload, FaPrint, FaSpinner } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import jsPDF from 'jspdf';
 import logo from '../../assets/logo-1.svg';
+import phspsLogo from '../../assets/phsps-logo.svg';
 
 const BillGenerator = ({ admission, installment, onClose, preloadedBillData = null, isReceivingSlip = false }) => {
     const [generating, setGenerating] = useState(false);
     const generatingRef = useRef(false);
     const [billData, setBillData] = useState(preloadedBillData);  // pre-populate if provided
     const [logoBase64, setLogoBase64] = useState(null);
+    const [phspsLogoBase64, setPhspsLogoBase64] = useState(null);
     const apiUrl = import.meta.env.VITE_API_URL;
     const safeStr = (val) => (val !== undefined && val !== null) ? String(val) : '';
 
@@ -33,6 +35,38 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
         !isClearedOrPaid && (isChequePendingClearance || isExplicitlySlip)
     );
 
+    // Centre and PHSPS detection
+    const centreName = String(
+        billData?.centre?.name || 
+        billData?.centre?.centreName || 
+        admission?.centre || 
+        installment?.centre || 
+        ''
+    ).trim();
+
+    const isPhsps = /phsps/i.test(centreName);
+    const cleanBranch = centreName
+        .replace(/phsps/gi, '')
+        .replace(/[_\s-]+/g, ' ')
+        .trim()
+        .toUpperCase();
+    const branch = cleanBranch || 'JODHPUR PARK';
+
+    // Preserve original creator who created this bill/payment — must NOT change when other users download or view!
+    const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+    const originalCreator = billData?.createdBy ||
+        billData?.payment?.createdByName ||
+        billData?.payment?.recordedByName ||
+        (billData?.payment?.recordedBy && typeof billData.payment.recordedBy === 'object' ? billData.payment.recordedBy.name : (typeof billData?.payment?.recordedBy === 'string' && !/^[0-9a-fA-F]{24}$/.test(billData.payment.recordedBy) ? billData.payment.recordedBy : null)) ||
+        installment?.createdByName ||
+        installment?.recordedByName ||
+        (installment?.recordedBy && typeof installment.recordedBy === 'object' ? installment.recordedBy.name : null) ||
+        admission?.createdByName;
+
+    const createdByName = (originalCreator && originalCreator !== 'N/A')
+        ? originalCreator
+        : (userInfo.name || userInfo.username || 'N/A');
+
     useEffect(() => {
         if (preloadedBillData) {
             setBillData(preloadedBillData);
@@ -43,21 +77,36 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
 
 
     useEffect(() => {
-        // Preload logo and convert to PNG base64 for jsPDF
+        // Preload logos and convert to PNG base64 for jsPDF
         const loadLogo = async () => {
             try {
                 const img = new Image();
                 img.src = logo;
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
+                    canvas.width = (img.naturalWidth || img.width || 300) * 2;
+                    canvas.height = (img.naturalHeight || img.height || 100) * 2;
                     const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0);
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                     setLogoBase64(canvas.toDataURL('image/png'));
                 };
             } catch (error) {
                 console.error("Error loading logo:", error);
+            }
+
+            try {
+                const pImg = new Image();
+                pImg.src = phspsLogo;
+                pImg.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = (pImg.naturalWidth || pImg.width || 320) * 2;
+                    canvas.height = (pImg.naturalHeight || pImg.height || 90) * 2;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(pImg, 0, 0, canvas.width, canvas.height);
+                    setPhspsLogoBase64(canvas.toDataURL('image/png'));
+                };
+            } catch (error) {
+                console.error("Error loading PHSPS logo:", error);
             }
         };
         loadLogo();
@@ -166,27 +215,67 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
             // Helper to safe string (local to this call)
             const localSafeStr = (val) => (val === undefined || val === null) ? '' : String(val);
 
-            // Get logged-in user info from localStorage
+            // Determine if centre is PHSPS and extract branch location
+            const centreName = String(
+                billData?.centre?.name || 
+                billData?.centre?.centreName || 
+                admission?.centre || 
+                installment?.centre || 
+                ''
+            ).trim();
+
+            const isPhsps = /phsps/i.test(centreName);
+            const cleanBranch = centreName
+                .replace(/phsps/gi, '')
+                .replace(/[_\s-]+/g, ' ')
+                .trim()
+                .toUpperCase();
+            const branch = cleanBranch || 'JODHPUR PARK';
+
+            // Preserve original creator who created this bill/payment — must NOT change when other users download!
             const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
-            const createdByName = userInfo.name || userInfo.username || 'N/A';
+            const originalCreator = billData?.createdBy ||
+                billData?.payment?.createdByName ||
+                billData?.payment?.recordedByName ||
+                (billData?.payment?.recordedBy && typeof billData.payment.recordedBy === 'object' ? billData.payment.recordedBy.name : (typeof billData?.payment?.recordedBy === 'string' && !/^[0-9a-fA-F]{24}$/.test(billData.payment.recordedBy) ? billData.payment.recordedBy : null)) ||
+                installment?.createdByName ||
+                installment?.recordedByName ||
+                (installment?.recordedBy && typeof installment.recordedBy === 'object' ? installment.recordedBy.name : null) ||
+                admission?.createdByName;
+
+            const createdByName = (originalCreator && originalCreator !== 'N/A')
+                ? originalCreator
+                : (userInfo.name || userInfo.username || 'N/A');
 
             // --- Header Section ---
             let yPos = 6;
 
             // Logo - Top Left of this copy
-            if (logoBase64) {
+            const activeLogo = isPhsps ? (phspsLogoBase64 || logoBase64) : logoBase64;
+            if (activeLogo) {
                 try {
-                    doc.addImage(logoBase64, 'PNG', xOffset + margin, yPos - 3, 28, 8);
+                    if (isPhsps) {
+                        doc.addImage(activeLogo, 'PNG', xOffset + margin, yPos - 3, 30, 8.4);
+                    } else {
+                        doc.addImage(activeLogo, 'PNG', xOffset + margin, yPos - 3, 28, 8);
+                    }
                 } catch (e) {
                     console.warn("Could not add logo", e);
                 }
             }
 
             // Center Title
-            doc.setFontSize(13);
             doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'bold');
-            doc.text('PATHFINDER', xOffset + halfWidth / 2, yPos, { align: 'center' });
+            if (isPhsps) {
+                doc.setFontSize(10.5);
+                doc.text('PATHFINDER HIGHER SECONDARY', xOffset + halfWidth / 2, yPos - 1, { align: 'center' });
+                doc.setFontSize(9);
+                doc.text(`PUBLIC SCHOOL, ${branch}`, xOffset + halfWidth / 2, yPos + 3.2, { align: 'center' });
+            } else {
+                doc.setFontSize(13);
+                doc.text('PATHFINDER', xOffset + halfWidth / 2, yPos, { align: 'center' });
+            }
 
             // Right Side: copy type
             doc.setFontSize(8);
@@ -589,7 +678,14 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                             <div className="bg-[#252b32] rounded-lg p-3 sm:p-6 mb-6">
                                 {/* Header */}
                                 <div className="text-center mb-6 pb-6 border-b border-gray-700">
-                                    <h1 className="text-2xl sm:text-3xl font-bold text-cyan-400 mb-2">PATHFINDER ERP</h1>
+                                    <h1 className="text-2xl sm:text-3xl font-bold text-cyan-400 mb-2">
+                                        {isPhsps ? (
+                                            <>
+                                                <div>PATHFINDER HIGHER SECONDARY</div>
+                                                <div className="text-lg sm:text-xl text-cyan-300">PUBLIC SCHOOL, {branch}</div>
+                                            </>
+                                        ) : "PATHFINDER ERP"}
+                                    </h1>
                                     <p className="text-xs sm:text-sm text-gray-400">
                                         {isSlip ? "Cheque Payment Receiving Slip (Provisional)" : "Fee Payment Receipt"}
                                     </p>
@@ -702,11 +798,17 @@ const BillGenerator = ({ admission, installment, onClose, preloadedBillData = nu
                                                 </span>
                                             </div>
                                         )}
-                                        <div className="col-span-1 sm:col-span-2 border-t border-gray-700/60 pt-2 mt-1 break-all">
-                                            <span className="text-gray-400 font-semibold">Remarks:</span>{" "}
-                                            <span className="text-cyan-300 font-medium ml-1">
-                                                {billData.payment?.remarks || installment?.remarks || billData.remarks || admission?.remarks || 'N/A'}
-                                            </span>
+                                        <div className="col-span-1 sm:col-span-2 border-t border-gray-700/60 pt-2 mt-1 break-all flex flex-wrap justify-between items-center gap-2">
+                                            <div>
+                                                <span className="text-gray-400 font-semibold">Remarks:</span>{" "}
+                                                <span className="text-cyan-300 font-medium ml-1">
+                                                    {billData.payment?.remarks || installment?.remarks || billData.remarks || admission?.remarks || 'N/A'}
+                                                </span>
+                                            </div>
+                                            <div>
+                                                <span className="text-gray-400 font-semibold">Created By:</span>{" "}
+                                                <span className="text-emerald-400 font-medium ml-1">{createdByName}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

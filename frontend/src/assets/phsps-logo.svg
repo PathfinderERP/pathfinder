@@ -1,0 +1,31 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 90" width="320" height="90">
+  <!-- Graduation Cap and Open Book Emblem -->
+  <g transform="translate(5, 5)">
+    <!-- Book Pages -->
+    <path d="M 12 62 Q 38 52 64 62 L 64 67 Q 38 57 12 67 Z" fill="#334155" />
+    <path d="M 64 62 Q 90 52 116 62 L 116 67 Q 90 57 64 67 Z" fill="#475569" />
+    <path d="M 16 56 Q 38 48 64 56 L 64 61 Q 38 53 16 61 Z" fill="#1e293b" />
+    <path d="M 64 56 Q 90 48 112 56 L 112 61 Q 90 53 64 61 Z" fill="#334155" />
+
+    <!-- Cap Base (Skull cap) -->
+    <path d="M 42 36 Q 64 45 86 36 L 86 44 Q 64 54 42 44 Z" fill="#0f172a" />
+
+    <!-- Cap Top (Diamond Mortarboard) -->
+    <polygon points="64,12 112,28 64,44 16,28" fill="#1e293b" stroke="#0f172a" stroke-width="1.5" stroke-linejoin="round" />
+    <polygon points="64,14 108,28 64,42 20,28" fill="#334155" />
+
+    <!-- Button on Top -->
+    <circle cx="64" cy="28" r="3" fill="#0ea5e9" />
+
+    <!-- Tassel -->
+    <path d="M 64 28 Q 88 32 94 48" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" />
+    <polygon points="92,48 97,48 95,58" fill="#0ea5e9" />
+  </g>
+
+  <!-- PHSPS Acronym Text (Explicit textLength ensures all 5 letters P-H-S-P-S always fit and never get clipped) -->
+  <text x="126" y="55" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="44" fill="#1e293b" textLength="170" lengthAdjust="spacingAndGlyphs">PHSPS</text>
+
+  <!-- Tagline underneath PHSPS -->
+  <rect x="126" y="65" width="170" height="15" rx="2" fill="#f1f5f9" />
+  <text x="211" y="76" font-family="'Helvetica Neue', Arial, sans-serif" font-weight="800" font-size="8" fill="#475569" text-anchor="middle" letter-spacing="0.6">TOWARDS A BRIGHTER FUTURE</text>
+</svg>

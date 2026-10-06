@@ -18,6 +18,7 @@ import './AdmissionsWave.css';
 import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
 import RazorpayPOSModal from '../Finance/RazorpayPOSModal';
+import { downloadCourseFeeStatementPDF } from '../../utils/courseFeeStatementPdf';
 
 // CentreWiseReport sub-component to display aggregated students count
 const CentreWiseReport = ({ filteredStudents, isDarkMode, resolveClassName }) => {
@@ -295,6 +296,9 @@ const EnrolledStudentsContent = () => {
     const [editingEnrollmentId, setEditingEnrollmentId] = useState(null);
     const [editingEnrollmentValue, setEditingEnrollmentValue] = useState("");
     const [isSavingEnrollment, setIsSavingEnrollment] = useState(false);
+
+    // Course fee statement download state
+    const [downloadingCourseFeeId, setDownloadingCourseFeeId] = useState(null);
 
     // Bills tab — per-admission state
     const [admissionActiveTabs, setAdmissionActiveTabs] = useState({});
@@ -1569,6 +1573,32 @@ const EnrolledStudentsContent = () => {
     const handleEditAdmission = (admission) => {
         setEditAdmission(admission);
         setShowEditModal(true);
+    };
+
+    const handleDownloadCourseFeePDF = async (admission) => {
+        try {
+            setDownloadingCourseFeeId(admission._id);
+            const resolvedCourse = resolveCourseName(admission);
+            const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+
+            await downloadCourseFeeStatementPDF({
+                admission,
+                student: selectedStudent,
+                courseName: resolvedCourse,
+                currentUser: userInfo
+            });
+
+            toast.success(`Fee statement downloaded for ${resolvedCourse}!`, {
+                position: "bottom-right",
+                autoClose: 2500,
+                theme: isDarkMode ? "dark" : "light"
+            });
+        } catch (err) {
+            console.error("Error generating course fee statement PDF:", err);
+            toast.error("Failed to generate course fee statement PDF");
+        } finally {
+            setDownloadingCourseFeeId(null);
+        }
     };
 
     const handleDeleteAdmission = async (admission) => {
@@ -3572,6 +3602,25 @@ const EnrolledStudentsContent = () => {
                                                         </button>
                                                     )}
                                                     <div className="flex items-center gap-2">
+                                                        {/* Course-wise Fee Statement Download Button */}
+                                                        <button
+                                                            onClick={() => handleDownloadCourseFeePDF(admission)}
+                                                            disabled={downloadingCourseFeeId === admission._id}
+                                                            className={`px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm ${
+                                                                isDarkMode
+                                                                    ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500 hover:text-black'
+                                                                    : 'bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-600 hover:text-white'
+                                                            } disabled:opacity-50`}
+                                                            title="Download Course Fee Statement & Installment Breakup PDF"
+                                                        >
+                                                            {downloadingCourseFeeId === admission._id ? (
+                                                                <FaSync className="animate-spin" size={10} />
+                                                            ) : (
+                                                                <FaDownload size={10} />
+                                                            )}
+                                                            <span className="hidden sm:inline">Fee PDF</span>
+                                                        </button>
+
                                                         {admission.admissionType === 'BOARD' && admission.admissionStatus !== 'INACTIVE' && (
                                                             <button
                                                                 onClick={() => navigate(`/edit-board-subjects/${admission._id}`)}
@@ -3794,18 +3843,35 @@ const EnrolledStudentsContent = () => {
                                                 )}
 
                                                 {/* Payment Schedule & Bills Tabs */}
-                                                <div className={`flex items-center gap-4 border-b mb-4 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                <div className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b mb-4 ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
+                                                    <div className="flex items-center gap-4">
+                                                        <button
+                                                            onClick={() => handleSwitchAdmissionTab(admission._id, 'schedule')}
+                                                            className={`pb-2 text-[10px] font-black uppercase tracking-widest transition-all ${getAdmissionTab(admission._id) === 'schedule' ? (isDarkMode ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-cyan-600 border-b-2 border-cyan-600') : 'text-gray-500 hover:text-gray-400'}`}
+                                                        >
+                                                            <span className="flex items-center gap-2"><FaCalendar /> {admission.admissionType === 'BOARD' ? 'Monthly History' : 'Payment Schedule'}</span>
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleSwitchAdmissionTab(admission._id, 'bills')}
+                                                            className={`pb-2 text-[10px] font-black uppercase tracking-widest transition-all ${getAdmissionTab(admission._id) === 'bills' ? (isDarkMode ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-cyan-600 border-b-2 border-cyan-600') : 'text-gray-500 hover:text-gray-400'}`}
+                                                        >
+                                                            <span className="flex items-center gap-2"><FaFileInvoice /> Bills Ledger</span>
+                                                        </button>
+                                                    </div>
                                                     <button
-                                                        onClick={() => handleSwitchAdmissionTab(admission._id, 'schedule')}
-                                                        className={`pb-2 text-[10px] font-black uppercase tracking-widest transition-all ${getAdmissionTab(admission._id) === 'schedule' ? (isDarkMode ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-cyan-600 border-b-2 border-cyan-600') : 'text-gray-500 hover:text-gray-400'}`}
+                                                        onClick={() => handleDownloadCourseFeePDF(admission)}
+                                                        disabled={downloadingCourseFeeId === admission._id}
+                                                        className={`pb-2 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
+                                                            isDarkMode ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'
+                                                        } disabled:opacity-50`}
+                                                        title="Download Course Fee Statement & Installment Breakup PDF"
                                                     >
-                                                        <span className="flex items-center gap-2"><FaCalendar /> {admission.admissionType === 'BOARD' ? 'Monthly History' : 'Payment Schedule'}</span>
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleSwitchAdmissionTab(admission._id, 'bills')}
-                                                        className={`pb-2 text-[10px] font-black uppercase tracking-widest transition-all ${getAdmissionTab(admission._id) === 'bills' ? (isDarkMode ? 'text-cyan-400 border-b-2 border-cyan-400' : 'text-cyan-600 border-b-2 border-cyan-600') : 'text-gray-500 hover:text-gray-400'}`}
-                                                    >
-                                                        <span className="flex items-center gap-2"><FaFileInvoice /> Bills Ledger</span>
+                                                        {downloadingCourseFeeId === admission._id ? (
+                                                            <FaSync className="animate-spin" size={10} />
+                                                        ) : (
+                                                            <FaDownload size={10} />
+                                                        )}
+                                                        <span>Download Statement PDF</span>
                                                     </button>
                                                 </div>
 

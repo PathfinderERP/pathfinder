@@ -266,8 +266,13 @@ export const searchBill = async (req, res) => {
                     : paymentObj.bankAccount.accname.toUpperCase();
             }
 
+            const creatorName = payment.recordedBy?.name || payment.recordedBy?.username || null;
+            paymentObj.recordedByName = creatorName;
+            paymentObj.createdByName = creatorName;
+
             return {
                 payment: paymentObj,
+                createdBy: creatorName,
                 admissionType,
                 admissionSummary: admission ? {
                     _id: admission._id,

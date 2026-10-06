@@ -10,6 +10,8 @@ import Department from "../../models/Master_data/Department.js";
 import Boards from "../../models/Master_data/Boards.js";
 import Allocation from "../../models/Inventory/Allocation.js";
 import Account from "../../models/Master_data/Account.js";
+import User from "../../models/User.js";
+import mongoose from "mongoose";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 import { isGstExempt } from "../../utils/gstHelper.js";
 
@@ -105,7 +107,8 @@ export const generateBill = async (req, res) => {
                 .populate('board')
                 .populate('department')
                 .populate('examTag')
-                .populate('class');
+                .populate('class')
+                .populate('createdBy', 'name username');
 
             let isBoardAdmission = false;
 
@@ -120,7 +123,8 @@ export const generateBill = async (req, res) => {
                     })
                     .populate('boardId')
                     .populate('department')
-                    .populate('examTag');
+                    .populate('examTag')
+                    .populate('createdBy', 'name username');
                 if (admission) {
                     isBoardAdmission = true;
                     // Normalize Board Admission fields to match logic below
@@ -277,7 +281,10 @@ export const generateBill = async (req, res) => {
                 }
             }
 
-            let payment = await Payment.findOne(query).populate('bankAccount').sort({ createdAt: -1 });
+            let payment = await Payment.findOne(query)
+                .populate('bankAccount')
+                .populate('recordedBy', 'name username')
+                .sort({ createdAt: -1 });
 
             // Determine the actual total amount paid for this bill from source of truth
             // For installment 0 (standard), we trust admission.downPayment. 
@@ -417,11 +424,41 @@ export const generateBill = async (req, res) => {
                 ).catch(e => console.error("Auto-heal Student name error:", e));
             }
 
+            // Resolve original creator who recorded/created this payment or bill
+            let resolvedCreatorName = null;
+            if (payment?.recordedBy) {
+                resolvedCreatorName = typeof payment.recordedBy === 'object'
+                    ? (payment.recordedBy.name || payment.recordedBy.username)
+                    : payment.recordedBy;
+            }
+            if (!resolvedCreatorName && admission?.createdBy) {
+                const admCreator = admission.createdBy;
+                resolvedCreatorName = typeof admCreator === 'object'
+                    ? (admCreator.name || admCreator.username)
+                    : null;
+                if (!resolvedCreatorName && mongoose.isValidObjectId(admCreator)) {
+                    const u = await User.findById(admCreator).select('name username').lean();
+                    if (u) resolvedCreatorName = u.name || u.username;
+                }
+            }
+            // If payment had no recordedBy, permanently lock it to the current user who generates it first
+            if (payment && !payment.recordedBy && req.user?._id) {
+                payment.recordedBy = req.user._id;
+                await payment.save().catch(e => console.error("Error setting payment recordedBy:", e));
+                if (!resolvedCreatorName) {
+                    resolvedCreatorName = req.user.name || req.user.username;
+                }
+            }
+            if (!resolvedCreatorName && req.user) {
+                resolvedCreatorName = req.user.name || req.user.username;
+            }
+
             // Prepare bill data
             const billData = {
                 billId: payment.billId,
                 billDate: payment.paidDate || new Date(),
                 gstNumber: generateGSTNumber(),
+                createdBy: resolvedCreatorName || 'N/A',
                 centre: {
                     name: centre.centreName,
                     address: centre.address || 'N/A',
@@ -461,7 +498,10 @@ export const generateBill = async (req, res) => {
                     } : null,
                     bankAccountName: bankAccDetails ? bankAccDetails.label : (payment.depositAccount || null),
                     status: payment.status,
-                    remarks: payment.remarks || (installment ? installment.remarks : '') || (admission ? admission.remarks : '') || ''
+                    remarks: payment.remarks || (installment ? installment.remarks : '') || (admission ? admission.remarks : '') || '',
+                    recordedBy: resolvedCreatorName || 'N/A',
+                    recordedByName: resolvedCreatorName || 'N/A',
+                    createdByName: resolvedCreatorName || 'N/A'
                 },
                 amounts: {
                     courseFee: finalCourseFee,
@@ -505,6 +545,7 @@ export const getBillById = async (req, res) => {
 
         const payment = await Payment.findOne({ billId })
             .populate('bankAccount')
+            .populate('recordedBy', 'name username')
             .populate({
                 path: 'admission',
                 populate: [
@@ -513,7 +554,8 @@ export const getBillById = async (req, res) => {
                     { path: 'board' },
                     { path: 'department' },
                     { path: 'examTag' },
-                    { path: 'class' }
+                    { path: 'class' },
+                    { path: 'createdBy', select: 'name username' }
                 ]
             });
 
@@ -605,9 +647,31 @@ export const getBillById = async (req, res) => {
             !admission && Boolean(boardCourseAdmission)
         );
 
+        let resolvedCreatorName = null;
+        if (payment?.recordedBy) {
+            resolvedCreatorName = typeof payment.recordedBy === 'object'
+                ? (payment.recordedBy.name || payment.recordedBy.username)
+                : payment.recordedBy;
+        }
+        if (!resolvedCreatorName && admission?.createdBy) {
+            const admCreator = admission.createdBy;
+            resolvedCreatorName = typeof admCreator === 'object'
+                ? (admCreator.name || admCreator.username)
+                : null;
+            if (!resolvedCreatorName && mongoose.isValidObjectId(admCreator)) {
+                const u = await User.findById(admCreator).select('name username').lean();
+                if (u) resolvedCreatorName = u.name || u.username;
+            }
+        }
+        if (!resolvedCreatorName && boardCourseAdmission?.createdBy) {
+            const bCreator = await User.findById(boardCourseAdmission.createdBy).select('name username').lean();
+            if (bCreator) resolvedCreatorName = bCreator.name || bCreator.username;
+        }
+
         const billData = {
             billId: payment.billId,
             billDate: payment.paidDate || new Date(),
+            createdBy: resolvedCreatorName || 'N/A',
             centre: {
                 name: centre.centreName,
                 address: centre.address || 'N/A',
@@ -654,7 +718,10 @@ export const getBillById = async (req, res) => {
                     accno: bankAccDetails.accno
                 } : null,
                 bankAccountName: bankAccDetails ? bankAccDetails.label : (payment.depositAccount || null),
-                status: payment.status
+                status: payment.status,
+                recordedBy: resolvedCreatorName || 'N/A',
+                recordedByName: resolvedCreatorName || 'N/A',
+                createdByName: resolvedCreatorName || 'N/A'
             },
             amounts: {
                 courseFee: finalCourseFee,
@@ -693,11 +760,13 @@ export const getBillsByAdmission = async (req, res) => {
 
         const payments = await Payment.find(filter)
             .populate('bankAccount')
+            .populate('recordedBy', 'name username')
             .populate({
                 path: 'admission',
                 populate: [
                     { path: 'student' },
-                    { path: 'course' }
+                    { path: 'course' },
+                    { path: 'createdBy', select: 'name username' }
                 ]
             }).sort({ paidDate: 1, receivedDate: 1 });
 
@@ -707,9 +776,14 @@ export const getBillsByAdmission = async (req, res) => {
                 ? (acc.accno ? `${acc.accname.toUpperCase()} (A/C: ${acc.accno})` : acc.accname.toUpperCase())
                 : (payment.depositAccount || null);
 
+            const creator = payment.recordedBy?.name || payment.recordedBy?.username || payment.admission?.createdBy?.name || null;
+
             return {
                 _id: payment._id,
                 billId: payment.billId || null,
+                createdBy: creator,
+                recordedByName: creator,
+                createdByName: creator,
                 isReceivingSlip: !payment.billId && payment.paymentMethod === 'CHEQUE' && payment.status === 'PENDING_CLEARANCE',
                 billDate: payment.paidDate || payment.receivedDate,
                 paidDate: payment.paidDate,
@@ -768,7 +842,8 @@ export const generateReceivingSlip = async (req, res) => {
             .populate('board')
             .populate('department')
             .populate('examTag')
-            .populate('class');
+            .populate('class')
+            .populate('createdBy', 'name username');
 
         let isBoardAdmission = false;
 
@@ -783,7 +858,8 @@ export const generateReceivingSlip = async (req, res) => {
                 })
                 .populate('boardId')
                 .populate('department')
-                .populate('examTag');
+                .populate('examTag')
+                .populate('createdBy', 'name username');
 
             if (admission) {
                 isBoardAdmission = true;
@@ -820,7 +896,7 @@ export const generateReceivingSlip = async (req, res) => {
         // Locate payment record or installment details
         let payment = null;
         if (paymentId) {
-            payment = await Payment.findById(paymentId).populate('bankAccount');
+            payment = await Payment.findById(paymentId).populate('bankAccount').populate('recordedBy', 'name username');
         }
 
         if (!payment) {
@@ -836,21 +912,21 @@ export const generateReceivingSlip = async (req, res) => {
                     admission: admissionId,
                     installmentNumber: { $in: candidates },
                     paymentMethod: "CHEQUE"
-                }).populate('bankAccount').sort({ createdAt: -1 });
+                }).populate('bankAccount').populate('recordedBy', 'name username').sort({ createdAt: -1 });
 
                 if (!payment && billingMonth) {
                     payment = await Payment.findOne({
                         admission: admissionId,
                         billingMonth,
                         paymentMethod: "CHEQUE"
-                    }).populate('bankAccount').sort({ createdAt: -1 });
+                    }).populate('bankAccount').populate('recordedBy', 'name username').sort({ createdAt: -1 });
                 }
             } else {
                 payment = await Payment.findOne({
                     admission: admissionId,
                     installmentNumber: installmentNum,
                     paymentMethod: "CHEQUE"
-                }).populate('bankAccount').sort({ createdAt: -1 });
+                }).populate('bankAccount').populate('recordedBy', 'name username').sort({ createdAt: -1 });
             }
         }
 
@@ -859,7 +935,7 @@ export const generateReceivingSlip = async (req, res) => {
             payment = await Payment.findOne({
                 admission: admissionId,
                 installmentNumber: isBoardAdmission && installmentNum > 0 ? { $in: [installmentNum, installmentNum - 1] } : installmentNum
-            }).populate('bankAccount').sort({ createdAt: -1 });
+            }).populate('bankAccount').populate('recordedBy', 'name username').sort({ createdAt: -1 });
         }
 
         // Extract installment data from admission structure if available
@@ -934,12 +1010,33 @@ export const generateReceivingSlip = async (req, res) => {
             }
         }
 
+        let resolvedCreatorName = null;
+        if (payment?.recordedBy) {
+            resolvedCreatorName = typeof payment.recordedBy === 'object'
+                ? (payment.recordedBy.name || payment.recordedBy.username)
+                : payment.recordedBy;
+        }
+        if (!resolvedCreatorName && admission?.createdBy) {
+            const admCreator = admission.createdBy;
+            resolvedCreatorName = typeof admCreator === 'object'
+                ? (admCreator.name || admCreator.username)
+                : null;
+            if (!resolvedCreatorName && mongoose.isValidObjectId(admCreator)) {
+                const u = await User.findById(admCreator).select('name username').lean();
+                if (u) resolvedCreatorName = u.name || u.username;
+            }
+        }
+        if (!resolvedCreatorName && req.user) {
+            resolvedCreatorName = req.user.name || req.user.username;
+        }
+
         const receivingSlipData = {
             isReceivingSlip: true,
             billId: null, // Strictly NO bill number for receiving slip
             slipType: "CHEQUE RECEIVING SLIP",
             slipDate: payment?.receivedDate || payment?.paidDate || instData?.receivedDate || new Date(),
             billDate: payment?.receivedDate || payment?.paidDate || instData?.receivedDate || new Date(),
+            createdBy: resolvedCreatorName || 'N/A',
             gstNumber: (centre.enterGstNo && centre.enterGstNo !== 'N/A') ? centre.enterGstNo : (centre.gstNumber || 'N/A'),
             centre: {
                 name: centre.centreName || admission.centre,
@@ -979,7 +1076,10 @@ export const generateReceivingSlip = async (req, res) => {
                 paidDate: payment?.paidDate || instData?.paidDate,
                 receivedDate: payment?.receivedDate || instData?.receivedDate || new Date(),
                 status: "PENDING_CLEARANCE",
-                remarks: payment?.remarks || instData?.remarks || admission.remarks || "Cheque Received (Subject to Realisation)"
+                remarks: payment?.remarks || instData?.remarks || admission.remarks || "Cheque Received (Subject to Realisation)",
+                recordedBy: resolvedCreatorName || 'N/A',
+                recordedByName: resolvedCreatorName || 'N/A',
+                createdByName: resolvedCreatorName || 'N/A'
             },
             amounts: {
                 grossFee: actualPaidTotal,

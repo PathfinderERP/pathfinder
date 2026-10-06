@@ -368,9 +368,12 @@ const EditBill = () => {
         const c = selectedBill.course;
         const centre = selectedBill.centre;
 
+        const originalCreator = p?.recordedBy?.name || p?.recordedByName || p?.createdByName || selectedBill.createdBy || null;
+
         return {
             billId: formData.billId,
             billDate: formData.paidDate || new Date(),
+            createdBy: originalCreator,
             gstNumber: centre?.enterGstNo || "19AAACP1234F1Z5",
             centre: {
                 name: centre?.centreName || formData.centre || "General",
