@@ -9,6 +9,7 @@ import "../Master_data/Subject.js";
 import "../Master_data/Account.js";
 import "../Master_data/Batch.js";
 import "../User.js";
+import { getNextAdmissionNumber } from "../../utils/admissionNumberGenerator.js";
 
 const paymentBreakdownSchema = new mongoose.Schema({
     installmentNumber: { type: Number, required: true },
@@ -267,41 +268,11 @@ const admissionSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-// Pre-save hook to ensure a unique sequence number is generated across both admission types
+// Pre-save hook to ensure a guaranteed unique sequence number is generated atomically across both admission types
 admissionSchema.pre('save', async function () {
     if (!this.admissionNumber) {
         try {
-            let BoardCourseAdmission;
-            try {
-                BoardCourseAdmission = mongoose.model("BoardCourseAdmission");
-            } catch (e) {
-                BoardCourseAdmission = null;
-            }
-
-            // Generate new sequence if admission has no ID
-            const now = new Date();
-            const year = now.getFullYear().toString().slice(-2);
-            const prefix = `PATH${year}`;
-
-            const [lastNormal, lastBoard] = await Promise.all([
-                this.constructor.findOne({ admissionNumber: new RegExp(`^${prefix}`) }).sort({ admissionNumber: -1 }).lean(),
-                BoardCourseAdmission 
-                    ? BoardCourseAdmission.findOne({ admissionNumber: new RegExp(`^${prefix}`) }).sort({ admissionNumber: -1 }).lean()
-                    : Promise.resolve(null)
-            ]);
-
-            let seqNormal = 0;
-            let seqBoard = 0;
-
-            if (lastNormal && lastNormal.admissionNumber) {
-                seqNormal = parseInt(lastNormal.admissionNumber.slice(6), 10) || 0;
-            }
-            if (lastBoard && lastBoard.admissionNumber) {
-                seqBoard = parseInt(lastBoard.admissionNumber.slice(6), 10) || 0;
-            }
-
-            const nextSequence = Math.max(seqNormal, seqBoard) + 1;
-            this.admissionNumber = `${prefix}${String(nextSequence).padStart(6, '0')}`;
+            this.admissionNumber = await getNextAdmissionNumber();
         } catch (error) {
             console.error("Error generating Normal Admission sequence:", error);
             throw error;

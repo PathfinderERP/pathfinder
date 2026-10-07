@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { getNextAdmissionNumber } from "../../utils/admissionNumberGenerator.js";
 
 const boardCourseAdmissionSchema = new mongoose.Schema({
     studentId: {
@@ -210,32 +211,11 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
 //     next();
 // });
 
-// Pre-save hook to ensure a unique sequence number is generated across both admission types
+// Pre-save hook to ensure a unique sequence number is generated atomically across both admission types
 boardCourseAdmissionSchema.pre('save', async function () {
     if (!this.admissionNumber) {
         try {
-            const Admission = mongoose.model("Admission");
-            const now = new Date();
-            const year = now.getFullYear().toString().slice(-2);
-            const prefix = `PATH${year}`;
-
-            const [lastNormal, lastBoard] = await Promise.all([
-                Admission.findOne({ admissionNumber: new RegExp(`^${prefix}`) }).sort({ admissionNumber: -1 }).lean(),
-                this.constructor.findOne({ admissionNumber: new RegExp(`^${prefix}`) }).sort({ admissionNumber: -1 }).lean()
-            ]);
-
-            let seqNormal = 0;
-            let seqBoard = 0;
-
-            if (lastNormal && lastNormal.admissionNumber) {
-                seqNormal = parseInt(lastNormal.admissionNumber.slice(6), 10) || 0;
-            }
-            if (lastBoard && lastBoard.admissionNumber) {
-                seqBoard = parseInt(lastBoard.admissionNumber.slice(6), 10) || 0;
-            }
-
-            const nextSequence = Math.max(seqNormal, seqBoard) + 1;
-            this.admissionNumber = `${prefix}${String(nextSequence).padStart(6, '0')}`;
+            this.admissionNumber = await getNextAdmissionNumber();
         } catch (error) {
             console.error("Error generating Board Admission sequence:", error);
             throw error;
