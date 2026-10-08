@@ -227,8 +227,8 @@ const CentreTarget = () => {
             const cName = t.centre?.centreName || "";
             const isMidnaporeExcluded = isPhspsMidnapore(cName);
 
-            const targetAmountExcl = isPHSPS ? 0 : (t.targetAmount || 0);
-            const dateWiseTargetExcl = isPHSPS ? 0 : (viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) : 0);
+            const targetAmountExcl = (t.targetAmount || 0);
+            const dateWiseTargetExcl = (viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) : 0);
             const activeTargetExcl = viewMode === "Custom" ? dateWiseTargetExcl : targetAmountExcl;
 
             const rawAchievedExcl = t.achievedAmountExclGST || (t.achievedAmount / 1.18) || 0;
@@ -236,9 +236,9 @@ const CentreTarget = () => {
 
             const achievedExcl = isMidnaporeExcluded ? 0 : rawAchievedExcl;
             const achievedWithGST = isMidnaporeExcluded ? 0 : rawAchievedWithGST;
-            const shortfallExcl = isPHSPS ? 0 : Math.max(0, activeTargetExcl - (isMidnaporeExcluded ? 0 : rawAchievedExcl));
+            const shortfallExcl = Math.max(0, activeTargetExcl - (isMidnaporeExcluded ? 0 : rawAchievedExcl));
 
-            const targetWithGST = isPHSPS ? 0 : (viewMode === "Custom" ? dateWiseTargetExcl * 1.18 : (t.targetAmountWithGST || (targetAmountExcl * 1.18)));
+            const targetWithGST = (viewMode === "Custom" ? dateWiseTargetExcl * 1.18 : (t.targetAmountWithGST || (targetAmountExcl * 1.18)));
 
             acc.totalTargetExclGST += targetAmountExcl;
             acc.totalDateWiseTargetExclGST += dateWiseTargetExcl;
@@ -324,20 +324,19 @@ const CentreTarget = () => {
                 "Financial Year": t.financialYear,
                 "Year": t.year,
                 "Month": t.month,
-                "Target Amount": isPHSPS ? 0 : (t.targetAmountWithGST || (t.targetAmount * 1.18)),
+                "Target Amount": t.targetAmountWithGST || ((t.targetAmount || 0) * 1.18),
                 "Achieved (Inc. GST)": t.achievedAmountWithGST || t.achievedAmount,
                 "Achieved (Excl. GST)": t.achievedAmountExclGST || (t.achievedAmount / 1.18).toFixed(2),
                 "Achievement %": (() => {
-                    if (isPHSPS) return "0.0%";
                     const achieved = t.achievedAmountWithGST || 0;
-                    const dateWiseTargetWithGST = viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) * 1.18 : (t.targetAmountWithGST || (t.targetAmount * 1.18));
+                    const dateWiseTargetWithGST = viewMode === "Custom" ? calculateDateWiseTarget(t, startDate, endDate) * 1.18 : (t.targetAmountWithGST || ((t.targetAmount || 0) * 1.18));
                     const percentage = dateWiseTargetWithGST > 0 ? (achieved / dateWiseTargetWithGST) * 100 : 0;
                     return `${percentage.toFixed(1)}%`;
                 })()
             };
 
             if (viewMode === "Custom" && startDate && endDate) {
-                const dateWiseExcl = isPHSPS ? 0 : calculateDateWiseTarget(t, startDate, endDate);
+                const dateWiseExcl = calculateDateWiseTarget(t, startDate, endDate);
                 row["Date Wise Target (With GST)"] = (dateWiseExcl * 1.18).toFixed(2);
                 row["Date Wise Target (Excl. GST)"] = dateWiseExcl.toFixed(2);
             }
@@ -356,6 +355,10 @@ const CentreTarget = () => {
     const handleDelete = async (id) => {
         if (!confirm("Are you sure you want to delete this target?")) return;
         try {
+            if (id && String(id).startsWith("virt_")) {
+                toast.info("No saved target to delete for this centre");
+                return;
+            }
             const token = localStorage.getItem("token");
             const response = await fetch(`${import.meta.env.VITE_API_URL}/sales/centre-target/${id}`, {
                 method: "DELETE",
@@ -638,10 +641,10 @@ const CentreTarget = () => {
                                 ) : (
                                     displayedTargets.map(target => {
                                         const isPHSPS = target.isPHSPS || (target.centre?.centreName && /phsps/i.test(target.centre.centreName));
-                                        const activeTargetExclGST = isPHSPS ? 0 : (viewMode === "Custom" ? calculateDateWiseTarget(target, startDate, endDate) : (target.targetAmount || 0));
+                                        const activeTargetExclGST = viewMode === "Custom" ? calculateDateWiseTarget(target, startDate, endDate) : (target.targetAmount || 0);
                                         const activeAchievedExclGST = target.achievedAmountExclGST || (target.achievedAmount / 1.18) || 0;
-                                        const shortfallExclGST = isPHSPS ? 0 : Math.max(0, activeTargetExclGST - activeAchievedExclGST);
-                                        const percentage = isPHSPS ? 0 : (activeTargetExclGST > 0 ? (activeAchievedExclGST / activeTargetExclGST) * 100 : 0);
+                                        const shortfallExclGST = Math.max(0, activeTargetExclGST - activeAchievedExclGST);
+                                        const percentage = activeTargetExclGST > 0 ? (activeAchievedExclGST / activeTargetExclGST) * 100 : 0;
 
                                         return (
                                             <tr key={target._id} className={`${isDarkMode ? 'hover:bg-[#131619] text-gray-400' : 'hover:bg-gray-50 text-gray-700'} transition-all duration-300`}>
@@ -661,7 +664,7 @@ const CentreTarget = () => {
                                                     {percentage.toFixed(1)}%
                                                 </td>
                                                 <td className="px-6 py-4 text-right flex justify-end gap-3">
-                                                    {canEdit && !isPHSPS && (
+                                                    {canEdit && (
                                                         <button
                                                             onClick={() => { setSelectedTarget(target); setShowAddModal(true); }}
                                                             className={`transition-colors ${isDarkMode ? 'text-gray-400 hover:text-blue-400' : 'text-gray-500 hover:text-blue-600'}`}
@@ -670,7 +673,7 @@ const CentreTarget = () => {
                                                             <FaEdit size={16} />
                                                         </button>
                                                     )}
-                                                    {canDelete && !isPHSPS && (
+                                                    {canDelete && (
                                                         <button
                                                             onClick={() => handleDelete(target._id)}
                                                             className={`transition-colors ${isDarkMode ? 'text-gray-400 hover:text-red-400' : 'text-gray-500 hover:text-red-600'}`}

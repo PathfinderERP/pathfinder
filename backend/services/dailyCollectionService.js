@@ -900,41 +900,28 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         return false;
     };
 
-    // Computes full month's daily targets for a centre, rolling weekly shortfall into the next week's daily targets
-    const computeCentreTargetsForMonth = (centreDoc) => {
-        const cId = centreDoc._id?.toString();
-        const cName = centreDoc.centreName?.trim() || "";
-        const cNameUpper = cName.toUpperCase();
-        const dayMap = achievementMap[cNameUpper] || {};
-
-        const getManualBaseTarget = (d) => {
-            return customTargetsByCentre[cId]?.[d] ?? customTargetsByCentre[cNameUpper]?.[d] ?? 0;
-        };
-
+    // Core calculation engine for a centre's full month targets given its base target function and daily achievements
+    const computeEngine = (getBaseTarget, dayMap) => {
         const daysResult = {};
         let carryoverAdjustment = 0;
 
         for (const week of fixedWeeks) {
-            const weekTotalBase = week.days.reduce((sum, d) => sum + getManualBaseTarget(d.day), 0);
+            const weekTotalBase = week.days.reduce((sum, d) => sum + getBaseTarget(d.day), 0);
             const daysCount = week.actualDays;
 
             // Distribute weekly carryover adjustment (shortfall or surplus) across week days
             const weekDaysData = week.days.map(dObj => {
-                const manualBase = getManualBaseTarget(dObj.day);
+                const manualBase = getBaseTarget(dObj.day);
                 let dailyAdjustment = 0;
 
                 if (carryoverAdjustment > 0) {
-                    // Cumulative shortfall: exactly as originally implemented (distributed over daysCount)
                     dailyAdjustment = daysCount > 0 ? (carryoverAdjustment / daysCount) : 0;
                 } else if (carryoverAdjustment < 0) {
-                    // Surplus: distributed across week days according to shortfall,
-                    // weighted proportionally so weekend and weekday targets share appropriately:
                     dailyAdjustment = weekTotalBase > 0
                         ? (carryoverAdjustment * (manualBase / weekTotalBase))
                         : (daysCount > 0 ? (carryoverAdjustment / daysCount) : 0);
                 }
 
-                // Minimum floor for surplus so daily target doesn't drop to 0
                 let effectiveBase;
                 if (carryoverAdjustment < 0 && manualBase > 0) {
                     const minFloor = Math.round(manualBase * 0.25);
@@ -995,7 +982,6 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             const weekTotalAchieved = weekDaysData.reduce((sum, d) => sum + d.achieved, 0);
 
             if (isWeekFinished(week)) {
-                // Positive means shortfall (increases next week), negative means overachievement/surplus (reduces next week)
                 carryoverAdjustment = weekTotalTarget - weekTotalAchieved;
             } else {
                 carryoverAdjustment = 0;
@@ -1003,6 +989,68 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         }
 
         return daysResult;
+    };
+
+    // Computes full month's daily targets for a centre, rolling weekly shortfall into the next week's daily targets
+    const computeCentreTargetsForMonth = (centreDoc) => {
+        const cId = centreDoc._id?.toString();
+        const cName = centreDoc.centreName?.trim() || "";
+        const cNameUpper = cName.toUpperCase();
+        const dayMap = achievementMap[cNameUpper] || {};
+
+        const getManualBaseTarget = (d) => {
+            return customTargetsByCentre[cId]?.[d] ?? customTargetsByCentre[cNameUpper]?.[d] ?? 0;
+        };
+
+        // Shyambazar centre targets are zeroed out
+        if (/shyam/i.test(cName)) {
+            const zeroDaysResult = {};
+            for (const week of fixedWeeks) {
+                for (const d of week.days) {
+                    zeroDaysResult[d.day] = {
+                        finalTarget: 0,
+                        baseTarget: 0,
+                        effectiveBaseTarget: 0,
+                        shortfallAdded: 0,
+                        isWeekend: d.isWeekend,
+                        dayName: d.dayName
+                    };
+                }
+            }
+            return zeroDaysResult;
+        }
+
+        // Dumdum incorporates Shyambazar's targets and dynamic adjustments (shortfall & surplus amounts)
+        if (/dumdum/i.test(cName)) {
+            const shyamMap = achievementMap["SHYAMBAZAR "] || achievementMap["SHYAMBAZAR"] || {};
+            // Dumdum 80% base target share, Shyambazar 20% base target share
+            const dBase = (d) => Math.round(getManualBaseTarget(d) * 0.8);
+            const sBase = (d) => getManualBaseTarget(d) - dBase(d);
+
+            const dResult = computeEngine(dBase, dayMap);
+            const sResult = computeEngine(sBase, shyamMap);
+
+            const mergedResult = {};
+            for (const week of fixedWeeks) {
+                for (const d of week.days) {
+                    const dr = dResult[d.day] || { finalTarget: 0, baseTarget: 0, effectiveBaseTarget: 0, shortfallAdded: 0 };
+                    const sr = sResult[d.day] || { finalTarget: 0, baseTarget: 0, effectiveBaseTarget: 0, shortfallAdded: 0 };
+                    const totalBase = getManualBaseTarget(d.day);
+                    const totalAdj = dr.shortfallAdded + sr.shortfallAdded;
+                    mergedResult[d.day] = {
+                        finalTarget: dr.finalTarget + sr.finalTarget,
+                        baseTarget: totalBase,
+                        effectiveBaseTarget: dr.effectiveBaseTarget + sr.effectiveBaseTarget,
+                        shortfallAdded: totalAdj,
+                        isWeekend: d.isWeekend,
+                        dayName: d.dayName
+                    };
+                }
+            }
+            return mergedResult;
+        }
+
+        return computeEngine(getManualBaseTarget, dayMap);
     };
 
     const centreTargets = {};
