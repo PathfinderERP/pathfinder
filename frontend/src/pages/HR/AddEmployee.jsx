@@ -588,7 +588,7 @@ const AddEmployee = () => {
             Object.keys(formData).forEach(key => {
                 if (excludeFields.includes(key)) return;
 
-                if (key === "children" || key === "centres" || key === "workingDays" || key === "salaryStructure" || key === "workingHours") {
+                if (key === "children" || key === "centres" || key === "workingDays" || key === "salaryStructure" || key === "workingHours" || key === "subject") {
                     formDataToSend.append(key, JSON.stringify(formData[key]));
                 } else if (!fileFields.includes(key)) {
                     formDataToSend.append(key, formData[key] ?? "");
