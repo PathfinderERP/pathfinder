@@ -538,7 +538,8 @@ const DailyCenterTracking = () => {
                 "Centre": d.centreName,
                 "Date / Time": formatExcelDateTime(d.dateTime),
                 "Tag": d.tag,
-                "Feedback / Remarks": d.feedback
+                "Feedback": d.feedback || "",
+                "Remarks": d.remarks || ""
             }));
 
             // Sheet 3: Counselling details
@@ -550,7 +551,8 @@ const DailyCenterTracking = () => {
                 "Centre": d.centreName,
                 "Date / Time": formatExcelDateTime(d.dateTime),
                 "Tag": d.tag,
-                "Feedback / Remarks": d.feedback
+                "Feedback": d.feedback || "",
+                "Remarks": d.remarks || ""
             }));
 
             // Sheet 4: Admissions details
@@ -564,7 +566,8 @@ const DailyCenterTracking = () => {
                 "Course": d.course,
                 "Amount (excl. GST)": d.amount,
                 "Type": d.tag,
-                "Details": d.feedback
+                "Details": d.feedback,
+                "Remarks": d.remarks || ""
             }));
 
             // Sheet 5: Calls details
@@ -576,7 +579,8 @@ const DailyCenterTracking = () => {
                 "Centre": d.centreName,
                 "Call Date / Time": formatExcelDateTime(d.dateTime),
                 "Call Status / Tag": d.tag,
-                "Feedback / Remarks": d.feedback
+                "Feedback": d.feedback || "",
+                "Remarks": d.remarks || ""
             }));
 
             // Sheet 6: Collections details
@@ -589,7 +593,8 @@ const DailyCenterTracking = () => {
                 "Payment Date / Time": formatExcelDateTime(d.dateTime),
                 "Course": d.course,
                 "Amount (excl. GST)": d.amount,
-                "Details": d.feedback
+                "Details": d.feedback,
+                "Remarks": d.remarks || ""
             }));
 
             const sheets = [

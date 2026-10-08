@@ -405,8 +405,11 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                                                         )}
 
                                                         <div className={`p-3 rounded border-l-2 border-cyan-500 text-xs ${isDarkMode ? 'bg-[#0a0a0b] text-gray-300' : 'bg-gray-50 text-gray-700'}`}>
-                                                            <p className="text-[9px] font-black uppercase text-gray-500 mb-0.5">Payment Details / Remarks</p>
-                                                            {item.feedback}
+                                                            <p className="text-[9px] font-black uppercase text-gray-500 mb-0.5">Payment Details</p>
+                                                            <p>{item.feedback}</p>
+                                                            {item.remarks && (
+                                                                <p className="mt-1 text-[11px] text-cyan-400 font-medium">Remarks: {item.remarks}</p>
+                                                            )}
                                                         </div>
                                                     </div>
 
@@ -573,8 +576,14 @@ const DailyTrackingDetailsModal = ({ isOpen, onClose, title, data = [], loading,
                                                 )}
 
                                                 <div className={`p-4 rounded-[2px] border-l-2 border-cyan-500 ${isDarkMode ? 'bg-[#0a0a0b]' : 'bg-gray-50'}`}>
-                                                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Description / Remarks</p>
-                                                    <p className={`text-xs font-medium leading-relaxed ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{item.feedback}</p>
+                                                    <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Feedback</p>
+                                                    <p className={`text-xs font-medium leading-relaxed ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{item.feedback || 'No feedback recorded'}</p>
+                                                    {item.remarks && (
+                                                        <div className="mt-2 pt-2 border-t border-gray-800/50">
+                                                            <p className={`text-[10px] font-black uppercase tracking-widest mb-1 ${isDarkMode ? 'text-cyan-500/80' : 'text-cyan-700'}`}>Remarks</p>
+                                                            <p className={`text-xs font-medium leading-relaxed ${isDarkMode ? 'text-cyan-300' : 'text-cyan-900'}`}>{item.remarks}</p>
+                                                        </div>
+                                                    )}
                                                 </div>
                                             </div>
 
