@@ -626,14 +626,14 @@ const LeadManagementContent = () => {
         if (preset === 'custom') { setShowCustomDates(true); return; }
         setShowCustomDates(false);
         const ranges = {
-            today:     [today, today],
+            today: [today, today],
             yesterday: [yesterday, yesterday],
-            thisWeek:  [fmt(thisWeekMon), today],
-            prevWeek:  [fmt(prevWeekMon), fmt(prevWeekSun)],
+            thisWeek: [fmt(thisWeekMon), today],
+            prevWeek: [fmt(prevWeekMon), fmt(prevWeekSun)],
             thisMonth: [thisMonStart, today],
             prevMonth: [prevMonStart, prevMonEnd],
-            thisYear:  [thisYearStart, today],
-            prevYear:  [prevYearStart, prevYearEnd],
+            thisYear: [thisYearStart, today],
+            prevYear: [prevYearStart, prevYearEnd],
         };
         const [from, to] = ranges[preset] || ['', ''];
         setFilters(prev => ({ ...prev, fromDate: from, toDate: to }));
@@ -668,14 +668,14 @@ const LeadManagementContent = () => {
         if (preset === 'custom') { setShowUploadedCustomDates(true); return; }
         setShowUploadedCustomDates(false);
         const ranges = {
-            today:     [today, today],
+            today: [today, today],
             yesterday: [yesterday, yesterday],
-            thisWeek:  [fmt(thisWeekMon), today],
-            prevWeek:  [fmt(prevWeekMon), fmt(prevWeekSun)],
+            thisWeek: [fmt(thisWeekMon), today],
+            prevWeek: [fmt(prevWeekMon), fmt(prevWeekSun)],
             thisMonth: [thisMonStart, today],
             prevMonth: [prevMonStart, prevMonEnd],
-            thisYear:  [thisYearStart, today],
-            prevYear:  [prevYearStart, prevYearEnd],
+            thisYear: [thisYearStart, today],
+            prevYear: [prevYearStart, prevYearEnd],
         };
         const [from, to] = ranges[preset] || ['', ''];
         setFilters(prev => ({ ...prev, uploadedFromDate: from, uploadedToDate: to }));
@@ -771,7 +771,7 @@ const LeadManagementContent = () => {
 
     const renderSortableHeader = (label, field) => {
         return (
-            <th 
+            <th
                 onClick={() => handleSort(field)}
                 className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest cursor-pointer select-none hover:text-cyan-400 transition-colors ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}
             >
@@ -1563,7 +1563,7 @@ const LeadManagementContent = () => {
                         </div>
                         {/* ── Date Range Dropdown ── */}
                         <div className="space-y-2">
-                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Date Range</label>
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Assigned At</label>
                             <select
                                 value={datePreset}
                                 onChange={(e) => applyDatePreset(e.target.value)}
@@ -1732,24 +1732,23 @@ const LeadManagementContent = () => {
 
                         {/* Conversion Summary Card */}
                         <div
-                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all ${
-                                isDarkMode 
-                                    ? 'bg-purple-500/5 border-purple-500/20 hover:border-purple-500/50' 
+                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all ${isDarkMode
+                                    ? 'bg-purple-500/5 border-purple-500/20 hover:border-purple-500/50'
                                     : 'bg-purple-50 border-purple-100 shadow-sm hover:border-purple-300'
-                            }`}
+                                }`}
                         >
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="w-full">
                                     <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-2.5 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>Conversion Summary</p>
                                     <div className="flex flex-col gap-1">
-                                        <div 
+                                        <div
                                             onClick={() => fetchAndShowConversionDetails('counselled')}
                                             className={`flex justify-between items-center pr-2 cursor-pointer p-1.5 rounded transition-all hover:bg-purple-500/10 active:scale-95`}
                                         >
                                             <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Counselled:</span>
                                             <span className={`text-xs font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.counselledCount || 0}</span>
                                         </div>
-                                        <div 
+                                        <div
                                             onClick={() => fetchAndShowConversionDetails('admitted')}
                                             className={`flex justify-between items-center pr-2 cursor-pointer p-1.5 rounded transition-all hover:bg-purple-500/10 active:scale-95`}
                                         >
@@ -1766,24 +1765,23 @@ const LeadManagementContent = () => {
 
                         {/* Admission Segregation Card */}
                         <div
-                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all ${
-                                isDarkMode 
-                                    ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/50' 
+                            className={`p-4 rounded-[2px] border relative overflow-hidden group transition-all ${isDarkMode
+                                    ? 'bg-amber-500/5 border-amber-500/20 hover:border-amber-500/50'
                                     : 'bg-amber-50 border-amber-100 shadow-sm hover:border-amber-300'
-                            }`}
+                                }`}
                         >
                             <div className="flex justify-between items-start relative z-10">
                                 <div className="w-full">
                                     <p className={`text-[8px] font-black uppercase tracking-[0.2em] mb-2.5 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>Admission Source Segregation</p>
                                     <div className="flex flex-col gap-1">
-                                        <div 
+                                        <div
                                             onClick={() => fetchAndShowConversionDetails('uploaded_admissions')}
                                             className={`flex justify-between items-center pr-2 cursor-pointer p-1.5 rounded transition-all hover:bg-amber-500/10 active:scale-95`}
                                         >
                                             <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Uploaded Data:</span>
                                             <span className={`text-xs font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.uploadedAdmittedCount || 0}</span>
                                         </div>
-                                        <div 
+                                        <div
                                             onClick={() => fetchAndShowConversionDetails('manual_admissions')}
                                             className={`flex justify-between items-center pr-2 cursor-pointer p-1.5 rounded transition-all hover:bg-amber-500/10 active:scale-95`}
                                         >
@@ -1807,11 +1805,10 @@ const LeadManagementContent = () => {
                         {canDelete && (
                             <button
                                 onClick={handleCleanDuplicates}
-                                className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors px-3 py-1.5 border rounded-[2px] ${
-                                    isDarkMode 
-                                        ? 'border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50' 
+                                className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-colors px-3 py-1.5 border rounded-[2px] ${isDarkMode
+                                        ? 'border-red-500/30 text-red-400 hover:bg-red-500/10 hover:border-red-500/50'
                                         : 'border-red-200 text-red-600 hover:bg-red-50 hover:border-red-300'
-                                }`}
+                                    }`}
                             >
                                 <FaTrash size={10} /> Clean Duplicates
                             </button>
@@ -2282,64 +2279,64 @@ const LeadManagementContent = () => {
             {
                 showCentreAnalysisModal && (
                     <CentreAnalysisModal
-                                                        isOpen={showCentreAnalysisModal}
-                                                        onClose={() => setShowCentreAnalysisModal(false)}
-                                                        isDarkMode={isDarkMode}
-                                                        data={centreAnalysis}
-                                                    />
-                                                )
-                                            }
+                        isOpen={showCentreAnalysisModal}
+                        onClose={() => setShowCentreAnalysisModal(false)}
+                        isDarkMode={isDarkMode}
+                        data={centreAnalysis}
+                    />
+                )
+            }
 
-                                            {showCounselingChoiceModal && (
-                                                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                                                    <div className={`w-full max-w-md p-6 rounded-[2px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-xl'}`}>
-                                                        <div className="flex justify-between items-center mb-6">
-                                                            <div>
-                                                                <h3 className={`text-xl font-black italic tracking-tighter uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                                    Select <span className="text-cyan-500">Course Type</span>
-                                                                </h3>
-                                                                <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                                                    Choose the counselling pipeline for this lead
-                                                                </p>
-                                                            </div>
-                                                            <button
-                                                                onClick={() => setShowCounselingChoiceModal(false)}
-                                                                className={`p-2 rounded-[2px] transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-gray-500 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`}
-                                                            >
-                                                                <FaTimes />
-                                                            </button>
-                                                        </div>
+            {showCounselingChoiceModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+                    <div className={`w-full max-w-md p-6 rounded-[2px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-xl'}`}>
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className={`text-xl font-black italic tracking-tighter uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                    Select <span className="text-cyan-500">Course Type</span>
+                                </h3>
+                                <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
+                                    Choose the counselling pipeline for this lead
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setShowCounselingChoiceModal(false)}
+                                className={`p-2 rounded-[2px] transition-colors ${isDarkMode ? 'hover:bg-gray-800 text-gray-500 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`}
+                            >
+                                <FaTimes />
+                            </button>
+                        </div>
 
-                                                        <div className="space-y-4">
-                                                            <button
-                                                                onClick={handleNormalCounseling}
-                                                                className={`w-full p-4 rounded-[2px] border text-left flex items-start gap-4 transition-all group hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 hover:bg-cyan-500/20' : 'bg-cyan-50 border-cyan-200 hover:bg-cyan-100'}`}
-                                                            >
-                                                                <div className="p-3 bg-cyan-500 rounded-[2px] text-black">
-                                                                    <FaUserGraduate size={20} />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Normal Course Counselling</h4>
-                                                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Standard admission workflow for pathway courses.</p>
-                                                                </div>
-                                                            </button>
+                        <div className="space-y-4">
+                            <button
+                                onClick={handleNormalCounseling}
+                                className={`w-full p-4 rounded-[2px] border text-left flex items-start gap-4 transition-all group hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/30 hover:bg-cyan-500/20' : 'bg-cyan-50 border-cyan-200 hover:bg-cyan-100'}`}
+                            >
+                                <div className="p-3 bg-cyan-500 rounded-[2px] text-black">
+                                    <FaUserGraduate size={20} />
+                                </div>
+                                <div>
+                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Normal Course Counselling</h4>
+                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Standard admission workflow for pathway courses.</p>
+                                </div>
+                            </button>
 
-                                                            <button
-                                                                onClick={handleBoardCounseling}
-                                                                className={`w-full p-4 rounded-[2px] border text-left flex items-start gap-4 transition-all group hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-indigo-500/10 border-indigo-500/30 hover:bg-indigo-500/20' : 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100'}`}
-                                                            >
-                                                                <div className="p-3 bg-indigo-500 rounded-[2px] text-white group-hover:bg-indigo-600 transition-colors">
-                                                                    <FaGraduationCap size={20} />
-                                                                </div>
-                                                                <div>
-                                                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Board Course Counselling</h4>
-                                                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Specialized workflow for board pattern enrollments.</p>
-                                                                </div>
-                                                            </button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            )}
+                            <button
+                                onClick={handleBoardCounseling}
+                                className={`w-full p-4 rounded-[2px] border text-left flex items-start gap-4 transition-all group hover:scale-[1.02] active:scale-[0.98] ${isDarkMode ? 'bg-indigo-500/10 border-indigo-500/30 hover:bg-indigo-500/20' : 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100'}`}
+                            >
+                                <div className="p-3 bg-indigo-500 rounded-[2px] text-white group-hover:bg-indigo-600 transition-colors">
+                                    <FaGraduationCap size={20} />
+                                </div>
+                                <div>
+                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Board Course Counselling</h4>
+                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Specialized workflow for board pattern enrollments.</p>
+                                </div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Walk In Required Warning Modal Popup */}
             {showWalkInRequiredModal && (
