@@ -56,6 +56,9 @@ export const exportLeadsExcel = async (req, res) => {
                 "Assigned At": effectiveAssignedAt
                     ? `${new Date(effectiveAssignedAt).toLocaleDateString('en-GB')} ${new Date(effectiveAssignedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                     : "N/A",
+                "Uploaded At": lead.createdAt
+                    ? `${new Date(lead.createdAt).toLocaleDateString('en-GB')} ${new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                    : "N/A",
                 "Name": lead.name || "N/A",
                 "Email": lead.email || "N/A",
                 "Mobile No": lead.phoneNumber || "N/A",

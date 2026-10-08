@@ -243,7 +243,7 @@ export const buildLeadQuery = async (queryParams, user) => {
         search, leadType, source, centre, course, leadResponsibility, 
         board, className, fromDate, toDate, feedback, scheduledDate, followUpStatus,
         schoolName, followUpFromDate, followUpToDate, showDuplicates, includeInvalid, zone,
-        uploadedBy
+        uploadedBy, uploadedFromDate, uploadedToDate
     } = queryParams;
 
     const query = {};
@@ -298,6 +298,23 @@ export const buildLeadQuery = async (queryParams, user) => {
         }
     }
 
+    // Uploaded Date range filter (matches createdAt)
+    if (uploadedFromDate || uploadedToDate) {
+        const start = parseFlexibleDate(uploadedFromDate);
+        const end = parseFlexibleDate(uploadedToDate);
+        if (start || end) {
+            query.createdAt = query.createdAt || {};
+            if (start) {
+                start.setHours(0, 0, 0, 0);
+                query.createdAt.$gte = start;
+            }
+            if (end) {
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
+            }
+        }
+    }
+
     // Date range filter (matches assignedAt or createdAt to align with table's Assigned At column)
     if (fromDate || toDate) {
         const start = parseFlexibleDate(fromDate);
@@ -316,13 +333,17 @@ export const buildLeadQuery = async (queryParams, user) => {
                 assignCond.$lte = end;
             }
 
-            query.$and = query.$and || [];
-            query.$and.push({
-                $or: [
-                    { assignedAt: assignCond },
-                    { createdAt: createCond }
-                ]
-            });
+            if (uploadedFromDate || uploadedToDate) {
+                query.assignedAt = assignCond;
+            } else {
+                query.$and = query.$and || [];
+                query.$and.push({
+                    $or: [
+                        { assignedAt: assignCond },
+                        { createdAt: createCond }
+                    ]
+                });
+            }
         }
     }
 

@@ -128,6 +128,8 @@ const LeadManagementContent = () => {
         leadResponsibility: [],
         fromDate: "", // These are for the table
         toDate: "",   // These are for the table
+        uploadedFromDate: "",
+        uploadedToDate: "",
         feedback: [],
         followUpStatus: [],
         marketingBy: [],
@@ -638,6 +640,48 @@ const LeadManagementContent = () => {
         setCurrentPage(1);
     };
 
+    // ── Uploaded Date preset helper ───────────────────────────────────────────
+    const [uploadedDatePreset, setUploadedDatePreset] = useState("");
+    const [showUploadedCustomDates, setShowUploadedCustomDates] = useState(false);
+
+    const applyUploadedDatePreset = (preset) => {
+        const now = new Date();
+        const fmt = formatLocalDate;
+        const today = fmt(now);
+        const yesterdayDate = new Date(now);
+        yesterdayDate.setDate(now.getDate() - 1);
+        const yesterday = fmt(yesterdayDate);
+        const dayOfWeek = now.getDay();
+        const diffToMon = (dayOfWeek + 6) % 7;
+        const thisWeekMon = new Date(now); thisWeekMon.setDate(now.getDate() - diffToMon);
+        const prevWeekMon = new Date(thisWeekMon); prevWeekMon.setDate(thisWeekMon.getDate() - 7);
+        const prevWeekSun = new Date(thisWeekMon); prevWeekSun.setDate(thisWeekMon.getDate() - 1);
+        const y = now.getFullYear(), m = now.getMonth();
+        const thisMonStart = fmt(new Date(y, m, 1));
+        const prevMonStart = fmt(new Date(y, m - 1, 1));
+        const prevMonEnd = fmt(new Date(y, m, 0));
+        const thisYearStart = fmt(new Date(y, 0, 1));
+        const prevYearStart = fmt(new Date(y - 1, 0, 1));
+        const prevYearEnd = fmt(new Date(y - 1, 11, 31));
+
+        setUploadedDatePreset(preset);
+        if (preset === 'custom') { setShowUploadedCustomDates(true); return; }
+        setShowUploadedCustomDates(false);
+        const ranges = {
+            today:     [today, today],
+            yesterday: [yesterday, yesterday],
+            thisWeek:  [fmt(thisWeekMon), today],
+            prevWeek:  [fmt(prevWeekMon), fmt(prevWeekSun)],
+            thisMonth: [thisMonStart, today],
+            prevMonth: [prevMonStart, prevMonEnd],
+            thisYear:  [thisYearStart, today],
+            prevYear:  [prevYearStart, prevYearEnd],
+        };
+        const [from, to] = ranges[preset] || ['', ''];
+        setFilters(prev => ({ ...prev, uploadedFromDate: from, uploadedToDate: to }));
+        setCurrentPage(1);
+    };
+
     const handleFollowUpStatusCardClick = (statusValue) => {
         const isSelected = filters.followUpStatus?.some(item => item.value === statusValue);
         if (isSelected) {
@@ -788,6 +832,8 @@ const LeadManagementContent = () => {
             leadResponsibility: [],
             fromDate: "",
             toDate: "",
+            uploadedFromDate: "",
+            uploadedToDate: "",
             feedback: [],
             followUpStatus: [],
             marketingBy: [],
@@ -800,6 +846,8 @@ const LeadManagementContent = () => {
         });
         setDatePreset("");
         setShowCustomDates(false);
+        setUploadedDatePreset("");
+        setShowUploadedCustomDates(false);
         setSortField(null);
         setSortDirection('asc');
         setSearchTerm("");
@@ -1454,6 +1502,55 @@ const LeadManagementContent = () => {
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>
+                        {/* ── Uploaded At Filter Dropdown ── */}
+                        <div className="space-y-2">
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Uploaded At</label>
+                            <select
+                                value={uploadedDatePreset}
+                                onChange={(e) => applyUploadedDatePreset(e.target.value)}
+                                className={`w-full px-4 py-2.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all cursor-pointer ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'} ${uploadedDatePreset && uploadedDatePreset !== 'custom' ? (isDarkMode ? 'border-cyan-500/50 text-cyan-400' : 'border-cyan-500 text-cyan-700') : ''}`}
+                            >
+                                <option value="">-- Select Range --</option>
+                                <option value="today">Today</option>
+                                <option value="yesterday">Yesterday</option>
+                                <option value="thisWeek">This Week</option>
+                                <option value="prevWeek">Previous Week</option>
+                                <option value="thisMonth">This Month</option>
+                                <option value="prevMonth">Previous Month</option>
+                                <option value="thisYear">This Year</option>
+                                <option value="prevYear">Previous Year</option>
+                                <option value="custom">Custom</option>
+                            </select>
+                            {/* Active range badge */}
+                            {filters.uploadedFromDate && filters.uploadedToDate && uploadedDatePreset !== 'custom' && (
+                                <p className={`text-[9px] font-bold mt-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                    {filters.uploadedFromDate} → {filters.uploadedToDate}
+                                </p>
+                            )}
+                        </div>
+                        {/* Custom date pickers for Uploaded At — only shown when Custom is selected */}
+                        {showUploadedCustomDates && (
+                            <>
+                                <div className="space-y-2">
+                                    <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Uploaded From</label>
+                                    <input
+                                        type="date"
+                                        value={filters.uploadedFromDate || ""}
+                                        onChange={(e) => handleFilterChange('uploadedFromDate', e.target.value)}
+                                        className={`w-full px-4 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-cyan-500/40 text-white focus:border-cyan-500' : 'bg-gray-50 border-cyan-400 text-gray-900 focus:border-cyan-500'}`}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Uploaded To</label>
+                                    <input
+                                        type="date"
+                                        value={filters.uploadedToDate || ""}
+                                        onChange={(e) => handleFilterChange('uploadedToDate', e.target.value)}
+                                        className={`w-full px-4 py-2 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-cyan-500/40 text-white focus:border-cyan-500' : 'bg-gray-50 border-cyan-400 text-gray-900 focus:border-cyan-500'}`}
+                                    />
+                                </div>
+                            </>
+                        )}
                         <div className="space-y-2">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Marketing By</label>
                             <CustomMultiSelect
@@ -1746,6 +1843,7 @@ const LeadManagementContent = () => {
                                         </div>
                                     </th>
                                     {renderSortableHeader("Assigned At", "assignedAt")}
+                                    {renderSortableHeader("Uploaded At", "createdAt")}
                                     {renderSortableHeader("Follow Up", "followUps")}
                                     {renderSortableHeader("Name", "name")}
                                     {renderSortableHeader("Email", "email")}
@@ -1772,20 +1870,20 @@ const LeadManagementContent = () => {
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
                                 {loading ? (
                                     <>
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
-                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={23} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={24} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={24} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={24} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={24} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={24} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={24} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={24} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={24} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={24} />
+                                        <TableRowSkeleton isDarkMode={isDarkMode} columns={24} />
                                     </>
                                 ) : leads.length === 0 ? (
                                     <tr>
-                                        <td colSpan="23" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
+                                        <td colSpan="24" className="px-6 py-20 text-center text-gray-600 font-black uppercase text-[10px] tracking-widest">
                                             No leads found
                                         </td>
                                     </tr>
@@ -1793,7 +1891,7 @@ const LeadManagementContent = () => {
                                     {/* Bulk Selection Banner */}
                                     {leads.length > 0 && leads.every(lead => selectedLeads.includes(lead._id)) && totalLeads > leads.length && (
                                         <tr>
-                                            <td colSpan="23" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
+                                            <td colSpan="24" className={`px-6 py-3 text-center text-[10px] font-black uppercase tracking-[0.15em] transition-all ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400' : 'bg-cyan-50 text-cyan-700'}`}>
                                                 {isAllFilteredSelected ? (
                                                     <div className="flex items-center justify-center gap-4">
                                                         <span>All {totalLeads} leads matching these filters are selected.</span>
@@ -1828,6 +1926,16 @@ const LeadManagementContent = () => {
                                                 <div className="text-[9px] font-black text-cyan-500 mt-0.5">
                                                     {new Date(lead.assignedAt || lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <div className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                                    {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString('en-GB') : 'N/A'}
+                                                </div>
+                                                {lead.createdAt && (
+                                                    <div className="text-[9px] font-black text-cyan-500 mt-0.5">
+                                                        {new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                    </div>
+                                                )}
                                             </td>
                                             <td className="px-6 py-4">
                                                 {lead.isWalkIn || lead.source?.toLowerCase() === 'walk in' ? (

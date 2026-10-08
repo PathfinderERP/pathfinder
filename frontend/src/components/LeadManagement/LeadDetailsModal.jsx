@@ -247,11 +247,19 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                 </div>
 
                 {/* Footer Meta */}
-                <div className={`px-6 sm:px-8 py-4 border-t flex justify-between items-center shrink-0 ${isDarkMode ? 'bg-[#131619]/50 border-gray-800' : 'bg-gray-50/50 border-gray-100'}`}>
+                <div className={`px-6 sm:px-8 py-4 border-t flex flex-wrap justify-between items-center gap-4 shrink-0 ${isDarkMode ? 'bg-[#131619]/50 border-gray-800' : 'bg-gray-50/50 border-gray-100'}`}>
                     <div className="flex flex-col">
                         <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Assigned To</span>
                         <span className={`text-[11px] font-black italic uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{lead.leadResponsibility || "NONE"}</span>
                     </div>
+                    {lead.createdAt && (
+                        <div className="flex flex-col items-center">
+                            <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Uploaded At</span>
+                            <span className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                {new Date(lead.createdAt).toLocaleDateString('en-GB')} {new Date(lead.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </span>
+                        </div>
+                    )}
                     <div className="flex flex-col items-end">
                         <span className="text-[9px] font-black text-gray-500 uppercase tracking-widest">Assigned At</span>
                         <span className={`text-[10px] font-black uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
