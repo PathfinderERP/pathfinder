@@ -2623,17 +2623,21 @@ export const getDailyTrackingDetails = async (req, res) => {
                 if (leadType) walkinsQuery.leadType = leadType;
 
                 const walkins = await LeadManagement.find(walkinsQuery).populate('centre').populate('createdBy').populate('walkInBy').lean();
-                list = walkins.map(lead => ({
-                    id: lead._id.toString(),
-                    name: lead.name,
-                    phone: lead.phoneNumber || 'N/A',
-                    email: lead.email || 'N/A',
-                    handledBy: lead.walkInBy?.name || lead.createdBy?.name || 'System',
-                    centreName: lead.centre?.centreName || 'N/A',
-                    dateTime: lead.createdAt || lead.walkInDate,
-                    tag: lead.leadType || 'WALK-IN',
-                    feedback: lead.remarks || 'No remarks recorded'
-                }));
+                list = walkins.map(lead => {
+                    const lastFu = (lead.followUps && lead.followUps.length > 0) ? lead.followUps[lead.followUps.length - 1] : null;
+                    return {
+                        id: lead._id.toString(),
+                        name: lead.name,
+                        phone: lead.phoneNumber || 'N/A',
+                        email: lead.email || 'N/A',
+                        handledBy: lead.walkInBy?.name || lead.createdBy?.name || 'System',
+                        centreName: lead.centre?.centreName || 'N/A',
+                        dateTime: lead.createdAt || lead.walkInDate,
+                        tag: lead.leadType || 'WALK-IN',
+                        feedback: lastFu?.feedback || lead.leadType || 'WALK-IN',
+                        remarks: lead.remarks || lastFu?.remarks || ''
+                    };
+                });
 
             } else if (catName === "counselling") {
                 const normalQueryCondition = {
@@ -2674,17 +2678,21 @@ export const getDailyTrackingDetails = async (req, res) => {
                 const normalQuery = { $and: andConditions };
 
                 const normalLeads = await LeadManagement.find(normalQuery).populate('centre').populate('createdBy').lean();
-                const normalDetails = normalLeads.map(lead => ({
-                    id: lead._id.toString(),
-                    name: lead.name,
-                    phone: lead.phoneNumber || 'N/A',
-                    email: lead.email || 'N/A',
-                    handledBy: lead.createdBy?.name || 'System',
-                    centreName: lead.centre?.centreName || 'N/A',
-                    dateTime: lead.updatedAt,
-                    tag: lead.leadType || 'COUNSELLED',
-                    feedback: 'Normal Course Counselling'
-                }));
+                const normalDetails = normalLeads.map(lead => {
+                    const lastFu = (lead.followUps && lead.followUps.length > 0) ? lead.followUps[lead.followUps.length - 1] : null;
+                    return {
+                        id: lead._id.toString(),
+                        name: lead.name,
+                        phone: lead.phoneNumber || 'N/A',
+                        email: lead.email || 'N/A',
+                        handledBy: lead.createdBy?.name || 'System',
+                        centreName: lead.centre?.centreName || 'N/A',
+                        dateTime: lead.updatedAt,
+                        tag: lead.leadType || 'COUNSELLED',
+                        feedback: lastFu?.feedback || 'Normal Course Counselling',
+                        remarks: lastFu?.remarks || lead.remarks || ''
+                    };
+                });
 
                 const admittedNormalQuery = { createdAt: dateFilter };
                 if (centerNamesList.length > 0) {
@@ -2723,6 +2731,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                         dateTime: adm.createdAt,
                         tag: 'COUNSELLED',
                         feedback: 'Normal Course Counselling (Admitted)',
+                        remarks: adm.remarks || '',
                         isAdmission: true
                     };
                 });
@@ -2773,7 +2782,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                         centreName: bc.centre || 'N/A',
                         dateTime: bc.createdAt || bc.counselledDate,
                         tag: 'BOARD COUNSEL',
-                        feedback: 'Board Course Counselling'
+                        feedback: 'Board Course Counselling',
+                        remarks: bc.remarks || ''
                     };
                 });
 
@@ -2812,6 +2822,7 @@ export const getDailyTrackingDetails = async (req, res) => {
                         dateTime: adm.createdAt,
                         tag: 'BOARD COUNSEL',
                         feedback: 'Board Course Counselling (Admitted)',
+                        remarks: adm.remarks || '',
                         isAdmission: true
                     };
                 });
@@ -2941,7 +2952,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                         tag: isCF ? 'CF • NORMAL ADM' : 'DIRECT • NORMAL ADM',
                         course: adm.course?.courseName || 'N/A',
                         amount: amountWithoutGst,
-                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'} | Fee (excl. GST) | ${isCF ? 'Carry Forward' : 'Direct'}`
+                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'} | Fee (excl. GST) | ${isCF ? 'Carry Forward' : 'Direct'}`,
+                        remarks: adm.remarks || ''
                     };
                 });
 
@@ -2968,7 +2980,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                         tag: isCF ? 'CF • BOARD ADM' : 'DIRECT • BOARD ADM',
                         course: adm.boardCourseName || 'N/A',
                         amount: amountWithoutGst,
-                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'} | Fee (excl. GST) | ${isCF ? 'Carry Forward' : 'Direct'}`
+                        feedback: `Admission No: ${adm.admissionNumber || 'N/A'} | Fee (excl. GST) | ${isCF ? 'Carry Forward' : 'Direct'}`,
+                        remarks: adm.remarks || ''
                     };
                 });
 
@@ -3000,7 +3013,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                             centreName: lead.centre?.centreName || 'N/A',
                             dateTime: fu.date,
                             tag: fu.status || 'CALL',
-                            feedback: fu.feedback || fu.remarks || 'No feedback recorded'
+                            feedback: fu.feedback || fu.status || 'CALL',
+                            remarks: fu.remarks || lead.remarks || ''
                         });
                     });
                 });
@@ -3047,7 +3061,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                         centreName: sc.centreName || sc.centre?.centreName || 'N/A',
                         dateTime: sc.createdAt,
                         tag: sc.status ? `${sc.status.toUpperCase()} (SERVICE)` : 'SERVICE CALL',
-                        feedback: sc.servicePurpose ? `${sc.servicePurpose}${sc.remarks ? ` - ${sc.remarks}` : ''}` : (sc.remarks || 'Student Service Call')
+                        feedback: sc.servicePurpose || (sc.status ? `${sc.status} Service Call` : 'Student Service Call'),
+                        remarks: sc.remarks || ''
                     });
                 });
 
@@ -3098,8 +3113,6 @@ export const getDailyTrackingDetails = async (req, res) => {
                             durationStr = ` | Duration: ${m > 0 ? `${m}m ` : ''}${s}s`;
                         }
 
-                        const feedbackText = fu.feedback ? `${fu.feedback}${fu.notes ? ` - ${fu.notes}` : ''}${durationStr}` : (fu.notes || `${sType} Call Log`);
-
                         list.push({
                             id: fu._id.toString(),
                             name: student.name || 'Unknown Student',
@@ -3109,7 +3122,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                             centreName: fu.centre?.centreName || student.centre?.centreName || 'N/A',
                             dateTime: fu.callDate || fu.createdAt,
                             tag: tag,
-                            feedback: feedbackText,
+                            feedback: fu.feedback ? `${fu.feedback}${durationStr}` : `${sType} Call Log`,
+                            remarks: fu.notes || '',
                             callDuration: fu.callDuration || null,
                             studentType: sType,
                             studentId: fu.studentId?.toString()
@@ -3210,7 +3224,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                         isAdmission,
                         feedback: isAdmission 
                             ? `Admission No: ${admInfo?.admissionNumber || 'N/A'} | Admission Fee (excl. GST)`
-                            : `Method: ${p.paymentMethod || 'Other'} | Installment #${p.installmentNumber}`
+                            : `Method: ${p.paymentMethod || 'Other'} | Installment #${p.installmentNumber}`,
+                        remarks: p.remarks || p.note || ''
                     };
                 }).filter(Boolean);
             }
@@ -3319,7 +3334,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                         centreName,
                         dateTime: lead.updatedAt,
                         tag: 'COUNSEL SHORTFALL',
-                        feedback: 'Counselled lead - Admission Pending'
+                        feedback: 'Counselled lead - Admission Pending',
+                        remarks: lead.remarks || ''
                     });
                 }
             });
@@ -3340,7 +3356,8 @@ export const getDailyTrackingDetails = async (req, res) => {
                         centreName,
                         dateTime: bc.createdAt || bc.counselledDate,
                         tag: 'BOARD COUNSEL SHORTFALL',
-                        feedback: 'Board Counselled lead - Admission Pending'
+                        feedback: 'Board Counselled lead - Admission Pending',
+                        remarks: bc.remarks || ''
                     });
                 }
             });
