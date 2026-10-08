@@ -39,16 +39,28 @@ const AddTargetModal = ({ target, viewMode, onClose, onSuccess, centres, session
 
     useEffect(() => {
         if (target) {
+            const rawCentre = target.centre;
+            const centreId = (rawCentre && typeof rawCentre === 'object' && rawCentre._id)
+                ? String(rawCentre._id)
+                : (typeof rawCentre === 'string' && rawCentre)
+                    ? rawCentre
+                    : (target._id && String(target._id).startsWith("virt_"))
+                        ? String(target._id).replace("virt_", "")
+                        : "";
+
             setFormData({
-                centre: target.centre?._id || target.centre,
+                centre: centreId,
                 financialYear: target.financialYear,
                 year: target.year,
                 month: target.month,
-                targetAmount: target.targetAmount,
+                targetAmount: target.targetAmount || "",
                 achievedAmount: target.achievedAmount || 0
             });
             const centreObj = target.centre || {};
-            setSelectedCentres([{ value: centreObj._id || target.centre, label: centreObj.centreName || "Selected Centre" }]);
+            setSelectedCentres([{ 
+                value: centreId, 
+                label: centreObj.centreName || "Selected Centre" 
+            }]);
             
             if (viewMode === "Quarterly" && target.month) {
                 const parts = target.month.split(',').map(m => m.trim()).filter(Boolean);
@@ -108,11 +120,12 @@ const AddTargetModal = ({ target, viewMode, onClose, onSuccess, centres, session
 
         try {
             const token = localStorage.getItem("token");
-            const url = target
+            const isVirtual = target && String(target._id).startsWith("virt_");
+            const url = (target && !isVirtual)
                 ? `${import.meta.env.VITE_API_URL}/sales/centre-target/${target._id}`
                 : `${import.meta.env.VITE_API_URL}/sales/centre-target`;
 
-            const method = target ? "PUT" : "POST";
+            const method = (target && !isVirtual) ? "PUT" : "POST";
 
             const response = await fetch(url, {
                 method,
@@ -126,7 +139,7 @@ const AddTargetModal = ({ target, viewMode, onClose, onSuccess, centres, session
             const data = await response.json();
 
             if (response.ok) {
-                toast.success(target ? "Target updated" : "Target created");
+                toast.success(target && !isVirtual ? "Target updated" : "Target saved");
                 onSuccess();
             } else {
                 toast.error(data.message || "Operation failed");

@@ -13,14 +13,27 @@ export const createCentreTarget = async (req, res) => {
     try {
         const { centre, financialYear, year, month, targetAmount, achievedAmount } = req.body;
 
-        // centre could be a single ID or an array of IDs. Deduplicate them.
-        let centreIds = Array.isArray(centre) ? centre : [centre];
-        centreIds = [...new Set(centreIds.map(id => id.toString()))];
+        // centre could be a single ID, an object ({ _id } / { value }), or an array of IDs/objects.
+        let rawCentres = Array.isArray(centre) ? centre : [centre];
+        let centreIds = rawCentres.map(item => {
+            if (!item) return null;
+            if (typeof item === 'object') {
+                if (item._id) return item._id.toString();
+                if (item.value) return item.value.toString();
+            }
+            const s = item.toString();
+            return s === "[object Object]" ? null : s;
+        }).filter(Boolean);
+        centreIds = [...new Set(centreIds)];
+
+        if (centreIds.length === 0) {
+            return res.status(400).json({ message: "No valid centre selected" });
+        }
         
         const groupId = centreIds.length > 1 ? new mongoose.Types.ObjectId().toString() : null;
         
         // Divide target amount if multiple centres are selected so the SUM matches the input
-        const individualTargetAmount = targetAmount / centreIds.length;
+        const individualTargetAmount = (Number(targetAmount) || 0) / centreIds.length;
         
         const createdTargets = [];
         const existingErrors = [];
@@ -185,7 +198,7 @@ export const getCentreTargets = async (req, res) => {
                 const isPHSPS = /phsps/i.test(pCentre.centreName);
                 targets.push({
                     _id: `virt_${pCentre._id}`,
-                    centre: pCentre,
+                    centre: { _id: pCentre._id, centreName: pCentre.centreName },
                     financialYear: query.financialYear || "2026-2027",
                     year: query.year || new Date().getFullYear(),
                     month: typeof query.month === 'string' ? query.month : monthNames[new Date().getMonth()],
@@ -388,11 +401,7 @@ export const getCentreTargets = async (req, res) => {
 
                 const targetObj = typeof t.toObject === 'function' ? t.toObject() : { ...t };
                 const isPHSPS = t.isPHSPS || (t.centre?.centreName && /phsps/i.test(t.centre.centreName));
-                if (isPHSPS) {
-                    targetObj.targetAmount = 0;
-                    targetObj.targetAmountWithGST = 0;
-                    targetObj.isPHSPS = true;
-                }
+                targetObj.isPHSPS = isPHSPS;
                 targetObj.achievedAmount = totalWithGST;
                 targetObj.achievedAmountWithGST = totalWithGST;
                 targetObj.achievedAmountExclGST = totalExclGST;
@@ -408,6 +417,7 @@ export const getCentreTargets = async (req, res) => {
         processedTargets.forEach(t => {
             const gid = t.groupId || t._id.toString(); // Use ID if no groupId
             const cName = t.centre?.centreName || "Unknown";
+            const cId = t.centre?._id || (t._id && String(t._id).startsWith('virt_') ? String(t._id).replace('virt_', '') : undefined);
 
             if (!groups[gid]) {
                 groups[gid] = {
@@ -415,7 +425,7 @@ export const getCentreTargets = async (req, res) => {
                     _ids: [t._id],
                     seenCentres: new Set([cName]),
                     centre: {
-                        ...t.centre,
+                        _id: cId,
                         centreName: cName
                     },
                     targetAmount: t.targetAmount,
@@ -463,6 +473,39 @@ export const updateCentreTarget = async (req, res) => {
     try {
         const { id } = req.params;
         const updateData = { ...req.body };
+
+        if (id && id.startsWith("virt_")) {
+            const centreId = id.replace("virt_", "");
+            const financialYear = updateData.financialYear || "2026-2027";
+            const month = updateData.month;
+            const year = Number(updateData.year) || new Date().getFullYear();
+
+            let target = await CentreTarget.findOne({ centre: centreId, financialYear, month });
+            if (!target) {
+                target = new CentreTarget({
+                    centre: centreId,
+                    financialYear,
+                    year,
+                    month,
+                    targetAmount: Number(updateData.targetAmount) || 0,
+                    achievedAmount: Number(updateData.achievedAmount) || 0,
+                    achievedAmountWithGST: Number(updateData.achievedAmount) || 0,
+                    achievedAmountExclGST: (Number(updateData.achievedAmount) || 0) / 1.18,
+                    createdBy: req.user._id
+                });
+                await target.save();
+                return res.status(200).json({ message: "Target created", target });
+            } else {
+                target.targetAmount = Number(updateData.targetAmount) || 0;
+                if (updateData.achievedAmount !== undefined) {
+                    target.achievedAmount = Number(updateData.achievedAmount) || 0;
+                    target.achievedAmountWithGST = Number(updateData.achievedAmount) || 0;
+                    target.achievedAmountExclGST = (Number(updateData.achievedAmount) || 0) / 1.18;
+                }
+                await target.save();
+                return res.status(200).json({ message: "Target updated", target });
+            }
+        }
 
         const target = await CentreTarget.findById(id);
         if (!target) return res.status(404).json({ message: "Target not found" });
@@ -519,6 +562,11 @@ export const updateCentreTarget = async (req, res) => {
 export const deleteCentreTarget = async (req, res) => {
     try {
         const { id } = req.params;
+
+        if (id && id.startsWith("virt_")) {
+            return res.status(200).json({ message: "Target deleted" });
+        }
+
         const target = await CentreTarget.findById(id);
         if (!target) return res.status(404).json({ message: "Target not found" });
 
