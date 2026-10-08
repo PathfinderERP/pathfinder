@@ -572,23 +572,19 @@ export const clearCheque = async (req, res) => {
         // so it appears at the end of that day's list (not at the very bottom due to midnight UTC).
         const clearedDateIST = new Date(clearedDate + "T00:00:00+05:30");
         const nowIST = new Date();
-        const todayISTStr = nowIST.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-        const clearedDateStr = typeof clearedDate === "string" ? (clearedDate.includes("T") ? clearedDate.split("T")[0] : clearedDate) : clearedDate;
-        if (clearedDateStr === todayISTStr) {
-            // Clearing for today — use actual current timestamp so it appears at top of today's list
-            payment.paidDate = nowIST;
-        } else {
-            // Clearing for a past date — use 23:30 IST of that date so it appears at end of that day
-            payment.paidDate = new Date(clearedDate + "T23:30:00+05:30");
-        }
+
+        // MR Date (paidDate) is ALWAYS current date (the date bill is generated after clearance)
+        payment.paidDate = nowIST;
+        // Clearance & Receiving date is set to the cleared date
         payment.clearedOrRejectedDate = clearedDateIST;
+        payment.receivedDate = clearedDateIST;
         payment.processedBy = req.user?.id || req.user?._id;
 
-        // Generate Bill ID on clearance (it was intentionally skipped at submission for CHEQUE payments)
+        // Generate Bill ID on clearance with current date
         if (!payment.billId) {
             let centre = await CentreSchema.findOne({ centreName: admission.centre });
             const centreCode = centre?.enterCode || "GEN";
-            payment.billId = await generateBillId(centreCode, clearedDate || new Date());
+            payment.billId = await generateBillId(centreCode, nowIST);
         }
         payment.isReceivingSlip = false;
 
@@ -750,7 +746,7 @@ export const updateChequeClearanceDate = async (req, res) => {
         }
 
         payment.clearedOrRejectedDate = clearedDateIST;
-        payment.paidDate = newPaidDate;
+        payment.receivedDate = clearedDateIST;
         await payment.save();
 
         // 2. Update Admission installment paidDate if applicable

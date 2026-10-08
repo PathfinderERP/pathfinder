@@ -146,8 +146,12 @@ export const getTransactionReport = async (req, res) => {
             allowedCentreNames = allCentres.map(c => c.centreName);
         }
 
-        // Helper for case-insensitive exact match regex
-        const buildCentreRegexes = (names) => names.filter(Boolean).map(n => new RegExp(`^${n.trim()}$`, 'i'));
+        // Helper for case-insensitive exact match regex supporting flexible whitespace
+        const buildCentreRegexes = (names) => names.filter(Boolean).map(n => {
+            const escaped = n.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const normalizedPattern = escaped.replace(/\s+/g, '\\s+');
+            return new RegExp(`^\\s*${normalizedPattern}\\s*$`, 'i');
+        });
 
         // Resolve Zone IDs to Centre IDs/Names if zoneIds passed
         let zoneCentreNames = null;
@@ -319,8 +323,8 @@ export const getTransactionReport = async (req, res) => {
                             if: { $eq: ["$paymentMethod", "CHEQUE"] },
                             then: {
                                 $ifNull: [
-                                    { $toDate: "$clearedOrRejectedDate" },
-                                    { $toDate: "$paidDate" }
+                                    { $toDate: "$paidDate" },
+                                    { $toDate: "$clearedOrRejectedDate" }
                                 ]
                             },
                             else: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
@@ -330,10 +334,19 @@ export const getTransactionReport = async (req, res) => {
             },
         ];
 
+        const nowISTStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        const endOfTodayIST = new Date(`${nowISTStr}T23:59:59.999+05:30`);
+
         if (paymentMatch.isDateFiltered) {
             chartPipeline.push({
                 $match: {
                     reportDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd }
+                }
+            });
+        } else {
+            chartPipeline.push({
+                $match: {
+                    reportDate: { $lte: endOfTodayIST }
                 }
             });
         }
@@ -485,8 +498,8 @@ export const getTransactionReport = async (req, res) => {
                             if: { $eq: ["$paymentMethod", "CHEQUE"] },
                             then: {
                                 $ifNull: [
-                                    { $toDate: "$clearedOrRejectedDate" },
-                                    { $toDate: "$paidDate" }
+                                    { $toDate: "$paidDate" },
+                                    { $toDate: "$clearedOrRejectedDate" }
                                 ]
                             },
                             else: {
@@ -496,6 +509,30 @@ export const getTransactionReport = async (req, res) => {
                                     "$createdAt"
                                 ]
                             }
+                        }
+                    },
+                    effectiveDateStr: {
+                        $dateToString: {
+                            date: {
+                                $cond: {
+                                    if: { $eq: ["$paymentMethod", "CHEQUE"] },
+                                    then: {
+                                        $ifNull: [
+                                            { $toDate: "$paidDate" },
+                                            { $toDate: "$clearedOrRejectedDate" }
+                                        ]
+                                    },
+                                    else: {
+                                        $ifNull: [
+                                            { $toDate: "$paidDate" },
+                                            { $toDate: "$receivedDate" },
+                                            "$createdAt"
+                                        ]
+                                    }
+                                }
+                            },
+                            format: "%Y-%m-%d",
+                            timezone: "+05:30"
                         }
                     }
                 }
@@ -508,10 +545,16 @@ export const getTransactionReport = async (req, res) => {
                     effectiveDate: { $gte: paymentMatch.filterStart, $lte: paymentMatch.filterEnd }
                 }
             });
+        } else {
+            detailedPipeline.push({
+                $match: {
+                    effectiveDate: { $lte: endOfTodayIST }
+                }
+            });
         }
 
         detailedPipeline.push(
-            { $sort: { createdAt: -1, effectiveDate: -1, billId: -1 } },
+            { $sort: { effectiveDateStr: -1, billId: -1, effectiveDate: -1, createdAt: -1 } },
             { $limit: 50000 },
             // 2. Lookup Admission Details from both potential collections
             {
@@ -677,7 +720,19 @@ export const getTransactionReport = async (req, res) => {
             { $unwind: { path: "$boardDetails", preserveNullAndEmptyArrays: true } },
             {
                 $addFields: {
-                    receivedDate: { $ifNull: [{ $toDate: "$receivedDate" }, { $toDate: "$paidDate" }] }
+                    receivedDate: {
+                        $cond: {
+                            if: { $and: [{ $eq: ["$paymentMethod", "CHEQUE"] }, { $eq: ["$status", "PAID"] }] },
+                            then: {
+                                $ifNull: [
+                                    { $toDate: "$clearedOrRejectedDate" },
+                                    { $toDate: "$paidDate" },
+                                    { $toDate: "$receivedDate" }
+                                ]
+                            },
+                            else: { $ifNull: [{ $toDate: "$receivedDate" }, { $toDate: "$paidDate" }] }
+                        }
+                    }
                 }
             },
             {
@@ -747,8 +802,8 @@ export const getTransactionReport = async (req, res) => {
                             if: { $eq: ["$paymentMethod", "CHEQUE"] },
                             then: {
                                 $ifNull: [
-                                    { $toDate: "$clearedOrRejectedDate" },
-                                    { $toDate: "$paidDate" }
+                                    { $toDate: "$paidDate" },
+                                    { $toDate: "$clearedOrRejectedDate" }
                                 ]
                             },
                             else: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
@@ -938,7 +993,7 @@ export const getTransactionReport = async (req, res) => {
                 }
             },
             {
-                $sort: { createdAt: -1, receiptNo: -1, paymentDate: -1 }
+                $sort: { paymentDate: -1, receiptNo: -1, createdAt: -1 }
             }
         );
 

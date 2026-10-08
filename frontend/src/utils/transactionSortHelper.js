@@ -25,6 +25,17 @@ export const compareBillNumbers = (billA, billB, direction = 'asc') => {
     return direction === 'desc' ? -res : res;
 };
 
+const getISODateStr = (rawDate) => {
+    if (!rawDate) return '';
+    try {
+        const d = new Date(rawDate);
+        if (isNaN(d.getTime())) return '';
+        return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    } catch (e) {
+        return '';
+    }
+};
+
 export const sortTransactionsSequentially = (items, { sortField = 'date', sortOrder = 'desc' } = {}) => {
     if (!Array.isArray(items) || items.length === 0) return [];
 
@@ -38,6 +49,8 @@ export const sortTransactionsSequentially = (items, { sortField = 'date', sortOr
         const rawDateB = itemB.paymentDate || itemB.date || itemB.mrDate;
         const timeA = rawDateA ? new Date(rawDateA).getTime() : 0;
         const timeB = rawDateB ? new Date(rawDateB).getTime() : 0;
+        const dayStrA = getISODateStr(rawDateA);
+        const dayStrB = getISODateStr(rawDateB);
 
         const billA = itemA.receiptNo || itemA.billId || '';
         const billB = itemB.receiptNo || itemB.billId || '';
@@ -47,28 +60,29 @@ export const sortTransactionsSequentially = (items, { sortField = 'date', sortOr
             const billResult = compareBillNumbers(billA, billB, sortOrder);
             if (billResult !== 0) return billResult;
 
-            // Secondary: Creation Date (descending)
-            if (createdA && createdB && createdA !== createdB) {
-                return createdB - createdA;
-            }
+            // Secondary: Calendar Day
+            const dateDiff = sortOrder === 'asc' ? dayStrA.localeCompare(dayStrB) : dayStrB.localeCompare(dayStrA);
+            if (dateDiff !== 0) return dateDiff;
 
-            // Tertiary: Paid Date (descending)
-            return timeB - timeA;
+            // Tertiary: Creation Date (descending)
+            return createdB - createdA;
         } else {
-            // Primary: Creation Date (Reverse order of creation - last created transaction comes first)
-            if (createdA && createdB && createdA !== createdB) {
-                return sortOrder === 'asc' ? createdA - createdB : createdB - createdA;
-            }
-            if (createdA && !createdB) return sortOrder === 'asc' ? 1 : -1;
-            if (!createdA && createdB) return sortOrder === 'asc' ? -1 : 1;
+            // Primary: Paid Date (Calendar Day level - e.g. 2026-10-08 > 2026-10-07)
+            const dateDiff = sortOrder === 'asc' ? dayStrA.localeCompare(dayStrB) : dayStrB.localeCompare(dayStrA);
+            if (dateDiff !== 0) return dateDiff;
 
-            // Secondary: Sequential Bill Number (Newer bill numbers come first in desc)
+            // Secondary: Sequential Bill Number (Higher/newer bill numbers come first in desc: 146 > 145 > 144)
             const billResult = compareBillNumbers(billA, billB, sortOrder);
             if (billResult !== 0) return billResult;
 
-            // Tertiary: Paid Date (MR Date)
-            const dateDiff = sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
-            if (dateDiff !== 0) return dateDiff;
+            // Tertiary: Exact Timestamp of Paid Date
+            const exactTimeDiff = sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+            if (exactTimeDiff !== 0) return exactTimeDiff;
+
+            // Quaternary: Creation Date
+            if (createdA && createdB && createdA !== createdB) {
+                return sortOrder === 'asc' ? createdA - createdB : createdB - createdA;
+            }
 
             return 0;
         }

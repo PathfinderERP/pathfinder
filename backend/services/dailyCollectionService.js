@@ -93,8 +93,8 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
                             if: { $eq: ["$paymentMethod", "CHEQUE"] },
                             then: {
                                 $ifNull: [
-                                    { $toDate: "$clearedOrRejectedDate" },
-                                    { $toDate: "$paidDate" }
+                                    { $toDate: "$paidDate" },
+                                    { $toDate: "$clearedOrRejectedDate" }
                                 ]
                             },
                             else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
@@ -302,7 +302,11 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         allowedCentreNames = userCentres.map(c => c.centreName);
     }
 
-    const buildCentreRegexes = (names) => names.filter(Boolean).map(n => new RegExp(`^${n.trim()}$`, 'i'));
+    const buildCentreRegexes = (names) => names.filter(Boolean).map(n => {
+        const escaped = n.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const normalizedPattern = escaped.replace(/\s+/g, '\\s+');
+        return new RegExp(`^\\s*${normalizedPattern}\\s*$`, 'i');
+    });
 
     if (centreIds) {
         const ids = typeof centreIds === 'string' ? centreIds.split(',') : centreIds;
@@ -393,8 +397,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                         if: { $eq: ["$paymentMethod", "CHEQUE"] },
                         then: {
                             $ifNull: [
-                                { $toDate: "$clearedOrRejectedDate" },
-                                { $toDate: "$paidDate" }
+                                { $toDate: "$paidDate" },
+                                { $toDate: "$clearedOrRejectedDate" }
                             ]
                         },
                         else: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
@@ -603,15 +607,21 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 mrDate: {
                     $cond: {
                         if: { $eq: ["$paymentMethod", "CHEQUE"] },
-                        then: { $ifNull: ["$clearedOrRejectedDate", "$paidDate"] },
+                        then: { $ifNull: ["$paidDate", "$clearedOrRejectedDate"] },
                         else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
                     }
                 },
-                actualReceivedDate: { $ifNull: ["$receivedDate", "$createdAt"] },
+                actualReceivedDate: {
+                    $cond: {
+                        if: { $and: [{ $eq: ["$paymentMethod", "CHEQUE"] }, { $eq: ["$status", "PAID"] }] },
+                        then: { $ifNull: ["$clearedOrRejectedDate", "$receivedDate", "$createdAt"] },
+                        else: { $ifNull: ["$receivedDate", "$createdAt"] }
+                    }
+                },
                 effectiveDate: {
                     $cond: {
                         if: { $eq: ["$paymentMethod", "CHEQUE"] },
-                        then: { $ifNull: ["$clearedOrRejectedDate", "$paidDate"] },
+                        then: { $ifNull: ["$paidDate", "$clearedOrRejectedDate"] },
                         else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
                     }
                 },

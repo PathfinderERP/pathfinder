@@ -743,6 +743,7 @@ const DailyCollection = () => {
 
                 const headers = [
                     "Centre Name",
+                    "Base Target (Excl. GST)",
                     "Daily Target (Dynamic Adjusted - Excl. GST)",
                     "Pending Target (Excl. GST)",
                     ...paymentMethodsList,
@@ -754,9 +755,11 @@ const DailyCollection = () => {
                     const isPhsps = /phsps/i.test(centre);
                     const withoutGst = data.totalWithoutGst !== undefined ? data.totalWithoutGst : (isPhsps ? data.total : (data.total / 1.18));
                     const target = centreTargets[centre] || 0;
+                    const baseTarget = centreTargetMeta[centre]?.baseTarget || 0;
                     const pendingTarget = target - withoutGst;
                     const row = [
                         centre,
+                        baseTarget,
                         target,
                         Number(pendingTarget.toFixed(2)) || 0
                     ];
@@ -774,6 +777,7 @@ const DailyCollection = () => {
                 // Set column widths
                 sheet["!cols"] = [
                     { wch: 25 }, // Centre Name
+                    { wch: 25 }, // Base Target
                     { wch: 25 }, // Daily Target
                     { wch: 25 }, // Pending Target
                     ...paymentMethodsList.map(() => ({ wch: 15 })), // Payment Methods
@@ -1347,6 +1351,11 @@ const DailyCollection = () => {
                                         return sum + (isPhsps ? target : target * 1.18);
                                     }, 0);
 
+                                    const computedBaseTarget = targetCentres.reduce((sum, c) => {
+                                        if (isPhspsMidnapore(c.centreName)) return sum;
+                                        return sum + (centreTargetMeta[c.centreName]?.baseTarget || 0);
+                                    }, 0);
+
                                     return (
                                         <>
                                             <div className="flex items-baseline justify-between">
@@ -1355,7 +1364,11 @@ const DailyCollection = () => {
                                             </div>
                                             <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-800 pt-1.5">
                                                 <span className={`text-lg font-semibold ${secondaryTextClass}`}>{formatAmount(computedTargetWithoutGst)}</span>
-                                                <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Without GST</span>
+                                                <span className="text-[9px] font-bold text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Adjusted (No GST)</span>
+                                            </div>
+                                            <div className="flex items-baseline justify-between border-t border-gray-100 dark:border-gray-800 pt-1.5">
+                                                <span className={`text-sm font-semibold text-cyan-400`}>{formatAmount(computedBaseTarget)}</span>
+                                                <span className="text-[9px] font-bold text-cyan-400 bg-cyan-500/10 px-1.5 py-0.5 rounded uppercase tracking-wider">Base Target</span>
                                             </div>
                                         </>
                                     );
@@ -1890,6 +1903,9 @@ const DailyCollection = () => {
                                 <thead className={`${tableHeaderBgClass} ${tableHeaderTextClass} uppercase text-[11px] tracking-wider`}>
                                     <tr>
                                         <th className="px-4 py-3">Centre Name</th>
+                                        <th className="px-4 py-3 text-right font-bold text-cyan-400 whitespace-nowrap min-w-[140px]">
+                                            Base Target (Excl. GST)
+                                        </th>
                                         <th className="px-4 py-3 text-right font-bold text-amber-500 whitespace-nowrap min-w-[270px]">
                                             <div className="flex items-center justify-end gap-2 flex-nowrap whitespace-nowrap">
                                                 <span className="whitespace-nowrap">Daily Target (Adjusted - Excl. GST)</span>
@@ -2008,6 +2024,23 @@ const DailyCollection = () => {
                                                                     )}
                                                                 </div>
                                                             </td>
+                                                            <td className={`px-4 py-4 text-right font-semibold text-cyan-400`}>
+                                                                {canEditTarget ? (
+                                                                    <div
+                                                                        className="flex items-center justify-end gap-1.5 group/base cursor-pointer select-none"
+                                                                        onClick={() => {
+                                                                            setEditingCentre(centre);
+                                                                            setEditTargetValue(centreTargetMeta[centre]?.baseTarget !== undefined ? centreTargetMeta[centre].baseTarget : (centreTargets[centre] || 0));
+                                                                        }}
+                                                                        title="Click to edit base target"
+                                                                    >
+                                                                        <span>{formatAmount(centreTargetMeta[centre]?.baseTarget || 0)}</span>
+                                                                        <FaEdit size={11} className="text-cyan-400 opacity-0 group-hover/base:opacity-100 transition-opacity" />
+                                                                    </div>
+                                                                ) : (
+                                                                    <span>{formatAmount(centreTargetMeta[centre]?.baseTarget || 0)}</span>
+                                                                )}
+                                                            </td>
                                                             <td className={`px-4 py-4 text-right font-semibold text-amber-500`}>
                                                                 {canEditTarget ? (
                                                                     editingCentre === centre ? (
@@ -2108,6 +2141,9 @@ const DailyCollection = () => {
                                             <tfoot className={`${tableHeaderBgClass} font-bold ${cardTextClass} border-t-2 ${isDarkMode ? "border-gray-800" : "border-gray-300"}`}>
                                                 <tr>
                                                     <td className="px-4 py-4">TOTAL</td>
+                                                    <td className="px-4 py-4 text-right font-bold text-cyan-400">
+                                                        {formatAmount(totalBaseTarget)}
+                                                    </td>
                                                     <td className="px-4 py-4 text-right text-amber-500">
                                                         <div className="flex flex-col items-end">
                                                             <span>{formatAmount(totalTarget)}</span>
