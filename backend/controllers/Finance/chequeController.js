@@ -112,6 +112,29 @@ const populateAdmissions = async (cheques) => {
     return cheques;
 };
 
+// Helper to retrieve the original payment received date entered during admission / installment payment
+const getPaymentReceivedDate = (c) => {
+    const adm = c.admission;
+    if (adm) {
+        if (c.installmentNumber === 0) {
+            if (adm.downPaymentReceivedDate) return new Date(adm.downPaymentReceivedDate);
+            if (adm.receivedDate) return new Date(adm.receivedDate);
+        } else {
+            const normalInst = adm.paymentBreakdown?.find(p => p.installmentNumber === c.installmentNumber);
+            if (normalInst?.receivedDate) return new Date(normalInst.receivedDate);
+
+            const boardInst = adm.installments?.find(i => i.monthNumber === c.installmentNumber || i.monthNumber === (c.installmentNumber + 1));
+            if (boardInst?.receivedDate) return new Date(boardInst.receivedDate);
+            const bTx = boardInst?.paymentTransactions?.find(t => t.transactionId === c.transactionId) || boardInst?.paymentTransactions?.[0];
+            if (bTx?.date) return new Date(bTx.date);
+        }
+    }
+    if (c.receivedDate) return new Date(c.receivedDate);
+    if (c.paidDate) return new Date(c.paidDate);
+    if (c.createdAt) return new Date(c.createdAt);
+    return null;
+};
+
 // Get all pending cheques
 export const getPendingCheques = async (req, res) => {
     try {
@@ -142,17 +165,22 @@ export const getPendingCheques = async (req, res) => {
             paymentMethod: "CHEQUE"
         };
 
-        // Date filter for Received Date (fallback priority: receivedDate -> paidDate -> createdAt)
+        // Date filter for Received Date (matching the receivedDate given during payment)
         const effectiveRecStart = receivedStartDate || startDate;
         const effectiveRecEnd = receivedEndDate || endDate;
         if (effectiveRecStart || effectiveRecEnd) {
+            const minStart = effectiveRecStart ? new Date(Math.min(
+                new Date(effectiveRecStart + (effectiveRecStart.length === 10 ? "T00:00:00+05:30" : "")).getTime(),
+                new Date(effectiveRecStart + (effectiveRecStart.length === 10 ? "T00:00:00.000Z" : "")).getTime()
+            )) : null;
+            const maxEnd = effectiveRecEnd ? new Date(Math.max(
+                new Date(effectiveRecEnd + (effectiveRecEnd.length === 10 ? "T23:59:59.999+05:30" : "")).getTime(),
+                new Date(effectiveRecEnd + (effectiveRecEnd.length === 10 ? "T23:59:59.999Z" : "")).getTime()
+            )) : null;
+
             const dateCond = {};
-            if (effectiveRecStart) dateCond.$gte = new Date(effectiveRecStart);
-            if (effectiveRecEnd) {
-                const end = new Date(effectiveRecEnd);
-                end.setHours(23, 59, 59, 999);
-                dateCond.$lte = end;
-            }
+            if (minStart) dateCond.$gte = minStart;
+            if (maxEnd) dateCond.$lte = maxEnd;
 
             query.$or = [
                 { receivedDate: dateCond },
@@ -319,18 +347,17 @@ export const getPendingCheques = async (req, res) => {
             });
         }
 
-        // Additional in-memory verification for received date filter
+        // Verification for received date filter based on actual payment received date given during payment
         if (effectiveRecStart || effectiveRecEnd) {
-            const startD = effectiveRecStart ? new Date(effectiveRecStart) : null;
-            const endD = effectiveRecEnd ? new Date(effectiveRecEnd) : null;
-            if (endD) endD.setHours(23, 59, 59, 999);
+            const startDayStr = effectiveRecStart ? effectiveRecStart.split('T')[0] : null;
+            const endDayStr = effectiveRecEnd ? effectiveRecEnd.split('T')[0] : null;
 
             cheques = cheques.filter(c => {
-                const effectiveDate = c.receivedDate || c.paidDate || c.createdAt;
-                if (!effectiveDate) return false;
-                const d = new Date(effectiveDate);
-                if (startD && d < startD) return false;
-                if (endD && d > endD) return false;
+                const recDate = getPaymentReceivedDate(c);
+                if (!recDate || isNaN(recDate.getTime())) return false;
+                const recIST = recDate.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+                if (startDayStr && recIST < startDayStr) return false;
+                if (endDayStr && recIST > endDayStr) return false;
                 return true;
             });
         }
@@ -425,7 +452,7 @@ export const getPendingCheques = async (req, res) => {
                 amount: c.paidAmount,
                 chequeNumber: c.transactionId,
                 chequeDate: c.chequeDate,
-                receivedDate: c.receivedDate || c.paidDate || c.createdAt,
+                receivedDate: getPaymentReceivedDate(c) || c.receivedDate || c.paidDate || c.createdAt,
                 bankName: c.bankName || c.accountHolderName || "N/A",
                 accountHolderName: c.accountHolderName || "N/A",
                 bankAccount: bankAcc ? {
@@ -575,9 +602,8 @@ export const clearCheque = async (req, res) => {
 
         // MR Date (paidDate) is ALWAYS current date (the date bill is generated after clearance)
         payment.paidDate = nowIST;
-        // Clearance & Receiving date is set to the cleared date
+        // Clearance date is set to the cleared date
         payment.clearedOrRejectedDate = clearedDateIST;
-        payment.receivedDate = clearedDateIST;
         payment.processedBy = req.user?.id || req.user?._id;
 
         // Generate Bill ID on clearance with current date
@@ -746,7 +772,6 @@ export const updateChequeClearanceDate = async (req, res) => {
         }
 
         payment.clearedOrRejectedDate = clearedDateIST;
-        payment.receivedDate = clearedDateIST;
         await payment.save();
 
         // 2. Update Admission installment paidDate if applicable
