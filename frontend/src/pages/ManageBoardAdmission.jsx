@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
-import { FaPrint, FaSave, FaSync, FaCheckCircle, FaTrash, FaCheck, FaExclamationTriangle, FaFileInvoice, FaArrowLeft, FaMoneyBillWave, FaPlus, FaTimes, FaEdit } from 'react-icons/fa';
+import { FaPrint, FaSave, FaSync, FaCheckCircle, FaTrash, FaCheck, FaExclamationTriangle, FaFileInvoice, FaArrowLeft, FaMoneyBillWave, FaPlus, FaTimes, FaEdit, FaDownload } from 'react-icons/fa';
 import BillGenerator from '../components/Finance/BillGenerator';
 import { useTheme } from '../context/ThemeContext';
 import RazorpaySMSModal from '../components/Finance/RazorpaySMSModal';
 import { usePermission } from '../hooks/usePermission';
+import { downloadCourseFeeStatementPDF } from '../utils/courseFeeStatementPdf';
 
 const ManageBoardAdmission = () => {
     const { id } = useParams();
@@ -39,6 +40,30 @@ const ManageBoardAdmission = () => {
     const [addInstCount, setAddInstCount] = useState(1);
     const [isAddingInst, setIsAddingInst] = useState(false);
     const canAddInstallments = usePermission('admissions', 'boardCourseAdmission', 'addInstallments');
+    const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+    const handleDownloadFeePdf = async () => {
+        if (!admission) return;
+        try {
+            setIsDownloadingPdf(true);
+            const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+            await downloadCourseFeeStatementPDF({
+                admission: {
+                    ...admission,
+                    admissionType: 'BOARD'
+                },
+                student: admission.studentId,
+                courseName: getDynamicCourseName() || admission.boardCourseName,
+                currentUser: userInfo
+            });
+            toast.success("Board Course Fee Statement PDF downloaded successfully!");
+        } catch (err) {
+            console.error("Error generating fee PDF:", err);
+            toast.error("Failed to generate Fee Statement PDF");
+        } finally {
+            setIsDownloadingPdf(false);
+        }
+    };
 
     const MONTH_NAMES = [
         "January", "February", "March", "April", "May", "June",
@@ -740,9 +765,28 @@ const ManageBoardAdmission = () => {
                     <FaArrowLeft />
                 </button>
                 <div className="flex-1 flex justify-between items-center">
-                    <div>
-                        <h2 className="text-2xl font-black uppercase tracking-tight text-cyan-500">Manage Board Admission</h2>
-                        <p className="text-[10px] uppercase font-bold text-gray-500 line-clamp-1">Student: {admission?.studentId?.studentsDetails?.[0]?.studentName || admission?.studentName}</p>
+                    <div className="flex items-center gap-4">
+                        <div>
+                            <h2 className="text-2xl font-black uppercase tracking-tight text-cyan-500">Manage Board Admission</h2>
+                            <p className="text-[10px] uppercase font-bold text-gray-500 line-clamp-1">Student: {admission?.studentId?.studentsDetails?.[0]?.studentName || admission?.studentName}</p>
+                        </div>
+                        <button
+                            onClick={handleDownloadFeePdf}
+                            disabled={isDownloadingPdf}
+                            className={`px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm ${
+                                isDarkMode
+                                    ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500 hover:text-black'
+                                    : 'bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-600 hover:text-white'
+                            } disabled:opacity-50`}
+                            title="Download Course Fee Statement & Installment Breakup PDF"
+                        >
+                            {isDownloadingPdf ? (
+                                <FaSync className="animate-spin" size={10} />
+                            ) : (
+                                <FaDownload size={10} />
+                            )}
+                            <span>Fee Statement PDF</span>
+                        </button>
                     </div>
                     <div className={`px-6 py-3 rounded-xl border-2 border-dashed transition-all duration-500 ${isDarkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50'} max-w-[65%]`}>
                         <p className="text-[9px] font-black uppercase text-cyan-500 mb-1 tracking-widest">Enrolled Course Logic</p>

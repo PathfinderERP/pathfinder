@@ -70,24 +70,31 @@ export const downloadCourseFeeStatementPDF = async ({
     const logoBase64 = await loadLogoBase64();
 
     // Data points
-    const studentDetails = student?.studentsDetails?.[0] || {};
-    const studentName = safeStr(studentDetails.studentName || student?.studentName || "STUDENT").toUpperCase();
-    const enrollmentNo = safeStr(admission.admissionNumber || student?.uid || "N/A");
+    const isBoard = admission.admissionType === 'BOARD' || Boolean(admission.boardId);
+    const rawStudentObj = student || (typeof admission.studentId === 'object' ? admission.studentId : (typeof admission.student === 'object' ? admission.student : {}));
+    const studentDetails = rawStudentObj?.studentsDetails?.[0] || rawStudentObj || {};
+    const studentName = safeStr(studentDetails.studentName || admission.studentName || rawStudentObj?.studentName || "STUDENT").toUpperCase();
+    const enrollmentNo = safeStr(admission.admissionNumber || rawStudentObj?.uid || "N/A");
     const centre = safeStr(studentDetails.centre || admission.centre || "N/A").toUpperCase();
-    const contactNo = safeStr(studentDetails.mobileNum || "N/A");
-    const guardianName = safeStr(student?.guardians?.[0]?.guardianName || studentDetails.guardians?.[0]?.guardianName || "N/A").toUpperCase();
-    const division = safeStr(admission.admissionType === 'BOARD' ? (admission.board?.boardCourse || 'BOARD') : (admission.department?.departmentName || admission.centre || "N/A")).toUpperCase();
+    const contactNo = safeStr(studentDetails.mobileNum || admission.mobileNum || "N/A");
+    const guardianName = safeStr(rawStudentObj?.guardians?.[0]?.guardianName || studentDetails.guardians?.[0]?.guardianName || "N/A").toUpperCase();
+    const division = safeStr(isBoard ? (admission.boardId?.boardCourse || admission.boardCourseName || 'BOARD COURSE') : (admission.department?.departmentName || admission.centre || "N/A")).toUpperCase();
     const cohort = safeStr(admission.academicSession || "N/A");
     const admDate = formatDate(admission.admissionDate || admission.createdAt);
-    const resolvedCourse = safeStr(courseName || "COURSE FEE STATEMENT").toUpperCase();
+    const resolvedCourse = safeStr(courseName || admission.boardCourseName || (admission.boardId?.boardCourse ? `${admission.boardId.boardCourse} Class ${admission.lastClass || ''}` : "COURSE FEE STATEMENT")).toUpperCase();
 
     // Financial numbers
-    const committedFee = Math.ceil(Number(admission.totalFees) || 0);
+    const calculatedBoardTotal = (admission.admissionFee || 0) +
+        (admission.installments?.reduce((sum, i) => sum + (i.payableAmount || 0), 0) || 0) +
+        (admission.examFee || 0) +
+        (admission.additionalThingsAmount || 0);
+
+    const committedFee = Math.ceil(Number(admission.totalFees || admission.totalExpectedAmount || calculatedBoardTotal) || 0);
     const totalPaid = Math.ceil(Number(admission.totalPaidAmount) || 0);
     const pendingBalance = Math.max(0, committedFee - totalPaid);
-    const downPayment = Math.ceil(Number(admission.downPayment) || 0);
+    const downPayment = Math.ceil(Number(admission.downPayment || admission.admissionFee) || 0);
     const paymentStatus = safeStr(admission.paymentStatus || (pendingBalance === 0 ? "COMPLETED" : totalPaid > 0 ? "PARTIAL" : "PENDING")).toUpperCase();
-    const admissionStatus = safeStr(admission.admissionStatus || "ACTIVE").toUpperCase();
+    const admissionStatus = safeStr(admission.status || admission.admissionStatus || "ACTIVE").toUpperCase();
 
     // Current date/time
     const now = new Date();
@@ -374,6 +381,8 @@ export const downloadCourseFeeStatementPDF = async ({
         (admission.numberOfInstallments > 0 ? Math.ceil((committedFee - downPayment) / admission.numberOfInstallments) : 0);
 
     const breakdown = admission.paymentBreakdown || [];
+    const boardInstallments = admission.installments || [];
+
     if (breakdown.length > 0) {
         breakdown.forEach((payment) => {
             const remarks = payment.remarks || "";
@@ -402,8 +411,35 @@ export const downloadCourseFeeStatementPDF = async ({
                 isPaid: isRowPaid
             });
         });
+    } else if (boardInstallments.length > 0) {
+        // Board Course Admissions
+        boardInstallments.forEach((inst) => {
+            const pStatus = safeStr(inst.status || "PENDING").toUpperCase();
+            const isRowPaid = ["PAID", "COMPLETED"].includes(pStatus);
+            let varianceText = "-";
+            if (inst.waiverAmount > 0) {
+                varianceText = `-Rs. ${fmt(inst.waiverAmount)}`;
+            } else if (inst.adjustmentAmount > 0) {
+                varianceText = `+Rs. ${fmt(inst.adjustmentAmount)}`;
+            }
+
+            const lastTx = inst.paymentTransactions?.[inst.paymentTransactions.length - 1];
+            const pMethod = lastTx?.paymentMethod || "BOARD";
+
+            tableRows.push({
+                inst: `#${inst.monthNumber}`,
+                dueDate: formatDate(inst.dueDate),
+                baseFee: `Rs. ${fmt(inst.standardAmount || inst.payableAmount)}`,
+                variance: varianceText,
+                amount: `Rs. ${fmt(inst.payableAmount)}`,
+                liquidated: `Rs. ${fmt(inst.paidAmount || 0)}`,
+                vector: safeStr(pMethod).toUpperCase(),
+                status: pStatus === "PENDING_CLEARANCE" ? "IN PROCESS" : pStatus,
+                isPaid: isRowPaid
+            });
+        });
     } else if (admission.admissionType === 'BOARD' && admission.monthlySubjectHistory?.length > 0) {
-        // Board monthly cycles
+        // Legacy Board monthly cycles
         admission.monthlySubjectHistory.forEach((hist, hIdx) => {
             const hStatus = safeStr(hist.status || (hist.isPaid ? "PAID" : "PENDING")).toUpperCase();
             tableRows.push({
@@ -418,7 +454,42 @@ export const downloadCourseFeeStatementPDF = async ({
                 isPaid: Boolean(hist.isPaid)
             });
         });
-    } else if (tableRows.length === 0) {
+    }
+
+    // Exam Fee row for Board Admissions
+    if (admission.examFee > 0) {
+        const eStatus = safeStr(admission.examFeeStatus || (admission.examFeePaid >= admission.examFee ? "PAID" : admission.examFeePaid > 0 ? "PARTIAL" : "PENDING")).toUpperCase();
+        tableRows.push({
+            inst: 'EXAM FEE',
+            dueDate: admDate,
+            baseFee: `Rs. ${fmt(admission.examFee)}`,
+            variance: '-',
+            amount: `Rs. ${fmt(admission.examFee)}`,
+            liquidated: `Rs. ${fmt(admission.examFeePaid || 0)}`,
+            vector: 'BOARD',
+            status: eStatus,
+            isPaid: eStatus === 'PAID'
+        });
+    }
+
+    // Additional Fee row for Board Admissions
+    if (admission.additionalThingsAmount > 0) {
+        const addName = safeStr(admission.additionalThingsName || "ADDITIONAL").toUpperCase();
+        const aStatus = safeStr(admission.additionalThingsStatus || (admission.additionalThingsPaid >= admission.additionalThingsAmount ? "PAID" : admission.additionalThingsPaid > 0 ? "PARTIAL" : "PENDING")).toUpperCase();
+        tableRows.push({
+            inst: addName.substring(0, 10),
+            dueDate: admDate,
+            baseFee: `Rs. ${fmt(admission.additionalThingsAmount)}`,
+            variance: '-',
+            amount: `Rs. ${fmt(admission.additionalThingsAmount)}`,
+            liquidated: `Rs. ${fmt(admission.additionalThingsPaid || 0)}`,
+            vector: 'BOARD',
+            status: aStatus,
+            isPaid: aStatus === 'PAID'
+        });
+    }
+
+    if (tableRows.length === 0) {
         // Single payment record if no breakdown defined
         tableRows.push({
             inst: '#1',

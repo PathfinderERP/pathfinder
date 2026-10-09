@@ -13,6 +13,7 @@ import ExportButton from '../common/ExportButton';
 import MultiSelectFilter from '../common/MultiSelectFilter';
 import Pagination from '../common/Pagination';
 import { downloadCSV, downloadExcel } from '../../utils/exportUtils';
+import { downloadCourseFeeStatementPDF } from '../../utils/courseFeeStatementPdf';
 import './AdmissionsWave.css';
 import { hasPermission } from '../../config/permissions';
 
@@ -220,8 +221,34 @@ const BoardAdmissionsContent = () => {
     const [endDate, setEndDate] = useState("");
     const [followUpStartDate, setFollowUpStartDate] = useState("");
     const [followUpEndDate, setFollowUpEndDate] = useState("");
+    const [downloadingCourseFeeId, setDownloadingCourseFeeId] = useState(null);
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
+
+    const handleDownloadCourseFeePDF = async (boardAdmission) => {
+        try {
+            setDownloadingCourseFeeId(boardAdmission._id);
+            const userInfo = JSON.parse(localStorage.getItem('user') || '{}');
+            const resolvedCourse = boardAdmission.boardCourseName || boardAdmission.boardId?.boardCourse || "Board Course";
+
+            await downloadCourseFeeStatementPDF({
+                admission: {
+                    ...boardAdmission,
+                    admissionType: 'BOARD'
+                },
+                student: boardAdmission.studentId,
+                courseName: resolvedCourse,
+                currentUser: userInfo
+            });
+
+            toast.success(`Fee statement downloaded for ${resolvedCourse}!`);
+        } catch (err) {
+            console.error("Error generating course fee statement PDF:", err);
+            toast.error("Failed to generate course fee statement PDF");
+        } finally {
+            setDownloadingCourseFeeId(null);
+        }
+    };
 
     const itemsPerPage = 10;
 
@@ -2285,6 +2312,25 @@ const BoardAdmissionsContent = () => {
                                                                 >
                                                                     <FaSync size={10} />
                                                                     <span>Manage</span>
+                                                                </button>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDownloadCourseFeePDF(item);
+                                                                    }}
+                                                                    disabled={downloadingCourseFeeId === item._id}
+                                                                    className={`w-8 h-8 flex items-center justify-center rounded-[4px] border transition-all ${
+                                                                        isDarkMode
+                                                                            ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20 hover:bg-cyan-500 hover:text-black'
+                                                                            : 'bg-cyan-50 text-cyan-700 border-cyan-200 hover:bg-cyan-600 hover:text-white shadow-sm'
+                                                                    } disabled:opacity-50`}
+                                                                    title="Download Course Fee Statement & Installment Breakup PDF"
+                                                                >
+                                                                    {downloadingCourseFeeId === item._id ? (
+                                                                        <FaSync className="animate-spin" size={10} />
+                                                                    ) : (
+                                                                        <FaDownload size={11} />
+                                                                    )}
                                                                 </button>
                                                                 <button
                                                                     onClick={(e) => {
