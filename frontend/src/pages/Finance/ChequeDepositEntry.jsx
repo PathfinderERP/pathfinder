@@ -25,6 +25,7 @@ const ChequeDepositEntry = () => {
     // Form States
     const [chequeNo, setChequeNo] = useState("");
     const [validatedCheque, setValidatedCheque] = useState(null);
+    const [multipleMatches, setMultipleMatches] = useState([]);
     const [selectedCentreId, setSelectedCentreId] = useState("");
     const [accountNumber, setAccountNumber] = useState("");
     const [depositDate, setDepositDate] = useState(new Date().toISOString().split('T')[0]);
@@ -132,36 +133,57 @@ const ChequeDepositEntry = () => {
         }
     };
 
-    const handleChequeValidation = async (numToValidate) => {
+    const handleChequeValidation = async (numToValidate, targetCentreId) => {
         const queryNum = numToValidate || chequeNo;
         if (!queryNum.trim()) return;
 
         try {
             setValidating(true);
             setValidatedCheque(null);
+            setMultipleMatches([]);
             const token = localStorage.getItem("token");
+            const cId = targetCentreId || selectedCentreId;
             const res = await axios.get(`${import.meta.env.VITE_API_URL}/finance/cheque-deposit/validate/${queryNum.trim()}`, {
-                headers: { Authorization: `Bearer ${token}` }
+                headers: { Authorization: `Bearer ${token}` },
+                params: cId ? { centreId: cId } : {}
             });
 
             const chequeData = res.data;
-            setValidatedCheque(chequeData);
+            if (chequeData.multiple && chequeData.matches) {
+                setMultipleMatches(chequeData.matches);
+                toast.info("Multiple matching cheques found. Please select the correct cheque below.");
+            } else {
+                setValidatedCheque(chequeData);
 
-            // Auto-populate Centre ID if found
-            if (chequeData.centre) {
-                const matchedCentre = userCentres.find(c => c.centreName.toLowerCase().trim() === chequeData.centre.toLowerCase().trim());
-                if (matchedCentre) {
-                    setSelectedCentreId(matchedCentre._id);
+                // Auto-populate Centre ID if found
+                if (chequeData.centre) {
+                    const matchedCentre = userCentres.find(c => c.centreName.toLowerCase().trim() === chequeData.centre.toLowerCase().trim());
+                    if (matchedCentre) {
+                        setSelectedCentreId(matchedCentre._id);
+                    }
                 }
+                toast.success("Cheque number validated successfully!");
             }
-            toast.success("Cheque number validated successfully!");
         } catch (error) {
             console.error("Validation error", error);
             setValidatedCheque(null);
+            setMultipleMatches([]);
             toast.error(error.response?.data?.message || "Invalid or already deposited cheque");
         } finally {
             setValidating(false);
         }
+    };
+
+    const handleSelectMatch = (match) => {
+        setValidatedCheque(match);
+        if (match.centre) {
+            const matchedCentre = userCentres.find(c => c.centreName.toLowerCase().trim() === match.centre.toLowerCase().trim());
+            if (matchedCentre) {
+                setSelectedCentreId(matchedCentre._id);
+            }
+        }
+        setMultipleMatches([]);
+        toast.success(`Selected cheque for ${match.studentName} (${match.centre})`);
     };
 
     const handleFileChange = (e) => {
@@ -229,6 +251,7 @@ const ChequeDepositEntry = () => {
     const resetForm = () => {
         setChequeNo("");
         setValidatedCheque(null);
+        setMultipleMatches([]);
         setSelectedCentreId("");
         setAccountNumber("");
         setDepositDate(new Date().toISOString().split('T')[0]);
@@ -358,8 +381,51 @@ const ChequeDepositEntry = () => {
                                 </div>
                             </div>
 
-                            {/* Cheque Preview Box */}
-                            {validatedCheque ? (
+                            {/* Multiple Matches Selection Box */}
+                            {multipleMatches.length > 0 ? (
+                                <div className="bg-amber-500/10 border border-amber-500/30 p-5 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-4 duration-300">
+                                    <h4 className="text-xs font-bold text-amber-400 uppercase tracking-widest flex items-center gap-2">
+                                        <FaInfoCircle />
+                                        Multiple Cheques Found ({multipleMatches.length})
+                                    </h4>
+                                    <p className="text-xs text-gray-300">
+                                        Cheque number <span className="font-mono font-bold text-cyan-400">{chequeNo}</span> exists in multiple records. Please select the cheque to deposit:
+                                    </p>
+                                    <div className="space-y-3 mt-2">
+                                        {multipleMatches.map((match, idx) => (
+                                            <div
+                                                key={match.paymentId || idx}
+                                                className={`p-4 rounded-xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 transition-all ${
+                                                    isDarkMode ? "bg-gray-800/90 border-gray-700 hover:border-cyan-500" : "bg-white border-gray-300 hover:border-cyan-500"
+                                                }`}
+                                            >
+                                                <div className="space-y-1 text-xs">
+                                                    <div className="flex items-center gap-2">
+                                                        <span className={`font-bold text-sm ${isDarkMode ? "text-white" : "text-gray-900"}`}>{match.studentName}</span>
+                                                        <span className="text-cyan-400 font-mono font-bold">({match.admissionNumber})</span>
+                                                    </div>
+                                                    <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+                                                        Centre: <strong className={isDarkMode ? "text-gray-200" : "text-gray-800"}>{match.centre}</strong> | Bank: {match.bankName}
+                                                    </p>
+                                                    <p className={isDarkMode ? "text-gray-400" : "text-gray-600"}>
+                                                        Cheque Date: {match.chequeDate ? new Date(match.chequeDate).toLocaleDateString() : "N/A"}
+                                                    </p>
+                                                </div>
+                                                <div className="flex items-center gap-4 self-end sm:self-center">
+                                                    <span className="text-emerald-400 font-extrabold text-base">₹{match.amount?.toLocaleString()}</span>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleSelectMatch(match)}
+                                                        className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-lg transition-all shadow-md active:scale-95"
+                                                    >
+                                                        Select Cheque
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : validatedCheque ? (
                                 <div className="bg-gradient-to-br from-cyan-950/40 via-cyan-900/10 to-transparent border border-cyan-500/20 p-5 rounded-2xl animate-in fade-in slide-in-from-top-4 duration-300 space-y-3">
                                     <h4 className="text-xs font-bold text-cyan-400 uppercase tracking-widest flex items-center gap-2">
                                         <FaInfoCircle />

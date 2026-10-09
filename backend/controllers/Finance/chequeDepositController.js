@@ -2,6 +2,7 @@ import Payment from "../../models/Payment/Payment.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import User from "../../models/User.js";
+import CentreSchema from "../../models/Master_data/Centre.js";
 import s3Client from "../../config/r2Config.js";
 import { PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -63,6 +64,7 @@ const populateAdmissions = async (cheques) => {
 export const validateChequeNumber = async (req, res) => {
     try {
         const { chequeNo } = req.params;
+        const { centreId, centre } = req.query;
 
         if (!chequeNo) {
             return res.status(400).json({ message: "Cheque number is required" });
@@ -79,45 +81,77 @@ export const validateChequeNumber = async (req, res) => {
             return res.status(404).json({ message: "No pending cheque found with this cheque number" });
         }
 
-        // Populate admissions
+        // Populate admissions for all matching cheques
         await populateAdmissions(cheques);
 
-        const cheque = cheques[0];
-        const adm = cheque.admission;
+        // Filter out cheques without valid admission record
+        cheques = cheques.filter(c => c.admission);
 
-        if (!adm) {
-            return res.status(404).json({ message: "Associated admission record not found" });
+        if (cheques.length === 0) {
+            return res.status(404).json({ message: "Associated admission record not found for this cheque" });
         }
 
-        // Validate user access to center
+        // Filter cheques based on user authorized centres if not Super Admin
         if (req.user.role !== "superAdmin" && req.user.role !== "Super Admin") {
-            const userCentres = req.user.centres || [];
-            const centreName = adm.centre;
-            
-            // Check if user has access to this center
             const currentUser = await User.findById(req.user.id || req.user._id).populate("centres");
             const authorizedCentreNames = currentUser?.centres?.map(c => c.centreName.toLowerCase().trim()) || [];
             
-            if (!authorizedCentreNames.includes(centreName.toLowerCase().trim())) {
+            cheques = cheques.filter(c => {
+                const cName = c.admission?.centre;
+                return cName && authorizedCentreNames.includes(cName.toLowerCase().trim());
+            });
+
+            if (cheques.length === 0) {
                 return res.status(403).json({ message: "Access denied: Cheque belongs to a center outside your authorized list." });
             }
         }
 
-        const formatted = {
-            paymentId: cheque._id,
-            amount: cheque.paidAmount,
-            chequeNumber: cheque.transactionId,
-            bankName: cheque.bankName || cheque.accountHolderName || "N/A",
-            chequeDate: cheque.chequeDate,
-            centre: adm.centre,
-            studentName: cheque.isBoardAdmission 
-                ? adm.studentName 
-                : adm.student?.studentsDetails?.[0]?.studentName || "Unknown",
-            admissionNumber: adm.admissionNumber,
-            isDeposited: cheque.isDeposited
+        // Optional specific centre filter (if user selected a centre or passed centreId / centre name)
+        if (centreId) {
+            const centreDoc = await CentreSchema.findById(centreId).lean();
+            if (centreDoc) {
+                const targetName = centreDoc.centreName.toLowerCase().trim();
+                const matched = cheques.filter(c => c.admission?.centre?.toLowerCase()?.trim() === targetName);
+                if (matched.length > 0) {
+                    cheques = matched;
+                }
+            }
+        } else if (centre) {
+            const targetName = centre.toLowerCase().trim();
+            const matched = cheques.filter(c => c.admission?.centre?.toLowerCase()?.trim() === targetName);
+            if (matched.length > 0) {
+                cheques = matched;
+            }
+        }
+
+        const formatCheque = (cheque) => {
+            const adm = cheque.admission;
+            return {
+                paymentId: cheque._id,
+                amount: cheque.paidAmount,
+                chequeNumber: cheque.transactionId,
+                bankName: cheque.bankName || cheque.accountHolderName || "N/A",
+                chequeDate: cheque.chequeDate,
+                centre: adm.centre,
+                studentName: cheque.isBoardAdmission 
+                    ? adm.studentName 
+                    : adm.student?.studentsDetails?.[0]?.studentName || "Unknown",
+                admissionNumber: adm.admissionNumber,
+                isDeposited: cheque.isDeposited
+            };
         };
 
-        return res.status(200).json(formatted);
+        if (cheques.length === 1) {
+            return res.status(200).json(formatCheque(cheques[0]));
+        }
+
+        // If multiple cheques match
+        const formattedList = cheques.map(formatCheque);
+        return res.status(200).json({
+            multiple: true,
+            matches: formattedList,
+            message: "Multiple matching cheques found. Please select the correct cheque."
+        });
     } catch (error) {
         console.error("VALIDATE_CHEQUE_ERROR:", error);
         return res.status(500).json({ message: "Error validating cheque number", error: error.message });
