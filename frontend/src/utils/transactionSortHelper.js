@@ -27,10 +27,15 @@ export const compareBillNumbers = (billA, billB, direction = 'asc') => {
 
 const getISODateStr = (rawDate) => {
     if (!rawDate) return '';
+    if (typeof rawDate === 'string' && rawDate.length >= 10 && rawDate[4] === '-' && rawDate[7] === '-') {
+        return rawDate.substring(0, 10);
+    }
     try {
         const d = new Date(rawDate);
         if (isNaN(d.getTime())) return '';
-        return d.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        // Fast IST Date string computation (+05:30)
+        const istDate = new Date(d.getTime() + (5.5 * 60 * 60 * 1000));
+        return istDate.toISOString().substring(0, 10);
     } catch (e) {
         return '';
     }
@@ -38,53 +43,72 @@ const getISODateStr = (rawDate) => {
 
 export const sortTransactionsSequentially = (items, { sortField = 'date', sortOrder = 'desc' } = {}) => {
     if (!Array.isArray(items) || items.length === 0) return [];
+    if (items.length === 1) return items;
 
-    return [...items].sort((itemA, itemB) => {
-        const rawCreatedA = itemA.createdAt || itemA.updatedAt;
-        const rawCreatedB = itemB.createdAt || itemB.updatedAt;
-        const createdA = rawCreatedA ? new Date(rawCreatedA).getTime() : 0;
-        const createdB = rawCreatedB ? new Date(rawCreatedB).getTime() : 0;
+    // Schwartzian transform: Pre-compute sort metadata in O(N) time
+    const decorated = items.map(item => {
+        const rawCreated = item.createdAt || item.updatedAt;
+        const created = rawCreated ? new Date(rawCreated).getTime() : 0;
 
-        const rawDateA = itemA.paymentDate || itemA.date || itemA.mrDate;
-        const rawDateB = itemB.paymentDate || itemB.date || itemB.mrDate;
-        const timeA = rawDateA ? new Date(rawDateA).getTime() : 0;
-        const timeB = rawDateB ? new Date(rawDateB).getTime() : 0;
-        const dayStrA = getISODateStr(rawDateA);
-        const dayStrB = getISODateStr(rawDateB);
+        const rawDate = item.paymentDate || item.date || item.mrDate;
+        const time = rawDate ? new Date(rawDate).getTime() : 0;
+        const dayStr = getISODateStr(rawDate);
 
-        const billA = itemA.receiptNo || itemA.billId || '';
-        const billB = itemB.receiptNo || itemB.billId || '';
+        const bill = (item.receiptNo || item.billId || '').toString().trim();
+        const isBillValid = Boolean(bill && bill !== '-' && bill !== 'undefined' && bill !== 'null');
 
+        return { item, created, time, dayStr, bill, isBillValid };
+    });
+
+    const isDesc = sortOrder === 'desc';
+
+    decorated.sort((a, b) => {
         if (sortField === 'billNo' || sortField === 'receiptNo' || sortField === 'billId') {
             // Primary: Sequential Bill Number
-            const billResult = compareBillNumbers(billA, billB, sortOrder);
-            if (billResult !== 0) return billResult;
+            if (!a.isBillValid && !b.isBillValid) {
+                // fall back to date
+            } else if (!a.isBillValid) {
+                return 1;
+            } else if (!b.isBillValid) {
+                return -1;
+            } else {
+                const billRes = a.bill.localeCompare(b.bill, undefined, { numeric: true, sensitivity: 'base' });
+                if (billRes !== 0) return isDesc ? -billRes : billRes;
+            }
 
             // Secondary: Calendar Day
-            const dateDiff = sortOrder === 'asc' ? dayStrA.localeCompare(dayStrB) : dayStrB.localeCompare(dayStrA);
+            const dateDiff = isDesc ? b.dayStr.localeCompare(a.dayStr) : a.dayStr.localeCompare(b.dayStr);
             if (dateDiff !== 0) return dateDiff;
 
-            // Tertiary: Creation Date (descending)
-            return createdB - createdA;
+            // Tertiary: Creation Date
+            return b.created - a.created;
         } else {
-            // Primary: Paid Date (Calendar Day level - e.g. 2026-10-08 > 2026-10-07)
-            const dateDiff = sortOrder === 'asc' ? dayStrA.localeCompare(dayStrB) : dayStrB.localeCompare(dayStrA);
+            // Primary: Paid Date (Calendar Day level)
+            const dateDiff = isDesc ? b.dayStr.localeCompare(a.dayStr) : a.dayStr.localeCompare(b.dayStr);
             if (dateDiff !== 0) return dateDiff;
 
-            // Secondary: Sequential Bill Number (Higher/newer bill numbers come first in desc: 146 > 145 > 144)
-            const billResult = compareBillNumbers(billA, billB, sortOrder);
-            if (billResult !== 0) return billResult;
+            // Secondary: Sequential Bill Number
+            if (a.isBillValid && b.isBillValid) {
+                const billRes = a.bill.localeCompare(b.bill, undefined, { numeric: true, sensitivity: 'base' });
+                if (billRes !== 0) return isDesc ? -billRes : billRes;
+            } else if (a.isBillValid) {
+                return -1;
+            } else if (b.isBillValid) {
+                return 1;
+            }
 
-            // Tertiary: Exact Timestamp of Paid Date
-            const exactTimeDiff = sortOrder === 'asc' ? timeA - timeB : timeB - timeA;
+            // Tertiary: Exact Timestamp
+            const exactTimeDiff = isDesc ? b.time - a.time : a.time - b.time;
             if (exactTimeDiff !== 0) return exactTimeDiff;
 
             // Quaternary: Creation Date
-            if (createdA && createdB && createdA !== createdB) {
-                return sortOrder === 'asc' ? createdA - createdB : createdB - createdA;
+            if (a.created && b.created && a.created !== b.created) {
+                return isDesc ? b.created - a.created : a.created - b.created;
             }
 
             return 0;
         }
     });
+
+    return decorated.map(d => d.item);
 };

@@ -391,8 +391,14 @@ const TransactionList = () => {
     };
 
     // --- Derived filtered data (client-side bill filter + billed by + course + board + programme) ---
-    const uniqueBilledByOptions = [...new Set(detailedReport.map(item => item.takenBy).filter(Boolean))];
-    const uniqueCourseOptions = [...new Set(detailedReport.map(item => item.course).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    const uniqueBilledByOptions = React.useMemo(() => {
+        return [...new Set(detailedReport.map(item => item.takenBy).filter(Boolean))];
+    }, [detailedReport]);
+
+    const uniqueCourseOptions = React.useMemo(() => {
+        return [...new Set(detailedReport.map(item => item.course).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+    }, [detailedReport]);
+
     const uniqueBoardOptions = React.useMemo(() => {
         const fromMaster = boards.map(b => b.boardCourse || b.name).filter(Boolean);
         const fromReport = detailedReport.map(item => getItemBoard(item)).filter(Boolean);
@@ -426,24 +432,26 @@ const TransactionList = () => {
         setPageInput("1");
     };
 
-    const filteredReport = detailedReport
-        .filter(item => {
-            if (billFilter === "no_bill") return !item.receiptNo || item.receiptNo === "-" || item.receiptNo.toString().trim() === "" || item.receiptNo === "undefined";
-            if (billFilter === "with_bill") return item.receiptNo && item.receiptNo !== "-" && item.receiptNo.toString().trim() !== "" && item.receiptNo !== "undefined";
-            return true;
-        })
-        .filter(item => selectedBilledBy.length === 0 || selectedBilledBy.includes(item.takenBy || "System"))
-        .filter(item => selectedCourses.length === 0 || selectedCourses.includes(item.course))
-        .filter(item => {
-            if (selectedBoards.length === 0) return true;
-            const b = getItemBoard(item);
-            return b && selectedBoards.includes(b);
-        })
-        .filter(item => {
-            if (selectedProgrammes.length === 0) return true;
-            const p = getItemProgramme(item);
-            return p && selectedProgrammes.includes(p);
-        });
+    const filteredReport = React.useMemo(() => {
+        return detailedReport
+            .filter(item => {
+                if (billFilter === "no_bill") return !item.receiptNo || item.receiptNo === "-" || item.receiptNo.toString().trim() === "" || item.receiptNo === "undefined";
+                if (billFilter === "with_bill") return item.receiptNo && item.receiptNo !== "-" && item.receiptNo.toString().trim() !== "" && item.receiptNo !== "undefined";
+                return true;
+            })
+            .filter(item => selectedBilledBy.length === 0 || selectedBilledBy.includes(item.takenBy || "System"))
+            .filter(item => selectedCourses.length === 0 || selectedCourses.includes(item.course))
+            .filter(item => {
+                if (selectedBoards.length === 0) return true;
+                const b = getItemBoard(item);
+                return b && selectedBoards.includes(b);
+            })
+            .filter(item => {
+                if (selectedProgrammes.length === 0) return true;
+                const p = getItemProgramme(item);
+                return p && selectedProgrammes.includes(p);
+            });
+    }, [detailedReport, billFilter, selectedBilledBy, selectedCourses, selectedBoards, selectedProgrammes]);
 
     const sortedReport = React.useMemo(() => {
         return sortTransactionsSequentially(filteredReport);
@@ -475,12 +483,15 @@ const TransactionList = () => {
         return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
     };
 
-    const dynamicSelectionTotalWithGst = hasActiveFilters
-        ? filteredReport.reduce((sum, item) => isPhspsMidnapore(item.centre) ? sum : sum + (item.amount || 0), 0)
-        : 0;
-    const dynamicSelectionTotalBase = hasActiveFilters
-        ? filteredReport.reduce((sum, item) => isPhspsMidnapore(item.centre) ? sum : sum + (item.revenueWithoutGst || 0), 0)
-        : 0;
+    const dynamicSelectionTotalWithGst = React.useMemo(() => {
+        if (!hasActiveFilters) return 0;
+        return filteredReport.reduce((sum, item) => isPhspsMidnapore(item.centre) ? sum : sum + (item.amount || 0), 0);
+    }, [hasActiveFilters, filteredReport]);
+
+    const dynamicSelectionTotalBase = React.useMemo(() => {
+        if (!hasActiveFilters) return 0;
+        return filteredReport.reduce((sum, item) => isPhspsMidnapore(item.centre) ? sum : sum + (item.revenueWithoutGst || 0), 0);
+    }, [hasActiveFilters, filteredReport]);
 
     // Hold selection totals while a background fetch is running to prevent intermediate flickering
     useEffect(() => {

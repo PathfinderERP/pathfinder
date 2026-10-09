@@ -40,6 +40,18 @@ export const PERMISSION_MODULES = {
             boardReport: {
                 label: "Board Analysis Report",
                 operations: ["create", "edit", "delete"]
+            },
+            centreComparisonAnalysis: {
+                label: "Centre Comparison Analysis",
+                operations: ["create", "edit", "delete"]
+            },
+            revenueComparisonAnalysis: {
+                label: "Revenue Comparison Analysis",
+                operations: ["create", "edit", "delete"]
+            },
+            deactivatedAnalysis: {
+                label: "Deactivated Analysis",
+                operations: ["create", "edit", "delete"]
             }
         }
     },
