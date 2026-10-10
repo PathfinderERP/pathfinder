@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { toast, ToastContainer } from 'react-toastify';
-import { FaPrint, FaSave, FaSync, FaCheckCircle, FaTrash, FaCheck, FaExclamationTriangle, FaFileInvoice, FaArrowLeft, FaMoneyBillWave, FaPlus, FaTimes, FaEdit, FaDownload } from 'react-icons/fa';
+import { FaPrint, FaSave, FaSync, FaCheckCircle, FaTrash, FaCheck, FaExclamationTriangle, FaFileInvoice, FaArrowLeft, FaMoneyBillWave, FaPlus, FaTimes, FaEdit, FaDownload, FaBook, FaBoxOpen, FaLock, FaTools, FaExclamationCircle } from 'react-icons/fa';
 import BillGenerator from '../components/Finance/BillGenerator';
 import { useTheme } from '../context/ThemeContext';
 import RazorpaySMSModal from '../components/Finance/RazorpaySMSModal';
@@ -41,6 +41,32 @@ const ManageBoardAdmission = () => {
     const [isAddingInst, setIsAddingInst] = useState(false);
     const canAddInstallments = usePermission('admissions', 'boardCourseAdmission', 'addInstallments');
     const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+    // Master Courses & Buy Book States
+    const [masterCourses, setMasterCourses] = useState([]);
+    const [isBuyBookModalOpen, setIsBuyBookModalOpen] = useState(false);
+    const [buyBookForm, setBuyBookForm] = useState({
+        courseId: '',
+        courseName: '',
+        admissionId: '',
+        itemName: 'Academic Books / Study Material',
+        amount: '',
+        discount: '',
+        paymentMethod: 'CASH',
+        transactionId: '',
+        accountHolderName: '',
+        receivedDate: new Date().toISOString().split('T')[0],
+        remarks: 'Book Purchase'
+    });
+    const [submittingBuyBook, setSubmittingBuyBook] = useState(false);
+
+    // Helper formatters
+    const fmt = (n) => Math.ceil(Number(n) || 0).toLocaleString('en-IN');
+    const formatDate = (dateString) => {
+        if (!dateString) return "N/A";
+        const d = new Date(dateString);
+        return isNaN(d.getTime()) ? "N/A" : d.toLocaleDateString('en-GB');
+    };
 
     const handleDownloadFeePdf = async () => {
         if (!admission) return;
@@ -105,7 +131,7 @@ const ManageBoardAdmission = () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
-            const [admissionRes, boardsRes, classesRes] = await Promise.all([
+            const [admissionRes, boardsRes, classesRes, courseRes] = await Promise.all([
                 fetch(`${apiUrl}/board-admission/${id}`, {
                     headers: { "Authorization": `Bearer ${token}` }
                 }),
@@ -114,12 +140,19 @@ const ManageBoardAdmission = () => {
                 }),
                 fetch(`${apiUrl}/class`, {
                     headers: { "Authorization": `Bearer ${token}` }
+                }),
+                fetch(`${apiUrl}/course`, {
+                    headers: { "Authorization": `Bearer ${token}` }
                 })
             ]);
 
             const admissionData = await admissionRes.json();
             const boardsData = await boardsRes.json();
             const classesData = await (classesRes.ok ? classesRes.json() : Promise.resolve([]));
+            if (courseRes && courseRes.ok) {
+                const cData = await courseRes.json();
+                setMasterCourses(Array.isArray(cData) ? cData : []);
+            }
 
             if (admissionRes.ok) {
                 setAdmission(admissionData);
@@ -751,6 +784,259 @@ const ManageBoardAdmission = () => {
         return `${boardName} Class ${admission.lastClass || ''} ${admission.programme || ''} ${admission.academicSession || ''} : ${subNames || 'No Subjects'}`;
     };
 
+    // Auto-resolve course fees for book purchases
+    const resolveCourseAmount = (admOrCourse, fallbackCourseId = null) => {
+        if (!admOrCourse && !fallbackCourseId) return 0;
+
+        // 1. If it's a Board admission object
+        if (admOrCourse?.totalFees !== undefined && admOrCourse?.totalFees !== null && Number(admOrCourse.totalFees) > 0) {
+            return Number(admOrCourse.totalFees);
+        }
+        if (admOrCourse?.programme === 'NCRP' || (admOrCourse?.examFee && !admOrCourse?.totalFees)) {
+            const sum = (Number(admOrCourse?.examFee) || 0) + (Number(admOrCourse?.additionalThingsAmount) || 0);
+            if (sum > 0) return sum;
+        }
+        if (admOrCourse?.feeStructureSnapshot && Array.isArray(admOrCourse.feeStructureSnapshot) && admOrCourse.feeStructureSnapshot.length > 0) {
+            const matFee = admOrCourse.feeStructureSnapshot.find(f => /material|book|study|kit/i.test(f.feesType));
+            if (matFee?.value) return Number(matFee.value);
+            const base = admOrCourse.feeStructureSnapshot.reduce((sum, f) => sum + (Number(f.value) || 0), 0);
+            if (base > 0) return Math.round(base * 1.18);
+        }
+
+        // 2. Look up in masterCourses or use course object
+        let course = admOrCourse;
+        const cId = fallbackCourseId || (typeof admOrCourse?.course === 'string' ? admOrCourse.course : admOrCourse?.course?._id) || admOrCourse?._id;
+        if ((!course || !course.feesStructure) && cId && masterCourses?.length > 0) {
+            course = masterCourses.find(c => c._id === cId) || course;
+        }
+
+        if (course) {
+            if (course.totalFees && Number(course.totalFees) > 0) return Number(course.totalFees);
+            if (Array.isArray(course.feesStructure) && course.feesStructure.length > 0) {
+                const matFee = course.feesStructure.find(f => /material|book|study|kit/i.test(f.feesType));
+                if (matFee?.value) return Number(matFee.value);
+                const base = course.feesStructure.reduce((sum, f) => sum + (Number(f.value) || 0), 0);
+                if (base > 0) return Math.round(base * 1.18);
+            }
+            if (course.courseFee && Number(course.courseFee) > 0) return Number(course.courseFee);
+        }
+        return 0;
+    };
+
+    const handleOpenBuyBookModal = () => {
+        if (!admission) return;
+        const dynamicName = getDynamicCourseName() || admission.boardCourseName || selectedBoard?.boardCourse || 'Board Course';
+        const defaultAmount = resolveCourseAmount(admission);
+
+        setBuyBookForm({
+            courseId: 'board_current',
+            courseName: dynamicName,
+            admissionId: admission._id,
+            itemName: `${dynamicName} - Books`,
+            amount: defaultAmount > 0 ? defaultAmount : '',
+            discount: '',
+            paymentMethod: 'CASH',
+            transactionId: '',
+            accountHolderName: '',
+            receivedDate: new Date().toISOString().split('T')[0],
+            remarks: `Book Purchase - ${dynamicName}`
+        });
+        setIsBuyBookModalOpen(true);
+    };
+
+    const handleSelectBuyBookCourse = (e) => {
+        const val = e.target.value;
+        if (!val) {
+            setBuyBookForm(prev => ({
+                ...prev,
+                courseId: '',
+                courseName: '',
+                admissionId: '',
+                itemName: 'Academic Books / Study Material',
+                amount: '',
+                discount: '',
+                remarks: 'Book Purchase'
+            }));
+            return;
+        }
+
+        if (val === 'board_current') {
+            const dynamicName = getDynamicCourseName() || admission?.boardCourseName || selectedBoard?.boardCourse || 'Board Course';
+            const amt = resolveCourseAmount(admission);
+            setBuyBookForm(prev => ({
+                ...prev,
+                courseId: 'board_current',
+                courseName: dynamicName,
+                admissionId: admission._id,
+                itemName: `${dynamicName} - Books`,
+                amount: amt > 0 ? amt : '',
+                remarks: `Book Purchase - ${dynamicName}`
+            }));
+        } else if (val.startsWith('course_')) {
+            const cId = val.replace('course_', '');
+            const course = masterCourses.find(c => c._id === cId);
+            const cName = course?.courseName || '';
+            const amt = resolveCourseAmount(course, cId);
+
+            setBuyBookForm(prev => ({
+                ...prev,
+                courseId: cId,
+                courseName: cName,
+                admissionId: '',
+                itemName: cName ? `${cName} - Books` : prev.itemName,
+                amount: amt > 0 ? amt : '',
+                remarks: `Book Purchase - ${cName}`
+            }));
+        }
+    };
+
+    const handleBuyBookSubmit = async (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+
+        if (!buyBookForm.courseName && !buyBookForm.courseId) {
+            toast.error("Please select a course for the book purchase.");
+            return;
+        }
+
+        const amtNum = parseFloat(buyBookForm.amount) || 0;
+        if (amtNum <= 0) {
+            toast.error("Please enter a valid book price/amount.");
+            return;
+        }
+
+        const isOnline = ["UPI", "CARD", "BANK_TRANSFER"].includes(buyBookForm.paymentMethod);
+        if (isOnline && !buyBookForm.transactionId?.trim()) {
+            toast.error("Transaction ID is required for online payment methods.");
+            return;
+        }
+
+        try {
+            setSubmittingBuyBook(true);
+            const token = localStorage.getItem("token");
+            const headers = {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            };
+
+            const targetCentre = admission?.centre || admission?.studentId?.studentsDetails?.[0]?.centre || 'MAIN';
+            const studentObj = admission?.studentId || {};
+            const studentDetails = studentObj.studentsDetails?.[0] || {};
+            const discNum = parseFloat(buyBookForm.discount) || 0;
+
+            const payload = {
+                studentId: studentObj._id || admission.studentId,
+                admissionId: admission._id,
+                courseId: buyBookForm.courseId === 'board_current' ? null : buyBookForm.courseId,
+                courseName: buyBookForm.courseName || getDynamicCourseName() || admission.boardCourseName || 'Board Course',
+                items: [
+                    {
+                        itemName: buyBookForm.itemName || `${buyBookForm.courseName} - Books`,
+                        quantity: 1,
+                        itemType: 'Paid',
+                        price: amtNum
+                    }
+                ],
+                centreName: targetCentre,
+                paymentMethod: buyBookForm.paymentMethod || 'CASH',
+                receivedDate: buyBookForm.receivedDate || new Date().toISOString().split('T')[0],
+                transactionId: buyBookForm.transactionId || '',
+                accountHolderName: buyBookForm.accountHolderName || '',
+                remarks: buyBookForm.remarks || `Book Purchase - ${buyBookForm.courseName}`,
+                discount: discNum,
+                studentDetails: {
+                    centre: targetCentre,
+                    session: admission.academicSession,
+                    class: admission.lastClass,
+                    department: admission.department?.departmentName || (selectedBoard?.boardCourse || 'BOARD'),
+                    board: studentDetails.board || selectedBoard?.boardCourse || admission.boardCourseName,
+                    admissionNumber: admission.admissionNumber || studentObj.uid
+                }
+            };
+
+            const res = await fetch(`${apiUrl}/inventory/allocation/buy-book`, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify(payload)
+            });
+
+            const data = await res.json();
+
+            if (res.ok) {
+                toast.success(`Book purchased successfully! Generated Bill No: ${data.billNumber}`);
+                setIsBuyBookModalOpen(false);
+
+                // Update student's allocated items locally in admission
+                const newlyAllocatedItem = {
+                    itemName: buyBookForm.itemName || `${buyBookForm.courseName} - Books`,
+                    quantity: 1,
+                    itemType: 'Paid',
+                    price: amtNum,
+                    billNumber: data.billNumber,
+                    allocationDate: new Date(),
+                    allocatedBy: { name: JSON.parse(localStorage.getItem('user') || '{}')?.name || 'Authorized Staff' }
+                };
+
+                setAdmission(prev => {
+                    if (!prev) return prev;
+                    const currentStudent = prev.studentId || {};
+                    return {
+                        ...prev,
+                        studentId: {
+                            ...currentStudent,
+                            allocatedItems: [...(currentStudent.allocatedItems || []), newlyAllocatedItem]
+                        }
+                    };
+                });
+
+                // Immediately trigger BillGenerator modal with preloaded bill data
+                if (data.billData) {
+                    setPreloadedBillData(data.billData);
+                    setSelectedInstForBill({
+                        installmentNumber: 0,
+                        status: 'PAID',
+                        billId: data.billNumber
+                    });
+                    setShowBillGenerator(true);
+                }
+
+                // Refresh admission data in background
+                fetchData();
+            } else {
+                toast.error(data.message || "Failed to process book purchase");
+            }
+        } catch (err) {
+            console.error("Error buying book:", err);
+            toast.error("Network or server error during book purchase");
+        } finally {
+            setSubmittingBuyBook(false);
+        }
+    };
+
+    const handleViewBookBill = async (billNumber) => {
+        if (!billNumber) return;
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${apiUrl}/inventory/allocation/bill?billId=${encodeURIComponent(billNumber)}`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok && data.data) {
+                setPreloadedBillData(data.data);
+                setSelectedInstForBill({
+                    installmentNumber: 0,
+                    status: 'PAID',
+                    billId: billNumber
+                });
+                setShowBillGenerator(true);
+            } else {
+                toast.error(data.message || "Could not retrieve bill for this book");
+            }
+        } catch (err) {
+            console.error("Error retrieving book bill:", err);
+            toast.error("Failed to load bill receipt");
+        }
+    };
+
     if (loading && !admission) return <div className="p-10 text-center">Loading...</div>;
 
     return (
@@ -786,6 +1072,21 @@ const ManageBoardAdmission = () => {
                                 <FaDownload size={10} />
                             )}
                             <span>Fee Statement PDF</span>
+                        </button>
+                        <button
+                            onClick={handleOpenBuyBookModal}
+                            disabled={admission?.studentId?.status === 'Deactivated'}
+                            className={`px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm ${
+                                admission?.studentId?.status === 'Deactivated'
+                                    ? 'opacity-40 cursor-not-allowed'
+                                    : (isDarkMode
+                                        ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-600 hover:text-white'
+                                        : 'bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-600 hover:text-white')
+                            }`}
+                            title="Buy Academic Books / Study Material"
+                        >
+                            <FaBook size={10} />
+                            <span>Buy Book</span>
                         </button>
                     </div>
                     <div className={`px-6 py-3 rounded-xl border-2 border-dashed transition-all duration-500 ${isDarkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50'} max-w-[65%]`}>
@@ -1854,6 +2155,111 @@ const ManageBoardAdmission = () => {
                 </div>
             )}
 
+            {/* Allocated Assets / Inventory Section */}
+            {admission && (
+                <div className={`mt-8 p-6 rounded-xl border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800 shadow-2xl' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <div className="flex justify-between items-center mb-6">
+                        <div className="flex items-center gap-2">
+                            <FaBoxOpen className="text-purple-400" size={16} />
+                            <div>
+                                <h4 className="text-sm font-black uppercase tracking-tight text-purple-400">
+                                    Allocated Assets / Inventory
+                                </h4>
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                                    Purchased books &amp; study materials
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            <button
+                                onClick={handleOpenBuyBookModal}
+                                disabled={admission?.studentId?.status === 'Deactivated'}
+                                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${
+                                    admission?.studentId?.status === 'Deactivated'
+                                        ? 'opacity-40 cursor-not-allowed'
+                                        : (isDarkMode ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/30' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200')
+                                }`}
+                            >
+                                <FaBook size={10} /> Buy Book
+                            </button>
+                            <span className={`text-[10px] font-black px-2.5 py-1 rounded-[4px] border ${admission.studentId?.allocatedItems?.length > 0 ? 'bg-green-500/10 text-green-500 border-green-500/20' : 'bg-gray-500/10 text-gray-400 border-gray-500/20'}`}>
+                                {admission.studentId?.allocatedItems?.length || 0} ITEMS TOTAL
+                            </span>
+                        </div>
+                    </div>
+
+                    {admission.studentId?.allocatedItems?.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            {admission.studentId.allocatedItems.map((item, idx) => (
+                                <div key={idx} className={`p-4 rounded-lg border flex flex-col justify-between transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 hover:border-purple-500/30' : 'bg-gray-50 border-gray-200 hover:border-purple-500/30'}`}>
+                                    <div>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <span className={`text-[11px] font-black uppercase tracking-tight line-clamp-2 ${isDarkMode ? 'text-purple-300' : 'text-purple-700'}`}>{item.itemName}</span>
+                                            <div className="p-1.5 bg-purple-500/10 text-purple-400 rounded">
+                                                <FaTools size={10} />
+                                            </div>
+                                        </div>
+                                        <p className="text-gray-500 text-[8px] font-bold uppercase tracking-[0.2em]">Allotted On</p>
+                                        <p className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{formatDate(item.allocationDate)}</p>
+                                        {item.price > 0 && (
+                                            <div className="mt-2">
+                                                <span className="text-gray-500 text-[8px] font-bold uppercase tracking-[0.2em] block">Amount</span>
+                                                <span className="text-xs font-black text-purple-400">₹{fmt(item.price)}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="mt-3 pt-3 border-t border-gray-800/10 flex flex-col gap-2">
+                                        {item.allocatedBy && (
+                                            <div>
+                                                <p className="text-gray-500 text-[8px] font-bold uppercase tracking-[0.2em] mb-1">Approved By</p>
+                                                <div className="flex items-center gap-1.5">
+                                                    <div className="w-4 h-4 rounded-full bg-cyan-500/20 text-cyan-400 flex items-center justify-center text-[7px] font-black">
+                                                        {(item.allocatedBy?.name || 'A').charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <span className="text-[9px] font-bold uppercase text-gray-400">{item.allocatedBy?.name || 'Authorized Staff'}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                        {item.billNumber && (
+                                            <button
+                                                type="button"
+                                                onClick={() => handleViewBookBill(item.billNumber)}
+                                                className={`flex items-center justify-center gap-1.5 w-full py-1.5 px-2 rounded text-[10px] font-black uppercase tracking-wider transition-all ${
+                                                    isDarkMode
+                                                        ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-500 hover:text-white border border-purple-500/30 shadow-sm'
+                                                        : 'bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200 shadow-sm'
+                                                }`}
+                                                title={`View Receipt ${item.billNumber}`}
+                                            >
+                                                <FaFileInvoice size={10} /> Receipt #{item.billNumber}
+                                            </button>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="py-8 text-center bg-transparent border border-dashed border-gray-800/40 rounded-lg flex flex-col items-center justify-center gap-3">
+                            <p className="text-gray-500 text-[10px] font-black uppercase tracking-[0.2em] italic flex items-center justify-center gap-2">
+                                <FaExclamationCircle size={12} /> No books or inventory items currently allotted to this board student
+                            </p>
+                            <button
+                                type="button"
+                                onClick={handleOpenBuyBookModal}
+                                disabled={admission?.studentId?.status === 'Deactivated'}
+                                className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${
+                                    admission?.studentId?.status === 'Deactivated'
+                                        ? 'opacity-40 cursor-not-allowed'
+                                        : (isDarkMode ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/40 shadow-sm' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-300 shadow-sm')
+                                }`}
+                            >
+                                <FaBook size={11} /> Buy Book Now
+                            </button>
+                        </div>
+                    )}
+                </div>
+            )}
+
             {/* Additional Fee Payment Modal */}
             {additionalFeePaymentModal && (
                 <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -2171,6 +2577,316 @@ const ManageBoardAdmission = () => {
                     fetchData(); // Refresh data using the existing fetchData function
                 }}
             />
+
+            {/* Buy Book Modal */}
+            {isBuyBookModalOpen && admission && (
+                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn">
+                    <div className={`relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-[6px] border shadow-2xl ${isDarkMode ? 'bg-[#181b1e] border-purple-900/40 text-white' : 'bg-white border-purple-200 text-gray-900'}`}>
+                        {/* Modal Header */}
+                        <div className={`sticky top-0 z-10 flex items-center justify-between p-4 sm:p-5 border-b backdrop-blur-md ${isDarkMode ? 'bg-[#181b1e]/95 border-gray-800' : 'bg-white/95 border-gray-100'}`}>
+                            <div className="flex items-center gap-3">
+                                <div className="p-2.5 sm:p-3 rounded-[6px] bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                    <FaBook size={20} />
+                                </div>
+                                <div>
+                                    <h3 className="text-base sm:text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                                        Buy Academic Books / Study Material
+                                    </h3>
+                                    <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mt-0.5">
+                                        Select Course &amp; Generate Official Bill Receipt
+                                    </p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setIsBuyBookModalOpen(false)}
+                                className={`p-2 rounded-[4px] transition-all ${isDarkMode ? 'hover:bg-gray-800 text-gray-400 hover:text-white' : 'hover:bg-gray-100 text-gray-500 hover:text-gray-900'}`}
+                            >
+                                <FaTimes size={16} />
+                            </button>
+                        </div>
+
+                        {/* Student Details Summary Bar */}
+                        <div className={`p-3 sm:p-4 border-b ${isDarkMode ? 'bg-purple-950/20 border-purple-900/30' : 'bg-purple-50/70 border-purple-100'}`}>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Student</span>
+                                    <span className="font-black text-purple-400 uppercase truncate block">
+                                        {admission.studentId?.studentsDetails?.[0]?.studentName || admission.studentName || "N/A"}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Admission No</span>
+                                    <span className={`font-bold uppercase truncate block ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {admission.admissionNumber || admission.studentId?.uid || "N/A"}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Centre</span>
+                                    <span className={`font-bold uppercase truncate block ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {admission.centre || admission.studentId?.studentsDetails?.[0]?.centre || "Main"}
+                                    </span>
+                                </div>
+                                <div>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block">Contact</span>
+                                    <span className={`font-bold truncate block ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {admission.studentId?.studentsDetails?.[0]?.mobileNum || admission.mobileNum || "N/A"}
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Form Body */}
+                        <form onSubmit={handleBuyBookSubmit} className="p-4 sm:p-6 space-y-4 sm:space-y-5">
+                            {/* Course Selection Dropdown */}
+                            <div>
+                                <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    Select Course <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={
+                                        buyBookForm.courseId === 'board_current'
+                                            ? 'board_current'
+                                            : buyBookForm.courseId
+                                                ? `course_${buyBookForm.courseId}`
+                                                : ''
+                                    }
+                                    onChange={handleSelectBuyBookCourse}
+                                    required
+                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
+                                        isDarkMode
+                                            ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                    }`}
+                                >
+                                    <option value="">-- Choose Course for Book Purchase --</option>
+                                    <optgroup label="Student's Enrolled Board Course">
+                                        <option value="board_current">
+                                            {getDynamicCourseName() || admission.boardCourseName || selectedBoard?.boardCourse || 'Board Course'} ({admission.academicSession || 'Active'})
+                                        </option>
+                                    </optgroup>
+                                    {masterCourses.length > 0 && (
+                                        <optgroup label="All Master Courses">
+                                            {masterCourses.map(course => (
+                                                <option key={course._id} value={`course_${course._id}`}>
+                                                    {course.courseName} {course.stream ? `(${course.stream})` : ''}
+                                                </option>
+                                            ))}
+                                        </optgroup>
+                                    )}
+                                </select>
+                                {buyBookForm.courseName && (
+                                    <p className="text-[10px] font-bold text-purple-400 mt-1 flex items-center gap-1.5">
+                                        <FaCheckCircle size={10} /> Selected Course: <span className="uppercase">{buyBookForm.courseName}</span>
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* Book Item Name */}
+                            <div>
+                                <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    Book / Material Description
+                                </label>
+                                <input
+                                    type="text"
+                                    value={buyBookForm.itemName}
+                                    onChange={(e) => setBuyBookForm({ ...buyBookForm, itemName: e.target.value })}
+                                    placeholder="e.g. Board Course Books Set"
+                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
+                                        isDarkMode
+                                            ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                    }`}
+                                />
+                            </div>
+
+                            {/* Amount & Discount Grid */}
+                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 items-end">
+                                <div>
+                                    <div className="flex items-center justify-between mb-1.5">
+                                        <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                            Course Amount (₹) <span className="text-red-500">*</span>
+                                        </label>
+                                        <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                                            isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-100 text-purple-700 border border-purple-200'
+                                        }`}>
+                                            <FaLock size={8} /> Auto-Fetched
+                                        </span>
+                                    </div>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">₹</span>
+                                        <input
+                                            type="text"
+                                            readOnly
+                                            disabled
+                                            value={buyBookForm.amount ? fmt(buyBookForm.amount) : "0.00"}
+                                            placeholder="0.00"
+                                            className={`w-full pl-7 pr-8 py-2.5 sm:py-3 rounded-[4px] border text-xs font-black cursor-not-allowed select-none ${
+                                                isDarkMode
+                                                    ? 'bg-black/40 border-gray-700/80 text-gray-200 shadow-inner'
+                                                    : 'bg-gray-100 border-gray-300 text-gray-800 shadow-inner'
+                                            }`}
+                                        />
+                                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" title="Locked to Course Amount">
+                                            <FaLock size={10} />
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        Discount (₹)
+                                    </label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-xs">₹</span>
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            step="any"
+                                            value={buyBookForm.discount}
+                                            onChange={(e) => setBuyBookForm({ ...buyBookForm, discount: e.target.value })}
+                                            placeholder="0.00"
+                                            className={`w-full pl-7 pr-3 py-2.5 sm:py-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
+                                                isDarkMode
+                                                    ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                            }`}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className={`p-2.5 sm:p-3 rounded-[4px] border flex flex-col justify-center ${isDarkMode ? 'bg-purple-950/30 border-purple-800/40' : 'bg-purple-50 border-purple-200'}`}>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-purple-400">Net Payable Amount</span>
+                                    <span className="text-base sm:text-lg font-black text-purple-500">
+                                        ₹{fmt(Math.max(0, (parseFloat(buyBookForm.amount) || 0) - (parseFloat(buyBookForm.discount) || 0)))}
+                                    </span>
+                                </div>
+                            </div>
+
+                            {/* Payment Method & Transaction Info */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                <div>
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        Payment Method <span className="text-red-500">*</span>
+                                    </label>
+                                    <select
+                                        value={buyBookForm.paymentMethod}
+                                        onChange={(e) => setBuyBookForm({ ...buyBookForm, paymentMethod: e.target.value })}
+                                        className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
+                                            isDarkMode
+                                                ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                                : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                        }`}
+                                    >
+                                        <option value="CASH">CASH</option>
+                                        <option value="UPI">UPI</option>
+                                        <option value="CARD">CARD</option>
+                                        <option value="BANK_TRANSFER">BANK TRANSFER / NET BANKING</option>
+                                        <option value="CHEQUE">CHEQUE</option>
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        Payment Date
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={buyBookForm.receivedDate}
+                                        onChange={(e) => setBuyBookForm({ ...buyBookForm, receivedDate: e.target.value })}
+                                        className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
+                                            isDarkMode
+                                                ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                                : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                        }`}
+                                    />
+                                </div>
+                            </div>
+
+                            {/* Transaction ID if online / cheque */}
+                            {buyBookForm.paymentMethod !== 'CASH' && (
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+                                    <div>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                            Transaction ID / Cheque No. <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            required
+                                            value={buyBookForm.transactionId}
+                                            onChange={(e) => setBuyBookForm({ ...buyBookForm, transactionId: e.target.value })}
+                                            placeholder="Enter Reference / UTR / Cheque No."
+                                            className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
+                                                isDarkMode
+                                                    ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                            }`}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                            Account Holder / Payer Name
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={buyBookForm.accountHolderName}
+                                            onChange={(e) => setBuyBookForm({ ...buyBookForm, accountHolderName: e.target.value })}
+                                            placeholder="Optional"
+                                            className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
+                                                isDarkMode
+                                                    ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                            }`}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Remarks */}
+                            <div>
+                                <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                    Remarks / Note
+                                </label>
+                                <input
+                                    type="text"
+                                    value={buyBookForm.remarks}
+                                    onChange={(e) => setBuyBookForm({ ...buyBookForm, remarks: e.target.value })}
+                                    placeholder="e.g. Study Kit / Material"
+                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
+                                        isDarkMode
+                                            ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                    }`}
+                                />
+                            </div>
+
+                            {/* Submit and Cancel Buttons */}
+                            <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-800">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsBuyBookModalOpen(false)}
+                                    disabled={submittingBuyBook}
+                                    className={`px-5 py-2.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${
+                                        isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                    }`}
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={submittingBuyBook}
+                                    className="px-6 py-2.5 rounded-[4px] bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-purple-600/30 transition-all flex items-center gap-2 disabled:opacity-50"
+                                >
+                                    {submittingBuyBook ? (
+                                        <><FaSync className="animate-spin" size={12} /> Generating Bill...</>
+                                    ) : (
+                                        <><FaFileInvoice size={12} /> Bought (Generate Bill)</>
+                                    )}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

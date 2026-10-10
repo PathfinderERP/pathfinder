@@ -21,6 +21,8 @@ router.post("/", protect, requireAnyGranularPermission([
     { module: "operations", section: "store", action: "create" },
     { module: "admissions", section: "enrolledStudents", action: "edit" },
     { module: "admissions", section: "enrolledStudents", action: "view" },
+    { module: "admissions", section: "boardCourseAdmission", action: "edit" },
+    { module: "admissions", section: "boardCourseAdmission", action: "view" },
     { module: "financeFees", section: "installmentPayment", action: "create" },
     { module: "financeFees", section: "billGeneration", action: "create" }
 ]), createAllocation);
@@ -28,6 +30,8 @@ router.post("/buy-book", protect, requireAnyGranularPermission([
     { module: "operations", section: "store", action: "create" },
     { module: "admissions", section: "enrolledStudents", action: "edit" },
     { module: "admissions", section: "enrolledStudents", action: "view" },
+    { module: "admissions", section: "boardCourseAdmission", action: "edit" },
+    { module: "admissions", section: "boardCourseAdmission", action: "view" },
     { module: "financeFees", section: "installmentPayment", action: "create" },
     { module: "financeFees", section: "billGeneration", action: "create" }
 ]), createAllocation);
