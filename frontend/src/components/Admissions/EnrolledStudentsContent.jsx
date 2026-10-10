@@ -4937,9 +4937,15 @@ const EnrolledStudentsContent = () => {
                                     }`}
                                 >
                                     <option value="">-- Choose Course for Book Purchase --</option>
-                                    {studentAdmissions.length > 0 && (
-                                        <optgroup label="Student's Enrolled Courses">
-                                            {studentAdmissions.map(adm => {
+                                    {studentAdmissions.filter(adm => {
+                                        const cName = resolveCourseName(adm);
+                                        return /vso|key to success/i.test(cName || "") || adm.course?.isBookCourse;
+                                    }).length > 0 && (
+                                        <optgroup label="Student's Enrolled Book Courses">
+                                            {studentAdmissions.filter(adm => {
+                                                const cName = resolveCourseName(adm);
+                                                return /vso|key to success/i.test(cName || "") || adm.course?.isBookCourse;
+                                            }).map(adm => {
                                                 const cName = resolveCourseName(adm);
                                                 return (
                                                     <option key={adm._id} value={`adm_${adm._id}`}>
@@ -4949,15 +4955,19 @@ const EnrolledStudentsContent = () => {
                                             })}
                                         </optgroup>
                                     )}
-                                    {masterCourses.length > 0 && (
-                                        <optgroup label="All Master Courses">
-                                            {masterCourses.map(course => (
-                                                <option key={course._id} value={`course_${course._id}`}>
-                                                    {course.courseName} {course.stream ? `(${course.stream})` : ''}
-                                                </option>
-                                            ))}
-                                        </optgroup>
-                                    )}
+                                    {masterCourses.length > 0 && (() => {
+                                        const bookMasterCourses = masterCourses.filter(c => c.isBookCourse === true || /vso|key to success/i.test(c.courseName || ""));
+                                        const displayCourses = bookMasterCourses.length > 0 ? bookMasterCourses : masterCourses;
+                                        return (
+                                            <optgroup label="Available Book Courses">
+                                                {displayCourses.map(course => (
+                                                    <option key={course._id} value={`course_${course._id}`}>
+                                                        {course.courseName} {course.stream ? `(${course.stream})` : ''}
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                        );
+                                    })()}
                                 </select>
                                 {buyBookForm.courseName && (
                                     <p className="text-[10px] font-bold text-purple-400 mt-1 flex items-center gap-1.5">

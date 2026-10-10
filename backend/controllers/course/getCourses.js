@@ -23,6 +23,9 @@ export const getCourses = async (req, res) => {
                 filter.isActive = false;
             }
         }
+        if (req.query.isBookCourse !== undefined) {
+            filter.isBookCourse = req.query.isBookCourse === "true";
+        }
         
         const courses = await Course.find(filter)
             .populate("examTag", "name")

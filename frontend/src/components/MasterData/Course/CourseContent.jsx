@@ -48,6 +48,7 @@ const CourseContent = () => {
         courseSession: [],
         programme: [],
         status: "",
+        bookOption: "",
         searchTerm: ""
     });
 
@@ -63,6 +64,7 @@ const CourseContent = () => {
         courseType: "",
         programme: "",
         isActive: true,
+        isBookCourse: false,
         feesStructure: [{ feesType: "", value: "", discount: "" }]
     });
 
@@ -136,6 +138,13 @@ const CourseContent = () => {
                 filtered = filtered.filter(c => c.isActive === false);
             }
         }
+        if (filters.bookOption) {
+            if (filters.bookOption === "bookOnly") {
+                filtered = filtered.filter(c => c.isBookCourse === true);
+            } else if (filters.bookOption === "regularOnly") {
+                filtered = filtered.filter(c => c.isBookCourse !== true);
+            }
+        }
         if (filters.searchTerm) {
             const searchLower = filters.searchTerm.toLowerCase();
             filtered = filtered.filter(c =>
@@ -166,6 +175,7 @@ const CourseContent = () => {
             courseSession: [],
             programme: [],
             status: "",
+            bookOption: "",
             searchTerm: ""
         });
     };
@@ -208,6 +218,7 @@ const CourseContent = () => {
                 courseType: course.courseType,
                 programme: course.programme,
                 isActive: course.isActive !== false,
+                isBookCourse: course.isBookCourse === true,
                 feesStructure: course.feesStructure.length > 0 ? course.feesStructure : [{ feesType: "", value: "", discount: "" }]
             });
         } else {
@@ -224,6 +235,7 @@ const CourseContent = () => {
                 courseType: "",
                 programme: "",
                 isActive: true,
+                isBookCourse: false,
                 feesStructure: [{ feesType: "", value: "", discount: "" }]
             });
         }
@@ -267,6 +279,31 @@ const CourseContent = () => {
             }
         } catch (err) {
             toast.error("Server error updating course status");
+        }
+    };
+
+    const handleToggleBookCourse = async (course, e) => {
+        if (e) e.stopPropagation();
+        const newStatus = course.isBookCourse ? false : true;
+        try {
+            const token = localStorage.getItem("token");
+            const response = await fetch(`${apiUrl}/course/${course._id}`, {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({ isBookCourse: newStatus })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                toast.success(`Course "${course.courseName}" ${newStatus ? 'marked for Book Purchase' : 'removed from Book Purchase'}`);
+                setCourses(prev => prev.map(c => c._id === course._id ? { ...c, isBookCourse: newStatus } : c));
+            } else {
+                toast.error(data.message || "Failed to update book option");
+            }
+        } catch (err) {
+            toast.error("Server error updating book option");
         }
     };
 
@@ -775,6 +812,18 @@ const CourseContent = () => {
                             <option value="deactive">Deactive</option>
                         </select>
                     </div>
+                    <div>
+                        <label className="block text-gray-400 mb-1 text-xs sm:text-sm">Book Option</label>
+                        <select
+                            value={filters.bookOption || ""}
+                            onChange={(e) => handleFilterChange('bookOption', e.target.value)}
+                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white text-xs sm:text-sm focus:outline-none focus:border-cyan-500"
+                        >
+                            <option value="">All Courses</option>
+                            <option value="bookOnly">Book Courses Only</option>
+                            <option value="regularOnly">Regular Courses Only</option>
+                        </select>
+                    </div>
                 </div>
                 <div className="mt-3 flex justify-end">
                     <button
@@ -805,11 +854,12 @@ const CourseContent = () => {
                                 )}
                             </th>
 
-                            <th className="p-4 border-b border-gray-700 w-[25%]">Course Information</th>
-                            <th className="p-4 border-b border-gray-700 w-[25%]">Other Details</th>
-                            <th className="p-4 border-b border-gray-700 w-[20%]">With GST(18%)</th>
-                            <th className="p-4 border-b border-gray-700 w-[15%]">Status</th>
-                            <th className="p-4 border-b border-gray-700 w-[15%]">Created By</th>
+                            <th className="p-4 border-b border-gray-700 w-[24%]">Course Information</th>
+                            <th className="p-4 border-b border-gray-700 w-[22%]">Other Details</th>
+                            <th className="p-4 border-b border-gray-700 w-[16%]">With GST(18%)</th>
+                            <th className="p-4 border-b border-gray-700 w-[12%]">Status</th>
+                            <th className="p-4 border-b border-gray-700 w-[12%]">Book Option</th>
+                            <th className="p-4 border-b border-gray-700 w-[14%]">Created By</th>
                             <th className="p-4 border-b border-gray-700 text-right">Actions</th>
                         </tr>
 
@@ -817,11 +867,11 @@ const CourseContent = () => {
                     <tbody>
                         {loading ? (
                             <tr>
-                                <td colSpan="3" className="p-4 text-center text-gray-500">Loading...</td>
+                                <td colSpan="7" className="p-4 text-center text-gray-500">Loading...</td>
                             </tr>
                         ) : filteredCourses.length === 0 ? (
                             <tr>
-                                <td colSpan="3" className="p-4 text-center text-gray-500">No courses found</td>
+                                <td colSpan="7" className="p-4 text-center text-gray-500">No courses found</td>
                             </tr>
                         ) : (
                             filteredCourses.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((course) => (
@@ -844,7 +894,14 @@ const CourseContent = () => {
 
                                     <td className="p-4">
                                         <div className="flex flex-col gap-2">
-                                            <div className="font-bold text-lg text-cyan-400 leading-tight">{course.courseName}</div>
+                                            <div className="flex items-center gap-2 flex-wrap">
+                                                <div className="font-bold text-lg text-cyan-400 leading-tight">{course.courseName}</div>
+                                                {course.isBookCourse && (
+                                                    <span className="bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[10px] font-bold px-2 py-0.5 rounded shadow-sm inline-flex items-center gap-1">
+                                                        📚 BOOK
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="flex flex-wrap gap-2 text-[10px]">
                                                 <span className="bg-gray-700/50 text-gray-300 px-2 py-0.5 rounded border border-gray-600">
                                                     {course.courseSession || "No Session"}
@@ -915,6 +972,21 @@ const CourseContent = () => {
                                         >
                                             <span className={`w-2 h-2 rounded-full ${course.isActive !== false ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'}`}></span>
                                             {course.isActive !== false ? "Active" : "Deactive"}
+                                        </button>
+                                    </td>
+
+                                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                                        <button
+                                            onClick={(e) => canEdit && handleToggleBookCourse(course, e)}
+                                            disabled={!canEdit}
+                                            className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border transition-all ${
+                                                course.isBookCourse
+                                                    ? 'bg-purple-500/20 text-purple-300 border-purple-500/40 hover:bg-purple-500/30 shadow-[0_0_8px_rgba(168,85,247,0.2)]'
+                                                    : 'bg-gray-800 text-gray-400 border-gray-700 hover:bg-gray-700/50'
+                                            } ${canEdit ? 'cursor-pointer' : 'cursor-not-allowed opacity-75'}`}
+                                            title={canEdit ? "Click to toggle Book Course status" : "Book Option"}
+                                        >
+                                            <span>{course.isBookCourse ? "📚 Book Course" : "Regular"}</span>
                                         </button>
                                     </td>
 
@@ -1000,7 +1072,7 @@ const CourseContent = () => {
                                         />
                                     </div>
                                     <div>
-                                        <div className="flex items-center gap-2 mb-1">
+                                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                                             <h3 className="text-sm sm:text-base font-bold text-white">{course.courseName}</h3>
                                             <button
                                                 onClick={(e) => canEdit && handleToggleStatus(course, e)}
@@ -1012,6 +1084,17 @@ const CourseContent = () => {
                                                 }`}
                                             >
                                                 {course.isActive !== false ? "Active" : "Deactive"}
+                                            </button>
+                                            <button
+                                                onClick={(e) => canEdit && handleToggleBookCourse(course, e)}
+                                                disabled={!canEdit}
+                                                className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                                                    course.isBookCourse
+                                                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                                                        : 'bg-gray-800 text-gray-400 border-gray-700'
+                                                }`}
+                                            >
+                                                {course.isBookCourse ? "📚 Book Course" : "Regular"}
                                             </button>
                                         </div>
                                         <p className="text-xs text-gray-400">{course.department?.departmentName || "-"}</p>
@@ -1288,6 +1371,18 @@ const CourseContent = () => {
                                         >
                                             <option value="true">Active</option>
                                             <option value="false">Deactive</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-gray-400 mb-1 text-sm">Available for Book Purchase</label>
+                                        <select
+                                            name="isBookCourse"
+                                            value={formData.isBookCourse ? "true" : "false"}
+                                            onChange={(e) => setFormData({ ...formData, isBookCourse: e.target.value === "true" })}
+                                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-2 text-white focus:outline-none focus:border-cyan-500"
+                                        >
+                                            <option value="false">No (Regular Academic Course)</option>
+                                            <option value="true">Yes (Book Course / Available for Book Purchase)</option>
                                         </select>
                                     </div>
                                 </div>

@@ -212,6 +212,14 @@ const BooksEx = () => {
         }));
     };
 
+    // Filter only courses designated for Book Purchase (or VSO / Key To Success)
+    const bookCourses = useMemo(() => {
+        return courses.filter(c => {
+            if (c.isBookCourse === true) return true;
+            return /vso|key to success/i.test(c.courseName || "");
+        });
+    }, [courses]);
+
     // Calculate Net Amount Live
     const grossAmount = parseFloat(form.amount) || 0;
     const discountAmount = Math.max(0, Math.min(grossAmount, parseFloat(form.discount) || 0));
@@ -1025,8 +1033,8 @@ const BooksEx = () => {
                                                     : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
                                             }`}
                                         >
-                                            <option value="">-- Choose Course for External Book Purchase --</option>
-                                            {courses.map(c => (
+                                            <option value="">-- Choose Course for Book Purchase ({bookCourses.length} available) --</option>
+                                            {bookCourses.map(c => (
                                                 <option key={c._id} value={c._id}>
                                                     {c.courseName} {c.stream ? `(${c.stream})` : ''} - ₹{fmt(resolveCourseAmount(c))}
                                                 </option>

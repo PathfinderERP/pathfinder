@@ -825,21 +825,41 @@ const ManageBoardAdmission = () => {
 
     const handleOpenBuyBookModal = () => {
         if (!admission) return;
-        const dynamicName = getDynamicCourseName() || admission.boardCourseName || selectedBoard?.boardCourse || 'Board Course';
-        const defaultAmount = resolveCourseAmount(admission);
+        const currentCourseName = getDynamicCourseName() || admission.boardCourseName || selectedBoard?.boardCourse || '';
+        const isCurrentBook = /vso|key to success/i.test(currentCourseName) || admission?.isBookCourse;
+
+        const bookCourses = (masterCourses || []).filter(c => c.isBookCourse === true || /vso|key to success/i.test(c.courseName || ""));
+
+        let defCourseId = '';
+        let defCourseName = '';
+        let defAdmId = '';
+        let defAmount = 0;
+
+        if (isCurrentBook) {
+            defCourseId = 'board_current';
+            defCourseName = currentCourseName;
+            defAdmId = admission._id;
+            defAmount = resolveCourseAmount(admission);
+        } else if (bookCourses.length > 0) {
+            defCourseId = bookCourses[0]._id;
+            defCourseName = bookCourses[0].courseName;
+            defAmount = resolveCourseAmount(bookCourses[0], bookCourses[0]._id);
+        } else {
+            defCourseName = currentCourseName;
+        }
 
         setBuyBookForm({
-            courseId: 'board_current',
-            courseName: dynamicName,
-            admissionId: admission._id,
-            itemName: `${dynamicName} - Books`,
-            amount: defaultAmount > 0 ? defaultAmount : '',
+            courseId: defCourseId,
+            courseName: defCourseName,
+            admissionId: defAdmId,
+            itemName: defCourseName ? `${defCourseName} - Books` : 'Academic Books / Study Material',
+            amount: defAmount > 0 ? defAmount : '',
             discount: '',
             paymentMethod: 'CASH',
             transactionId: '',
             accountHolderName: '',
             receivedDate: new Date().toISOString().split('T')[0],
-            remarks: `Book Purchase - ${dynamicName}`
+            remarks: defCourseName ? `Book Purchase - ${defCourseName}` : 'Book Purchase'
         });
         setIsBuyBookModalOpen(true);
     };
@@ -2659,20 +2679,30 @@ const ManageBoardAdmission = () => {
                                     }`}
                                 >
                                     <option value="">-- Choose Course for Book Purchase --</option>
-                                    <optgroup label="Student's Enrolled Board Course">
-                                        <option value="board_current">
-                                            {getDynamicCourseName() || admission.boardCourseName || selectedBoard?.boardCourse || 'Board Course'} ({admission.academicSession || 'Active'})
-                                        </option>
-                                    </optgroup>
-                                    {masterCourses.length > 0 && (
-                                        <optgroup label="All Master Courses">
-                                            {masterCourses.map(course => (
-                                                <option key={course._id} value={`course_${course._id}`}>
-                                                    {course.courseName} {course.stream ? `(${course.stream})` : ''}
+                                    {(() => {
+                                        const currentCourseName = getDynamicCourseName() || admission.boardCourseName || selectedBoard?.boardCourse || '';
+                                        const isCurrentBook = /vso|key to success/i.test(currentCourseName) || admission?.isBookCourse;
+                                        return isCurrentBook ? (
+                                            <optgroup label="Student's Enrolled Board Course">
+                                                <option value="board_current">
+                                                    {currentCourseName} ({admission.academicSession || 'Active'})
                                                 </option>
-                                            ))}
-                                        </optgroup>
-                                    )}
+                                            </optgroup>
+                                        ) : null;
+                                    })()}
+                                    {masterCourses.length > 0 && (() => {
+                                        const bookMasterCourses = masterCourses.filter(c => c.isBookCourse === true || /vso|key to success/i.test(c.courseName || ""));
+                                        const displayCourses = bookMasterCourses.length > 0 ? bookMasterCourses : masterCourses;
+                                        return (
+                                            <optgroup label="Available Book Courses">
+                                                {displayCourses.map(course => (
+                                                    <option key={course._id} value={`course_${course._id}`}>
+                                                        {course.courseName} {course.stream ? `(${course.stream})` : ''}
+                                                    </option>
+                                                ))}
+                                            </optgroup>
+                                        );
+                                    })()}
                                 </select>
                                 {buyBookForm.courseName && (
                                     <p className="text-[10px] font-bold text-purple-400 mt-1 flex items-center gap-1.5">

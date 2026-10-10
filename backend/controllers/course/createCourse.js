@@ -36,6 +36,7 @@ export const createCourse = async (req, res) => {
             courseType: courseType && courseType !== "" ? courseType : undefined,
             programme: programme && programme !== "" ? programme : undefined,
             isActive: isActive !== undefined ? isActive : true,
+            isBookCourse: req.body.isBookCourse === true || req.body.isBookCourse === "true",
             createdBy: req.user?._id
         };
 
