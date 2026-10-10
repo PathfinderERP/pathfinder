@@ -10,6 +10,7 @@ import BoardsSchema from "../../models/Master_data/Boards.js";
 import SessionSchema from "../../models/Master_data/Session.js";
 import ExamTagSchema from "../../models/Master_data/ExamTag.js";
 import InventoryMaster from "../../models/Master_data/Inventory.js";
+import Course from "../../models/Master_data/Courses.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
 
 // Fast Store Overview: aggregates active centres, active student counts, item allocations, master filters & global stats
@@ -569,6 +570,8 @@ export const createAllocation = async (req, res) => {
         const { 
             studentId, 
             admissionId, 
+            courseId,
+            courseName,
             items, 
             centreName,
             paymentMethod = 'CASH',
@@ -588,6 +591,36 @@ export const createAllocation = async (req, res) => {
         const profile = await resolveStudentAcademicDetails(studentId, admissionId, studentDetails);
         const targetCentreName = centreName || profile.studentInfo?.centre || 'MAIN';
         const finalAdmissionId = profile.finalAdmissionId;
+
+        // Resolve chosen Course Name, Department, Class, Exam Tag & Session
+        let resolvedCourseName = courseName || null;
+        let resolvedDepartment = profile.resolvedDepartment;
+        let resolvedExamTag = profile.resolvedExamTag;
+        let resolvedClass = profile.resolvedClass;
+        let resolvedSession = profile.resolvedSession;
+
+        if (courseId) {
+            try {
+                const courseDoc = await Course.findById(courseId)
+                    .populate('department', 'departmentName')
+                    .populate('class', 'name')
+                    .populate('examTag', 'name')
+                    .lean();
+                if (courseDoc) {
+                    resolvedCourseName = resolvedCourseName || courseDoc.courseName;
+                    resolvedDepartment = courseDoc.department?.departmentName || resolvedDepartment;
+                    resolvedExamTag = courseDoc.examTag?.name || resolvedExamTag;
+                    resolvedClass = courseDoc.class?.name || resolvedClass;
+                    resolvedSession = courseDoc.courseSession || resolvedSession;
+                }
+            } catch (cErr) {
+                console.warn("Course lookup warning in createAllocation:", cErr.message);
+            }
+        }
+
+        if (!resolvedCourseName) {
+            resolvedCourseName = items.map(i => `${i.itemName} (x${i.quantity || 1})`).join(', ');
+        }
 
         const hasPaidItems = items.some(i => i.itemType === 'Paid' || Number(i.price) > 0);
         let billNumber = null;
@@ -645,8 +678,8 @@ export const createAllocation = async (req, res) => {
                 transactionId: transactionId || '',
                 accountHolderName: accountHolderName || '',
                 remarks: remarks || (discountNum > 0 
-                    ? `Inventory Store Allotment - Gross: Rs. ${grossAmountNum} | Discount: Rs. ${discountNum} | Net: Rs. ${totalAmountNum}` 
-                    : `Inventory Store Allotment - ${profile.studentInfo?.studentName || ''}`),
+                    ? `Book / Store Allotment - ${resolvedCourseName} | Gross: Rs. ${grossAmountNum} | Discount: Rs. ${discountNum} | Net: Rs. ${totalAmountNum}` 
+                    : `Book / Store Allotment - ${resolvedCourseName} - ${profile.studentInfo?.studentName || ''}`),
                 recordedBy: req.user?.id || req.user?._id,
                 cgst,
                 sgst,
@@ -654,7 +687,7 @@ export const createAllocation = async (req, res) => {
                 totalAmount: totalAmountNum,
                 billId: billNumber,
                 centre: centreDoc?.centreName || targetCentreName,
-                boardCourseName: items.map(i => `${i.itemName} (x${i.quantity || 1})`).join(', ')
+                boardCourseName: resolvedCourseName
             });
 
             await paymentRecord.save();
@@ -675,14 +708,15 @@ export const createAllocation = async (req, res) => {
                     name: profile.studentInfo?.studentName || 'N/A',
                     admissionNumber: profile.admissionNumber,
                     phoneNumber: profile.studentInfo?.mobileNum || profile.studentInfo?.whatsappNumber || 'N/A',
-                    email: profile.studentInfo?.studentEmail || 'N/A'
+                    email: profile.studentInfo?.studentEmail || 'N/A',
+                    fatherName: profile.studentDoc?.guardians?.[0]?.guardianName || profile.studentInfo?.fatherName || 'N/A'
                 },
                 course: {
-                    name: items.map(i => `${i.itemName} (x${i.quantity || 1})`).join(', '),
-                    department: profile.resolvedDepartment,
-                    examTag: profile.resolvedExamTag,
-                    class: profile.resolvedClass,
-                    session: profile.resolvedSession
+                    name: resolvedCourseName,
+                    department: resolvedDepartment || profile.resolvedDepartment,
+                    examTag: resolvedExamTag || profile.resolvedExamTag,
+                    class: resolvedClass || profile.resolvedClass,
+                    session: resolvedSession || profile.resolvedSession
                 },
                 payment: {
                     installmentNumber: 0,
@@ -692,7 +726,7 @@ export const createAllocation = async (req, res) => {
                     paidDate: paymentDate,
                     receivedDate: paymentDate,
                     status: 'PAID',
-                    remarks: remarks || `Inventory Store Allotment - Total: Rs. ${totalAmountNum}`
+                    remarks: remarks || `Book / Store Allotment - ${resolvedCourseName} - Total: Rs. ${totalAmountNum}`
                 },
                 amounts: {
                     grossFee: grossAmountNum,
@@ -726,10 +760,10 @@ export const createAllocation = async (req, res) => {
             totalAmount: totalAmountNum,
             payment: paymentRecord ? paymentRecord._id : null,
             paymentMethod: hasPaidItems ? (paymentMethod || 'CASH') : null,
-            session: profile.resolvedSession,
-            className: profile.resolvedClass,
-            departmentName: profile.resolvedDepartment,
-            examTagName: profile.resolvedExamTag,
+            session: resolvedSession || profile.resolvedSession,
+            className: resolvedClass || profile.resolvedClass,
+            departmentName: resolvedDepartment || profile.resolvedDepartment,
+            examTagName: resolvedExamTag || profile.resolvedExamTag,
             boardName: profile.resolvedBoard,
             items: mappedItems,
             allocatedBy: req.user._id,
@@ -1099,7 +1133,7 @@ export const getBillDetailsByBillId = async (req, res) => {
             ? parseFloat(Number(payment.sgst).toFixed(2))
             : (totalAmountNum > 0 ? parseFloat((totalAmountNum - courseFee - cgst).toFixed(2)) : 0);
 
-        const itemNames = allocation?.items?.map(i => `${i.itemName} (x${i.quantity || 1})`).join(', ') || payment?.boardCourseName || 'Inventory Store Items';
+        const itemNames = payment?.boardCourseName || allocation?.items?.map(i => `${i.itemName} (x${i.quantity || 1})`).join(', ') || 'Inventory Store Items';
 
         const billData = {
             billId: billId,
