@@ -82,13 +82,6 @@ import TeamPerformance from "./pages/TeamPerformance";
 import CentrePerformance from "./pages/CentrePerformance";
 import B2BComparison from "./pages/B2BComparison";
 import UploadLeads from "./pages/LeadManagement/UploadLeads";
-// import SystemLogs from "./pages/Admin/SystemLogs";
-
-// ... [existing imports]
-
-// Master Data Routes
-// ... [existing routes]
-// ... (removed misplaced routes)
 import CarryForward from "./pages/CarryForward";
 import Tasks from "./pages/TaskWorkflow/Tasks";
 import AssignTask from "./pages/TaskWorkflow/AssignTask";
@@ -212,6 +205,7 @@ import PNTSEAllStudents from "./pages/PNTSE/PNTSEAllStudents";
 import PNTSEAddStudent from "./pages/PNTSE/PNTSEAddStudent";
 import PMOAllStudents from "./pages/PMO/PMOAllStudents";
 import PMOAddStudent from "./pages/PMO/PMOAddStudent";
+import BooksEx from "./pages/BooksEx";
 
 function App() {
   return (
@@ -425,6 +419,10 @@ function App() {
         {/* PMO Routes */}
         <Route path="/pmo/all-students" element={<ProtectedRoute><PMOAllStudents /></ProtectedRoute>} />
         <Route path="/pmo/add-student" element={<ProtectedRoute><PMOAddStudent /></ProtectedRoute>} />
+
+        {/* BOOKS EX Routes */}
+        <Route path="/books-ex" element={<ProtectedRoute><BooksEx /></ProtectedRoute>} />
+        <Route path="/admissions/books-ex" element={<ProtectedRoute><BooksEx /></ProtectedRoute>} />
 
         <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
         {/* <Route path="/system-logs" element={<ProtectedRoute><SystemLogs /></ProtectedRoute>} /> */}

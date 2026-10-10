@@ -507,7 +507,10 @@ export const resolveStudentAcademicDetails = async (studentId, admissionId = nul
                         admissionDoc?.course?.class?.name ||
                         studentDoc?.course?.class?.name ||
                         studentDoc?.examSchema?.[0]?.class || 
+                        studentInfo.lastClass ||
                         studentInfo.class || 
+                        clientDetails?.class ||
+                        clientDetails?.lastClass ||
                         "N/A";
     }
 
@@ -567,7 +570,7 @@ export const resolveStudentAcademicDetails = async (studentId, admissionId = nul
 // Create new allocation for single student
 export const createAllocation = async (req, res) => {
     try {
-        const { 
+        let { 
             studentId, 
             admissionId, 
             courseId,
@@ -581,11 +584,70 @@ export const createAllocation = async (req, res) => {
             remarks = '',
             discount = 0,
             waiver = 0,
-            studentDetails = {}
+            studentDetails = {},
+            isExternal = false
         } = req.body;
 
-        if (!studentId || !items || items.length === 0) {
-            return res.status(400).json({ message: "Missing required fields" });
+        if (!items || items.length === 0) {
+            return res.status(400).json({ message: "No items selected for purchase" });
+        }
+
+        // Support External Student book purchase (when studentId is not given or isExternal is true)
+        if (!studentId && (studentDetails?.studentName || req.body.studentName)) {
+            const sName = (studentDetails?.studentName || req.body.studentName || "").trim();
+            const sMobile = (studentDetails?.mobileNum || req.body.mobileNum || "").toString().trim();
+            const sEmail = (studentDetails?.studentEmail || studentDetails?.email || req.body.email || "").trim();
+            const sClass = studentDetails?.class || req.body.class || "";
+            const targetCentre = centreName || "MAIN";
+
+            if (!sName || !sMobile) {
+                return res.status(400).json({ message: "Student Name and Mobile Number are required for external book purchase." });
+            }
+
+            // Find existing student by mobile or create a new external student
+            let targetStudent = await Student.findOne({
+                $or: [
+                    { "studentsDetails.mobileNum": sMobile },
+                    { "studentsDetails.whatsappNumber": sMobile }
+                ]
+            });
+
+            if (!targetStudent) {
+                targetStudent = new Student({
+                    studentsDetails: [{
+                        studentName: sName,
+                        mobileNum: sMobile,
+                        whatsappNumber: sMobile,
+                        studentEmail: sEmail,
+                        centre: targetCentre,
+                        lastClass: sClass,
+                        studentType: "External",
+                        admissionNo: `EXT-${Date.now().toString().slice(-6)}`
+                    }],
+                    isEnrolled: false,
+                    studentType: "External",
+                    createdBy: req.user?.name || "System",
+                    updatedBy: req.user?.name || "System"
+                });
+                await targetStudent.save();
+            }
+            studentId = targetStudent._id;
+            isExternal = true;
+            studentDetails = {
+                studentName: sName,
+                mobileNum: sMobile,
+                whatsappNumber: sMobile,
+                email: sEmail,
+                studentEmail: sEmail,
+                class: sClass,
+                lastClass: sClass,
+                centre: targetCentre,
+                admissionNumber: targetStudent.studentsDetails?.[0]?.admissionNo || `EXT-${Date.now().toString().slice(-6)}`
+            };
+        }
+
+        if (!studentId) {
+            return res.status(400).json({ message: "Student information is required" });
         }
 
         const profile = await resolveStudentAcademicDetails(studentId, admissionId, studentDetails);
@@ -705,10 +767,10 @@ export const createAllocation = async (req, res) => {
                 },
                 student: {
                     id: studentId,
-                    name: profile.studentInfo?.studentName || 'N/A',
-                    admissionNumber: profile.admissionNumber,
-                    phoneNumber: profile.studentInfo?.mobileNum || profile.studentInfo?.whatsappNumber || 'N/A',
-                    email: profile.studentInfo?.studentEmail || 'N/A',
+                    name: profile.studentInfo?.studentName || studentDetails?.studentName || req.body.studentName || 'N/A',
+                    admissionNumber: profile.admissionNumber && profile.admissionNumber !== 'N/A' ? profile.admissionNumber : (studentDetails?.admissionNumber || 'EXTERNAL'),
+                    phoneNumber: profile.studentInfo?.mobileNum || profile.studentInfo?.whatsappNumber || studentDetails?.mobileNum || req.body.mobileNum || 'N/A',
+                    email: profile.studentInfo?.studentEmail || studentDetails?.studentEmail || studentDetails?.email || req.body.email || 'N/A',
                     fatherName: profile.studentDoc?.guardians?.[0]?.guardianName || profile.studentInfo?.fatherName || 'N/A'
                 },
                 course: {
@@ -755,6 +817,7 @@ export const createAllocation = async (req, res) => {
             centreCode: targetCentreCode,
             billNumber,
             hasPaidItems,
+            isExternal: Boolean(isExternal),
             grossAmount: grossAmountNum,
             discount: discountNum,
             totalAmount: totalAmountNum,
@@ -766,7 +829,7 @@ export const createAllocation = async (req, res) => {
             examTagName: resolvedExamTag || profile.resolvedExamTag,
             boardName: profile.resolvedBoard,
             items: mappedItems,
-            allocatedBy: req.user._id,
+            allocatedBy: req.user?._id || req.user?.id || null,
             allocationDate: paymentDate
         });
 
@@ -780,7 +843,7 @@ export const createAllocation = async (req, res) => {
                         itemType: (item.itemType === 'Paid' || Number(item.price) > 0) ? 'Paid' : 'Free',
                         price: Number(item.price) || 0,
                         billNumber,
-                        allocatedBy: req.user._id,
+                        allocatedBy: req.user?._id || req.user?.id || null,
                         allocationDate: paymentDate
                     }))
                 }
@@ -1188,5 +1251,34 @@ export const getBillDetailsByBillId = async (req, res) => {
     } catch (error) {
         console.error("Get Bill Details Error:", error);
         res.status(500).json({ message: "Server error getting bill details", error: error.message });
+    }
+};
+
+// Get all External Book purchases
+export const getExternalBookAllocations = async (req, res) => {
+    try {
+        const allocations = await Allocation.find({
+            $or: [
+                { isExternal: true },
+                { admission: null }
+            ]
+        })
+        .populate({
+            path: 'student',
+            select: 'studentsDetails uid'
+        })
+        .populate('payment')
+        .populate('allocatedBy', 'name')
+        .sort({ createdAt: -1 })
+        .limit(300)
+        .lean();
+
+        res.status(200).json({
+            success: true,
+            allocations: allocations || []
+        });
+    } catch (err) {
+        console.error("Error fetching external allocations:", err);
+        res.status(500).json({ message: "Failed to fetch external book purchases", error: err.message });
     }
 };

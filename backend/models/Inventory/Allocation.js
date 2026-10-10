@@ -54,6 +54,10 @@ const AllocationSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
+    isExternal: {
+        type: Boolean,
+        default: false
+    },
     grossAmount: {
         type: Number,
         default: 0

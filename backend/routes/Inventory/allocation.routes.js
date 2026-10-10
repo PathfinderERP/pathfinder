@@ -6,7 +6,8 @@ import {
     getAllAllocations,
     getStoreOverview,
     getCentreStudents,
-    getBillDetailsByBillId
+    getBillDetailsByBillId,
+    getExternalBookAllocations
 } from "../../controllers/Inventory/allocationController.js";
 import protect from "../../middleware/authMiddleware.js";
 import { requireGranularPermission, requireAnyGranularPermission } from "../../middleware/permissionMiddleware.js";
@@ -17,6 +18,7 @@ router.get("/overview", protect, requireGranularPermission("operations", "store"
 router.get("/centre-students", protect, requireGranularPermission("operations", "store", "view"), getCentreStudents);
 router.get("/bill", protect, getBillDetailsByBillId);
 router.get("/bill/:billId", protect, getBillDetailsByBillId);
+router.get("/external", protect, getExternalBookAllocations);
 router.post("/", protect, requireAnyGranularPermission([
     { module: "operations", section: "store", action: "create" },
     { module: "admissions", section: "enrolledStudents", action: "edit" },

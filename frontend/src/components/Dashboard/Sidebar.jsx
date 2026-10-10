@@ -220,6 +220,11 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                         { name: "Add Student", path: "/pmo/add-student", permissionSection: "addStudent" },
                     ]
                 },
+                {
+                    name: "BOOKS EX",
+                    icon: <FaBook />,
+                    path: "/books-ex"
+                },
             ]
         },
         {
