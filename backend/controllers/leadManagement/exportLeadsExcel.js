@@ -43,16 +43,24 @@ export const exportLeadsExcel = async (req, res) => {
             .populate('createdBy', 'name')
             .sort(sortOption);
 
-        // Prepare data for Excel matching the exact columns in the UI table
+        const isUploadedSource = (lead) =>
+            lead.isBulkUpload === true ||
+            (lead.campaign != null) ||
+            (lead.campaignFrom && lead.campaignFrom !== "") ||
+            /bulk|import|excel|campaign|facebook|meta|google|ad|online|landing|upload/i.test(lead.source || "");
+
+        // Prepare data for Excel matching the exact columns in the UI table plus Entry Mode
         const data = leads.map((lead, index) => {
             const lastFollowUp = lead.followUps && lead.followUps.length > 0
                 ? lead.followUps[lead.followUps.length - 1]
                 : null;
 
             const effectiveAssignedAt = lead.assignedAt || lead.createdAt;
+            const entryMode = isUploadedSource(lead) ? "Uploaded from Excel" : "Manual Entry";
 
             return {
                 "Sl No.": index + 1,
+                "Entry Mode": entryMode,
                 "Assigned At": effectiveAssignedAt
                     ? `${new Date(effectiveAssignedAt).toLocaleDateString('en-GB')} ${new Date(effectiveAssignedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
                     : "N/A",
@@ -89,6 +97,20 @@ export const exportLeadsExcel = async (req, res) => {
 
         const wb = XLSX.utils.book_new();
         const ws = XLSX.utils.json_to_sheet(data);
+
+        // Auto-fit column widths
+        if (data.length > 0) {
+            ws['!cols'] = Object.keys(data[0]).map(key => {
+                let maxLen = key.length;
+                for (let i = 0; i < Math.min(data.length, 100); i++) {
+                    const val = data[i][key];
+                    const len = val !== null && val !== undefined ? String(val).length : 0;
+                    if (len > maxLen) maxLen = len;
+                }
+                return { wch: Math.min(Math.max(maxLen + 3, 10), 40) };
+            });
+        }
+
         XLSX.utils.book_append_sheet(wb, ws, "Leads");
 
         const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
