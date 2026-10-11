@@ -31,7 +31,8 @@ const fmt = (num) => {
 };
 
 const BooksEx = () => {
-    const { isDarkMode } = useTheme();
+    const { theme, isDarkMode: isDarkFromCtx } = useTheme();
+    const isDarkMode = isDarkFromCtx !== undefined ? isDarkFromCtx : theme === "dark";
     const apiUrl = import.meta.env.VITE_API_URL;
     const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
 
@@ -469,25 +470,27 @@ const BooksEx = () => {
 
     return (
         <Layout activePage="Admissions">
-            <div className={`p-4 sm:p-6 space-y-6 min-h-screen ${isDarkMode ? 'bg-[#131619] text-gray-100' : 'bg-gray-50 text-gray-800'}`}>
+            <div className={`p-4 sm:p-6 space-y-6 min-h-screen ${isDarkMode ? 'bg-[#131619] text-gray-100' : 'bg-gray-50 text-slate-800'}`}>
                 <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "light"} />
 
                 {/* ── Top Header Banner ── */}
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-gray-700/40">
+                <div className={`flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                     <div className="flex items-center gap-3.5">
                         <div className="p-3 bg-gradient-to-br from-purple-600 to-indigo-700 text-white rounded-xl shadow-lg shadow-purple-600/30 flex items-center justify-center">
                             <FaBookOpen size={24} />
                         </div>
                         <div>
                             <div className="flex items-center gap-2">
-                                <h1 className="text-xl sm:text-2xl font-black uppercase tracking-tight">
+                                <h1 className={`text-xl sm:text-2xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                                     BOOKS EX
                                 </h1>
-                                <span className="px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${
+                                    isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-100 text-purple-700 border border-purple-300'
+                                }`}>
                                     External Student Purchases
                                 </span>
                             </div>
-                            <p className="text-xs text-gray-400 font-medium mt-0.5">
+                            <p className={`text-xs font-medium mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>
                                 Buy academic books &amp; study material for external students with automatic sequential billing
                             </p>
                         </div>
@@ -504,7 +507,7 @@ const BooksEx = () => {
                             }`}
                             title="Refresh Records"
                         >
-                            <FaSync className={loadingAllocations ? 'animate-spin text-purple-400' : ''} size={13} />
+                            <FaSync className={loadingAllocations ? 'animate-spin text-purple-500' : ''} size={13} />
                             <span className="hidden sm:inline">Refresh</span>
                         </button>
 
@@ -522,54 +525,54 @@ const BooksEx = () => {
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                     <div className={`p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#181b1e] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Purchases</span>
-                            <div className="p-2 rounded-lg bg-blue-500/10 text-blue-400">
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>Total Purchases</span>
+                            <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600 border border-blue-200'}`}>
                                 <FaReceipt size={14} />
                             </div>
                         </div>
-                        <p className="text-xl sm:text-2xl font-black mt-2 text-blue-400">
+                        <p className={`text-xl sm:text-2xl font-black mt-2 ${isDarkMode ? 'text-blue-400' : 'text-blue-600'}`}>
                             {metrics.totalCount}
                         </p>
-                        <span className="text-[10px] text-gray-500 font-bold">External Book Allotments</span>
+                        <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-slate-500'}`}>External Book Allotments</span>
                     </div>
 
                     <div className={`p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#181b1e] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Net Collections</span>
-                            <div className="p-2 rounded-lg bg-emerald-500/10 text-emerald-400">
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>Net Collections</span>
+                            <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-emerald-500/10 text-emerald-400' : 'bg-emerald-50 text-emerald-600 border border-emerald-200'}`}>
                                 <FaMoneyBillWave size={14} />
                             </div>
                         </div>
-                        <p className="text-xl sm:text-2xl font-black mt-2 text-emerald-400">
+                        <p className={`text-xl sm:text-2xl font-black mt-2 ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
                             ₹{fmt(metrics.totalRevenue)}
                         </p>
-                        <span className="text-[10px] text-gray-500 font-bold">Total Collected Revenue</span>
+                        <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-slate-500'}`}>Total Collected Revenue</span>
                     </div>
 
                     <div className={`p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#181b1e] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Total Discounts</span>
-                            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-400">
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>Total Discounts</span>
+                            <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-amber-500/10 text-amber-400' : 'bg-amber-50 text-amber-600 border border-amber-200'}`}>
                                 <FaFilter size={14} />
                             </div>
                         </div>
-                        <p className="text-xl sm:text-2xl font-black mt-2 text-amber-400">
+                        <p className={`text-xl sm:text-2xl font-black mt-2 ${isDarkMode ? 'text-amber-400' : 'text-amber-600'}`}>
                             ₹{fmt(metrics.totalDiscount)}
                         </p>
-                        <span className="text-[10px] text-gray-500 font-bold">Concessions / Waivers Given</span>
+                        <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-slate-500'}`}>Concessions / Waivers Given</span>
                     </div>
 
                     <div className={`p-4 rounded-xl border transition-all ${isDarkMode ? 'bg-[#181b1e] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
                         <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-400">Today's Collections</span>
-                            <div className="p-2 rounded-lg bg-purple-500/10 text-purple-400">
+                            <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>Today's Collections</span>
+                            <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-50 text-purple-600 border border-purple-200'}`}>
                                 <FaCalendarCheckIcon size={14} />
                             </div>
                         </div>
-                        <p className="text-xl sm:text-2xl font-black mt-2 text-purple-400">
+                        <p className={`text-xl sm:text-2xl font-black mt-2 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
                             ₹{fmt(metrics.todayRevenue)}
                         </p>
-                        <span className="text-[10px] text-gray-500 font-bold">Collected Today</span>
+                        <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-500' : 'text-slate-500'}`}>Collected Today</span>
                     </div>
                 </div>
 
@@ -578,7 +581,7 @@ const BooksEx = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3">
                         {/* Search Input */}
                         <div className="md:col-span-2 relative">
-                            <FaSearch className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={13} />
+                            <FaSearch className={`absolute left-3.5 top-1/2 -translate-y-1/2 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`} size={13} />
                             <input
                                 type="text"
                                 value={searchTerm}
@@ -586,8 +589,8 @@ const BooksEx = () => {
                                 placeholder="Search by Student Name, Mobile, Bill No..."
                                 className={`w-full pl-9 pr-3 py-2 text-xs font-semibold rounded-lg border outline-none transition-all ${
                                     isDarkMode 
-                                        ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                        : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-purple-500'
+                                        ? 'bg-[#131619] border-gray-700 text-white placeholder:text-gray-500 focus:border-purple-500' 
+                                        : 'bg-white border-gray-300 text-gray-900 placeholder:text-gray-400 focus:border-purple-500 shadow-sm'
                                 }`}
                             />
                         </div>
@@ -600,7 +603,7 @@ const BooksEx = () => {
                                 className={`w-full p-2 text-xs font-bold rounded-lg border outline-none transition-all ${
                                     isDarkMode 
                                         ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                        : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-purple-500'
+                                        : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                 }`}
                             >
                                 <option value="ALL">All Centres / Branches</option>
@@ -618,7 +621,7 @@ const BooksEx = () => {
                                 className={`w-full p-2 text-xs font-bold rounded-lg border outline-none transition-all ${
                                     isDarkMode 
                                         ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                        : 'bg-gray-50 border-gray-300 text-gray-900 focus:border-purple-500'
+                                        : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                 }`}
                             >
                                 <option value="ALL">All Payment Methods</option>
@@ -643,7 +646,7 @@ const BooksEx = () => {
                                 className={`w-full py-2 px-3 text-xs font-black uppercase tracking-wider rounded-lg border transition-all ${
                                     isDarkMode 
                                         ? 'bg-gray-800 border-gray-700 text-gray-400 hover:bg-gray-700 hover:text-white' 
-                                        : 'bg-gray-100 border-gray-300 text-gray-600 hover:bg-gray-200'
+                                        : 'bg-gray-100 border-gray-300 text-gray-700 hover:bg-gray-200 font-bold'
                                 }`}
                             >
                                 Clear Filters
@@ -654,12 +657,14 @@ const BooksEx = () => {
 
                 {/* ── External Book Purchases Table ── */}
                 <div className={`rounded-xl border overflow-hidden ${isDarkMode ? 'bg-[#181b1e] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                    <div className="p-4 border-b border-gray-700/40 flex items-center justify-between">
+                    <div className={`p-4 border-b flex items-center justify-between ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                         <div>
-                            <h2 className="text-sm font-black uppercase tracking-wider flex items-center gap-2">
-                                <FaBook className="text-purple-400" />
+                            <h2 className={`text-sm font-black uppercase tracking-wider flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
+                                <FaBook className="text-purple-500" />
                                 <span>Recent External Book Allotments</span>
-                                <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+                                    isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-100 text-purple-700 border border-purple-300'
+                                }`}>
                                     {filteredAllocations.length} records
                                 </span>
                             </h2>
@@ -670,7 +675,7 @@ const BooksEx = () => {
                         <table className="w-full text-left text-xs border-collapse">
                             <thead>
                                 <tr className={`text-[10px] font-black uppercase tracking-wider border-b ${
-                                    isDarkMode ? 'bg-[#131619] text-gray-400 border-gray-800' : 'bg-gray-50 text-gray-600 border-gray-200'
+                                    isDarkMode ? 'bg-[#131619] text-gray-400 border-gray-800' : 'bg-slate-100 text-slate-700 border-gray-200 font-black'
                                 }`}>
                                     <th className="py-3 px-4">Bill Number</th>
                                     <th className="py-3 px-4">Date &amp; Time</th>
@@ -684,21 +689,21 @@ const BooksEx = () => {
                                     <th className="py-3 px-4 text-center">Receipt</th>
                                 </tr>
                             </thead>
-                            <tbody className="divide-y divide-gray-700/20">
+                            <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
                                 {loadingAllocations ? (
                                     <tr>
-                                        <td colSpan="10" className="py-12 text-center text-gray-400">
+                                        <td colSpan="10" className={`py-12 text-center ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>
                                             <div className="flex flex-col items-center justify-center gap-2">
-                                                <FaSync className="animate-spin text-purple-400 text-lg" />
+                                                <FaSync className="animate-spin text-purple-500 text-lg" />
                                                 <span className="font-bold text-xs uppercase tracking-wider">Loading External Book Records...</span>
                                             </div>
                                         </td>
                                     </tr>
                                 ) : filteredAllocations.length === 0 ? (
                                     <tr>
-                                        <td colSpan="10" className="py-12 text-center text-gray-400">
+                                        <td colSpan="10" className={`py-12 text-center ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>
                                             <div className="flex flex-col items-center justify-center gap-2">
-                                                <FaBookOpen className="text-gray-600 text-2xl" />
+                                                <FaBookOpen className={`${isDarkMode ? 'text-gray-600' : 'text-gray-400'} text-2xl`} />
                                                 <p className="font-bold text-xs uppercase tracking-wider">No external book purchase records found</p>
                                                 <p className="text-[11px] text-gray-500">Click &ldquo;Buy Book for External&rdquo; above to record a new purchase.</p>
                                             </div>
@@ -723,77 +728,83 @@ const BooksEx = () => {
                                         return (
                                             <tr 
                                                 key={alloc._id}
-                                                className={`transition-colors hover:${isDarkMode ? 'bg-gray-800/40' : 'bg-gray-50'}`}
+                                                className={`transition-colors ${isDarkMode ? 'hover:bg-gray-800/40' : 'hover:bg-slate-50'}`}
                                             >
                                                 <td className="py-3 px-4 font-mono font-bold">
-                                                    <span className="px-2 py-1 rounded text-[11px] font-black bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                                                    <span className={`px-2 py-1 rounded text-[11px] font-black border ${
+                                                        isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-700 border-cyan-300'
+                                                    }`}>
                                                         #{billNo}
                                                     </span>
                                                 </td>
 
-                                                <td className="py-3 px-4 text-[11px] text-gray-400 whitespace-nowrap">
+                                                <td className={`py-3 px-4 text-[11px] whitespace-nowrap ${isDarkMode ? 'text-gray-300' : 'text-slate-800 font-medium'}`}>
                                                     {dateStr ? new Date(dateStr).toLocaleDateString('en-GB') : "N/A"}
-                                                    <span className="block text-[10px] text-gray-500">
+                                                    <span className={`block text-[10px] ${isDarkMode ? 'text-gray-500' : 'text-slate-500 font-normal'}`}>
                                                         {dateStr ? new Date(dateStr).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ""}
                                                     </span>
                                                 </td>
 
                                                 <td className="py-3 px-4 font-bold">
                                                     <div className="flex items-center gap-2">
-                                                        <div className="w-7 h-7 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center font-black text-xs shrink-0">
+                                                        <div className={`w-7 h-7 rounded-full flex items-center justify-center font-black text-xs shrink-0 ${
+                                                            isDarkMode ? 'bg-purple-500/20 text-purple-400' : 'bg-purple-100 text-purple-700 border border-purple-200'
+                                                        }`}>
                                                             {studentName.charAt(0).toUpperCase()}
                                                         </div>
                                                         <div className="min-w-0">
-                                                            <p className="font-black uppercase truncate text-xs">{studentName}</p>
+                                                            <p className={`font-black uppercase truncate text-xs ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>{studentName}</p>
                                                             {email !== "N/A" && (
-                                                                <p className="text-[10px] text-gray-500 truncate">{email}</p>
+                                                                <p className={`text-[10px] truncate ${isDarkMode ? 'text-gray-400' : 'text-slate-500 font-medium'}`}>{email}</p>
                                                             )}
                                                         </div>
                                                     </div>
                                                 </td>
 
-                                                <td className="py-3 px-4 text-gray-300 font-mono text-[11px]">
+                                                <td className={`py-3 px-4 font-mono text-[11px] ${isDarkMode ? 'text-gray-300' : 'text-slate-800 font-semibold'}`}>
                                                     {mobile}
                                                 </td>
 
                                                 <td className="py-3 px-4">
-                                                    <span className="px-2 py-0.5 rounded text-[10px] font-black bg-gray-700/40 text-gray-300 border border-gray-700">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-black border ${
+                                                        isDarkMode ? 'bg-gray-700/40 text-gray-300 border-gray-700' : 'bg-slate-100 text-slate-800 border-slate-300'
+                                                    }`}>
                                                         {studentClass}
                                                     </span>
                                                 </td>
 
                                                 <td className="py-3 px-4 max-w-xs">
-                                                    <p className="font-bold uppercase truncate text-xs text-purple-300" title={courseDesc}>
+                                                    <p className={`font-bold uppercase truncate text-xs ${isDarkMode ? 'text-purple-300' : 'text-purple-700 font-extrabold'}`} title={courseDesc}>
                                                         {courseDesc}
                                                     </p>
                                                     {alloc.items?.[0] && (
-                                                        <p className="text-[10px] text-gray-500 truncate">
+                                                        <p className={`text-[10px] truncate ${isDarkMode ? 'text-gray-400' : 'text-slate-600 font-medium'}`}>
                                                             Qty: {alloc.items[0].quantity || 1} &bull; Item: {alloc.items[0].itemName}
                                                         </p>
                                                     )}
                                                 </td>
 
-                                                <td className="py-3 px-4 font-bold uppercase text-[11px]">
+                                                <td className={`py-3 px-4 font-bold uppercase text-[11px] ${isDarkMode ? 'text-gray-200' : 'text-slate-800'}`}>
                                                     {alloc.centre || sDoc.centre || "MAIN"}
                                                 </td>
 
                                                 <td className="py-3 px-4">
-                                                    <span className="font-bold text-[10px] uppercase block">
+                                                    <span className={`font-bold text-[10px] uppercase block ${isDarkMode ? 'text-gray-300' : 'text-slate-800'}`}>
                                                         {paymentMode}
                                                     </span>
                                                     {txnId && (
-                                                        <span className="text-[9px] font-mono text-gray-500 truncate max-w-[100px] block" title={txnId}>
+                                                        <span className={`text-[9px] font-mono truncate max-w-[100px] block ${isDarkMode ? 'text-gray-500' : 'text-slate-500 font-medium'}`} title={txnId}>
                                                             {txnId}
                                                         </span>
                                                     )}
                                                 </td>
 
                                                 <td className="py-3 px-4 text-right">
-                                                    <span className="font-black text-xs text-emerald-400 block">
+                                                    <span className={`font-black text-xs block ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
                                                         ₹{fmt(netAmt)}
                                                     </span>
                                                     {discAmt > 0 && (
-                                                        <span className="text-[9px] text-amber-400 block" title={`Gross: ₹${fmt(grossAmt)} - Disc: ₹${fmt(discAmt)}`}>
+                                                        <span className={`text-[9px] block ${isDarkMode ? 'text-amber-400' : 'text-amber-600 font-bold'}`} title={`Gross: ₹${fmt(grossAmt)} - Disc: ₹${fmt(discAmt)}`}>
                                                             Disc: ₹{fmt(discAmt)}
                                                         </span>
                                                     )}
@@ -803,7 +814,11 @@ const BooksEx = () => {
                                                     {billNo && billNo !== "PENDING" ? (
                                                         <button
                                                             onClick={() => handleViewBillReceipt(billNo)}
-                                                            className="px-2.5 py-1.5 rounded bg-purple-600/10 hover:bg-purple-600 text-purple-400 hover:text-white border border-purple-500/30 text-[10px] font-black uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm active:scale-95"
+                                                            className={`px-2.5 py-1.5 rounded text-[10px] font-black uppercase tracking-wider transition-all inline-flex items-center gap-1.5 shadow-sm active:scale-95 border ${
+                                                                isDarkMode
+                                                                    ? 'bg-purple-600/10 hover:bg-purple-600 text-purple-400 hover:text-white border-purple-500/30'
+                                                                    : 'bg-purple-50 hover:bg-purple-600 text-purple-700 hover:text-white border-purple-300 font-bold'
+                                                            }`}
                                                             title={`View Bill Receipt #${billNo}`}
                                                         >
                                                             <FaFileInvoice size={11} />
@@ -826,21 +841,21 @@ const BooksEx = () => {
                 {isBuyModalOpen && (
                     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn">
                         <div className={`relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-xl border shadow-2xl ${
-                            isDarkMode ? 'bg-[#181b1e] border-purple-900/40 text-white' : 'bg-white border-purple-200 text-gray-900'
+                            isDarkMode ? 'bg-[#181b1e] border-purple-900/40 text-white' : 'bg-white border-gray-200 text-gray-900'
                         }`}>
                             {/* Modal Header */}
                             <div className={`sticky top-0 z-10 flex items-center justify-between p-4 sm:p-5 border-b backdrop-blur-md ${
-                                isDarkMode ? 'bg-[#181b1e]/95 border-gray-800' : 'bg-white/95 border-gray-100'
+                                isDarkMode ? 'bg-[#181b1e]/95 border-gray-800' : 'bg-white/95 border-gray-200'
                             }`}>
                                 <div className="flex items-center gap-3">
-                                    <div className="p-2.5 rounded-lg bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                    <div className={`p-2.5 rounded-lg ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-100 text-purple-700 border border-purple-300'}`}>
                                         <FaBookOpen size={20} />
                                     </div>
                                     <div>
-                                        <h3 className="text-base sm:text-lg font-black uppercase tracking-tight flex items-center gap-2">
+                                        <h3 className={`text-base sm:text-lg font-black uppercase tracking-tight flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
                                             Buy Books for External Student
                                         </h3>
-                                        <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest mt-0.5">
+                                        <p className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
                                             Auto-Sequential Bill Generation &bull; Module BOOKS EX
                                         </p>
                                     </div>
@@ -862,7 +877,7 @@ const BooksEx = () => {
                                 <div>
                                     <div className="flex items-center gap-2 mb-3">
                                         <div className="w-2 h-2 rounded-full bg-purple-500"></div>
-                                        <span className="text-[11px] font-black uppercase tracking-widest text-purple-400">
+                                        <span className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-purple-400' : 'text-purple-700'}`}>
                                             Student Details (External)
                                         </span>
                                     </div>
@@ -871,7 +886,7 @@ const BooksEx = () => {
                                         {/* Student Name */}
                                         <div>
                                             <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                                isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                             }`}>
                                                 Student Name <span className="text-red-500">*</span>
                                             </label>
@@ -886,7 +901,7 @@ const BooksEx = () => {
                                                     className={`w-full pl-8 pr-3 py-2.5 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                         isDarkMode 
                                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                                     }`}
                                                 />
                                             </div>
@@ -895,7 +910,7 @@ const BooksEx = () => {
                                         {/* Mobile Number */}
                                         <div>
                                             <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                                isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                             }`}>
                                                 Mobile Number <span className="text-red-500">*</span>
                                             </label>
@@ -911,7 +926,7 @@ const BooksEx = () => {
                                                     className={`w-full pl-8 pr-3 py-2.5 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                         isDarkMode 
                                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                                     }`}
                                                 />
                                             </div>
@@ -920,7 +935,7 @@ const BooksEx = () => {
                                         {/* Class */}
                                         <div>
                                             <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                                isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                             }`}>
                                                 Class
                                             </label>
@@ -932,7 +947,7 @@ const BooksEx = () => {
                                                     className={`w-full pl-8 pr-3 py-2.5 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                         isDarkMode 
                                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                                     }`}
                                                 >
                                                     <option value="">-- Select Class --</option>
@@ -959,7 +974,7 @@ const BooksEx = () => {
                                         {/* Email */}
                                         <div>
                                             <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                                isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                             }`}>
                                                 Email Address
                                             </label>
@@ -973,7 +988,7 @@ const BooksEx = () => {
                                                     className={`w-full pl-8 pr-3 py-2.5 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                         isDarkMode 
                                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                                     }`}
                                                 />
                                             </div>
@@ -982,7 +997,7 @@ const BooksEx = () => {
                                         {/* Centre Selection */}
                                         <div className="sm:col-span-2">
                                             <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                                isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                             }`}>
                                                 Branch / Centre <span className="text-red-500">*</span>
                                             </label>
@@ -995,7 +1010,7 @@ const BooksEx = () => {
                                                     className={`w-full pl-8 pr-3 py-2.5 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                         isDarkMode 
                                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                                     }`}
                                                 >
                                                     {allowedCentres.map(c => (
@@ -1008,10 +1023,10 @@ const BooksEx = () => {
                                 </div>
 
                                 {/* Section 2: Course Selection & Financials */}
-                                <div className="pt-2 border-t border-gray-700/40">
+                                <div className={`pt-2 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <div className="w-2 h-2 rounded-full bg-indigo-500"></div>
-                                        <span className="text-[11px] font-black uppercase tracking-widest text-indigo-400">
+                                        <span className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-indigo-400' : 'text-indigo-700'}`}>
                                             Course &amp; Book Material
                                         </span>
                                     </div>
@@ -1019,7 +1034,7 @@ const BooksEx = () => {
                                     {/* Select Course Dropdown */}
                                     <div className="mb-4">
                                         <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                            isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                         }`}>
                                             Select Course <span className="text-red-500">*</span>
                                         </label>
@@ -1030,7 +1045,7 @@ const BooksEx = () => {
                                             className={`w-full p-2.5 sm:p-3 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                 isDarkMode 
                                                     ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                             }`}
                                         >
                                             <option value="">-- Choose Course for Book Purchase ({bookCourses.length} available) --</option>
@@ -1041,7 +1056,7 @@ const BooksEx = () => {
                                             ))}
                                         </select>
                                         {form.courseName && (
-                                            <p className="text-[10px] font-bold text-purple-400 mt-1 flex items-center gap-1.5">
+                                            <p className={`text-[10px] font-bold mt-1 flex items-center gap-1.5 ${isDarkMode ? 'text-purple-400' : 'text-purple-700'}`}>
                                                 <FaCheckCircle size={10} /> Selected Course: <span className="uppercase">{form.courseName}</span>
                                             </p>
                                         )}
@@ -1050,7 +1065,7 @@ const BooksEx = () => {
                                     {/* Book Item Name Description */}
                                     <div className="mb-4">
                                         <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                            isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                         }`}>
                                             Book / Material Description
                                         </label>
@@ -1062,7 +1077,7 @@ const BooksEx = () => {
                                             className={`w-full p-2.5 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                 isDarkMode 
                                                     ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                             }`}
                                         />
                                     </div>
@@ -1073,11 +1088,13 @@ const BooksEx = () => {
                                         <div>
                                             <div className="flex items-center justify-between mb-1.5">
                                                 <label className={`text-[10px] font-black uppercase tracking-widest ${
-                                                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                                    isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                                 }`}>
                                                     Course Amount (₹) <span className="text-red-500">*</span>
                                                 </label>
-                                                <span className="text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-1 bg-purple-500/10 text-purple-400 border border-purple-500/20">
+                                                <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-1 ${
+                                                    isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-100 text-purple-700 border border-purple-300'
+                                                }`}>
                                                     <FaLock size={8} /> Auto-Fetched
                                                 </span>
                                             </div>
@@ -1092,7 +1109,7 @@ const BooksEx = () => {
                                                     className={`w-full pl-7 pr-8 py-2.5 rounded-lg border text-xs font-black cursor-not-allowed select-none ${
                                                         isDarkMode 
                                                             ? 'bg-black/40 border-gray-700/80 text-gray-200 shadow-inner' 
-                                                            : 'bg-gray-100 border-gray-300 text-gray-800 shadow-inner'
+                                                            : 'bg-gray-100 border-gray-300 text-gray-900 shadow-inner'
                                                     }`}
                                                 />
                                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" title="Locked to Course Amount">
@@ -1104,7 +1121,7 @@ const BooksEx = () => {
                                         {/* Discount (EDITABLE) */}
                                         <div>
                                             <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                                isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                             }`}>
                                                 Discount (₹)
                                             </label>
@@ -1120,7 +1137,7 @@ const BooksEx = () => {
                                                     className={`w-full pl-7 pr-3 py-2.5 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                         isDarkMode 
                                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                                     }`}
                                                 />
                                             </div>
@@ -1128,10 +1145,10 @@ const BooksEx = () => {
 
                                         {/* Net Payable Amount */}
                                         <div className={`p-2.5 sm:p-3 rounded-lg border flex flex-col justify-center ${
-                                            isDarkMode ? 'bg-purple-950/30 border-purple-800/40' : 'bg-purple-50 border-purple-200'
+                                            isDarkMode ? 'bg-purple-950/30 border-purple-800/40' : 'bg-purple-50 border-purple-200 shadow-sm'
                                         }`}>
-                                            <span className="text-[9px] font-black uppercase tracking-widest text-purple-400">Net Payable Amount</span>
-                                            <span className="text-base sm:text-lg font-black text-purple-500">
+                                            <span className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-purple-400' : 'text-purple-700'}`}>Net Payable Amount</span>
+                                            <span className={`text-base sm:text-lg font-black ${isDarkMode ? 'text-purple-400' : 'text-purple-700'}`}>
                                                 ₹{fmt(netPayable)}
                                             </span>
                                         </div>
@@ -1139,10 +1156,10 @@ const BooksEx = () => {
                                 </div>
 
                                 {/* Section 3: Payment Details */}
-                                <div className="pt-2 border-t border-gray-700/40">
+                                <div className={`pt-2 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                                     <div className="flex items-center gap-2 mb-3">
                                         <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
-                                        <span className="text-[11px] font-black uppercase tracking-widest text-emerald-400">
+                                        <span className={`text-[11px] font-black uppercase tracking-widest ${isDarkMode ? 'text-emerald-400' : 'text-emerald-700'}`}>
                                             Payment &amp; Transaction Details
                                         </span>
                                     </div>
@@ -1151,7 +1168,7 @@ const BooksEx = () => {
                                         {/* Payment Method */}
                                         <div>
                                             <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                                isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                             }`}>
                                                 Payment Method <span className="text-red-500">*</span>
                                             </label>
@@ -1161,7 +1178,7 @@ const BooksEx = () => {
                                                 className={`w-full p-2.5 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                     isDarkMode 
                                                         ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                        : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                        : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                                 }`}
                                             >
                                                 <option value="CASH">CASH</option>
@@ -1175,7 +1192,7 @@ const BooksEx = () => {
                                         {/* Payment Date */}
                                         <div>
                                             <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                                isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                                isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                             }`}>
                                                 Payment Date
                                             </label>
@@ -1186,7 +1203,7 @@ const BooksEx = () => {
                                                 className={`w-full p-2.5 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                     isDarkMode 
                                                         ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                        : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                        : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                                 }`}
                                             />
                                         </div>
@@ -1197,7 +1214,7 @@ const BooksEx = () => {
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mt-3">
                                             <div>
                                                 <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                                    isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                                 }`}>
                                                     Transaction ID / Cheque No. <span className="text-red-500">*</span>
                                                 </label>
@@ -1210,14 +1227,14 @@ const BooksEx = () => {
                                                     className={`w-full p-2.5 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                         isDarkMode 
                                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                                     }`}
                                                 />
                                             </div>
 
                                             <div>
                                                 <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                                    isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                                    isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                                 }`}>
                                                     Payer / Account Holder Name
                                                 </label>
@@ -1229,7 +1246,7 @@ const BooksEx = () => {
                                                     className={`w-full p-2.5 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                         isDarkMode 
                                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                                     }`}
                                                 />
                                             </div>
@@ -1239,7 +1256,7 @@ const BooksEx = () => {
                                     {/* Remarks */}
                                     <div className="mt-3">
                                         <label className={`block text-[10px] font-black uppercase tracking-widest mb-1.5 ${
-                                            isDarkMode ? 'text-gray-300' : 'text-gray-700'
+                                            isDarkMode ? 'text-gray-300' : 'text-slate-700'
                                         }`}>
                                             Remarks / Notes
                                         </label>
@@ -1251,14 +1268,14 @@ const BooksEx = () => {
                                             className={`w-full p-2.5 rounded-lg border text-xs font-bold outline-none transition-all ${
                                                 isDarkMode 
                                                     ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500' 
-                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                             }`}
                                         />
                                     </div>
                                 </div>
 
                                 {/* Modal Footer Buttons */}
-                                <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-700/40">
+                                <div className={`flex items-center justify-end gap-3 pt-4 border-t ${isDarkMode ? 'border-gray-800' : 'border-gray-200'}`}>
                                     <button
                                         type="button"
                                         onClick={() => setIsBuyModalOpen(false)}
@@ -1266,7 +1283,7 @@ const BooksEx = () => {
                                         className={`px-5 py-2.5 rounded-lg text-xs font-black uppercase tracking-wider transition-all ${
                                             isDarkMode 
                                                 ? 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-white' 
-                                                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                                                : 'bg-gray-100 border border-gray-300 text-gray-700 hover:bg-gray-200 font-bold'
                                         }`}
                                     >
                                         Cancel

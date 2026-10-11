@@ -46,13 +46,24 @@ const TransactionList = () => {
 
     const [stats, setStats] = useState({
         currentYear: 0,
+        currentYearRevenue: 0,
         previousYear: 0,
+        previousYearRevenue: 0,
         currentMonth: 0,
+        currentMonthRevenue: 0,
         previousMonth: 0,
+        previousMonthRevenue: 0,
+        todayCollection: 0,
+        todayRevenue: 0,
         currentYearLabel: new Date().getFullYear(),
         previousYearLabel: new Date().getFullYear() - 1,
         currentMonthLabel: "Current Month",
-        previousMonthLabel: "Previous Month"
+        previousMonthLabel: "Previous Month",
+        selectionTotalWithGst: 0,
+        selectionTotalBase: 0,
+        selectionInprocess: 0,
+        currentMonthInprocess: 0,
+        todayInprocess: 0
     });
 
     // Filters
@@ -97,6 +108,7 @@ const TransactionList = () => {
     const fetchIdRef = useRef(0);
     const [displaySelectionTotalWithGst, setDisplaySelectionTotalWithGst] = useState(0);
     const [displaySelectionTotalBase, setDisplaySelectionTotalBase] = useState(0);
+    const [displaySelectionInprocess, setDisplaySelectionInprocess] = useState(0);
 
     // Dropdown Refs
     const centreDropdownRef = useRef(null);
@@ -498,8 +510,9 @@ const TransactionList = () => {
         if (!loading) {
             setDisplaySelectionTotalWithGst(dynamicSelectionTotalWithGst);
             setDisplaySelectionTotalBase(dynamicSelectionTotalBase);
+            setDisplaySelectionInprocess(hasActiveFilters ? (stats.selectionInprocess || 0) : 0);
         }
-    }, [loading, dynamicSelectionTotalWithGst, dynamicSelectionTotalBase]);
+    }, [loading, dynamicSelectionTotalWithGst, dynamicSelectionTotalBase, hasActiveFilters, stats.selectionInprocess]);
 
     const handleDownloadExcel = () => {
         if (!sortedReport.length) {
@@ -637,58 +650,24 @@ const TransactionList = () => {
 
                 {/* Stats Cards Row (Optional - based on user preference for "Transaction List" page) */}
                 {/* The user screenshot shows stats cards at the top */}
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-                    <div className={`${isDark ? 'bg-gradient-to-br from-gray-900 to-gray-800 border-gray-700' : 'bg-white border-gray-200'} p-6 rounded-xl shadow-sm border flex items-center justify-between col-span-1 md:col-span-1`}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className={`${isDark ? 'bg-gradient-to-br from-gray-900 to-gray-800 border-gray-700' : 'bg-white border-gray-200'} p-6 rounded-xl shadow-sm border flex items-center justify-between`}>
                         <div className="text-right flex-1">
                             <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
                                 <span className={`text-[10px] font-black ${isDark ? 'text-cyan-400' : 'text-blue-600'} uppercase tracking-tighter`}>Selection Total (With GST)</span>
                                 <h3 className={`text-xl font-black ${isDark ? 'text-white' : 'text-slate-900'} leading-none`}>Rs.{displaySelectionTotalWithGst ? displaySelectionTotalWithGst.toLocaleString('en-IN') : 0}</h3>
                             </div>
-                            <div className="flex flex-col">
+                            <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
                                 <span className={`text-[10px] font-black ${isDark ? 'text-gray-400' : 'text-slate-500'} uppercase tracking-tighter`}>Selection Revenue (Base)</span>
                                 <h3 className={`text-xl font-black ${isDark ? 'text-gray-300' : 'text-slate-700'} leading-none`}>Rs.{displaySelectionTotalBase ? Math.round(displaySelectionTotalBase).toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} uppercase tracking-tighter`}>Cheque In-Process (Pending)</span>
+                                <h3 className={`text-xl font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} leading-none`}>Rs.{displaySelectionInprocess ? Math.round(displaySelectionInprocess).toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <p className={`text-[9px] ${isDark ? 'text-cyan-500 bg-cyan-500/10' : 'text-blue-600 bg-blue-50'} uppercase font-black tracking-[0.2em] mt-3 px-2 py-0.5 rounded-full inline-block`}>MATCHED TOTAL</p>
                         </div>
                     </div>
-
-                    {/* <div className={`${cardBg} p-6 rounded-xl shadow-sm ${cardBorder} flex items-center justify-between`}>
-                        <div>
-                            <div className={`${iconBoxGreen} p-3 rounded-lg`}>
-                                <FaChartBar size={24} />
-                            </div>
-                        </div>
-                        <div className="text-right flex-1">
-                            <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
-                                <span className={`text-[10px] font-black ${subText} uppercase tracking-tighter`}>Total (With GST)</span>
-                                <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.currentYear ? Math.round(stats.currentYear).toLocaleString('en-IN') : 0}</h3>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className={`text-[10px] font-black ${isDark ? 'text-green-400' : 'text-green-400'} uppercase tracking-tighter`}>Revenue (Base)</span>
-                                <h3 className={`text-lg font-black ${isDark ? 'text-green-400' : 'text-green-600'} leading-none`}>Rs.{stats.currentYearRevenue ? Math.round(stats.currentYearRevenue).toLocaleString('en-IN') : 0}</h3>
-                            </div>
-                            <p className={`text-[9px] ${subText} uppercase font-black tracking-[0.2em] mt-3 ${pillBg} px-2 py-0.5 rounded-full inline-block`}>{stats.currentYearLabel} FISCAL</p>
-                        </div>
-                    </div>
-
-                    <div className={`${cardBg} p-6 rounded-xl shadow-sm ${cardBorder} flex items-center justify-between`}>
-                        <div>
-                            <div className={`${iconBoxPurple} p-3 rounded-lg`}>
-                                <FaChartBar size={24} />
-                            </div>
-                        </div>
-                        <div className="text-right flex-1">
-                            <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
-                                <span className={`text-[10px] font-black ${subText} uppercase tracking-tighter`}>Total (With GST)</span>
-                                <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.previousMonth ? Math.round(stats.previousMonth).toLocaleString('en-IN') : 0}</h3>
-                            </div>
-                            <div className="flex flex-col">
-                                <span className={`text-[10px] font-black ${isDark ? 'text-purple-400' : 'text-purple-400'} uppercase tracking-tighter`}>Revenue (Base)</span>
-                                <h3 className={`text-lg font-black ${isDark ? 'text-purple-400' : 'text-purple-600'} leading-none`}>Rs.{stats.previousMonthRevenue ? Math.round(stats.previousMonthRevenue).toLocaleString('en-IN') : 0}</h3>
-                            </div>
-                            <p className={`text-[9px] ${subText} uppercase font-black tracking-[0.2em] mt-3 ${pillBg} px-2 py-0.5 rounded-full inline-block`}>{stats.previousMonthLabel}</p>
-                        </div>
-                    </div> */}
 
                     <div className={`${cardBg} p-6 rounded-xl shadow-sm ${cardBorder} flex items-center justify-between`}>
                         <div>
@@ -701,9 +680,13 @@ const TransactionList = () => {
                                 <span className={`text-[10px] font-black ${subText} uppercase tracking-tighter`}>Total (With GST)</span>
                                 <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.currentMonth ? Math.round(stats.currentMonth).toLocaleString('en-IN') : 0}</h3>
                             </div>
-                            <div className="flex flex-col">
+                            <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
                                 <span className={`text-[10px] font-black ${isDark ? 'text-blue-400' : 'text-blue-400'} uppercase tracking-tighter`}>Revenue (Base)</span>
                                 <h3 className={`text-lg font-black ${isDark ? 'text-blue-400' : 'text-blue-600'} leading-none`}>Rs.{stats.currentMonthRevenue ? Math.round(stats.currentMonthRevenue).toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} uppercase tracking-tighter`}>Cheque In-Process</span>
+                                <h3 className={`text-lg font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} leading-none`}>Rs.{stats.currentMonthInprocess ? Math.round(stats.currentMonthInprocess).toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <p className={`text-[9px] ${subText} uppercase font-black tracking-[0.2em] mt-3 ${pillBg} px-2 py-0.5 rounded-full inline-block`}>{stats.currentMonthLabel}</p>
                         </div>
@@ -720,9 +703,13 @@ const TransactionList = () => {
                                 <span className={`text-[10px] font-black ${subText} uppercase tracking-tighter`}>Total (With GST)</span>
                                 <h3 className={`text-lg font-black ${cardText} leading-none`}>Rs.{stats.todayCollection ? Math.round(stats.todayCollection).toLocaleString('en-IN') : 0}</h3>
                             </div>
-                            <div className="flex flex-col">
+                            <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
                                 <span className={`text-[10px] font-black ${isDark ? 'text-green-400' : 'text-green-400'} uppercase tracking-tighter`}>Revenue (Base)</span>
                                 <h3 className={`text-lg font-black ${isDark ? 'text-green-400' : 'text-green-600'} leading-none`}>Rs.{stats.todayRevenue ? Math.round(stats.todayRevenue).toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} uppercase tracking-tighter`}>Cheque In-Process</span>
+                                <h3 className={`text-lg font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} leading-none`}>Rs.{stats.todayInprocess ? Math.round(stats.todayInprocess).toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <p className={`text-[9px] text-green-500 bg-green-500/10 uppercase font-black tracking-[0.2em] mt-3 px-2 py-0.5 rounded-full inline-block`}>Daily Collections</p>
                         </div>

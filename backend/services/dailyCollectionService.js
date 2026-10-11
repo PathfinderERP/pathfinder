@@ -741,7 +741,20 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                                     ]
                                 }
                             },
-                            transactionCount: { $sum: 1 }
+                            transactionCount: {
+                                $sum: {
+                                    $cond: [
+                                        {
+                                            $and: [
+                                                { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                                                { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "midnapore|midnapur|medinipur", options: "i" } }
+                                            ]
+                                        },
+                                        0,
+                                        1
+                                    ]
+                                }
+                            }
                         }
                     }
                 ],
@@ -763,7 +776,20 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                                     ]
                                 }
                             },
-                            count: { $sum: 1 }
+                            count: {
+                                $sum: {
+                                    $cond: [
+                                        {
+                                            $and: [
+                                                { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                                                { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "midnapore|midnapur|medinipur", options: "i" } }
+                                            ]
+                                        },
+                                        0,
+                                        1
+                                    ]
+                                }
+                            }
                         }
                     },
                     { $sort: { totalAmount: -1 } }
@@ -1083,7 +1109,10 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     (inprocessData[0]?.byCentre || []).forEach(item => {
         if (item._id) {
             inprocessCheques[item._id] = item.totalInprocess || 0;
-            inprocessChequeTotal += (item.totalInprocess || 0);
+            const isMidnapore = /phsps/i.test(item._id) && /midnapore|midnapur|medinipur/i.test(item._id);
+            if (!isMidnapore) {
+                inprocessChequeTotal += (item.totalInprocess || 0);
+            }
         }
     });
     const inprocessChequeDetails = inprocessData[0]?.details || [];

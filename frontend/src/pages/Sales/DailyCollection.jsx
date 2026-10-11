@@ -17,6 +17,12 @@ const formatLocalDate = (d) => {
     return `${yyyy}-${mm}-${dd}`;
 };
 
+const isPhspsMidnapore = (centre) => {
+    if (!centre) return false;
+    const str = centre.toLowerCase();
+    return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
+};
+
 const DailyCollection = () => {
     const storedUser = localStorage.getItem("user");
     const currentUser = storedUser ? JSON.parse(storedUser) : null;
@@ -1342,11 +1348,6 @@ const DailyCollection = () => {
                             <div className={`${secondaryTextClass} font-semibold mb-2`}>Total Collected</div>
                             <div className="flex flex-col gap-1.5 mt-1">
                                 {(() => {
-                                    const isPhspsMidnapore = (centre) => {
-                                        if (!centre) return false;
-                                        const str = centre.toLowerCase();
-                                        return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
-                                    };
                                     const totalWithGst = activeDetails.reduce((sum, d) => {
                                         if (isPhspsMidnapore(d.centre)) return sum;
                                         return sum + (d.paidAmount || 0);
@@ -1380,7 +1381,9 @@ const DailyCollection = () => {
                         </div>
                         <div className={`${secondaryTextClass} text-xs mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center`}>
                             <span>Transactions Count</span>
-                            <span className="font-bold text-gray-700 dark:text-gray-300">{activeDetails.length}</span>
+                            <span className="font-bold text-gray-700 dark:text-gray-300">
+                                {activeDetails.filter(d => !isPhspsMidnapore(d.centre)).length}
+                            </span>
                         </div>
                     </div>
                     <div className={`${cardBgClass} p-4 rounded-[4px] ${cardBorderClass} shadow-sm flex flex-col justify-between`}>
@@ -1388,11 +1391,6 @@ const DailyCollection = () => {
                             <div className={`${secondaryTextClass} font-semibold mb-2`}>Daily Total Target</div>
                             <div className="flex flex-col gap-1.5 mt-1">
                                 {(() => {
-                                    const isPhspsMidnapore = (centre) => {
-                                        if (!centre) return false;
-                                        const str = centre.toLowerCase();
-                                        return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
-                                    };
                                     const computedTargetWithoutGst = targetCentres.reduce((sum, c) => {
                                         if (isPhspsMidnapore(c.centreName)) return sum;
                                         return sum + (centreTargets[c.centreName] || 0);
@@ -1431,7 +1429,7 @@ const DailyCollection = () => {
                         <div className={`${secondaryTextClass} text-xs mt-3 pt-2 border-t border-gray-100 dark:border-gray-800 flex justify-between items-center`}>
                             <span>Active Centres</span>
                             <span className="font-bold text-gray-700 dark:text-gray-300">
-                                {targetCentres.length}
+                                {targetCentres.filter(c => !isPhspsMidnapore(c.centreName)).length}
                             </span>
                         </div>
                         {selectedZones.length > 0 && (
@@ -1452,38 +1450,39 @@ const DailyCollection = () => {
                         <div className={`${secondaryTextClass} font-semibold mb-3`}>Payment Methods</div>
                         <div className="space-y-2">
                             {(() => {
-                                const isPhspsMidnapore = (centre) => {
-                                    if (!centre) return false;
-                                    const str = centre.toLowerCase();
-                                    return str.includes('phsps') && (str.includes('midnapore') || str.includes('midnapur') || str.includes('medinipur'));
-                                };
                                 const dynamicPaymentMethods = Object.entries(
                                     activeDetails.reduce((acc, curr) => {
+                                        if (isPhspsMidnapore(curr.centre)) return acc;
                                         const pm = curr.paymentMethod || "Unknown";
                                         if (!acc[pm]) acc[pm] = { totalAmount: 0, count: 0 };
-                                        if (!isPhspsMidnapore(curr.centre)) {
-                                            acc[pm].totalAmount += (curr.paidAmount || 0);
-                                        }
+                                        acc[pm].totalAmount += (curr.paidAmount || 0);
                                         acc[pm].count += 1;
                                         return acc;
                                     }, {})
                                 ).map(([method, data]) => ({ _id: method, totalAmount: data.totalAmount, count: data.count }));
 
-                                return dynamicPaymentMethods.length ? dynamicPaymentMethods.map((method) => (
-                                    <div key={method._id} className={`flex justify-between text-sm ${secondaryTextClass}`}>
-                                        <span>{method._id || "Unknown"}</span>
-                                        <span>{formatAmount(method.totalAmount)} ({method.count})</span>
-                                    </div>
-                                )) : (
-                                    <div className="text-gray-500">No payment method data available.</div>
+                                const filteredInprocessChequeDetails = inprocessChequeDetails.filter(d => !isPhspsMidnapore(d.centre));
+                                const cardInprocessChequeTotal = filteredInprocessChequeDetails.reduce((sum, d) => sum + (d.paidAmount || 0), 0);
+
+                                return (
+                                    <>
+                                        {dynamicPaymentMethods.length ? dynamicPaymentMethods.map((method) => (
+                                            <div key={method._id} className={`flex justify-between text-sm ${secondaryTextClass}`}>
+                                                <span>{method._id || "Unknown"}</span>
+                                                <span>{formatAmount(method.totalAmount)} ({method.count})</span>
+                                            </div>
+                                        )) : (
+                                            <div className="text-gray-500">No payment method data available.</div>
+                                        )}
+                                        {cardInprocessChequeTotal > 0 && (
+                                            <div className={`flex justify-between text-sm font-medium text-amber-500 border-t ${isDarkMode ? "border-gray-800" : "border-gray-200"} pt-2 mt-2`}>
+                                                <span>Cheque Inprocess (Pending)</span>
+                                                <span>{formatAmount(cardInprocessChequeTotal)} ({filteredInprocessChequeDetails.length})</span>
+                                            </div>
+                                        )}
+                                    </>
                                 );
                             })()}
-                            {inprocessChequeTotal > 0 && (
-                                <div className={`flex justify-between text-sm font-medium text-amber-500 border-t ${isDarkMode ? "border-gray-800" : "border-gray-200"} pt-2 mt-2`}>
-                                    <span>Cheque Inprocess (Pending)</span>
-                                    <span>{formatAmount(inprocessChequeTotal)} ({inprocessChequeDetails.length})</span>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>

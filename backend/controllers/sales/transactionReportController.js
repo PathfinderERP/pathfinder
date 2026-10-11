@@ -1124,11 +1124,107 @@ export const getTransactionReport = async (req, res) => {
             }
         });
 
-        // Execute all 3 heavy pipelines concurrently in parallel
-        const [reportData, detailedData, statsData] = await Promise.all([
+        // In-Process (Pending Clearance) Cheque Stats Pipeline
+        const inprocessMatch = {
+            paymentMethod: "CHEQUE",
+            status: "PENDING_CLEARANCE",
+            paidAmount: { $gt: 0 }
+        };
+
+        if (targetCentreNames && targetCentreNames.length > 0) {
+            const centreRegexes = buildCentreRegexes(targetCentreNames);
+            inprocessMatch.$or = [
+                { centre: { $in: centreRegexes } },
+                { centre: null },
+                { centre: { $exists: false } },
+                { centre: "" }
+            ];
+        } else {
+            inprocessMatch.centre = "__NO_MATCH__";
+        }
+
+        if (minAmount || maxAmount) {
+            inprocessMatch.paidAmount = { $gt: 0 };
+            if (minAmount) inprocessMatch.paidAmount.$gte = parseFloat(minAmount);
+            if (maxAmount) inprocessMatch.paidAmount.$lte = parseFloat(maxAmount);
+        }
+
+        const isChequeModeAllowed = !paymentMode || paymentMode.split(',').map(m => m.trim().toUpperCase()).includes("CHEQUE");
+        const isPendingClearanceAllowed = !req.query.status || req.query.status.split(',').map(s => s.trim().toUpperCase()).includes("PENDING_CLEARANCE");
+
+        const inprocessPipeline = [
+            { $match: inprocessMatch },
+            {
+                $addFields: {
+                    effectiveDate: {
+                        $ifNull: [
+                            { $toDate: "$receivedDate" },
+                            { $toDate: "$paidDate" },
+                            "$createdAt"
+                        ]
+                    }
+                }
+            }
+        ];
+
+        if (hasAcademicFilters) {
+            inprocessPipeline.push(
+                { $lookup: { from: "admissions", localField: "admission", foreignField: "_id", as: "admissionInfoNormal" } },
+                { $lookup: { from: "boardcourseadmissions", localField: "admission", foreignField: "_id", as: "admissionInfoBoard" } },
+                { $lookup: { from: "pntsestudents", localField: "admission", foreignField: "_id", as: "admissionInfoPntse" } },
+                { $lookup: { from: "pmostudents", localField: "admission", foreignField: "_id", as: "admissionInfoPmo" } },
+                { $addFields: { admissionInfo: { $ifNull: [{ $arrayElemAt: ["$admissionInfoNormal", 0] }, { $arrayElemAt: ["$admissionInfoBoard", 0] }, { $arrayElemAt: ["$admissionInfoPntse", 0] }, { $arrayElemAt: ["$admissionInfoPmo", 0] }] } } },
+                { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
+                { $lookup: { from: "centreschemas", localField: "admissionInfo.centre", foreignField: "_id", as: "pntseCentreInfo" } },
+                { $addFields: { "admissionInfo.centre": { $cond: { if: { $gt: [{ $size: "$pntseCentreInfo" }, 0] }, then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] }, else: "$admissionInfo.centre" } } } },
+                { $addFields: { effectiveCentre: { $ifNull: ["$centre", "$admissionInfo.centre"] } } },
+                { $match: admissionMatch }
+            );
+
+            if (departmentIds) {
+                inprocessPipeline.push(
+                    { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
+                    { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
+                    {
+                        $match: {
+                            $or: [
+                                { "courseInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } },
+                                { "admissionInfo.department": { $in: (typeof departmentIds === 'string' ? departmentIds.split(',') : departmentIds).filter(id => mongoose.Types.ObjectId.isValid(id.trim())).map(id => new mongoose.Types.ObjectId(id.trim())) } }
+                            ]
+                        }
+                    }
+                );
+            }
+        } else {
+            inprocessPipeline.push({
+                $addFields: { effectiveCentre: "$centre" }
+            });
+            if (targetCentreNames && targetCentreNames.length > 0) {
+                inprocessPipeline.push({
+                    $match: { effectiveCentre: { $in: buildCentreRegexes(targetCentreNames) } }
+                });
+            }
+        }
+
+        const selectionInprocessCond = paymentMatch.isDateFiltered
+            ? { $and: [{ $gte: ["$effectiveDate", paymentMatch.filterStart] }, { $lte: ["$effectiveDate", paymentMatch.filterEnd] }, isNotPhspsMidnaporeCond] }
+            : { $and: [{ $lte: ["$effectiveDate", endOfTodayIST] }, isNotPhspsMidnaporeCond] };
+
+        inprocessPipeline.push({
+            $group: {
+                _id: null,
+                currentMonthInprocess: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", endOfCurrentMonth] }, isNotPhspsMidnaporeCond] }, "$paidAmount", 0] } },
+                todayInprocess: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", todayStart] }, { $lte: ["$effectiveDate", todayEnd] }, isNotPhspsMidnaporeCond] }, "$paidAmount", 0] } },
+                selectionInprocess: { $sum: { $cond: [(isChequeModeAllowed && isPendingClearanceAllowed) ? selectionInprocessCond : false, "$paidAmount", 0] } }
+            }
+        });
+
+        // Execute all 4 heavy pipelines concurrently in parallel
+        const [reportData, detailedData, statsData, inprocessStatsData] = await Promise.all([
             Payment.aggregate(chartPipeline).option({ allowDiskUse: true }),
             Payment.aggregate(detailedPipeline).option({ allowDiskUse: true }),
-            Payment.aggregate(statsPipeline).option({ allowDiskUse: true })
+            Payment.aggregate(statsPipeline).option({ allowDiskUse: true }),
+            Payment.aggregate(inprocessPipeline).option({ allowDiskUse: true })
         ]);
 
         const stats = statsData.length > 0 ? statsData[0] : {
@@ -1137,6 +1233,12 @@ export const getTransactionReport = async (req, res) => {
             currentMonthWithGst: 0, currentMonthWithoutGst: 0,
             previousMonthWithGst: 0, previousMonthWithoutGst: 0,
             todayWithGst: 0, todayWithoutGst: 0
+        };
+
+        const inprocessStats = inprocessStatsData.length > 0 ? inprocessStatsData[0] : {
+            currentMonthInprocess: 0,
+            todayInprocess: 0,
+            selectionInprocess: 0
         };
 
         const result = reportData.length > 0 ? reportData[0] : {
@@ -1196,7 +1298,10 @@ export const getTransactionReport = async (req, res) => {
                 currentMonthLabel: now.toLocaleString('default', { month: 'long' }),
                 previousMonthLabel: prevMonthStart.toLocaleString('default', { month: 'long' }),
                 selectionTotalWithGst: Math.round(result.paymentMethods.reduce((acc, curr) => acc + curr.value, 0)),
-                selectionTotalBase: Math.round(result.paymentMethods.reduce((acc, curr) => acc + (curr.revenueWithoutGst || 0), 0))
+                selectionTotalBase: Math.round(result.paymentMethods.reduce((acc, curr) => acc + (curr.revenueWithoutGst || 0), 0)),
+                selectionInprocess: Math.round(inprocessStats.selectionInprocess || 0),
+                currentMonthInprocess: Math.round(inprocessStats.currentMonthInprocess || 0),
+                todayInprocess: Math.round(inprocessStats.todayInprocess || 0)
             }
         };
 
