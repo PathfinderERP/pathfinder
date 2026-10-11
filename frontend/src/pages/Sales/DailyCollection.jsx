@@ -1463,6 +1463,19 @@ const DailyCollection = () => {
 
                                 const filteredInprocessChequeDetails = inprocessChequeDetails.filter(d => !isPhspsMidnapore(d.centre));
                                 const cardInprocessChequeTotal = filteredInprocessChequeDetails.reduce((sum, d) => sum + (d.paidAmount || 0), 0);
+                                const cardInprocessChequeBase = filteredInprocessChequeDetails.reduce((sum, d) => {
+                                    const isPhsps = /phsps/i.test(d.centre || "");
+                                    if (isPhsps) {
+                                        return sum + (d.paidAmount || 0);
+                                    }
+                                    if (d.revenueWithoutGst !== undefined && d.revenueWithoutGst !== null) {
+                                        return sum + Number(d.revenueWithoutGst);
+                                    }
+                                    if (d.courseFee && Number(d.courseFee) > 0) {
+                                        return sum + Number(d.courseFee);
+                                    }
+                                    return sum + ((d.paidAmount || 0) / 1.18);
+                                }, 0);
 
                                 return (
                                     <>
@@ -1475,9 +1488,15 @@ const DailyCollection = () => {
                                             <div className="text-gray-500">No payment method data available.</div>
                                         )}
                                         {cardInprocessChequeTotal > 0 && (
-                                            <div className={`flex justify-between text-sm font-medium text-amber-500 border-t ${isDarkMode ? "border-gray-800" : "border-gray-200"} pt-2 mt-2`}>
-                                                <span>Cheque Inprocess (Pending)</span>
-                                                <span>{formatAmount(cardInprocessChequeTotal)} ({filteredInprocessChequeDetails.length})</span>
+                                            <div className={`border-t ${isDarkMode ? "border-gray-800" : "border-gray-200"} pt-2 mt-2 space-y-1`}>
+                                                <div className="flex justify-between text-sm font-medium text-amber-500">
+                                                    <span>Cheque Inprocess (With GST)</span>
+                                                    <span>{formatAmount(cardInprocessChequeTotal)} ({filteredInprocessChequeDetails.length})</span>
+                                                </div>
+                                                <div className={`flex justify-between text-xs font-semibold ${isDarkMode ? "text-amber-400/90" : "text-amber-700"}`}>
+                                                    <span>Cheque Inprocess (Base)</span>
+                                                    <span>{formatAmount(Math.round(cardInprocessChequeBase))}</span>
+                                                </div>
                                             </div>
                                         )}
                                     </>
@@ -2804,15 +2823,35 @@ const DailyCollection = () => {
                             <span className="text-xs text-gray-500">
                                 Cheques Count: <b>{selectedInprocessCentre.cheques?.length || 0}</b>
                             </span>
-                            <span className="text-sm font-bold text-amber-500">
-                                Total In-Process: ₹{formatAmount(
-                                    selectedInprocessCentre.cheques && selectedInprocessCentre.cheques.length > 0
-                                        ? selectedInprocessCentre.cheques.reduce((sum, c) => sum + (c.paidAmount || 0), 0)
-                                        : (selectedInprocessCentre.totalAmount !== undefined
-                                            ? selectedInprocessCentre.totalAmount
-                                            : getInprocessChequeAmount(selectedInprocessCentre.centre))
-                                )}
-                            </span>
+                            {(() => {
+                                const cheques = selectedInprocessCentre.cheques || [];
+                                const totalWithGst = cheques.length > 0
+                                    ? cheques.reduce((sum, c) => sum + (c.paidAmount || 0), 0)
+                                    : (selectedInprocessCentre.totalAmount !== undefined
+                                        ? selectedInprocessCentre.totalAmount
+                                        : getInprocessChequeAmount(selectedInprocessCentre.centre));
+                                const totalBase = cheques.length > 0
+                                    ? cheques.reduce((sum, c) => {
+                                        const isPhsps = /phsps/i.test(c.centre || "");
+                                        if (isPhsps) return sum + (c.paidAmount || 0);
+                                        if (c.revenueWithoutGst !== undefined && c.revenueWithoutGst !== null) return sum + Number(c.revenueWithoutGst);
+                                        if (c.courseFee && Number(c.courseFee) > 0) return sum + Number(c.courseFee);
+                                        return sum + ((c.paidAmount || 0) / 1.18);
+                                    }, 0)
+                                    : null;
+                                return (
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-sm font-bold text-amber-500">
+                                            Total In-Process: ₹{formatAmount(totalWithGst)}
+                                        </span>
+                                        {totalBase !== null && (
+                                            <span className="text-xs font-semibold text-gray-400">
+                                                (Base: ₹{formatAmount(Math.round(totalBase))})
+                                            </span>
+                                        )}
+                                    </div>
+                                );
+                            })()}
                         </div>
                     </div>
                 </div>

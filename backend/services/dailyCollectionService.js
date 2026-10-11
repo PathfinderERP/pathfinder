@@ -1060,6 +1060,21 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                         $group: {
                             _id: "$effectiveCentre",
                             totalInprocess: { $sum: "$paidAmount" },
+                            totalInprocessBase: {
+                                $sum: {
+                                    $cond: [
+                                        { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                                        "$paidAmount",
+                                        {
+                                            $cond: [
+                                                { $gt: ["$courseFee", 0] },
+                                                "$courseFee",
+                                                { $divide: ["$paidAmount", 1.18] }
+                                            ]
+                                        }
+                                    ]
+                                }
+                            },
                             count: { $sum: 1 }
                         }
                     }
@@ -1084,6 +1099,19 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                             installmentNumber: 1,
                             status: "$status",
                             paidAmount: 1,
+                            revenueWithoutGst: {
+                                $cond: [
+                                    { $regexMatch: { input: { $ifNull: ["$effectiveCentre", ""] }, regex: "phsps", options: "i" } },
+                                    "$paidAmount",
+                                    {
+                                        $cond: [
+                                            { $gt: ["$courseFee", 0] },
+                                            "$courseFee",
+                                            { $divide: ["$paidAmount", 1.18] }
+                                        ]
+                                    }
+                                ]
+                            },
                             remarks: 1,
                             recordedByName: "$recordedByName",
                             isChequeInprocess: { $literal: true }
@@ -1105,13 +1133,17 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
     const details = reportData[0]?.details || [];
 
     const inprocessCheques = {};
+    const inprocessChequesBase = {};
     let inprocessChequeTotal = 0;
+    let inprocessChequeTotalBase = 0;
     (inprocessData[0]?.byCentre || []).forEach(item => {
         if (item._id) {
             inprocessCheques[item._id] = item.totalInprocess || 0;
+            inprocessChequesBase[item._id] = item.totalInprocessBase || 0;
             const isMidnapore = /phsps/i.test(item._id) && /midnapore|midnapur|medinipur/i.test(item._id);
             if (!isMidnapore) {
                 inprocessChequeTotal += (item.totalInprocess || 0);
+                inprocessChequeTotalBase += (item.totalInprocessBase || 0);
             }
         }
     });
@@ -1426,7 +1458,9 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         zones,
         zonalManagers,
         inprocessCheques,
+        inprocessChequesBase,
         inprocessChequeTotal,
+        inprocessChequeTotalBase,
         inprocessChequeDetails
     };
 };

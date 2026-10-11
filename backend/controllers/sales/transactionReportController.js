@@ -1214,8 +1214,11 @@ export const getTransactionReport = async (req, res) => {
             $group: {
                 _id: null,
                 currentMonthInprocess: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", endOfCurrentMonth] }, isNotPhspsMidnaporeCond] }, "$paidAmount", 0] } },
+                currentMonthInprocessBase: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", currentMonthStart] }, { $lte: ["$effectiveDate", endOfCurrentMonth] }, isNotPhspsMidnaporeCond] }, amountWithoutGstExpr, 0] } },
                 todayInprocess: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", todayStart] }, { $lte: ["$effectiveDate", todayEnd] }, isNotPhspsMidnaporeCond] }, "$paidAmount", 0] } },
-                selectionInprocess: { $sum: { $cond: [(isChequeModeAllowed && isPendingClearanceAllowed) ? selectionInprocessCond : false, "$paidAmount", 0] } }
+                todayInprocessBase: { $sum: { $cond: [{ $and: [{ $gte: ["$effectiveDate", todayStart] }, { $lte: ["$effectiveDate", todayEnd] }, isNotPhspsMidnaporeCond] }, amountWithoutGstExpr, 0] } },
+                selectionInprocess: { $sum: { $cond: [(isChequeModeAllowed && isPendingClearanceAllowed) ? selectionInprocessCond : false, "$paidAmount", 0] } },
+                selectionInprocessBase: { $sum: { $cond: [(isChequeModeAllowed && isPendingClearanceAllowed) ? selectionInprocessCond : false, amountWithoutGstExpr, 0] } }
             }
         });
 
@@ -1237,8 +1240,11 @@ export const getTransactionReport = async (req, res) => {
 
         const inprocessStats = inprocessStatsData.length > 0 ? inprocessStatsData[0] : {
             currentMonthInprocess: 0,
+            currentMonthInprocessBase: 0,
             todayInprocess: 0,
-            selectionInprocess: 0
+            todayInprocessBase: 0,
+            selectionInprocess: 0,
+            selectionInprocessBase: 0
         };
 
         const result = reportData.length > 0 ? reportData[0] : {
@@ -1300,8 +1306,11 @@ export const getTransactionReport = async (req, res) => {
                 selectionTotalWithGst: Math.round(result.paymentMethods.reduce((acc, curr) => acc + curr.value, 0)),
                 selectionTotalBase: Math.round(result.paymentMethods.reduce((acc, curr) => acc + (curr.revenueWithoutGst || 0), 0)),
                 selectionInprocess: Math.round(inprocessStats.selectionInprocess || 0),
+                selectionInprocessBase: Math.round(inprocessStats.selectionInprocessBase || 0),
                 currentMonthInprocess: Math.round(inprocessStats.currentMonthInprocess || 0),
-                todayInprocess: Math.round(inprocessStats.todayInprocess || 0)
+                currentMonthInprocessBase: Math.round(inprocessStats.currentMonthInprocessBase || 0),
+                todayInprocess: Math.round(inprocessStats.todayInprocess || 0),
+                todayInprocessBase: Math.round(inprocessStats.todayInprocessBase || 0)
             }
         };
 

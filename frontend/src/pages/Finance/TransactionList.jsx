@@ -62,8 +62,11 @@ const TransactionList = () => {
         selectionTotalWithGst: 0,
         selectionTotalBase: 0,
         selectionInprocess: 0,
+        selectionInprocessBase: 0,
         currentMonthInprocess: 0,
-        todayInprocess: 0
+        currentMonthInprocessBase: 0,
+        todayInprocess: 0,
+        todayInprocessBase: 0
     });
 
     // Filters
@@ -109,6 +112,7 @@ const TransactionList = () => {
     const [displaySelectionTotalWithGst, setDisplaySelectionTotalWithGst] = useState(0);
     const [displaySelectionTotalBase, setDisplaySelectionTotalBase] = useState(0);
     const [displaySelectionInprocess, setDisplaySelectionInprocess] = useState(0);
+    const [displaySelectionInprocessBase, setDisplaySelectionInprocessBase] = useState(0);
 
     // Dropdown Refs
     const centreDropdownRef = useRef(null);
@@ -511,8 +515,9 @@ const TransactionList = () => {
             setDisplaySelectionTotalWithGst(dynamicSelectionTotalWithGst);
             setDisplaySelectionTotalBase(dynamicSelectionTotalBase);
             setDisplaySelectionInprocess(hasActiveFilters ? (stats.selectionInprocess || 0) : 0);
+            setDisplaySelectionInprocessBase(hasActiveFilters ? (stats.selectionInprocessBase || 0) : 0);
         }
-    }, [loading, dynamicSelectionTotalWithGst, dynamicSelectionTotalBase, hasActiveFilters, stats.selectionInprocess]);
+    }, [loading, dynamicSelectionTotalWithGst, dynamicSelectionTotalBase, hasActiveFilters, stats.selectionInprocess, stats.selectionInprocessBase]);
 
     const handleDownloadExcel = () => {
         if (!sortedReport.length) {
@@ -661,9 +666,13 @@ const TransactionList = () => {
                                 <span className={`text-[10px] font-black ${isDark ? 'text-gray-400' : 'text-slate-500'} uppercase tracking-tighter`}>Selection Revenue (Base)</span>
                                 <h3 className={`text-xl font-black ${isDark ? 'text-gray-300' : 'text-slate-700'} leading-none`}>Rs.{displaySelectionTotalBase ? Math.round(displaySelectionTotalBase).toLocaleString('en-IN') : 0}</h3>
                             </div>
-                            <div className="flex flex-col">
-                                <span className={`text-[10px] font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} uppercase tracking-tighter`}>Cheque In-Process (Pending)</span>
+                            <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
+                                <span className={`text-[10px] font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} uppercase tracking-tighter`}>Cheque In-Process (With GST)</span>
                                 <h3 className={`text-xl font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} leading-none`}>Rs.{displaySelectionInprocess ? Math.round(displaySelectionInprocess).toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black ${isDark ? 'text-amber-300' : 'text-amber-700'} uppercase tracking-tighter`}>Cheque In-Process (Base)</span>
+                                <h3 className={`text-xl font-black ${isDark ? 'text-amber-300' : 'text-amber-700'} leading-none`}>Rs.{displaySelectionInprocessBase ? Math.round(displaySelectionInprocessBase).toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <p className={`text-[9px] ${isDark ? 'text-cyan-500 bg-cyan-500/10' : 'text-blue-600 bg-blue-50'} uppercase font-black tracking-[0.2em] mt-3 px-2 py-0.5 rounded-full inline-block`}>MATCHED TOTAL</p>
                         </div>
@@ -684,9 +693,13 @@ const TransactionList = () => {
                                 <span className={`text-[10px] font-black ${isDark ? 'text-blue-400' : 'text-blue-400'} uppercase tracking-tighter`}>Revenue (Base)</span>
                                 <h3 className={`text-lg font-black ${isDark ? 'text-blue-400' : 'text-blue-600'} leading-none`}>Rs.{stats.currentMonthRevenue ? Math.round(stats.currentMonthRevenue).toLocaleString('en-IN') : 0}</h3>
                             </div>
-                            <div className="flex flex-col">
-                                <span className={`text-[10px] font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} uppercase tracking-tighter`}>Cheque In-Process</span>
+                            <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
+                                <span className={`text-[10px] font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} uppercase tracking-tighter`}>Cheque In-Process (With GST)</span>
                                 <h3 className={`text-lg font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} leading-none`}>Rs.{stats.currentMonthInprocess ? Math.round(stats.currentMonthInprocess).toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black ${isDark ? 'text-amber-300' : 'text-amber-700'} uppercase tracking-tighter`}>Cheque In-Process (Base)</span>
+                                <h3 className={`text-lg font-black ${isDark ? 'text-amber-300' : 'text-amber-700'} leading-none`}>Rs.{stats.currentMonthInprocessBase ? Math.round(stats.currentMonthInprocessBase).toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <p className={`text-[9px] ${subText} uppercase font-black tracking-[0.2em] mt-3 ${pillBg} px-2 py-0.5 rounded-full inline-block`}>{stats.currentMonthLabel}</p>
                         </div>
@@ -707,9 +720,13 @@ const TransactionList = () => {
                                 <span className={`text-[10px] font-black ${isDark ? 'text-green-400' : 'text-green-400'} uppercase tracking-tighter`}>Revenue (Base)</span>
                                 <h3 className={`text-lg font-black ${isDark ? 'text-green-400' : 'text-green-600'} leading-none`}>Rs.{stats.todayRevenue ? Math.round(stats.todayRevenue).toLocaleString('en-IN') : 0}</h3>
                             </div>
-                            <div className="flex flex-col">
-                                <span className={`text-[10px] font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} uppercase tracking-tighter`}>Cheque In-Process</span>
+                            <div className={`flex flex-col border-b ${isDark ? 'border-gray-700' : 'border-gray-100'} pb-2 mb-2`}>
+                                <span className={`text-[10px] font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} uppercase tracking-tighter`}>Cheque In-Process (With GST)</span>
                                 <h3 className={`text-lg font-black ${isDark ? 'text-amber-400' : 'text-amber-600'} leading-none`}>Rs.{stats.todayInprocess ? Math.round(stats.todayInprocess).toLocaleString('en-IN') : 0}</h3>
+                            </div>
+                            <div className="flex flex-col">
+                                <span className={`text-[10px] font-black ${isDark ? 'text-amber-300' : 'text-amber-700'} uppercase tracking-tighter`}>Cheque In-Process (Base)</span>
+                                <h3 className={`text-lg font-black ${isDark ? 'text-amber-300' : 'text-amber-700'} leading-none`}>Rs.{stats.todayInprocessBase ? Math.round(stats.todayInprocessBase).toLocaleString('en-IN') : 0}</h3>
                             </div>
                             <p className={`text-[9px] text-green-500 bg-green-500/10 uppercase font-black tracking-[0.2em] mt-3 px-2 py-0.5 rounded-full inline-block`}>Daily Collections</p>
                         </div>
