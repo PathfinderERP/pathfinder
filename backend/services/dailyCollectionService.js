@@ -388,7 +388,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
 
     const finalMatchStage = aggregateMatch.length > 0 ? { $match: { $and: aggregateMatch } } : { $match: {} };
 
-    const reportData = await Payment.aggregate([
+    const paymentReportPipeline = [
         { $match: paymentMatch },
         {
             $addFields: {
@@ -667,27 +667,27 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                         "$admissionInfo.guardianMobile"
                     ]
                 },
-                }
-            },
-            {
-                $lookup: {
-                    from: "studentattendances",
-                    let: { studentId: "$studentInfo._id" },
-                    pipeline: [
-                        { $match: { $expr: { $eq: ["$studentId", "$$studentId"] } } },
-                        {
-                            $group: {
-                                _id: null,
-                                totalClasses: { $sum: 1 },
-                                presentCount: { $sum: { $cond: [{ $eq: ["$status", "Present"] }, 1, 0] } },
-                                absentCount: { $sum: { $cond: [{ $eq: ["$status", "Absent"] }, 1, 0] } }
-                            }
+            }
+        },
+        {
+            $lookup: {
+                from: "studentattendances",
+                let: { studentId: "$studentInfo._id" },
+                pipeline: [
+                    { $match: { $expr: { $eq: ["$studentId", "$$studentId"] } } },
+                    {
+                        $group: {
+                            _id: null,
+                            totalClasses: { $sum: 1 },
+                            presentCount: { $sum: { $cond: [{ $eq: ["$status", "Present"] }, 1, 0] } },
+                            absentCount: { $sum: { $cond: [{ $eq: ["$status", "Absent"] }, 1, 0] } }
                         }
-                    ],
-                    as: "attendanceStats"
-                }
-            },
-            { $unwind: { path: "$attendanceStats", preserveNullAndEmptyArrays: true } },
+                    }
+                ],
+                as: "attendanceStats"
+            }
+        },
+        { $unwind: { path: "$attendanceStats", preserveNullAndEmptyArrays: true } },
         {
             $lookup: {
                 from: "classes",
@@ -833,11 +833,260 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 ]
             }
         }
+    ];
+
+    // Pipeline for In-Process Cheques: Cheques received within date range that are still PENDING_CLEARANCE
+    const inprocessChequePipeline = [
+        {
+            $match: {
+                paymentMethod: "CHEQUE",
+                status: "PENDING_CLEARANCE",
+                paidAmount: { $gt: 0 }
+            }
+        },
+        {
+            $addFields: {
+                effectiveDate: {
+                    $ifNull: [
+                        { $toDate: "$receivedDate" },
+                        { $toDate: "$paidDate" },
+                        "$createdAt"
+                    ]
+                }
+            }
+        },
+        {
+            $match: {
+                effectiveDate: { $gte: startOfDay, $lte: endOfDay }
+            }
+        },
+        {
+            $lookup: {
+                from: "admissions",
+                localField: "admission",
+                foreignField: "_id",
+                as: "admissionInfoNormal"
+            }
+        },
+        {
+            $lookup: {
+                from: "boardcourseadmissions",
+                localField: "admission",
+                foreignField: "_id",
+                as: "admissionInfoBoard"
+            }
+        },
+        {
+            $lookup: {
+                from: "pntsestudents",
+                localField: "admission",
+                foreignField: "_id",
+                as: "admissionInfoPntse"
+            }
+        },
+        {
+            $lookup: {
+                from: "pmostudents",
+                localField: "admission",
+                foreignField: "_id",
+                as: "admissionInfoPmo"
+            }
+        },
+        {
+            $addFields: {
+                admissionInfo: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$admissionInfoNormal", 0] },
+                        { $arrayElemAt: ["$admissionInfoBoard", 0] },
+                        { $arrayElemAt: ["$admissionInfoPntse", 0] },
+                        { $arrayElemAt: ["$admissionInfoPmo", 0] }
+                    ]
+                }
+            }
+        },
+        { $unwind: { path: "$admissionInfo", preserveNullAndEmptyArrays: true } },
+        {
+            $lookup: {
+                from: "centreschemas",
+                localField: "admissionInfo.centre",
+                foreignField: "_id",
+                as: "pntseCentreInfo"
+            }
+        },
+        {
+            $addFields: {
+                "admissionInfo.centre": {
+                    $cond: {
+                        if: { $gt: [{ $size: "$pntseCentreInfo" }, 0] },
+                        then: { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] },
+                        else: "$admissionInfo.centre"
+                    }
+                }
+            }
+        },
+        {
+            $addFields: {
+                effectiveCentre: {
+                    $ifNull: ["$centre", "$admissionInfo.centre"]
+                }
+            }
+        },
+        {
+            $lookup: {
+                from: "students",
+                localField: "admissionInfo.student",
+                foreignField: "_id",
+                as: "studentInfoNormal"
+            }
+        },
+        {
+            $lookup: {
+                from: "students",
+                localField: "admissionInfo.studentId",
+                foreignField: "_id",
+                as: "studentInfoBoard"
+            }
+        },
+        {
+            $addFields: {
+                studentInfo: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$studentInfoNormal", 0] },
+                        { $arrayElemAt: ["$studentInfoBoard", 0] }
+                    ]
+                }
+            }
+        },
+        {
+            $lookup: {
+                from: "courses",
+                localField: "admissionInfo.course",
+                foreignField: "_id",
+                as: "courseInfo"
+            }
+        },
+        {
+            $unwind: {
+                path: "$courseInfo",
+                preserveNullAndEmptyArrays: true
+            }
+        },
+        {
+            $lookup: {
+                from: "users",
+                localField: "recordedBy",
+                foreignField: "_id",
+                as: "userInfo"
+            }
+        },
+        {
+            $lookup: {
+                from: "departments",
+                localField: "admissionInfo.department",
+                foreignField: "_id",
+                as: "departmentInfo"
+            }
+        },
+        {
+            $lookup: {
+                from: "departments",
+                localField: "courseInfo.department",
+                foreignField: "_id",
+                as: "courseDepartmentInfo"
+            }
+        },
+        {
+            $addFields: {
+                studentName: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
+                        "$admissionInfo.name",
+                        ""
+                    ]
+                },
+                courseName: {
+                    $ifNull: [
+                        "$courseInfo.courseName",
+                        "$admissionInfo.boardCourseName",
+                        "$boardCourseName",
+                        "$admissionInfo.course"
+                    ]
+                },
+                departmentName: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$departmentInfo.departmentName", 0] },
+                        { $arrayElemAt: ["$courseDepartmentInfo.departmentName", 0] }
+                    ]
+                },
+                recordedByName: {
+                    $ifNull: [
+                        { $arrayElemAt: ["$userInfo.name", 0] },
+                        "N/A"
+                    ]
+                }
+            }
+        },
+        finalMatchStage,
+        {
+            $facet: {
+                byCentre: [
+                    {
+                        $group: {
+                            _id: "$effectiveCentre",
+                            totalInprocess: { $sum: "$paidAmount" },
+                            count: { $sum: 1 }
+                        }
+                    }
+                ],
+                details: [
+                    {
+                        $project: {
+                            _id: 1,
+                            createdAt: 1,
+                            updatedAt: 1,
+                            date: "$effectiveDate",
+                            receivedDate: "$effectiveDate",
+                            centre: "$effectiveCentre",
+                            academicSession: "$admissionInfo.academicSession",
+                            admissionNumber: { $ifNull: ["$admissionInfo.admissionNumber", "$admissionInfo.rollNo"] },
+                            studentName: "$studentName",
+                            billId: { $ifNull: ["$billId", "-"] },
+                            transactionId: 1,
+                            courseName: 1,
+                            departmentName: 1,
+                            paymentMethod: "CHEQUE",
+                            installmentNumber: 1,
+                            status: "$status",
+                            paidAmount: 1,
+                            remarks: 1,
+                            recordedByName: "$recordedByName",
+                            isChequeInprocess: { $literal: true }
+                        }
+                    },
+                    { $sort: { date: -1, createdAt: -1 } }
+                ]
+            }
+        }
+    ];
+
+    const [reportData, inprocessData] = await Promise.all([
+        Payment.aggregate(paymentReportPipeline),
+        Payment.aggregate(inprocessChequePipeline)
     ]);
 
     const summary = reportData[0]?.summary?.[0] || { totalCollection: 0, transactionCount: 0 };
     const paymentMethods = reportData[0]?.paymentMethods || [];
     const details = reportData[0]?.details || [];
+
+    const inprocessCheques = {};
+    let inprocessChequeTotal = 0;
+    (inprocessData[0]?.byCentre || []).forEach(item => {
+        if (item._id) {
+            inprocessCheques[item._id] = item.totalInprocess || 0;
+            inprocessChequeTotal += (item.totalInprocess || 0);
+        }
+    });
+    const inprocessChequeDetails = inprocessData[0]?.details || [];
 
     // Calculate centre daily targets based strictly on user-entered targets for the month in IST
     const [year, monthNum, selectedDayNum] = selectedDateStr.split('-').map(Number);
@@ -1146,7 +1395,10 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         centreTargets,
         centreTargetMeta,
         zones,
-        zonalManagers
+        zonalManagers,
+        inprocessCheques,
+        inprocessChequeTotal,
+        inprocessChequeDetails
     };
 };
 

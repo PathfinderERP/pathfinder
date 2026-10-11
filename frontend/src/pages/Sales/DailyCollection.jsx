@@ -51,6 +51,10 @@ const DailyCollection = () => {
     const [activeTab, setActiveTab] = useState(savedFilters.activeTab || "centers"); // "centers" or "details"
     const [centreTargets, setCentreTargets] = useState({});
     const [centreTargetMeta, setCentreTargetMeta] = useState({});
+    const [inprocessCheques, setInprocessCheques] = useState({});
+    const [inprocessChequeTotal, setInprocessChequeTotal] = useState(0);
+    const [inprocessChequeDetails, setInprocessChequeDetails] = useState([]);
+    const [selectedInprocessCentre, setSelectedInprocessCentre] = useState(null);
     const [editingCentre, setEditingCentre] = useState(null);
     const [editTargetValue, setEditTargetValue] = useState("");
     const [isBulkModalOpen, setIsBulkModalOpen] = useState(false);
@@ -288,6 +292,9 @@ const DailyCollection = () => {
                 setDailyDetails(sortedDetails);
                 setCentreTargets(data.centreTargets || {});
                 setCentreTargetMeta(data.centreTargetMeta || {});
+                setInprocessCheques(data.inprocessCheques || {});
+                setInprocessChequeTotal(data.inprocessChequeTotal || 0);
+                setInprocessChequeDetails(data.inprocessChequeDetails || []);
                 setZones(data.zones || []);
                 setZonalManagers(data.zonalManagers || []);
                 setCurrentPage(1);
@@ -309,6 +316,9 @@ const DailyCollection = () => {
                 setTransactionCount(0);
                 setCentreTargets({});
                 setCentreTargetMeta({});
+                setInprocessCheques({});
+                setInprocessChequeTotal(0);
+                setInprocessChequeDetails([]);
             }
         } catch (error) {
             if (error.name === "AbortError") {
@@ -634,6 +644,36 @@ const DailyCollection = () => {
         toast.info("Filters reset");
     };
 
+    const getInprocessChequeAmount = (centreName) => {
+        if (!centreName || !inprocessCheques) return 0;
+        const cleanTarget = centreName.toLowerCase().trim();
+        for (const [k, v] of Object.entries(inprocessCheques)) {
+            if (k && k.toLowerCase().trim() === cleanTarget) {
+                return Number(v) || 0;
+            }
+        }
+        return 0;
+    };
+
+    const getInprocessChequeItems = (centreName) => {
+        if (!centreName || !inprocessChequeDetails || inprocessChequeDetails.length === 0) return [];
+        const cleanTarget = centreName.toLowerCase().trim();
+        return inprocessChequeDetails.filter(d => (d.centre || "").toLowerCase().trim() === cleanTarget);
+    };
+
+    const getActiveDateRangeLabel = () => {
+        if (startDate && endDate && (activePreset === "thisMonth" || activePreset === "lastMonth" || activePreset === "last7" || activePreset === "custom")) {
+            const s = new Date(startDate);
+            const e = new Date(endDate);
+            const sStr = isNaN(s.getTime()) ? startDate : s.toLocaleDateString("en-GB");
+            const eStr = isNaN(e.getTime()) ? endDate : e.toLocaleDateString("en-GB");
+            return `${sStr} to ${eStr}`;
+        }
+        const dStr = date || formatLocalDate(new Date());
+        const d = new Date(dStr);
+        return isNaN(d.getTime()) ? dStr : d.toLocaleDateString("en-GB");
+    };
+
     /* ── Quick date preset helper ─────────────────────────────────────── */
     const DATE_PRESETS = [
         { key: "today", label: "Today" },
@@ -745,11 +785,15 @@ const DailyCollection = () => {
                     "Centre Name",
                     "Base Target (Excl. GST)",
                     "Daily Target (Dynamic Adjusted - Excl. GST)",
-                    "Pending Target (Excl. GST)",
-                    ...paymentMethodsList,
-                    "Total (With GST)",
-                    "Total (Without GST)"
+                    "Pending Target (Excl. GST)"
                 ];
+                paymentMethodsList.forEach(method => {
+                    headers.push(method);
+                    if (method === "CHEQUE") {
+                        headers.push("Cheque Inprocess");
+                    }
+                });
+                headers.push("Total (With GST)", "Total (Without GST)");
 
                 const rows = sortedAggregated.map(([centre, data]) => {
                     const isPhsps = /phsps/i.test(centre);
@@ -765,6 +809,9 @@ const DailyCollection = () => {
                     ];
                     paymentMethodsList.forEach(method => {
                         row.push(data[method] || 0);
+                        if (method === "CHEQUE") {
+                            row.push(getInprocessChequeAmount(centre) || 0);
+                        }
                     });
                     row.push(data.total || 0);
                     row.push(Number(withoutGst.toFixed(2)) || 0);
@@ -775,15 +822,21 @@ const DailyCollection = () => {
                 const sheet = XLSX.utils.aoa_to_sheet(sheetData);
 
                 // Set column widths
-                sheet["!cols"] = [
+                const cols = [
                     { wch: 25 }, // Centre Name
                     { wch: 25 }, // Base Target
                     { wch: 25 }, // Daily Target
                     { wch: 25 }, // Pending Target
-                    ...paymentMethodsList.map(() => ({ wch: 15 })), // Payment Methods
-                    { wch: 18 }, // Total With GST
-                    { wch: 18 }  // Total Without GST
                 ];
+                paymentMethodsList.forEach(method => {
+                    cols.push({ wch: 15 });
+                    if (method === "CHEQUE") {
+                        cols.push({ wch: 18 }); // Cheque Inprocess
+                    }
+                });
+                cols.push({ wch: 18 }); // Total With GST
+                cols.push({ wch: 18 }); // Total Without GST
+                sheet["!cols"] = cols;
 
                 // Style header row
                 for (let i = 0; i < headers.length; i++) {
@@ -1425,6 +1478,12 @@ const DailyCollection = () => {
                                     <div className="text-gray-500">No payment method data available.</div>
                                 );
                             })()}
+                            {inprocessChequeTotal > 0 && (
+                                <div className={`flex justify-between text-sm font-medium text-amber-500 border-t ${isDarkMode ? "border-gray-800" : "border-gray-200"} pt-2 mt-2`}>
+                                    <span>Cheque Inprocess (Pending)</span>
+                                    <span>{formatAmount(inprocessChequeTotal)} ({inprocessChequeDetails.length})</span>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -1925,7 +1984,14 @@ const DailyCollection = () => {
                                             Pending Target (Excl. GST)
                                         </th>
                                         {paymentMethodsList.map(method => (
-                                            <th key={method} className="px-4 py-3 text-right">{method}</th>
+                                            <React.Fragment key={method}>
+                                                <th className="px-4 py-3 text-right">{method}</th>
+                                                {method === "CHEQUE" && (
+                                                    <th className="px-4 py-3 text-right font-bold text-amber-500 whitespace-nowrap min-w-[150px]">
+                                                        Cheque Inprocess
+                                                    </th>
+                                                )}
+                                            </React.Fragment>
                                         ))}
                                         <th className="px-4 py-3 text-right font-bold text-blue-400">Total (With GST)</th>
                                         <th className="px-4 py-3 text-right font-bold text-amber-500">Total (Without GST)</th>
@@ -1998,6 +2064,10 @@ const DailyCollection = () => {
                                         acc[method] = sortedData.reduce((sum, [centre, data]) => isPhspsMidnapore(centre) ? sum : sum + (data[method] || 0), 0);
                                         return acc;
                                     }, {});
+                                    const totalInprocessCheques = sortedData.reduce((sum, [centre]) => {
+                                        if (isPhspsMidnapore(centre)) return sum;
+                                        return sum + (getInprocessChequeAmount(centre) || 0);
+                                    }, 0);
                                     const totalWithGst = sortedData.reduce((sum, [centre, data]) => isPhspsMidnapore(centre) ? sum : sum + (data.total || 0), 0);
                                     const totalWithoutGst = sortedData.reduce((sum, [centre, data]) => {
                                         if (isPhspsMidnapore(centre)) return sum;
@@ -2128,9 +2198,33 @@ const DailyCollection = () => {
                                                                 {formatAmount(pendingTarget)}
                                                             </td>
                                                             {paymentMethodsList.map(method => (
-                                                                <td key={method} className={`px-4 py-4 text-right ${tableDataTextClass}`}>
-                                                                    {data[method] ? formatAmount(data[method]) : "0"}
-                                                                </td>
+                                                                <React.Fragment key={method}>
+                                                                    <td key={method} className={`px-4 py-4 text-right ${tableDataTextClass}`}>
+                                                                        {data[method] ? formatAmount(data[method]) : "0"}
+                                                                    </td>
+                                                                    {method === "CHEQUE" && (
+                                                                        <td key={`${centre}-cheque-inprocess`} className="px-4 py-4 text-right font-medium text-amber-500">
+                                                                            {getInprocessChequeAmount(centre) > 0 ? (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => setSelectedInprocessCentre({
+                                                                                        centre,
+                                                                                        isAllCentres: false,
+                                                                                        dateLabel: getActiveDateRangeLabel(),
+                                                                                        cheques: getInprocessChequeItems(centre),
+                                                                                        totalAmount: getInprocessChequeAmount(centre)
+                                                                                    })}
+                                                                                    className="hover:underline cursor-pointer focus:outline-none font-semibold text-amber-400"
+                                                                                    title="Click to view in-process cheque details"
+                                                                                >
+                                                                                    {formatAmount(getInprocessChequeAmount(centre))}
+                                                                                </button>
+                                                                            ) : (
+                                                                                <span className="text-gray-400">0</span>
+                                                                            )}
+                                                                        </td>
+                                                                    )}
+                                                                </React.Fragment>
                                                             ))}
                                                             <td className={`px-4 py-4 text-right font-black text-green-500`}>{formatAmount(data.total)}</td>
                                                             <td className={`px-4 py-4 text-right font-bold text-amber-500`}>{formatAmount(rowWithoutGst)}</td>
@@ -2169,7 +2263,38 @@ const DailyCollection = () => {
                                                         {formatAmount(totalTarget - totalWithoutGst)}
                                                     </td>
                                                     {paymentMethodsList.map(method => (
-                                                        <td key={method} className="px-4 py-4 text-right text-gray-400">{formatAmount(totalPaymentMethods[method] || 0)}</td>
+                                                        <React.Fragment key={method}>
+                                                            <td key={method} className="px-4 py-4 text-right text-gray-400">{formatAmount(totalPaymentMethods[method] || 0)}</td>
+                                                            {method === "CHEQUE" && (
+                                                                <td key="total-cheque-inprocess" className="px-4 py-4 text-right font-bold text-amber-500">
+                                                                    {totalInprocessCheques > 0 ? (
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const visibleCentreNames = new Set(sortedData.map(([c]) => c.toLowerCase().trim()));
+                                                                                const allCheques = (inprocessChequeDetails || []).filter(d => {
+                                                                                    const cName = (d.centre || "").toLowerCase().trim();
+                                                                                    return visibleCentreNames.has(cName) && !isPhspsMidnapore(d.centre);
+                                                                                });
+                                                                                setSelectedInprocessCentre({
+                                                                                    centre: "All Centres",
+                                                                                    isAllCentres: true,
+                                                                                    dateLabel: getActiveDateRangeLabel(),
+                                                                                    cheques: allCheques.length > 0 ? allCheques : (inprocessChequeDetails || []),
+                                                                                    totalAmount: totalInprocessCheques
+                                                                                });
+                                                                            }}
+                                                                            className="hover:underline cursor-pointer focus:outline-none font-bold text-amber-400"
+                                                                            title="Click to view all in-process cheques"
+                                                                        >
+                                                                            {formatAmount(totalInprocessCheques || 0)}
+                                                                        </button>
+                                                                    ) : (
+                                                                        <span className="text-gray-400">0</span>
+                                                                    )}
+                                                                </td>
+                                                            )}
+                                                        </React.Fragment>
                                                     ))}
                                                     <td className="px-4 py-4 text-right text-green-500">{formatAmount(totalWithGst)}</td>
                                                     <td className="px-4 py-4 text-right text-amber-500">{formatAmount(totalWithoutGst)}</td>
@@ -2584,6 +2709,111 @@ const DailyCollection = () => {
                                     {bulkSaving ? "Saving..." : `Save Selected (${bulkSelectedCentres.length} centres)`}
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* In-Process Cheques Detail Modal */}
+            {selectedInprocessCentre && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fadeIn">
+                    <div className={`w-full max-w-4xl rounded-lg shadow-2xl border flex flex-col max-h-[90vh] ${isDarkMode ? "bg-[#13161c] border-gray-800 text-white" : "bg-white border-gray-200 text-gray-900"}`}>
+                        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 dark:border-gray-800">
+                            <div>
+                                <div className="flex items-center gap-3 flex-wrap">
+                                    <h3 className="text-lg font-bold">In-Process Cheques — {selectedInprocessCentre.centre}</h3>
+                                    {selectedInprocessCentre.dateLabel && (
+                                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold bg-blue-500/10 text-blue-400 border border-blue-500/20">
+                                            <FaCalendarDay size={11} />
+                                            <span>Date: {selectedInprocessCentre.dateLabel}</span>
+                                        </span>
+                                    )}
+                                </div>
+                                <p className="text-xs text-amber-500 font-medium mt-1">
+                                    These cheques are currently pending clearance for {selectedInprocessCentre.dateLabel ? `(${selectedInprocessCentre.dateLabel})` : "the selected period"}. They will be added to collection totals only upon clearance.
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => setSelectedInprocessCentre(null)}
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors cursor-pointer"
+                                title="Close"
+                            >
+                                <FaTimes size={16} />
+                            </button>
+                        </div>
+                        <div className="overflow-x-auto p-4 max-h-[60vh] overflow-y-auto">
+                            {selectedInprocessCentre.cheques && selectedInprocessCentre.cheques.length > 0 ? (
+                                <table className={`w-full divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"} text-sm text-left`}>
+                                    <thead className={`${tableHeaderBgClass} ${tableHeaderTextClass} uppercase text-[11px] tracking-wider`}>
+                                        <tr>
+                                            <th className="px-3 py-2">Received Date</th>
+                                            {selectedInprocessCentre.isAllCentres && <th className="px-3 py-2">Centre</th>}
+                                            <th className="px-3 py-2">Student Name</th>
+                                            <th className="px-3 py-2">Cheque No.</th>
+                                            <th className="px-3 py-2">Course</th>
+                                            <th className="px-3 py-2 text-right">Amount</th>
+                                            <th className="px-3 py-2 text-center">Status</th>
+                                            <th className="px-3 py-2">Recorded By</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className={`divide-y ${isDarkMode ? "divide-gray-800" : "divide-gray-200"}`}>
+                                        {selectedInprocessCentre.cheques.map((c, idx) => (
+                                            <tr key={c._id || idx} className={tableRowHoverClass}>
+                                                <td className={`px-3 py-2.5 text-xs ${tableDataTextClass}`}>
+                                                    {c.date ? new Date(c.date).toLocaleDateString("en-GB") : "-"}
+                                                </td>
+                                                {selectedInprocessCentre.isAllCentres && (
+                                                    <td className={`px-3 py-2.5 font-semibold text-xs text-blue-400`}>
+                                                        {c.centre || "-"}
+                                                    </td>
+                                                )}
+                                                <td className={`px-3 py-2.5 font-medium ${cardTextClass}`}>
+                                                    {c.studentName || "-"}
+                                                </td>
+                                                <td className="px-3 py-2.5 font-mono text-xs text-blue-400">
+                                                    {c.transactionId || "-"}
+                                                </td>
+                                                <td className={`px-3 py-2.5 text-xs ${secondaryTextClass}`}>
+                                                    {c.courseName || "-"}
+                                                </td>
+                                                <td className="px-3 py-2.5 text-right font-bold text-amber-500">
+                                                    ₹{formatAmount(c.paidAmount)}
+                                                </td>
+                                                <td className="px-3 py-2.5 text-center">
+                                                    <span className="inline-block px-2 py-0.5 text-[10px] font-bold rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                                        IN PROCESS
+                                                    </span>
+                                                </td>
+                                                <td className={`px-3 py-2.5 text-xs ${secondaryTextClass}`}>
+                                                    {c.recordedByName || "-"}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            ) : (
+                                <div className="text-center py-6 text-gray-500 text-sm">
+                                    No detailed records found. Total in-process amount: ₹{formatAmount(
+                                        selectedInprocessCentre.totalAmount !== undefined
+                                            ? selectedInprocessCentre.totalAmount
+                                            : getInprocessChequeAmount(selectedInprocessCentre.centre)
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-between px-6 py-3 border-t border-gray-200 dark:border-gray-800 bg-slate-50/50 dark:bg-gray-900/30">
+                            <span className="text-xs text-gray-500">
+                                Cheques Count: <b>{selectedInprocessCentre.cheques?.length || 0}</b>
+                            </span>
+                            <span className="text-sm font-bold text-amber-500">
+                                Total In-Process: ₹{formatAmount(
+                                    selectedInprocessCentre.cheques && selectedInprocessCentre.cheques.length > 0
+                                        ? selectedInprocessCentre.cheques.reduce((sum, c) => sum + (c.paidAmount || 0), 0)
+                                        : (selectedInprocessCentre.totalAmount !== undefined
+                                            ? selectedInprocessCentre.totalAmount
+                                            : getInprocessChequeAmount(selectedInprocessCentre.centre))
+                                )}
+                            </span>
                         </div>
                     </div>
                 </div>
