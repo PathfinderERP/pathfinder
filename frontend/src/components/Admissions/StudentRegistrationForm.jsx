@@ -379,8 +379,14 @@ const StudentRegistrationForm = () => {
                     { headers: { Authorization: `Bearer ${token}` } }
                 );
                 const data = await res.json();
-                setMobileCheck({ checking: false, taken: !!data.mobileTaken, name: data.mobileStudentName || "" });
-            } catch { setMobileCheck({ checking: false, taken: false, name: "" }); }
+                setMobileCheck({
+                    checking: false,
+                    taken: !!data.mobileTaken,
+                    name: data.mobileStudentName || "",
+                    studentId: data.studentId || null,
+                    admissionNumber: data.admissionNumber || ""
+                });
+            } catch { setMobileCheck({ checking: false, taken: false, name: "", studentId: null, admissionNumber: "" }); }
         }, 600);
         return () => clearTimeout(timer);
     }, [formData.mobileNum]);
@@ -807,7 +813,32 @@ const StudentRegistrationForm = () => {
                                                 />
                                                 {mobileCheck.checking && <p className="text-[9px] text-gray-500 mt-1 font-bold uppercase">Checking...</p>}
                                                 {!mobileCheck.checking && mobileCheck.taken && (
-                                                    <p className="text-[9px] text-red-400 mt-1 font-black uppercase tracking-wider">⚠ Already registered to: {mobileCheck.name}</p>
+                                                    <div className="mt-1.5 p-2 rounded bg-red-500/10 border border-red-500/30 flex items-center justify-between gap-2">
+                                                        <div>
+                                                            <p className="text-[9px] text-red-400 font-black uppercase tracking-wider">
+                                                                ⚠ Already registered to: {mobileCheck.name} {mobileCheck.admissionNumber ? `(${mobileCheck.admissionNumber})` : ''}
+                                                            </p>
+                                                            <p className="text-[8px] text-gray-400 mt-0.5">
+                                                                To enroll in a new course under the same enrolment number, click below:
+                                                            </p>
+                                                        </div>
+                                                        {mobileCheck.studentId && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => navigate(`/admission/${mobileCheck.studentId}?admissionNumber=${encodeURIComponent(mobileCheck.admissionNumber || '')}`, {
+                                                                    state: {
+                                                                        student: { _id: mobileCheck.studentId, studentName: mobileCheck.name, mobileNum: formData.mobileNum, admissionNumber: mobileCheck.admissionNumber },
+                                                                        rollNo: mobileCheck.admissionNumber,
+                                                                        admissionNumber: mobileCheck.admissionNumber,
+                                                                        leadData: location.state?.leadData
+                                                                    }
+                                                                })}
+                                                                className="px-2.5 py-1 bg-purple-600 hover:bg-purple-500 text-white text-[8px] font-black uppercase rounded tracking-wider shadow-sm transition-all shrink-0 cursor-pointer"
+                                                            >
+                                                                Admit (Same ID)
+                                                            </button>
+                                                        )}
+                                                    </div>
                                                 )}
                                             </div>
                                             <div>

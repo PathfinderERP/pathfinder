@@ -210,12 +210,14 @@ export const getConversionDetails = async (req, res) => {
             const studentNames = sInfo?.names || [];
 
             const entry = {
+                studentId: sid,
                 studentNames,
                 amount,
                 courseTitle,
                 admittedByName,
                 enrollNo,
                 email,
+                admissionType: 'NORMAL',
                 admissionDate: adm.admissionDate || adm.createdAt || null
             };
 
@@ -242,12 +244,14 @@ export const getConversionDetails = async (req, res) => {
             ].filter(Boolean);
 
             const entry = {
+                studentId: sid,
                 studentNames,
                 amount,
                 courseTitle: boardTitle,
                 admittedByName,
                 enrollNo,
                 email,
+                admissionType: 'BOARD',
                 admissionDate: adm.admissionDate || adm.createdAt || null
             };
 
@@ -266,12 +270,19 @@ export const getConversionDetails = async (req, res) => {
                 ...(phoneToAdmissionEntries.get(cp2) || [])
             ];
 
-            // Match by student name if multiple candidates, else take first
+            // Match by student name if multiple candidates, preferring latest admission date
             let matchedEntry = null;
             if (candidateEntries.length > 0) {
-                matchedEntry = candidateEntries.find(entry => 
+                const nameMatches = candidateEntries.filter(entry => 
                     (entry.studentNames || []).some(sn => isNameMatch(lead.name, sn))
-                ) || candidateEntries[0];
+                );
+                const candidatesToUse = nameMatches.length > 0 ? nameMatches : candidateEntries;
+                const sorted = [...candidatesToUse].sort((a, b) => {
+                    const ta = a.admissionDate ? new Date(a.admissionDate).getTime() : 0;
+                    const tb = b.admissionDate ? new Date(b.admissionDate).getTime() : 0;
+                    return tb - ta;
+                });
+                matchedEntry = sorted[0];
             }
 
             const downPayment = matchedEntry ? matchedEntry.amount : 0;
@@ -294,7 +305,11 @@ export const getConversionDetails = async (req, res) => {
                 admittedBy: admittedBy || "NA",
                 admissionDate,
                 source,
-                isAlreadyEnrolled: (matchingPreEnrolledIds || []).some(pid => pid.toString() === (lead._id ? lead._id.toString() : ''))
+                isAlreadyEnrolled: (matchingPreEnrolledIds || []).some(pid => pid.toString() === (lead._id ? lead._id.toString() : '')),
+                existingStudentId: matchedEntry?.studentId || null,
+                existingEnrollmentNo: matchedEntry?.enrollNo || enrollmentNo || "NA",
+                existingCourseTitle: matchedEntry?.courseTitle || admittedCourseName || "NA",
+                existingAdmissionType: matchedEntry?.admissionType || "NORMAL"
             };
         });
 

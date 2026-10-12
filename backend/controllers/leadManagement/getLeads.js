@@ -122,7 +122,7 @@ export const getLeads = async (req, res) => {
         }
 
         // Gather admitted and counselled leads using (phone + student name) matching with date-aware attribution
-        const { matchingAdmittedIds, matchingPreEnrolledIds, matchingCounsellingIds } = await getMatchingLeadIds(statsQueryWithoutCounseled);
+        const { matchingAdmittedIds, matchingPreEnrolledIds, matchingPreEnrolledDetailsMap, matchingCounsellingIds } = await getMatchingLeadIds(statsQueryWithoutCounseled);
 
         // Compute counselled and admitted counts
         const counselledBaseQuery = { ...statsQueryWithoutCounseled };
@@ -207,15 +207,47 @@ export const getLeads = async (req, res) => {
             ]
         });
 
+        // Handle admissionSource filter if provided
+        let effectiveQuery = { ...query };
+        if (req.query.admissionSource === 'already_enrolled') {
+            const preAnd = effectiveQuery.$and ? [...effectiveQuery.$and] : [];
+            if (effectiveQuery.$or) {
+                preAnd.push({ $or: effectiveQuery.$or });
+                delete effectiveQuery.$or;
+            }
+            preAnd.push({ _id: { $in: matchingPreEnrolledIds } });
+            effectiveQuery.$and = preAnd;
+        } else if (req.query.admissionSource === 'uploaded') {
+            const upAnd = effectiveQuery.$and ? [...effectiveQuery.$and] : [];
+            if (effectiveQuery.$or) {
+                upAnd.push({ $or: effectiveQuery.$or });
+                delete effectiveQuery.$or;
+            }
+            upAnd.push({ _id: { $in: matchingAdmittedIds } });
+            upAnd.push(uploadedLeadCondition);
+            effectiveQuery.$and = upAnd;
+        } else if (req.query.admissionSource === 'manual') {
+            const manAnd = effectiveQuery.$and ? [...effectiveQuery.$and] : [];
+            if (effectiveQuery.$or) {
+                manAnd.push({ $or: effectiveQuery.$or });
+                delete effectiveQuery.$or;
+            }
+            manAnd.push({ _id: { $in: matchingAdmittedIds } });
+            manAnd.push(manualLeadCondition);
+            effectiveQuery.$and = manAnd;
+        }
+
+        const effectiveTotalLeads = req.query.admissionSource ? await LeadManagement.countDocuments(effectiveQuery) : totalLeads;
+
         let sortOption = {};
         if (req.query.sortBy) {
             const order = req.query.sortOrder === 'desc' ? -1 : 1;
             sortOption[req.query.sortBy] = order;
         } else {
-            sortOption = query.nextFollowUpDate ? { nextFollowUpDate: 1 } : { isPriority: -1, createdAt: -1 };
+            sortOption = effectiveQuery.nextFollowUpDate ? { nextFollowUpDate: 1 } : { isPriority: -1, createdAt: -1 };
         }
 
-        const leads = await LeadManagement.find(query)
+        const leads = await LeadManagement.find(effectiveQuery)
             .populate('className', 'name')
             .populate('centre', 'centreName')
             .populate('course', 'courseName')
@@ -237,6 +269,14 @@ export const getLeads = async (req, res) => {
             const lid = lead._id ? lead._id.toString() : '';
             lObj.isAdmitted = matchingAdmittedSet.has(lid);
             lObj.isAlreadyEnrolled = matchingPreEnrolledSet.has(lid);
+            const preDetails = matchingPreEnrolledDetailsMap?.get(lid);
+            if (preDetails) {
+                lObj.existingStudentId = preDetails.studentId;
+                lObj.existingEnrollmentNo = preDetails.admissionNumber;
+                lObj.existingCourseTitle = preDetails.courseTitle;
+                lObj.existingAdmissionType = preDetails.admissionType;
+                lObj.existingStudentName = preDetails.studentName;
+            }
             return lObj;
         });
 
@@ -245,8 +285,8 @@ export const getLeads = async (req, res) => {
             leads: enrichedLeads,
             pagination: {
                 currentPage: page,
-                totalPages: Math.ceil(totalLeads / limit),
-                totalLeads,
+                totalPages: Math.ceil(effectiveTotalLeads / limit),
+                totalLeads: effectiveTotalLeads,
                 limit
             },
             stats: {

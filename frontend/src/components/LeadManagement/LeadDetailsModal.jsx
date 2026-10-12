@@ -95,6 +95,22 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
 
                 {/* Content */}
                 <div className={`p-6 sm:p-8 space-y-6 sm:space-y-8 flex-1 overflow-y-auto custom-scrollbar ${isDarkMode ? 'bg-[#1a1f24]' : 'bg-white'}`}>
+                    {lead.isAlreadyEnrolled && (
+                        <div className="p-3.5 rounded-[4px] bg-purple-500/10 border border-purple-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <div>
+                                <span className="text-[10px] font-black uppercase tracking-wider text-purple-400 flex items-center gap-1.5">
+                                    ★ Already Enrolled Student Record Detected
+                                </span>
+                                <p className="text-xs font-bold text-white mt-1">
+                                    Enrolment Number: <strong className="font-mono text-cyan-400">{lead.existingEnrollmentNo || 'ID Exists'}</strong>
+                                    {lead.existingCourseTitle && <span className="text-gray-400 font-normal ml-2">• Course: {lead.existingCourseTitle} ({lead.existingAdmissionType})</span>}
+                                </p>
+                            </div>
+                            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-400 bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 rounded shrink-0 self-start sm:self-auto">
+                                Linked Enrolment ID
+                            </span>
+                        </div>
+                    )}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
                         {/* Personal Info */}
                         <div className="space-y-4">
@@ -286,9 +302,10 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                             </button>
                             <button
                                 onClick={() => onCounseling(lead)}
-                                className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-green-600 text-white hover:bg-green-500 transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-green-500/20 active:scale-95"
+                                className={`px-5 py-3 sm:py-2.5 justify-center rounded-[4px] ${lead.isAlreadyEnrolled ? 'bg-purple-600 hover:bg-purple-500' : 'bg-green-600 hover:bg-green-500'} text-white transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95`}
+                                title={lead.isAlreadyEnrolled ? `Enroll under existing Enrolment No: ${lead.existingEnrollmentNo || ''}` : "Proceed with counselling"}
                             >
-                            <FaUser size={12} /> Counseling
+                                <FaUser size={12} /> {lead.isAlreadyEnrolled ? "Admit (Same ID)" : "Counseling"}
                             </button>
                         </div>
 

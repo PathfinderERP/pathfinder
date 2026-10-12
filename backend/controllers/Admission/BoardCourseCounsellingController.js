@@ -560,12 +560,17 @@ export const checkDuplicateContact = async (req, res) => {
 
         if (mobile && mobile.length === 10) {
             const existingByMobile = await Student.findOne({
-                "studentsDetails.mobileNum": mobile,
+                $or: [
+                    { "studentsDetails.mobileNum": mobile },
+                    { "studentsDetails.whatsappNumber": mobile }
+                ],
                 ...(excludeStudentId ? { _id: { $ne: excludeStudentId } } : {})
-            }).select("studentsDetails.studentName studentsDetails.mobileNum");
+            }).select("studentsDetails.studentName studentsDetails.mobileNum studentsDetails.rollNo studentsDetails.admissionNumber admissionNumber rollNo");
             if (existingByMobile) {
                 result.mobileTaken = true;
                 result.mobileStudentName = existingByMobile.studentsDetails?.[0]?.studentName || "Another student";
+                result.studentId = existingByMobile._id;
+                result.admissionNumber = existingByMobile.admissionNumber || existingByMobile.rollNo || existingByMobile.studentsDetails?.[0]?.admissionNumber || existingByMobile.studentsDetails?.[0]?.rollNo || "";
             }
         }
 

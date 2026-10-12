@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle, FaUserGraduate, FaGraduationCap, FaTimes, FaWalking, FaLayerGroup } from "react-icons/fa";
+import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaChevronDown, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle, FaUserGraduate, FaGraduationCap, FaTimes, FaWalking, FaLayerGroup } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { saveAs } from "file-saver";
@@ -92,6 +92,19 @@ const LeadManagementContent = () => {
         leads: []
     });
 
+    const [isEnrollmentDropdownOpen, setIsEnrollmentDropdownOpen] = useState(false);
+    const enrollmentDropdownRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (enrollmentDropdownRef.current && !enrollmentDropdownRef.current.contains(e.target)) {
+                setIsEnrollmentDropdownOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
+
     const [centreAnalysis, setCentreAnalysis] = useState([]);
     const [showCentreAnalysisModal, setShowCentreAnalysisModal] = useState(false);
     const [analysisLoading, setAnalysisLoading] = useState(false);
@@ -136,6 +149,7 @@ const LeadManagementContent = () => {
         isPriority: "",
         schoolName: [],
         showDuplicates: "",
+        admissionSource: "",
         zone: [],
         uploadedBy: [],
         campaign: []
@@ -841,6 +855,7 @@ const LeadManagementContent = () => {
             isPriority: "",
             schoolName: [],
             showDuplicates: "",
+            admissionSource: "",
             zone: [],
             uploadedBy: [],
             campaign: []
@@ -1004,15 +1019,39 @@ const LeadManagementContent = () => {
     const [showCounselingChoiceModal, setShowCounselingChoiceModal] = useState(false);
     const [showWalkInRequiredModal, setShowWalkInRequiredModal] = useState(false);
 
-    const handleCounseling = (lead) => {
-        const isWalkIn = lead?.isWalkIn || lead?.source?.toLowerCase() === 'walk in';
+    const handleCounseling = async (lead) => {
+        let leadToProcess = { ...lead };
+        if (!leadToProcess.existingStudentId && (leadToProcess.isAlreadyEnrolled || leadToProcess.phoneNumber)) {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(
+                    `${import.meta.env.VITE_API_URL}/lead-management/lookup-enrolled-student?phone=${encodeURIComponent(leadToProcess.phoneNumber || '')}&name=${encodeURIComponent(leadToProcess.name || '')}&leadId=${leadToProcess._id}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (res.ok) {
+                    const lookup = await res.json();
+                    if (lookup.found && lookup.studentId) {
+                        leadToProcess.isAlreadyEnrolled = true;
+                        leadToProcess.existingStudentId = lookup.studentId;
+                        leadToProcess.existingEnrollmentNo = lookup.admissionNumber;
+                        leadToProcess.existingCourseTitle = lookup.admissions?.[0]?.courseName || leadToProcess.existingCourseTitle;
+                        leadToProcess.existingAdmissionType = lookup.admissions?.[0]?.admissionType || leadToProcess.existingAdmissionType;
+                        leadToProcess.existingStudentName = lookup.studentName || leadToProcess.name;
+                    }
+                }
+            } catch (err) {
+                console.error("Lookup enrolled student error:", err);
+            }
+        }
+
+        const isWalkIn = leadToProcess?.isAlreadyEnrolled || leadToProcess?.isWalkIn || leadToProcess?.source?.toLowerCase() === 'walk in';
         if (!isWalkIn) {
-            setSelectedLead(lead);
+            setSelectedLead(leadToProcess);
             setShowWalkInRequiredModal(true);
             toast.warn("Click on the Walk In button first then you can proceed with Counselling.");
             return;
         }
-        setSelectedLead(lead);
+        setSelectedLead(leadToProcess);
         setShowCounselingChoiceModal(true);
     };
 
@@ -1074,12 +1113,50 @@ const LeadManagementContent = () => {
     };
 
     const handleNormalCounseling = () => {
-        navigate("/student-registration", { state: { leadData: selectedLead } });
+        setConversionModal(prev => ({ ...prev, isOpen: false }));
+        setShowDetailModal(false);
+        setSelectedDetailLead(null);
+        if (selectedLead?.isAlreadyEnrolled && selectedLead?.existingStudentId) {
+            navigate(`/admission/${selectedLead.existingStudentId}?admissionNumber=${encodeURIComponent(selectedLead.existingEnrollmentNo || '')}`, {
+                state: {
+                    student: {
+                        _id: selectedLead.existingStudentId,
+                        studentName: selectedLead.existingStudentName || selectedLead.name,
+                        mobileNum: selectedLead.phoneNumber,
+                        admissionNumber: selectedLead.existingEnrollmentNo
+                    },
+                    rollNo: selectedLead.existingEnrollmentNo,
+                    admissionNumber: selectedLead.existingEnrollmentNo,
+                    leadData: selectedLead
+                }
+            });
+        } else {
+            navigate("/student-registration", { state: { leadData: selectedLead } });
+        }
         setShowCounselingChoiceModal(false);
     };
 
     const handleBoardCounseling = () => {
-        navigate("/board-admissions?tab=Counselling", { state: { leadData: selectedLead } });
+        setConversionModal(prev => ({ ...prev, isOpen: false }));
+        setShowDetailModal(false);
+        setSelectedDetailLead(null);
+        if (selectedLead?.isAlreadyEnrolled && selectedLead?.existingStudentId) {
+            navigate(`/board-course-admission/${selectedLead.existingStudentId}?admissionNumber=${encodeURIComponent(selectedLead.existingEnrollmentNo || '')}`, {
+                state: {
+                    student: {
+                        _id: selectedLead.existingStudentId,
+                        studentName: selectedLead.existingStudentName || selectedLead.name,
+                        mobileNum: selectedLead.phoneNumber,
+                        admissionNumber: selectedLead.existingEnrollmentNo
+                    },
+                    rollNo: selectedLead.existingEnrollmentNo,
+                    admissionNumber: selectedLead.existingEnrollmentNo,
+                    leadData: selectedLead
+                }
+            });
+        } else {
+            navigate("/board-admissions?tab=Counselling", { state: { leadData: selectedLead } });
+        }
         setShowCounselingChoiceModal(false);
     };
 
@@ -1654,11 +1731,12 @@ const LeadManagementContent = () => {
                             <select
                                 value={filters.isPriority || ""}
                                 onChange={(e) => handleFilterChange('isPriority', e.target.value)}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 className={`w-full px-4 py-2.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             >
-                                <option value="">ALL LEADS</option>
-                                <option value="true">PRIORITY LEADS ONLY</option>
-                                <option value="false">NON-PRIORITY LEADS ONLY</option>
+                                <option value="" className={isDarkMode ? "bg-[#15181f] text-white" : "bg-white text-gray-900"}>ALL LEADS</option>
+                                <option value="true" className={isDarkMode ? "bg-[#15181f] text-white" : "bg-white text-gray-900"}>PRIORITY LEADS ONLY</option>
+                                <option value="false" className={isDarkMode ? "bg-[#15181f] text-white" : "bg-white text-gray-900"}>NON-PRIORITY LEADS ONLY</option>
                             </select>
                         </div>
                         <div className="space-y-2">
@@ -1666,12 +1744,94 @@ const LeadManagementContent = () => {
                             <select
                                 value={filters.showDuplicates || ""}
                                 onChange={(e) => handleFilterChange('showDuplicates', e.target.value)}
+                                style={{ colorScheme: isDarkMode ? 'dark' : 'light' }}
                                 className={`w-full px-4 py-2.5 rounded-[2px] border text-[10px] font-bold outline-none transition-all ${isDarkMode ? 'bg-[#0a0a0b] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                             >
-                                <option value="">ALL LEADS</option>
-                                <option value="true">SHOW DUPLICATES ONLY</option>
-                                <option value="false">HIDE DUPLICATES</option>
+                                <option value="" className={isDarkMode ? "bg-[#15181f] text-white" : "bg-white text-gray-900"}>ALL LEADS</option>
+                                <option value="true" className={isDarkMode ? "bg-[#15181f] text-white" : "bg-white text-gray-900"}>SHOW DUPLICATES ONLY</option>
+                                <option value="false" className={isDarkMode ? "bg-[#15181f] text-white" : "bg-white text-gray-900"}>HIDE DUPLICATES</option>
                             </select>
+                        </div>
+                        <div className="space-y-2 relative" ref={enrollmentDropdownRef}>
+                            <label className={`text-[9px] font-black uppercase tracking-widest ${
+                                filters.admissionSource === 'already_enrolled'
+                                    ? (isDarkMode ? 'text-purple-400' : 'text-purple-600')
+                                    : (isDarkMode ? 'text-gray-500' : 'text-gray-400')
+                            }`}>
+                                Enrollment Status
+                            </label>
+                            <button
+                                type="button"
+                                onClick={() => setIsEnrollmentDropdownOpen(prev => !prev)}
+                                className={`w-full px-3 py-2.5 rounded-[2px] border text-[10px] font-black uppercase tracking-wider flex items-center justify-between outline-none transition-all cursor-pointer ${
+                                    filters.admissionSource === 'already_enrolled'
+                                        ? 'border-purple-500 bg-purple-500/20 text-purple-300 ring-1 ring-purple-500/50 shadow-sm'
+                                        : filters.admissionSource
+                                            ? 'border-cyan-500 bg-cyan-500/10 text-cyan-300 ring-1 ring-cyan-500/30'
+                                            : isDarkMode
+                                                ? 'bg-[#0a0a0b] border-gray-800 text-white hover:border-gray-700'
+                                                : 'bg-gray-50 border-gray-200 text-gray-900 hover:border-gray-300'
+                                }`}
+                            >
+                                <span className="truncate flex items-center gap-1.5">
+                                    {filters.admissionSource === 'already_enrolled' && (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-purple-400 shrink-0"></span>
+                                    )}
+                                    {filters.admissionSource === 'uploaded_admissions' && (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>
+                                    )}
+                                    {filters.admissionSource === 'manual_admissions' && (
+                                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"></span>
+                                    )}
+                                    {filters.admissionSource === 'already_enrolled'
+                                        ? 'Already Enrolled'
+                                        : filters.admissionSource === 'uploaded_admissions'
+                                            ? 'Admitted (Uploaded)'
+                                            : filters.admissionSource === 'manual_admissions'
+                                                ? 'Admitted (Manual)'
+                                                : 'All Leads'}
+                                </span>
+                                <FaChevronDown size={9} className={`shrink-0 ml-1.5 transition-transform duration-200 ${isEnrollmentDropdownOpen ? 'rotate-180 text-purple-400' : 'text-gray-500'}`} />
+                            </button>
+
+                            {isEnrollmentDropdownOpen && (
+                                <div className={`absolute top-full left-0 right-0 mt-1 z-[100] rounded-[2px] border shadow-2xl py-1 ${
+                                    isDarkMode ? 'bg-[#15181f] border-gray-700 text-white' : 'bg-white border-gray-200 text-gray-900 shadow-xl'
+                                }`}>
+                                    {[
+                                        { value: "", label: "ALL LEADS", desc: "Show all inquiries", dot: "bg-gray-500" },
+                                        { value: "already_enrolled", label: "ALREADY ENROLLED", desc: "Existing students inquiring again", dot: "bg-purple-500" },
+                                        { value: "uploaded_admissions", label: "ADMITTED (UPLOADED)", desc: "Admitted from campaign uploads", dot: "bg-amber-500" },
+                                        { value: "manual_admissions", label: "ADMITTED (MANUAL)", desc: "Admitted from manual entry", dot: "bg-emerald-500" }
+                                    ].map(opt => {
+                                        const isSelected = (filters.admissionSource || "") === opt.value;
+                                        return (
+                                            <button
+                                                key={opt.value}
+                                                type="button"
+                                                onClick={() => {
+                                                    handleFilterChange('admissionSource', opt.value);
+                                                    setIsEnrollmentDropdownOpen(false);
+                                                }}
+                                                className={`w-full text-left px-3 py-2 text-[10px] font-bold flex items-center justify-between transition-colors cursor-pointer ${
+                                                    isSelected
+                                                        ? (isDarkMode ? 'bg-purple-600/30 text-purple-300 border-l-2 border-purple-500 font-black' : 'bg-purple-100 text-purple-800 border-l-2 border-purple-600 font-black')
+                                                        : (isDarkMode ? 'hover:bg-gray-800 text-gray-300 hover:text-white' : 'hover:bg-gray-100 text-gray-700 hover:text-gray-900')
+                                                }`}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`w-2 h-2 rounded-full ${opt.dot} shrink-0`}></span>
+                                                    <div>
+                                                        <div className="uppercase tracking-wider font-black">{opt.label}</div>
+                                                        <div className={`text-[8px] font-normal ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{opt.desc}</div>
+                                                    </div>
+                                                </div>
+                                                {isSelected && <span className="text-purple-400 text-xs font-black">✓</span>}
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            )}
                         </div>
                     </div>
 
@@ -1977,8 +2137,11 @@ const LeadManagementContent = () => {
                                                         </span>
                                                     )}
                                                     {lead.isAlreadyEnrolled && (
-                                                        <span className="inline-block px-1.5 py-0.5 rounded-[2px] text-[7px] font-black uppercase tracking-widest border border-purple-500 bg-purple-500/20 text-purple-300 self-start leading-none" title="Student was already admitted before this lead inquiry">
-                                                            Already Enrolled
+                                                        <span
+                                                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[7px] font-black uppercase tracking-widest border border-purple-500 bg-purple-500/20 text-purple-300 self-start leading-none"
+                                                            title={`Existing Enrolled Student: ${lead.existingEnrollmentNo || 'ID Exists'} | Course: ${lead.existingCourseTitle || 'Previous Course'}`}
+                                                        >
+                                                            <FaGraduationCap size={8} /> Already Enrolled {lead.existingEnrollmentNo ? `• ${lead.existingEnrollmentNo}` : ''}
                                                         </span>
                                                     )}
                                                 </div>
@@ -2087,9 +2250,10 @@ const LeadManagementContent = () => {
                                                     </button>
                                                     <button
                                                         onClick={(e) => { e.stopPropagation(); handleCounseling(lead); }}
-                                                        className="bg-cyan-500 hover:bg-cyan-400 text-black px-3.5 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-cyan-500/20 active:scale-95 transition-all whitespace-nowrap"
+                                                        className={`${lead.isAlreadyEnrolled ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/30' : 'bg-cyan-500 hover:bg-cyan-400 text-black shadow-cyan-500/20'} px-3.5 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg active:scale-95 transition-all whitespace-nowrap`}
+                                                        title={lead.isAlreadyEnrolled ? `Enroll student under existing Enrolment No: ${lead.existingEnrollmentNo || ''}` : "Proceed with counselling"}
                                                     >
-                                                        Counselling
+                                                        {lead.isAlreadyEnrolled ? "Admit (Same ID)" : "Counselling"}
                                                     </button>
                                                     {lead.isWalkIn || lead.source?.toLowerCase() === 'walk in' ? (
                                                         <button
@@ -2288,6 +2452,18 @@ const LeadManagementContent = () => {
                 title={conversionModal.title}
                 leads={conversionModal.leads}
                 isDarkMode={isDarkMode}
+                onFollowUp={(lead, startCall = false) => {
+                    setSelectedLead(lead);
+                    setStartCallOnOpen(startCall);
+                    setShowFollowUpModal(true);
+                }}
+                onCounseling={(lead) => handleCounseling(lead)}
+                onViewJourney={(lead) => handleViewJourney(lead)}
+                onFilterInTable={(sourceType) => {
+                    setConversionModal(prev => ({ ...prev, isOpen: false }));
+                    setFilters(prev => ({ ...prev, admissionSource: sourceType || 'already_enrolled' }));
+                    setCurrentPage(1);
+                }}
             />
 
 
@@ -2304,15 +2480,21 @@ const LeadManagementContent = () => {
             }
 
             {showCounselingChoiceModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className={`w-full max-w-md p-6 rounded-[2px] border ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-xl'}`}>
+                <div 
+                    className="fixed inset-0 z-[10000] flex items-center justify-center bg-black/75 backdrop-blur-md p-4 animate-fade-in"
+                    onClick={() => setShowCounselingChoiceModal(false)}
+                >
+                    <div 
+                        className={`w-full max-w-md p-6 rounded-[2px] border shadow-2xl ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200 shadow-xl'}`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="flex justify-between items-center mb-6">
                             <div>
                                 <h3 className={`text-xl font-black italic tracking-tighter uppercase ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
                                     Select <span className="text-cyan-500">Course Type</span>
                                 </h3>
                                 <p className={`text-[10px] font-black uppercase tracking-widest mt-1 ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>
-                                    Choose the counselling pipeline for this lead
+                                    {selectedLead?.isAlreadyEnrolled ? "Allocate new course on same enrolment number" : "Choose the counselling pipeline for this lead"}
                                 </p>
                             </div>
                             <button
@@ -2323,6 +2505,29 @@ const LeadManagementContent = () => {
                             </button>
                         </div>
 
+                        {/* Existing Enrolled Student Banner */}
+                        {selectedLead?.isAlreadyEnrolled && (
+                            <div className="mb-5 p-3.5 rounded-[2px] bg-purple-500/10 border border-purple-500/30">
+                                <div className="flex items-center gap-1.5 text-purple-400 text-[10px] font-black uppercase tracking-wider">
+                                    <FaGraduationCap size={13} /> Existing Enrolled Student Record Detected
+                                </div>
+                                <div className="mt-1.5 flex items-baseline justify-between">
+                                    <span className="text-sm font-black text-white">{selectedLead.existingStudentName || selectedLead.name}</span>
+                                    <span className="text-xs font-mono font-black text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded border border-cyan-500/30">
+                                        {selectedLead.existingEnrollmentNo || 'ID Exists'}
+                                    </span>
+                                </div>
+                                {selectedLead.existingCourseTitle && (
+                                    <p className="text-[10px] font-semibold text-gray-400 mt-1">
+                                        Active Course: <span className="text-purple-300 font-bold">{selectedLead.existingCourseTitle}</span> ({selectedLead.existingAdmissionType || 'Normal'})
+                                    </p>
+                                )}
+                                <p className="text-[9px] font-bold text-emerald-400 mt-2 flex items-center gap-1">
+                                    ✓ New admission will automatically be recorded under the SAME Enrolment Number: <strong className="font-mono">{selectedLead.existingEnrollmentNo}</strong>
+                                </p>
+                            </div>
+                        )}
+
                         <div className="space-y-4">
                             <button
                                 onClick={handleNormalCounseling}
@@ -2332,8 +2537,12 @@ const LeadManagementContent = () => {
                                     <FaUserGraduate size={20} />
                                 </div>
                                 <div>
-                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Normal Course Counselling</h4>
-                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Standard admission workflow for pathway courses.</p>
+                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        {selectedLead?.isAlreadyEnrolled ? "Normal Course Admission (Same ID)" : "Normal Course Counselling"}
+                                    </h4>
+                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>
+                                        {selectedLead?.isAlreadyEnrolled ? `Enroll under existing Enrolment No ${selectedLead.existingEnrollmentNo || ''}` : "Standard admission workflow for pathway courses."}
+                                    </p>
                                 </div>
                             </button>
 
@@ -2345,10 +2554,31 @@ const LeadManagementContent = () => {
                                     <FaGraduationCap size={20} />
                                 </div>
                                 <div>
-                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Board Course Counselling</h4>
-                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>Specialized workflow for board pattern enrollments.</p>
+                                    <h4 className={`text-sm font-black uppercase tracking-widest ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                        {selectedLead?.isAlreadyEnrolled ? "Board Course Admission (Same ID)" : "Board Course Counselling"}
+                                    </h4>
+                                    <p className={`text-[10px] font-bold mt-1 ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                                        {selectedLead?.isAlreadyEnrolled ? `Enroll under existing Enrolment No ${selectedLead.existingEnrollmentNo || ''}` : "Specialized workflow for board pattern enrollments."}
+                                    </p>
                                 </div>
                             </button>
+
+                            {selectedLead?.isAlreadyEnrolled && (
+                                <div className="pt-2 text-center border-t border-gray-800/40">
+                                    <button
+                                        onClick={() => {
+                                            setConversionModal(prev => ({ ...prev, isOpen: false }));
+                                            setShowDetailModal(false);
+                                            setSelectedDetailLead(null);
+                                            navigate("/student-registration", { state: { leadData: selectedLead } });
+                                            setShowCounselingChoiceModal(false);
+                                        }}
+                                        className="text-[10px] font-bold text-gray-500 hover:text-gray-300 underline uppercase tracking-wider"
+                                    >
+                                        Register as a new student instead (e.g. sibling on same phone)
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -2356,8 +2586,14 @@ const LeadManagementContent = () => {
 
             {/* Walk In Required Warning Modal Popup */}
             {showWalkInRequiredModal && (
-                <div className="fixed inset-0 z-[10000] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-                    <div className={`w-full max-w-md rounded-xl p-6 border shadow-2xl transition-all ${isDarkMode ? 'bg-[#15181f] border-gray-800 text-white' : 'bg-white border-gray-200 text-slate-900'}`}>
+                <div 
+                    className="fixed inset-0 z-[10001] flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-fade-in"
+                    onClick={() => setShowWalkInRequiredModal(false)}
+                >
+                    <div 
+                        className={`w-full max-w-md rounded-xl p-6 border shadow-2xl transition-all ${isDarkMode ? 'bg-[#15181f] border-gray-800 text-white' : 'bg-white border-gray-200 text-slate-900'}`}
+                        onClick={(e) => e.stopPropagation()}
+                    >
                         <div className="flex items-center justify-between pb-3 border-b border-gray-700/50">
                             <div className="flex items-center gap-2 text-amber-500">
                                 <FaExclamationTriangle size={18} />

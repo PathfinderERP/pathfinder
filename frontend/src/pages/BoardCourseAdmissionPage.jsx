@@ -579,12 +579,28 @@ const BoardCourseAdmissionPage = () => {
                     centre: counselData?.centre || student?.studentsDetails?.[0]?.centre,
                     department: selectedDepartment,
                     admittedBy: selectedAdmittedBy || undefined,
-                    admissionNumber: student?.admissionNumber || student?.studentsDetails?.[0]?.rollNo || student?.studentsDetails?.[0]?.admissionNumber || location?.state?.rollNo || undefined
+                    admissionNumber: student?.admissionNumber || student?.studentsDetails?.[0]?.rollNo || student?.studentsDetails?.[0]?.admissionNumber || location?.state?.rollNo || location?.state?.admissionNumber || location?.state?.leadData?.existingEnrollmentNo || undefined
                 })
             });
 
             const data = await response.json();
             if (response.ok) {
+                // Mark lead as counseled if came from a lead
+                if (location.state?.leadData?._id) {
+                    try {
+                        await fetch(`${apiUrl}/lead-management/${location.state.leadData._id}`, {
+                            method: "PUT",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Authorization": `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ isCounseled: true })
+                        });
+                    } catch (e) {
+                        console.error("Error updating lead status:", e);
+                    }
+                }
+
                 const totalPaidToday = Number(downPayment) + Number(paidExamFee) + Number(paidAdditionalThings);
                 if (paymentMethod === "CHEQUE" && totalPaidToday > 0) {
                     toast.success("Board Admission processed! Generating Cheque Receiving Slip...");
@@ -717,6 +733,11 @@ const BoardCourseAdmissionPage = () => {
                                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Centre: {counselData?.centre || student?.studentsDetails?.[0]?.centre}</span>
                                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Mobile: {counselData?.mobileNum || student?.studentsDetails?.[0]?.mobileNum}</span>
                                         <span className="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Email: {counselData?.studentEmail || student?.studentsDetails?.[0]?.studentEmail || "N/A"}</span>
+                                        {(student?.admissionNumber || student?.studentsDetails?.[0]?.rollNo || counselData?.admissionNumber || location?.state?.admissionNumber || location?.state?.rollNo) && (
+                                            <span className="text-[10px] font-black text-purple-200 px-2.5 py-0.5 rounded bg-purple-600/30 border border-purple-500/40 tracking-wider font-mono">
+                                                ENROLMENT NO: {student?.admissionNumber || student?.studentsDetails?.[0]?.rollNo || counselData?.admissionNumber || location?.state?.admissionNumber || location?.state?.rollNo}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
                                 <div className={`p-4 rounded-xl border-2 border-dashed transition-all duration-500 ${isDarkMode ? 'border-cyan-500/20 bg-cyan-500/5' : 'border-cyan-200 bg-cyan-50'} max-w-[60%]`}>

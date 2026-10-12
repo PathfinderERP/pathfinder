@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { FaTimes, FaSearch, FaUser, FaUserCheck, FaPhoneAlt, FaEnvelope, FaBuilding, FaGraduationCap, FaAward, FaCalendarAlt, FaIdCard, FaBullhorn } from 'react-icons/fa';
+import { FaTimes, FaSearch, FaUser, FaUserCheck, FaPhoneAlt, FaEnvelope, FaBuilding, FaGraduationCap, FaAward, FaCalendarAlt, FaIdCard, FaBullhorn, FaFilter, FaCheckCircle } from 'react-icons/fa';
 
 const formatDateDDMMYYYY = (dateVal) => {
     if (!dateVal) return 'NA';
@@ -11,7 +11,17 @@ const formatDateDDMMYYYY = (dateVal) => {
     return `${day}/${month}/${year}`;
 };
 
-const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) => {
+const ConversionDetailsModal = ({ 
+    isOpen, 
+    onClose, 
+    title, 
+    leads, 
+    isDarkMode,
+    onFollowUp,
+    onCounseling,
+    onViewJourney,
+    onFilterInTable
+}) => {
     const [searchQuery, setSearchQuery] = useState('');
 
     const filteredLeads = useMemo(() => {
@@ -22,13 +32,16 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
             return (
                 (lead.name || '').toLowerCase().includes(q) ||
                 (lead.phoneNumber || '').includes(q) ||
+                (lead.secondPhoneNumber || '').includes(q) ||
                 (lead.email || '').toLowerCase().includes(q) ||
                 (lead.enrollmentNo || '').toLowerCase().includes(q) ||
+                (lead.existingEnrollmentNo || '').toLowerCase().includes(q) ||
                 (lead.schoolName || '').toLowerCase().includes(q) ||
                 (lead.admittedBy || '').toLowerCase().includes(q) ||
                 (lead.source || '').toLowerCase().includes(q) ||
                 (lead.leadCourseName || '').toLowerCase().includes(q) ||
-                (lead.admittedCourseName || '').toLowerCase().includes(q)
+                (lead.admittedCourseName || '').toLowerCase().includes(q) ||
+                (lead.existingCourseTitle || '').toLowerCase().includes(q)
             );
         });
     }, [leads, searchQuery]);
@@ -42,7 +55,7 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
 
     return (
         <div className={`fixed inset-0 z-[100] flex items-center justify-center p-4 backdrop-blur-md transition-all ${isDarkMode ? 'bg-black/75' : 'bg-white/60'}`}>
-            <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-xl border shadow-2xl animate-scaleIn ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+            <div className={`w-full max-w-5xl max-h-[90vh] flex flex-col rounded-xl border shadow-2xl animate-scaleIn ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                 
                 {/* Header */}
                 <div className={`px-6 py-4 border-b flex justify-between items-center ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-gray-50 border-gray-100'}`}>
@@ -56,6 +69,15 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                         </p>
                     </div>
                     <div className="flex items-center gap-3">
+                        {onFilterInTable && (
+                            <button
+                                onClick={() => onFilterInTable('already_enrolled')}
+                                className={`px-3 py-1.5 rounded-lg border font-black text-[10px] uppercase tracking-wider flex items-center gap-1.5 transition-all ${isDarkMode ? 'bg-purple-500/10 border-purple-500/30 text-purple-300 hover:bg-purple-500 hover:text-white' : 'bg-purple-50 border-purple-200 text-purple-700 hover:bg-purple-600 hover:text-white'}`}
+                                title="Open and work on these leads in the main Lead Management table"
+                            >
+                                <FaFilter size={9} /> Open in Table
+                            </button>
+                        )}
                         <div className={`px-3 py-1.5 rounded-lg border font-bold text-xs flex items-center gap-2 ${isDarkMode ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-700'}`}>
                             <span className="text-[9px] font-black uppercase tracking-widest">Total Amount:</span>
                             <span className="text-sm font-black italic tracking-tight">₹{Math.round(totalAdmissionAmount).toLocaleString("en-IN")}</span>
@@ -75,7 +97,7 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                         <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={12} />
                         <input
                             type="text"
-                            placeholder="Search by name, email, mobile, or admitted by..."
+                            placeholder="Search by name, enrollment no, mobile, email, course, or centre..."
                             value={searchQuery}
                             onChange={e => setSearchQuery(e.target.value)}
                             className={`w-full bg-[#131619] border border-gray-700 rounded-lg pl-10 pr-4 py-2 text-xs font-bold outline-none transition-all focus:border-purple-500 ${isDarkMode ? 'text-white placeholder-gray-600' : 'text-gray-800 placeholder-gray-400'}`}
@@ -97,123 +119,139 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                             {filteredLeads.map((lead, idx) => {
                                 const boardCourseFallback = lead.board?.boardCourse ? `${lead.board.boardCourse}${lead.className?.name ? ' Class ' + lead.className.name : ''} Board Course` : '';
                                 const leadCourseDisplay = lead.leadCourseName && lead.leadCourseName !== 'NA' ? lead.leadCourseName : (lead.course?.courseName || lead.courseText || boardCourseFallback || lead.board?.name || 'NA');
-                                const admittedCourseDisplay = lead.admittedCourseName && lead.admittedCourseName !== 'NA' ? lead.admittedCourseName : 'NA';
+                                const admittedCourseDisplay = lead.admittedCourseName && lead.admittedCourseName !== 'NA' ? lead.admittedCourseName : (lead.existingCourseTitle && lead.existingCourseTitle !== 'NA' ? lead.existingCourseTitle : 'NA');
+                                const activeEnrollmentNo = lead.existingEnrollmentNo && lead.existingEnrollmentNo !== 'NA' ? lead.existingEnrollmentNo : (lead.enrollmentNo && lead.enrollmentNo !== '—' ? lead.enrollmentNo : 'NA');
+
                                 return (
                                     <div
                                         key={lead._id || idx}
-                                        className={`p-4 rounded-xl border transition-all hover:scale-[1.01] hover:shadow-lg ${isDarkMode ? 'bg-[#131619] border-gray-800/80 hover:border-purple-500/30' : 'bg-white border-gray-100'}`}
+                                        className={`p-4 rounded-xl border flex flex-col justify-between transition-all hover:scale-[1.01] hover:shadow-lg ${isDarkMode ? 'bg-[#131619] border-gray-800/80 hover:border-purple-500/40' : 'bg-white border-gray-100 shadow-sm'}`}
                                     >
-                                        <div className="flex justify-between items-start gap-2 mb-3">
-                                            <h3 className={`text-sm font-bold uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                {lead.name}
-                                            </h3>
-                                            <div className="flex gap-1.5 items-center shrink-0 flex-wrap justify-end">
-                                                {lead.isAlreadyEnrolled && (
-                                                    <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                                                        Already Enrolled
+                                        <div>
+                                            <div className="flex justify-between items-start gap-2 mb-2">
+                                                <div>
+                                                    <h3 className={`text-sm font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                        {lead.name}
+                                                    </h3>
+                                                    {lead.schoolName && lead.schoolName !== 'NA' && (
+                                                        <p className="text-[10px] text-gray-500 truncate max-w-[200px]">{lead.schoolName}</p>
+                                                    )}
+                                                </div>
+                                                <div className="flex gap-1.5 items-center shrink-0 flex-wrap justify-end">
+                                                    {lead.isAlreadyEnrolled && (
+                                                        <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1">
+                                                            <FaCheckCircle size={8} /> Already Enrolled
+                                                        </span>
+                                                    )}
+                                                    {lead.downPayment > 0 && (
+                                                        <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                                            Paid: ₹{Math.round(lead.downPayment).toLocaleString("en-IN")}
+                                                        </span>
+                                                    )}
+                                                    <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${lead.leadType === "HOT LEAD" ? "bg-red-500/10 text-red-400 border border-red-500/20" : "bg-purple-500/10 text-purple-400 border border-purple-500/20"}`}>
+                                                        {lead.leadType || "Lead"}
                                                     </span>
-                                                )}
-                                                {lead.downPayment > 0 && (
-                                                    <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                                        Down Payment: ₹{Math.round(lead.downPayment).toLocaleString("en-IN")}
-                                                    </span>
-                                                )}
-                                                <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${lead.leadType === "HOT LEAD" ? "bg-red-500/10 text-red-400 border border-red-500/20" : "bg-purple-500/10 text-purple-400 border border-purple-500/20"}`}>
-                                                    {lead.leadType || "Lead"}
-                                                </span>
-                                                {lead.source && (
-                                                    <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-blue-500/10 text-blue-400 border border-blue-500/20">
-                                                        {lead.source}
-                                                    </span>
-                                                )}
+                                                </div>
                                             </div>
-                                        </div>
 
-                                        <div className="space-y-2 text-[11px] font-medium text-gray-400">
-                                            <div className="flex items-center gap-2">
-                                                <FaPhoneAlt size={10} className="text-purple-500" />
-                                                <span>{lead.phoneNumber || '—'}</span>
-                                                {lead.secondPhoneNumber && <span className="text-gray-600">/ {lead.secondPhoneNumber}</span>}
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <FaEnvelope size={10} className="text-purple-500" />
-                                                <span className="truncate">{lead.email && lead.email !== '—' ? lead.email : 'NA'}</span>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-800/30 dark:border-gray-800/50">
-                                                <div className="flex items-center gap-1.5">
-                                                    <FaBuilding size={10} className="text-gray-500 shrink-0" />
-                                                    <span className="truncate">{lead.centre?.centreName || '—'}</span>
-                                                </div>
-                                                <div className="flex items-center gap-1.5">
-                                                    <FaGraduationCap size={10} className="text-gray-500 shrink-0" />
-                                                    <span className="truncate">{lead.className?.name || '—'}</span>
-                                                </div>
-                                                <div className="flex items-center gap-1.5 col-span-2">
-                                                    <FaAward size={10} className="text-amber-400 shrink-0" />
-                                                    <span className="truncate">
-                                                        <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Lead Course:</span>
-                                                        <span className={`font-bold ${isDarkMode ? 'text-amber-300' : 'text-amber-700'}`} title={leadCourseDisplay}>
-                                                            {leadCourseDisplay}
+                                            {/* Already Enrolled Banner info */}
+                                            {lead.isAlreadyEnrolled && (
+                                                <div className={`p-2.5 rounded-lg border my-2.5 ${isDarkMode ? 'bg-purple-950/20 border-purple-500/30 text-purple-200' : 'bg-purple-50 border-purple-200 text-purple-900'}`}>
+                                                    <div className="flex items-center justify-between text-[9px] font-black uppercase tracking-wider">
+                                                        <span className="flex items-center gap-1.5 text-purple-400">
+                                                            <FaIdCard size={10} /> Existing Student Record
                                                         </span>
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-1.5 col-span-2">
-                                                    <FaAward size={10} className="text-purple-400 shrink-0" />
-                                                    <span className="truncate">
-                                                        <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Admitted Course:</span>
-                                                        <span className={`font-bold ${isDarkMode ? 'text-purple-300' : 'text-purple-700'}`} title={admittedCourseDisplay}>
-                                                            {admittedCourseDisplay}
+                                                        <span className="px-1.5 py-0.5 rounded bg-purple-500/20 font-mono text-[10px] text-purple-300 border border-purple-500/40">
+                                                            {activeEnrollmentNo}
                                                         </span>
-                                                    </span>
+                                                    </div>
+                                                    <div className="text-[10px] font-bold mt-1 text-gray-300 truncate">
+                                                        Enrolled In: <span className="text-amber-400">{admittedCourseDisplay}</span>
+                                                    </div>
                                                 </div>
-                                                <div className="flex items-center gap-1.5 col-span-2">
-                                                    <FaIdCard size={10} className="text-cyan-400 shrink-0" />
-                                                    <span className="truncate">
-                                                        <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Enrollment No:</span>
-                                                        <span className={`font-black uppercase tracking-wider text-[10px] ${isDarkMode ? 'text-cyan-300' : 'text-cyan-700'}`}>
-                                                            {lead.enrollmentNo && lead.enrollmentNo !== '—' ? lead.enrollmentNo : 'NA'}
-                                                        </span>
-                                                    </span>
+                                            )}
+
+                                            <div className="space-y-1.5 text-[11px] font-medium text-gray-400 mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <FaPhoneAlt size={10} className="text-cyan-400" />
+                                                    <span className="font-bold text-cyan-400">{lead.phoneNumber || '—'}</span>
+                                                    {lead.secondPhoneNumber && <span className="text-gray-500">/ {lead.secondPhoneNumber}</span>}
                                                 </div>
-                                                <div className="flex items-center gap-1.5 col-span-2">
-                                                    <FaUserCheck size={10} className="text-emerald-400 shrink-0" />
-                                                    <span className="truncate">
-                                                        <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Admitted By:</span>
-                                                        <span className={`font-black uppercase tracking-wider text-[10px] ${isDarkMode ? 'text-emerald-400' : 'text-emerald-600'}`}>
-                                                            {lead.admittedBy && lead.admittedBy !== '—' ? lead.admittedBy : 'NA'}
-                                                        </span>
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-1.5 col-span-2">
-                                                    <FaBullhorn size={10} className="text-blue-400 shrink-0" />
-                                                    <span className="truncate">
-                                                        <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Source:</span>
-                                                        <span className={`font-black uppercase tracking-wider text-[10px] ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}>
-                                                            {lead.source || 'NA'}
-                                                        </span>
-                                                    </span>
-                                                </div>
-                                                <div className="flex items-center gap-1.5 col-span-2">
-                                                    <FaCalendarAlt size={10} className="text-gray-500 shrink-0" />
-                                                    <span className="truncate">
-                                                        <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Lead Created Date:</span>
-                                                        <span className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                            {formatDateDDMMYYYY(lead.createdAt)}
-                                                        </span>
-                                                    </span>
-                                                </div>
-                                                {lead.admissionDate && (
+                                                {lead.email && lead.email !== '—' && lead.email !== 'NA' && (
+                                                    <div className="flex items-center gap-2">
+                                                        <FaEnvelope size={10} className="text-purple-400" />
+                                                        <span className="truncate">{lead.email}</span>
+                                                    </div>
+                                                )}
+                                                <div className="grid grid-cols-2 gap-2 pt-2 border-t border-gray-800/40">
+                                                    <div className="flex items-center gap-1.5">
+                                                        <FaBuilding size={10} className="text-gray-500 shrink-0" />
+                                                        <span className="truncate">{lead.centre?.centreName || lead.centre || '—'}</span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5">
+                                                        <FaGraduationCap size={10} className="text-gray-500 shrink-0" />
+                                                        <span className="truncate">{lead.className?.name || '—'}</span>
+                                                    </div>
                                                     <div className="flex items-center gap-1.5 col-span-2">
-                                                        <FaCalendarAlt size={10} className="text-emerald-500 shrink-0" />
+                                                        <FaAward size={10} className="text-amber-400 shrink-0" />
                                                         <span className="truncate">
-                                                            <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Admission Date:</span>
-                                                            <span className={`font-semibold ${isDarkMode ? 'text-emerald-300' : 'text-emerald-600'}`}>
-                                                                {formatDateDDMMYYYY(lead.admissionDate)}
+                                                            <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">New Inquiry Course:</span>
+                                                            <span className={`font-bold ${isDarkMode ? 'text-amber-300' : 'text-amber-700'}`} title={leadCourseDisplay}>
+                                                                {leadCourseDisplay}
                                                             </span>
                                                         </span>
                                                     </div>
-                                                )}
+                                                    <div className="flex items-center gap-1.5 col-span-2">
+                                                        <FaBullhorn size={10} className="text-blue-400 shrink-0" />
+                                                        <span className="truncate">
+                                                            <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Source:</span>
+                                                            <span className={`font-black uppercase tracking-wider text-[10px] ${isDarkMode ? 'text-blue-300' : 'text-blue-600'}`}>
+                                                                {lead.source || 'NA'}
+                                                            </span>
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex items-center gap-1.5 col-span-2">
+                                                        <FaCalendarAlt size={10} className="text-gray-500 shrink-0" />
+                                                        <span className="truncate">
+                                                            <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Inquiry Date:</span>
+                                                            <span className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                                                {formatDateDDMMYYYY(lead.createdAt)}
+                                                            </span>
+                                                        </span>
+                                                    </div>
+                                                </div>
                                             </div>
+                                        </div>
+
+                                        {/* Card Action Buttons: Call, Take Admission, Journey */}
+                                        <div className="pt-3 border-t border-gray-800/60 flex items-center gap-2">
+                                            {onFollowUp && (
+                                                <button
+                                                    onClick={() => onFollowUp(lead, true)}
+                                                    className="flex-1 py-1.5 px-2 bg-emerald-600 hover:bg-emerald-500 active:scale-95 text-white rounded font-black text-[9px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                                                    title="Call student via telecalling and record follow up"
+                                                >
+                                                    <FaPhoneAlt size={9} /> Call / Follow Up
+                                                </button>
+                                            )}
+                                            {onCounseling && (
+                                                <button
+                                                    onClick={() => onCounseling(lead)}
+                                                    className="flex-1 py-1.5 px-2 bg-cyan-500 hover:bg-cyan-400 active:scale-95 text-black rounded font-black text-[9px] uppercase tracking-wider flex items-center justify-center gap-1.5 shadow-sm transition-all"
+                                                    title={lead.isAlreadyEnrolled ? "Enroll in course under the same enrollment number" : "Proceed with counselling"}
+                                                >
+                                                    <FaGraduationCap size={10} /> {lead.isAlreadyEnrolled ? "Admit (Same ID)" : "Counselling"}
+                                                </button>
+                                            )}
+                                            {onViewJourney && (
+                                                <button
+                                                    onClick={() => onViewJourney(lead)}
+                                                    className="py-1.5 px-2.5 bg-purple-600/20 hover:bg-purple-600 active:scale-95 text-purple-300 hover:text-white border border-purple-500/40 rounded font-black text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 transition-all"
+                                                    title="View journey"
+                                                >
+                                                    Journey
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 );

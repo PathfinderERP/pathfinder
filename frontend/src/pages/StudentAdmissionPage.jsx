@@ -727,7 +727,7 @@ const StudentAdmissionPage = () => {
                     selectedSubjectIds,
                     billingMonth,
                     ...currentFormData,
-                    admissionNumber: student?.admissionNumber || student?.studentsDetails?.[0]?.rollNo || student?.studentsDetails?.[0]?.admissionNumber || location?.state?.rollNo || undefined,
+                    admissionNumber: student?.admissionNumber || student?.studentsDetails?.[0]?.rollNo || student?.studentsDetails?.[0]?.admissionNumber || location?.state?.rollNo || location?.state?.admissionNumber || location?.state?.leadData?.existingEnrollmentNo || undefined,
                     // For Board courses, set numberOfInstallments to course duration - 1 (since DP covers Month 1)
                     numberOfInstallments: admissionType === "BOARD" ? Math.max(1, feeBreakdown.courseDurationMonths - 1) : formData.numberOfInstallments
                 })
@@ -738,6 +738,22 @@ const StudentAdmissionPage = () => {
             if (response.ok) {
                 toast.success("Admission created successfully!");
                 setCreatedAdmission(data.admission);
+
+                // Mark lead as counseled if came from a lead
+                if (location.state?.leadData?._id) {
+                    try {
+                        await fetch(`${apiUrl}/lead-management/${location.state.leadData._id}`, {
+                            method: "PUT",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "Authorization": `Bearer ${token}`
+                            },
+                            body: JSON.stringify({ isCounseled: true })
+                        });
+                    } catch (e) {
+                        console.error("Error updating lead status:", e);
+                    }
+                }
 
                 // If down payment was made via cheque, generate Receiving Slip; otherwise generate Bill
                 if (data.admission.downPayment > 0 && currentFormData.paymentMethod === "CHEQUE") {
@@ -837,7 +853,17 @@ const StudentAdmissionPage = () => {
             {/* Student Info Card */}
             {student && (
                 <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                    <h3 className={`text-lg font-semibold mb-3 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Student Information</h3>
+                    <div className="flex items-center justify-between mb-3">
+                        <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Student Information</h3>
+                        {(student.admissionNumber || student.studentsDetails?.[0]?.rollNo || student.studentsDetails?.[0]?.admissionNumber || location?.state?.admissionNumber || location?.state?.rollNo) && (
+                            <div className="flex items-center gap-2">
+                                <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">Enrolment Number:</span>
+                                <span className="px-2.5 py-0.5 rounded bg-purple-500/20 border border-purple-500/40 text-purple-300 font-mono text-xs font-black">
+                                    {student.admissionNumber || student.studentsDetails?.[0]?.rollNo || student.studentsDetails?.[0]?.admissionNumber || location?.state?.admissionNumber || location?.state?.rollNo}
+                                </span>
+                            </div>
+                        )}
+                    </div>
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                         <div>
                             <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Name</label>

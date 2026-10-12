@@ -31,6 +31,7 @@ import multer from "multer";
 import { getLeadJourney } from "../../controllers/leadManagement/getLeadJourney.js";
 import { getSchoolJourney } from "../../controllers/leadManagement/getSchoolJourney.js";
 import { checkDuplicatePhone } from "../../controllers/leadManagement/checkDuplicatePhone.js";
+import { lookupEnrolledStudent } from "../../controllers/leadManagement/lookupEnrolledStudent.js";
 
 import { getConversionDetails } from "../../controllers/leadManagement/getConversionDetails.js";
 import { exportAdmissionSegregation } from "../../controllers/leadManagement/exportAdmissionSegregation.js";
@@ -100,6 +101,7 @@ router.post("/campaigns/:id/replace-media", requireAuth, upload.single('mediaFil
 
 // Generic ID route must come AFTER specific routes
 router.get("/check-duplicate", requireAuth, checkDuplicatePhone);
+router.get("/lookup-enrolled-student", requireAuth, lookupEnrolledStudent);
 router.get("/:id/journey", requireAuth, getLeadJourney);
 router.get("/:id", requireAuth, getLeadById);
 
