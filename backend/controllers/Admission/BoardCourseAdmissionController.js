@@ -973,6 +973,14 @@ export const getBoardAdmissionById = async (req, res) => {
             .populate('installments.subjects.subjectId');
         if (!admission) return res.status(404).json({ message: "Admission not found" });
 
+        // If this board admission is ACTIVE but student status is Deactivated, self-heal student status to Active
+        if (admission.status === 'ACTIVE' && admission.studentId && admission.studentId.status === 'Deactivated') {
+            await Students.findByIdAndUpdate(admission.studentId._id, {
+                $set: { status: 'Active', deactivationDate: null, deactivatedBy: null, deactivatedByUserId: null }
+            });
+            admission.studentId.status = 'Active';
+        }
+
         // --- SELF-HEALING & SYNCHRONIZATION WITH PAYMENT RECORDS ---
         const allPayments = await Payment.find({ admission: admission._id });
         const rejectedTxIds = new Set(allPayments.filter(p => p.status === "REJECTED" || p.status === "CANCELLED").map(p => p.transactionId).filter(Boolean));
@@ -2072,6 +2080,9 @@ export const toggleBoardAdmissionStatus = async (req, res) => {
             await admission.save({ validateBeforeSave: false });
 
             if (admission.studentId) {
+                await Students.findByIdAndUpdate(admission.studentId, {
+                    $set: { status: 'Active', deactivationDate: null, deactivatedBy: null, deactivatedByUserId: null }
+                });
                 await deleteCache(`student:report:${admission.studentId}`);
             }
 
@@ -2153,6 +2164,9 @@ export const reactivateBoardAdmission = async (req, res) => {
         await admission.save({ validateBeforeSave: false });
 
         if (admission.studentId) {
+            await Students.findByIdAndUpdate(admission.studentId, {
+                $set: { status: 'Active', deactivationDate: null, deactivatedBy: null, deactivatedByUserId: null }
+            });
             await deleteCache(`student:report:${admission.studentId}`);
         }
 

@@ -11,6 +11,7 @@ import Centre from "../../models/Master_data/Centre.js";
 import Boards from "../../models/Master_data/Boards.js";
 import Course from "../../models/Master_data/Courses.js";
 import Class from "../../models/Master_data/Class.js";
+import Campaign from "../../models/Campaign.js";
 import mongoose from "mongoose";
 
 export const getLeadJourney = async (req, res) => {
@@ -178,22 +179,48 @@ export const getLeadJourney = async (req, res) => {
         // 1. LEAD CREATION / UPLOAD EVENT
         // ----------------------------------------------------
         if (lead) {
-            const isBulk = lead.source === 'Bulk Import' || /import|bulk|excel/i.test(lead.source || '');
+            // Determine if the lead is from an upload (Excel/Bulk, Campaign/Ads, Marketing CRM upload) or truly a manual entry via '+ Add Lead'
+            const isUploaded = Boolean(
+                lead.isBulkUpload === true ||
+                (lead.campaign != null) ||
+                (lead.campaignFrom && String(lead.campaignFrom).trim() !== '') ||
+                /bulk|import|excel|campaign|facebook|meta|google|ad|online|landing|upload/i.test(lead.source || '')
+            );
+
+            let label = 'Lead Added to System';
+            let title = 'Manual Entry';
+
+            if (isUploaded) {
+                title = 'Uploaded Data';
+                if (lead.campaign != null || (lead.campaignFrom && String(lead.campaignFrom).trim() !== '') || /campaign|facebook|meta|google|ad/i.test(lead.source || '')) {
+                    label = 'Lead Uploaded from Campaign / Ads';
+                } else if (lead.marketingBy || /marketing|school|visit|canvassing|seminar/i.test(lead.source || '')) {
+                    label = 'Lead Uploaded from Marketing CRM';
+                } else if (lead.source === 'Bulk Import' || /import|bulk|excel/i.test(lead.source || '')) {
+                    label = 'Lead Uploaded from Excel';
+                } else {
+                    label = 'Lead Uploaded to System';
+                }
+            }
+
             events.push({
                 date: lead.createdAt,
                 type: 'CREATION',
-                label: isBulk ? 'Lead Uploaded from Excel' : 'Lead Added to System',
-                title: isBulk ? 'Excel Upload' : 'Manual Entry',
-                icon: 'plus',
+                label: label,
+                title: title,
+                icon: isUploaded ? 'upload' : 'plus',
                 details: {
-                    createdBy: lead.createdBy?.name || 'System / Excel',
+                    createdBy: lead.createdBy?.name || lead.marketingBy || (isUploaded ? 'System / Upload' : 'Manual Entry'),
                     source: lead.source || 'Direct',
                     schoolName: lead.schoolName || 'N/A',
                     courseName: lead.course?.courseName || lead.courseText || 'N/A',
                     className: lead.className?.name || 'N/A',
                     boardName: lead.board?.boardCourse || 'N/A',
                     targetExam: lead.targetExam || 'N/A',
-                    assignedTo: lead.leadResponsibility || 'Unassigned'
+                    assignedTo: lead.leadResponsibility || 'Unassigned',
+                    campaignName: lead.campaign?.adName || lead.campaignFrom || null,
+                    marketingBy: lead.marketingBy || null,
+                    entryMode: isUploaded ? 'Uploaded Data' : 'Manual Entry'
                 }
             });
         }
@@ -328,6 +355,27 @@ export const getLeadJourney = async (req, res) => {
         const admissionEvents = [];
         const admissionIds = [];
 
+        const leadCreatedAt = lead?.createdAt ? new Date(lead.createdAt) : null;
+        const startOfLeadDay = leadCreatedAt ? new Date(leadCreatedAt.getFullYear(), leadCreatedAt.getMonth(), leadCreatedAt.getDate()).getTime() : null;
+
+        let hasPostAdmission = false;
+        let hasPriorAdmission = false;
+
+        const checkAdmissionTiming = (dateVal) => {
+            if (!dateVal || !startOfLeadDay) {
+                hasPostAdmission = true;
+                return false;
+            }
+            const d = new Date(dateVal).getTime();
+            if (d < startOfLeadDay) {
+                hasPriorAdmission = true;
+                return true;
+            } else {
+                hasPostAdmission = true;
+                return false;
+            }
+        };
+
         if (student) {
             // Find normal admissions
             const normalAdmissions = await Admission.find({ student: student._id })
@@ -352,16 +400,20 @@ export const getLeadJourney = async (req, res) => {
                     else if (isPntse) admissionOrigin = "PNTSE Admission";
                     admissionTypeDetected = admissionOrigin;
 
+                    const isPrior = checkAdmissionTiming(adm.admissionDate || adm.createdAt);
+
                     admissionEvents.push({
                         date: adm.admissionDate || adm.createdAt,
                         type: 'ADMISSION',
-                        label: `Admission Confirmed (${admissionOrigin})`,
+                        isPriorAdmission: isPrior,
+                        label: isPrior ? `Prior Admission (Already Enrolled - ${admissionOrigin})` : `Admission Confirmed (${admissionOrigin})`,
                         title: `Enrolled in ${adm.course?.courseName || 'Course'}`,
                         icon: 'award',
                         details: {
                             admissionNumber: adm.admissionNumber,
                             courseName: adm.course?.courseName || 'N/A',
                             admissionOrigin,
+                            isPriorAdmission: isPrior,
                             centre: adm.centre,
                             admittedBy: adm.createdBy?.name || 'N/A',
                             session: adm.academicSession,
@@ -369,7 +421,7 @@ export const getLeadJourney = async (req, res) => {
                             totalFees: adm.totalFees,
                             downPayment: adm.downPayment,
                             previousBalance: adm.previousBalance || 0,
-                            remarks: adm.remarks || ''
+                            remarks: adm.remarks || (isPrior ? 'Enrolled prior to lead inquiry.' : '')
                         }
                     });
                 });
@@ -386,23 +438,27 @@ export const getLeadJourney = async (req, res) => {
                 if (admissionEvents.length === 0) admissionTypeDetected = "Board Course Admission";
                 boardAdmissions.forEach(badm => {
                     admissionIds.push(badm._id);
+                    const isPrior = checkAdmissionTiming(badm.admissionDate || badm.createdAt);
+
                     admissionEvents.push({
                         date: badm.admissionDate || badm.createdAt,
                         type: 'ADMISSION',
-                        label: 'Board Course Admission Confirmed',
+                        isPriorAdmission: isPrior,
+                        label: isPrior ? 'Prior Admission (Already Enrolled - Board Course)' : 'Board Course Admission Confirmed',
                         title: `Enrolled in Board Course - ${badm.boardCourseName || badm.boardId?.boardCourse || 'Course'}`,
                         icon: 'award',
                         details: {
                             admissionNumber: badm.admissionNumber,
                             courseName: badm.boardCourseName || badm.boardId?.boardCourse || 'N/A',
                             admissionOrigin: 'Board Course Admission',
+                            isPriorAdmission: isPrior,
                             centre: badm.centre,
                             admittedBy: badm.createdBy?.name || 'N/A',
                             session: badm.academicSession,
                             status: badm.status,
                             admissionFee: badm.admissionFee,
                             totalDurationMonths: badm.totalDurationMonths,
-                            remarks: badm.remarks || ''
+                            remarks: badm.remarks || (isPrior ? 'Enrolled prior to lead inquiry.' : '')
                         }
                     });
                 });
@@ -410,39 +466,47 @@ export const getLeadJourney = async (req, res) => {
         } else if (directAdmission) {
             hasAdmission = true;
             admissionIds.push(directAdmission._id);
+            const isPrior = checkAdmissionTiming(directAdmission.admissionDate || directAdmission.createdAt);
             admissionEvents.push({
                 date: directAdmission.admissionDate || directAdmission.createdAt,
                 type: 'ADMISSION',
-                label: 'Admission Confirmed',
+                isPriorAdmission: isPrior,
+                label: isPrior ? 'Prior Admission (Already Enrolled)' : 'Admission Confirmed',
                 title: `Enrolled in ${directAdmission.course?.courseName || 'Course'}`,
                 icon: 'award',
                 details: {
                     admissionNumber: directAdmission.admissionNumber,
                     courseName: directAdmission.course?.courseName || 'N/A',
                     admissionOrigin: 'Normal Admission',
+                    isPriorAdmission: isPrior,
                     centre: directAdmission.centre,
                     session: directAdmission.academicSession,
                     admissionStatus: directAdmission.admissionStatus,
                     totalFees: directAdmission.totalFees,
-                    downPayment: directAdmission.downPayment
+                    downPayment: directAdmission.downPayment,
+                    remarks: isPrior ? 'Enrolled prior to lead inquiry.' : ''
                 }
             });
         } else if (directBoardAdmission) {
             hasAdmission = true;
             admissionIds.push(directBoardAdmission._id);
+            const isPrior = checkAdmissionTiming(directBoardAdmission.admissionDate || directBoardAdmission.createdAt);
             admissionEvents.push({
                 date: directBoardAdmission.admissionDate || directBoardAdmission.createdAt,
                 type: 'ADMISSION',
-                label: 'Board Course Admission Confirmed',
+                isPriorAdmission: isPrior,
+                label: isPrior ? 'Prior Admission (Already Enrolled - Board Course)' : 'Board Course Admission Confirmed',
                 title: `Enrolled in Board Course - ${directBoardAdmission.boardCourseName || 'Course'}`,
                 icon: 'award',
                 details: {
                     admissionNumber: directBoardAdmission.admissionNumber,
                     courseName: directBoardAdmission.boardCourseName || 'N/A',
                     admissionOrigin: 'Board Course Admission',
+                    isPriorAdmission: isPrior,
                     centre: directBoardAdmission.centre,
                     session: directBoardAdmission.academicSession,
-                    status: directBoardAdmission.status
+                    status: directBoardAdmission.status,
+                    remarks: isPrior ? 'Enrolled prior to lead inquiry.' : ''
                 }
             });
         }
@@ -524,9 +588,16 @@ export const getLeadJourney = async (req, res) => {
         let currentStage = 'NEW';
         let lastStatusText = '';
 
+        const isAlreadyEnrolled = Boolean(hasAdmission && !hasPostAdmission && hasPriorAdmission);
+
         if (hasAdmission) {
-            currentStage = `ADMITTED (${admissionTypeDetected.toUpperCase()})`;
-            lastStatusText = `Student admitted via ${admissionTypeDetected}.`;
+            if (isAlreadyEnrolled) {
+                currentStage = `ALREADY ENROLLED (PRIOR ADMISSION)`;
+                lastStatusText = `Student was already enrolled prior to this lead inquiry (${admissionTypeDetected}).`;
+            } else {
+                currentStage = `ADMITTED (${admissionTypeDetected.toUpperCase()})`;
+                lastStatusText = `Student admitted via ${admissionTypeDetected}.`;
+            }
         } else if (hasCounselling) {
             currentStage = 'COUNSELLING';
             lastStatusText = 'Student has been counselled.';
@@ -569,6 +640,8 @@ export const getLeadJourney = async (req, res) => {
                 lastStatusText,
                 hasCounselling,
                 hasAdmission,
+                isAlreadyEnrolled,
+                hasPriorAdmission: Boolean(hasPriorAdmission),
                 admissionType: admissionTypeDetected,
                 hasCarryForward: Boolean(hasCarryForwardBalance),
                 carryForwardBalance: student?.carryForwardBalance || 0,

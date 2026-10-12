@@ -56,7 +56,7 @@ export const exportLeadsExcel = async (req, res) => {
                 : null;
 
             const effectiveAssignedAt = lead.assignedAt || lead.createdAt;
-            const entryMode = isUploadedSource(lead) ? "Uploaded from Excel" : "Manual Entry";
+            const entryMode = isUploadedSource(lead) ? "Uploaded Data" : "Manual Entry";
 
             return {
                 "Sl No.": index + 1,

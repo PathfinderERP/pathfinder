@@ -745,6 +745,7 @@ const LeadManagementContent = () => {
                 let modalTitle = `${type === 'counselled' ? 'Counselled' : 'Admitted'} Leads`;
                 if (type === 'uploaded_admissions') modalTitle = 'Admitted Leads (Uploaded Data)';
                 if (type === 'manual_admissions') modalTitle = 'Admitted Leads (Manual Entry)';
+                if (type === 'already_enrolled') modalTitle = 'Already Enrolled Leads (Existing Students)';
                 setConversionModal({
                     isOpen: true,
                     title: modalTitle,
@@ -1788,6 +1789,16 @@ const LeadManagementContent = () => {
                                             <span className={`text-[10px] font-bold ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Manual Entry:</span>
                                             <span className={`text-xs font-black italic tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{leadStats.manualAdmittedCount || 0}</span>
                                         </div>
+                                        {Number(leadStats.alreadyEnrolledCount) > 0 && (
+                                            <div
+                                                onClick={() => fetchAndShowConversionDetails('already_enrolled')}
+                                                className={`flex justify-between items-center pr-2 cursor-pointer p-1.5 rounded transition-all hover:bg-purple-500/10 active:scale-95`}
+                                                title="Leads from students who were already enrolled before inquiring"
+                                            >
+                                                <span className={`text-[10px] font-bold ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>Already Enrolled:</span>
+                                                <span className={`text-xs font-black italic tracking-tighter ${isDarkMode ? 'text-purple-300' : 'text-purple-700'}`}>{leadStats.alreadyEnrolledCount || 0}</span>
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
                                 <button
@@ -1963,6 +1974,11 @@ const LeadManagementContent = () => {
                                                     {lead.isPriority && (
                                                         <span className="inline-block px-1.5 py-0.5 rounded-[2px] text-[7px] font-black uppercase tracking-widest border border-red-500 bg-red-500/20 text-red-400 self-start leading-none">
                                                             Priority
+                                                        </span>
+                                                    )}
+                                                    {lead.isAlreadyEnrolled && (
+                                                        <span className="inline-block px-1.5 py-0.5 rounded-[2px] text-[7px] font-black uppercase tracking-widest border border-purple-500 bg-purple-500/20 text-purple-300 self-start leading-none" title="Student was already admitted before this lead inquiry">
+                                                            Already Enrolled
                                                         </span>
                                                     )}
                                                 </div>

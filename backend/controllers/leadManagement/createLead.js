@@ -119,7 +119,8 @@ export const createLead = async (req, res) => {
             leadResponsibility,
             createdBy: req.user.id,
             assignedAt: leadResponsibility ? new Date() : null,
-            marks: req.body.marks !== undefined && req.body.marks !== "" ? parseFloat(req.body.marks) : undefined
+            marks: req.body.marks !== undefined && req.body.marks !== "" ? parseFloat(req.body.marks) : undefined,
+            isBulkUpload: false
         };
 
         if (className) leadData.className = className;

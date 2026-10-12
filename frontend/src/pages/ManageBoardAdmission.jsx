@@ -68,6 +68,11 @@ const ManageBoardAdmission = () => {
         return isNaN(d.getTime()) ? "N/A" : d.toLocaleDateString('en-GB');
     };
 
+    // A student is considered deactivated in ManageBoardAdmission only if:
+    // 1) The board admission itself is explicitly deactivated / inactive, OR
+    // 2) The student record is deactivated AND the board admission is not active.
+    const isDeactivated = (admission?.status === 'DEACTIVATED' || admission?.status === 'INACTIVE') || (admission?.studentId?.status === 'Deactivated' && admission?.status !== 'ACTIVE');
+
     const handleDownloadFeePdf = async () => {
         if (!admission) return;
         try {
@@ -1095,9 +1100,9 @@ const ManageBoardAdmission = () => {
                         </button>
                         <button
                             onClick={handleOpenBuyBookModal}
-                            disabled={admission?.studentId?.status === 'Deactivated'}
+                            disabled={isDeactivated}
                             className={`px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm ${
-                                admission?.studentId?.status === 'Deactivated'
+                                isDeactivated
                                     ? 'opacity-40 cursor-not-allowed'
                                     : (isDarkMode
                                         ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-600 hover:text-white'
@@ -1118,7 +1123,7 @@ const ManageBoardAdmission = () => {
                 </div>
             </div>
 
-            {admission?.studentId?.status === 'Deactivated' && (
+            {isDeactivated && (
                 <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-500 flex items-center gap-3">
                     <FaExclamationTriangle className="text-lg" />
                     <div>
@@ -1139,7 +1144,7 @@ const ManageBoardAdmission = () => {
                                         <FaSync className="text-cyan-500" />
                                         Installment Tracker
                                     </h4>
-                                    {canAddInstallments && admission?.studentId?.status !== 'Deactivated' && (
+                                    {canAddInstallments && !isDeactivated && (
                                         <button
                                             onClick={() => setShowAddInstModal(true)}
                                             className="flex items-center gap-1.5 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg font-black text-[11px] uppercase transition-all shadow-lg shadow-emerald-900/30"
@@ -1250,7 +1255,7 @@ const ManageBoardAdmission = () => {
                                                             ) : (
                                                                 <p className={`text-sm font-black uppercase flex items-center gap-1.5 ${isPaid ? 'text-emerald-400' : isChequePending ? 'text-amber-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
                                                                     {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                                                                    {!isPaid && !isChequePending && admission?.studentId?.status !== 'Deactivated' && (
+                                                                    {!isPaid && !isChequePending && !isDeactivated && (
                                                                         <button
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
@@ -1341,8 +1346,8 @@ const ManageBoardAdmission = () => {
                                                                 setPaymentModal({ show: true, installment: inst });
                                                                 setPaymentForm({ ...paymentForm, amount: inst.payableAmount - displayPaid });
                                                             }}
-                                                            disabled={!isNextToPay || admission?.studentId?.status === 'Deactivated'}
-                                                            className={`px-6 py-2.5 rounded-lg font-black text-[11px] uppercase transition-all shadow-lg ${isNextToPay && admission?.studentId?.status !== 'Deactivated'
+                                                            disabled={!isNextToPay || isDeactivated}
+                                                            className={`px-6 py-2.5 rounded-lg font-black text-[11px] uppercase transition-all shadow-lg ${isNextToPay && !isDeactivated
                                                                 ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_5px_15px_rgba(6,182,212,0.3)]'
                                                                 : 'bg-gray-700/50 text-gray-500 cursor-not-allowed border border-gray-800'
                                                                 }`}
@@ -1488,7 +1493,7 @@ const ManageBoardAdmission = () => {
                                         <div
                                             key={s.subjectId?._id}
                                             onClick={() => {
-                                                if (admission?.studentId?.status === 'Deactivated') {
+                                                if (isDeactivated) {
                                                     toast.error("This student is deactivated. Subject updates are disabled.");
                                                     return;
                                                 }
@@ -1542,8 +1547,8 @@ const ManageBoardAdmission = () => {
 
                                 <button
                                     onClick={handleUpdateSubjects}
-                                    disabled={!effectiveFromMonth || effectiveFromMonth.paidAmount > 0 || admission?.studentId?.status === 'Deactivated'}
-                                    className={`w-full py-3 font-black text-xs uppercase rounded transition-all ${effectiveFromMonth && effectiveFromMonth.paidAmount === 0 && admission?.studentId?.status !== 'Deactivated'
+                                    disabled={!effectiveFromMonth || effectiveFromMonth.paidAmount > 0 || isDeactivated}
+                                    className={`w-full py-3 font-black text-xs uppercase rounded transition-all ${effectiveFromMonth && effectiveFromMonth.paidAmount === 0 && !isDeactivated
                                         ? 'bg-cyan-500 text-black hover:bg-cyan-400'
                                         : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                                         }`}
@@ -1850,9 +1855,9 @@ const ManageBoardAdmission = () => {
                             </p>
                         </div>
                         <button
-                            disabled={admission?.studentId?.status === 'Deactivated'}
+                            disabled={isDeactivated}
                             onClick={() => {
-                                if (admission?.studentId?.status === 'Deactivated') {
+                                if (isDeactivated) {
                                     toast.error("This student is deactivated. Payments are disabled.");
                                     return;
                                 }
@@ -1865,7 +1870,7 @@ const ManageBoardAdmission = () => {
                                 });
                                 setNcrpPaymentModal(true);
                             }}
-                            className={`px-8 py-3 font-black uppercase text-xs rounded-lg transition-all shadow-lg tracking-widest flex items-center gap-2 ${admission?.studentId?.status === 'Deactivated'
+                            className={`px-8 py-3 font-black uppercase text-xs rounded-lg transition-all shadow-lg tracking-widest flex items-center gap-2 ${isDeactivated
                                 ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
                                 : 'bg-cyan-500 text-black hover:bg-cyan-400'
                                 }`}
@@ -1908,16 +1913,16 @@ const ManageBoardAdmission = () => {
                             {/* NCRP: hide individual pay button, show nothing — unified button is at the top of this section */}
                             {admission.programme !== 'NCRP' && admission.examFeePaid < admission.examFee && (
                                 <button
-                                    disabled={admission?.studentId?.status === 'Deactivated'}
+                                    disabled={isDeactivated}
                                     onClick={() => {
-                                        if (admission?.studentId?.status === 'Deactivated') {
+                                        if (isDeactivated) {
                                             toast.error("This student is deactivated. Payments are disabled.");
                                             return;
                                         }
                                         setExamPaymentModal(true);
                                         setPaymentForm({ ...paymentForm, amount: admission.examFee - (admission.examFeePaid || 0) });
                                     }}
-                                    className={`flex-1 py-4 font-black uppercase text-xs rounded-lg transition-all shadow-lg ${admission?.studentId?.status === 'Deactivated'
+                                    className={`flex-1 py-4 font-black uppercase text-xs rounded-lg transition-all shadow-lg ${isDeactivated
                                         ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
                                         : 'bg-cyan-500 text-black hover:bg-cyan-400'
                                         }`}
@@ -2124,16 +2129,16 @@ const ManageBoardAdmission = () => {
                             {/* NCRP: unified pay button is at top — hide individual one */}
                             {admission.programme !== 'NCRP' && admission.additionalThingsPaid < admission.additionalThingsAmount && (
                                 <button
-                                    disabled={admission?.studentId?.status === 'Deactivated'}
+                                    disabled={isDeactivated}
                                     onClick={() => {
-                                        if (admission?.studentId?.status === 'Deactivated') {
+                                        if (isDeactivated) {
                                             toast.error("This student is deactivated. Payments are disabled.");
                                             return;
                                         }
                                         setAdditionalFeePaymentModal(true);
                                         setPaymentForm({ ...paymentForm, amount: admission.additionalThingsAmount - (admission.additionalThingsPaid || 0) });
                                     }}
-                                    className={`flex-1 py-4 font-black uppercase text-xs rounded-lg transition-all shadow-lg ${admission?.studentId?.status === 'Deactivated'
+                                    className={`flex-1 py-4 font-black uppercase text-xs rounded-lg transition-all shadow-lg ${isDeactivated
                                         ? 'bg-gray-700 text-gray-500 cursor-not-allowed border border-gray-800'
                                         : 'bg-cyan-500 text-black hover:bg-cyan-400'
                                         }`}
@@ -2193,9 +2198,9 @@ const ManageBoardAdmission = () => {
                         <div className="flex items-center gap-3">
                             <button
                                 onClick={handleOpenBuyBookModal}
-                                disabled={admission?.studentId?.status === 'Deactivated'}
+                                disabled={isDeactivated}
                                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${
-                                    admission?.studentId?.status === 'Deactivated'
+                                    isDeactivated
                                         ? 'opacity-40 cursor-not-allowed'
                                         : (isDarkMode ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/30' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200')
                                 }`}
@@ -2266,9 +2271,9 @@ const ManageBoardAdmission = () => {
                             <button
                                 type="button"
                                 onClick={handleOpenBuyBookModal}
-                                disabled={admission?.studentId?.status === 'Deactivated'}
+                                disabled={isDeactivated}
                                 className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${
-                                    admission?.studentId?.status === 'Deactivated'
+                                    isDeactivated
                                         ? 'opacity-40 cursor-not-allowed'
                                         : (isDarkMode ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/40 shadow-sm' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-300 shadow-sm')
                                 }`}

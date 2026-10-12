@@ -18,8 +18,8 @@ export const exportAdmissionSegregation = async (req, res) => {
             baseQuery.$and = baseQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
         }
 
-        // --- Gather matching admitted lead IDs using (phone + student name) matching ---
-        const { matchingAdmittedIds } = await getMatchingLeadIds(baseQuery);
+        // --- Gather matching admitted lead IDs using (phone + student name) matching with date-aware attribution ---
+        const { matchingAdmittedIds, matchingPreEnrolledIds } = await getMatchingLeadIds(baseQuery);
 
         // --- Build admitted leads query ---
         const admittedQuery = { ...baseQuery };
@@ -40,6 +40,28 @@ export const exportAdmissionSegregation = async (req, res) => {
             .populate('createdBy', 'name')
             .sort({ createdAt: -1 })
             .lean();
+
+        // --- Fetch pre-enrolled existing student leads if any ---
+        let preEnrolledLeads = [];
+        if (matchingPreEnrolledIds && matchingPreEnrolledIds.length > 0) {
+            const preQuery = { ...baseQuery };
+            const preAnd = preQuery.$and ? [...preQuery.$and] : [];
+            if (preQuery.$or) {
+                preAnd.push({ $or: preQuery.$or });
+                delete preQuery.$or;
+            }
+            preAnd.push({ _id: { $in: matchingPreEnrolledIds } });
+            preQuery.$and = preAnd;
+
+            preEnrolledLeads = await LeadManagement.find(preQuery)
+                .populate('className', 'name')
+                .populate('centre', 'centreName')
+                .populate('course', 'courseName')
+                .populate('board', 'boardCourse boardName')
+                .populate('createdBy', 'name')
+                .sort({ createdAt: -1 })
+                .lean();
+        }
 
         // --- Categorize into uploaded vs manual ---
         const isUploadedSource = (lead) =>
@@ -83,10 +105,12 @@ export const exportAdmissionSegregation = async (req, res) => {
 
         // ─── Sheet 1: Count Summary ───────────────────────────────────────────
         const summaryData = [
-            { "Category": "Total Admitted Leads",    "Count": allAdmittedLeads.length, "Remarks": "All admitted leads matching current filters" },
+            { "Category": "Total Admitted Leads",    "Count": allAdmittedLeads.length, "Remarks": "Genuine new admissions converted from leads matching current filters" },
             { "Category": "",                         "Count": "",                       "Remarks": "" },
             { "Category": "Uploaded (Excel / Digital)", "Count": uploadedLeads.length,  "Remarks": "Leads imported via bulk-upload, campaign, or digital source" },
             { "Category": "Manual Entry",             "Count": manualLeads.length,       "Remarks": "Leads added manually through the Add Lead form" },
+            { "Category": "",                         "Count": "",                       "Remarks": "" },
+            { "Category": "Already Enrolled (Prior Admission)", "Count": preEnrolledLeads.length, "Remarks": "Existing students who were already enrolled before this lead was generated (not counted as campaign conversions)" },
         ];
 
         // ─── Sheet 2: All Admitted Leads (Detailed) ───────────────────────────
@@ -103,6 +127,9 @@ export const exportAdmissionSegregation = async (req, res) => {
         // ─── Sheet 4: Manual Leads Only ───────────────────────────────────────
         const manualRows = manualLeads.map((l, i) => buildRow(l, i, "Manual Entry"));
 
+        // ─── Sheet 5: Already Enrolled Leads ──────────────────────────────────
+        const preEnrolledRows = preEnrolledLeads.map((l, i) => buildRow(l, i, "Already Enrolled"));
+
         // ─── Build Workbook ───────────────────────────────────────────────────
         const wb = XLSX.utils.book_new();
 
@@ -118,6 +145,11 @@ export const exportAdmissionSegregation = async (req, res) => {
 
         const wsManual = XLSX.utils.json_to_sheet(manualRows.length > 0 ? manualRows : [{ "Note": "No manually-added admitted leads found." }]);
         XLSX.utils.book_append_sheet(wb, wsManual, "Manual Entry");
+
+        if (preEnrolledRows.length > 0) {
+            const wsPreEnrolled = XLSX.utils.json_to_sheet(preEnrolledRows);
+            XLSX.utils.book_append_sheet(wb, wsPreEnrolled, "Already Enrolled");
+        }
 
         const buffer = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
 

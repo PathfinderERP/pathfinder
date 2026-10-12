@@ -12,7 +12,7 @@ export const getConversionDetails = async (req, res) => {
     try {
         const { type } = req.query;
         const normalizedType = (type || "").toLowerCase();
-        const validTypes = ["counselled", "admitted", "uploaded_admissions", "uploaded_admitted", "manual_admissions", "manual_admitted"];
+        const validTypes = ["counselled", "admitted", "uploaded_admissions", "uploaded_admitted", "manual_admissions", "manual_admitted", "already_enrolled", "pre_enrolled"];
         if (!type || !validTypes.includes(normalizedType)) {
             return res.status(400).json({ message: "Invalid type parameter." });
         }
@@ -26,11 +26,18 @@ export const getConversionDetails = async (req, res) => {
             baseQuery.$and = baseQuery.$and.filter(c => !c.hasOwnProperty('isCounseled'));
         }
 
-        // Gather matching admitted and counselled lead IDs using (phone + student name) matching
-        const { matchingAdmittedIds, matchingCounsellingIds } = await getMatchingLeadIds(baseQuery);
+        // Gather matching admitted, pre-enrolled, and counselled lead IDs using (phone + student name) matching with date-aware attribution
+        const { matchingAdmittedIds, matchingPreEnrolledIds, matchingCounsellingIds } = await getMatchingLeadIds(baseQuery);
 
         // Apply type-specific filter
-        if (normalizedType === "admitted") {
+        if (normalizedType === "already_enrolled" || normalizedType === "pre_enrolled") {
+            baseQuery.$and = baseQuery.$and || [];
+            if (baseQuery.$or) {
+                baseQuery.$and.push({ $or: baseQuery.$or });
+                delete baseQuery.$or;
+            }
+            baseQuery.$and.push({ _id: { $in: matchingPreEnrolledIds || [] } });
+        } else if (normalizedType === "admitted") {
             baseQuery.$and = baseQuery.$and || [];
             if (baseQuery.$or) {
                 baseQuery.$and.push({ $or: baseQuery.$or });
@@ -286,7 +293,8 @@ export const getConversionDetails = async (req, res) => {
                 email: email || "NA",
                 admittedBy: admittedBy || "NA",
                 admissionDate,
-                source
+                source,
+                isAlreadyEnrolled: (matchingPreEnrolledIds || []).some(pid => pid.toString() === (lead._id ? lead._id.toString() : ''))
             };
         });
 

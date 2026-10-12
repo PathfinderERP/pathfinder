@@ -1,6 +1,16 @@
 import React, { useState, useMemo } from 'react';
 import { FaTimes, FaSearch, FaUser, FaUserCheck, FaPhoneAlt, FaEnvelope, FaBuilding, FaGraduationCap, FaAward, FaCalendarAlt, FaIdCard, FaBullhorn } from 'react-icons/fa';
 
+const formatDateDDMMYYYY = (dateVal) => {
+    if (!dateVal) return 'NA';
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return 'NA';
+    const day = String(d.getDate()).padStart(2, '0');
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const year = d.getFullYear();
+    return `${day}/${month}/${year}`;
+};
+
 const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) => {
     const [searchQuery, setSearchQuery] = useState('');
 
@@ -98,6 +108,11 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                                                 {lead.name}
                                             </h3>
                                             <div className="flex gap-1.5 items-center shrink-0 flex-wrap justify-end">
+                                                {lead.isAlreadyEnrolled && (
+                                                    <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                                                        Already Enrolled
+                                                    </span>
+                                                )}
                                                 {lead.downPayment > 0 && (
                                                     <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                                                         Down Payment: ₹{Math.round(lead.downPayment).toLocaleString("en-IN")}
@@ -183,10 +198,21 @@ const ConversionDetailsModal = ({ isOpen, onClose, title, leads, isDarkMode }) =
                                                     <span className="truncate">
                                                         <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Lead Created Date:</span>
                                                         <span className={`font-medium ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                                            {lead.createdAt ? new Date(lead.createdAt).toLocaleDateString() : 'NA'}
+                                                            {formatDateDDMMYYYY(lead.createdAt)}
                                                         </span>
                                                     </span>
                                                 </div>
+                                                {lead.admissionDate && (
+                                                    <div className="flex items-center gap-1.5 col-span-2">
+                                                        <FaCalendarAlt size={10} className="text-emerald-500 shrink-0" />
+                                                        <span className="truncate">
+                                                            <span className="text-gray-500 font-bold uppercase text-[9px] mr-1">Admission Date:</span>
+                                                            <span className={`font-semibold ${isDarkMode ? 'text-emerald-300' : 'text-emerald-600'}`}>
+                                                                {formatDateDDMMYYYY(lead.admissionDate)}
+                                                            </span>
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

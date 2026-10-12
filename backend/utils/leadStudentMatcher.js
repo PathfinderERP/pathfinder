@@ -120,57 +120,79 @@ export function isNameMatch(name1, name2) {
 
 /**
  * Builds the phone-to-student-names maps for admitted and counselled students.
+ * Stores admission dates to distinguish new conversions from already-enrolled students.
  */
 export async function getStudentPhoneNameMaps() {
     const [
-        normalStudentIds,
-        boardStudentIds,
-        directEnrolledStudents,
+        normalAdmissions,
         boardAdmissions,
+        directEnrolledStudents,
         boardCounselling,
         allStudents
     ] = await Promise.all([
-        Admission.distinct("student"),
-        BoardCourseAdmission.distinct("studentId"),
-        Student.find({ isEnrolled: true }).select("studentsDetails.studentName studentsDetails.mobileNum studentsDetails.whatsappNumber").lean(),
-        BoardCourseAdmission.find().select("studentName mobileNum").lean(),
+        Admission.find({}, { student: 1, admissionNumber: 1, admissionDate: 1, createdAt: 1 }).lean(),
+        BoardCourseAdmission.find({}, { studentId: 1, studentName: 1, mobileNum: 1, admissionNumber: 1, admissionDate: 1, createdAt: 1 }).lean(),
+        Student.find({ isEnrolled: true }).select("studentsDetails.studentName studentsDetails.mobileNum studentsDetails.whatsappNumber createdAt").lean(),
         BoardCourseCounselling.find().select("studentName mobileNum").lean(),
         Student.find().select("studentsDetails.studentName studentsDetails.mobileNum studentsDetails.whatsappNumber").lean()
     ]);
 
+    const normalStudentIds = normalAdmissions.map(a => a.student?.toString()).filter(Boolean);
+    const boardStudentIds = boardAdmissions.map(a => a.studentId?.toString()).filter(Boolean);
     const allAdmittedStudentIds = [...new Set([...normalStudentIds, ...boardStudentIds])];
+
     const admittedStudentsFromDetails = await Student.find({
         _id: { $in: allAdmittedStudentIds }
-    }).select("studentsDetails.studentName studentsDetails.mobileNum studentsDetails.whatsappNumber").lean();
+    }).select("studentsDetails.studentName studentsDetails.mobileNum studentsDetails.whatsappNumber createdAt").lean();
+
+    const studentMap = new Map();
+    admittedStudentsFromDetails.forEach(s => studentMap.set(s._id.toString(), s));
 
     const admittedPhoneMap = new Map();
     const rawAdmittedPhones = new Set();
 
-    const addAdmitted = (phone, name) => {
+    const addAdmitted = (phone, name, admissionDate, admissionNumber) => {
         if (!phone) return;
         rawAdmittedPhones.add(String(phone).trim());
         const cp = cleanPhoneNumber(phone);
         if (!cp) return;
         rawAdmittedPhones.add(cp);
-        if (!admittedPhoneMap.has(cp)) admittedPhoneMap.set(cp, new Set());
-        if (name && String(name).trim()) admittedPhoneMap.get(cp).add(String(name).trim());
+        if (!admittedPhoneMap.has(cp)) admittedPhoneMap.set(cp, []);
+        admittedPhoneMap.get(cp).push({
+            name: name ? String(name).trim() : '',
+            admissionDate: admissionDate ? new Date(admissionDate) : null,
+            admissionNumber: admissionNumber || ''
+        });
     };
 
-    for (const s of admittedStudentsFromDetails) {
-        for (const d of s.studentsDetails || []) {
-            addAdmitted(d.mobileNum, d.studentName);
-            addAdmitted(d.whatsappNumber, d.studentName);
+    normalAdmissions.forEach(adm => {
+        const s = studentMap.get(adm.student?.toString());
+        if (!s) return;
+        const admDate = adm.admissionDate || adm.createdAt;
+        (s.studentsDetails || []).forEach(d => {
+            addAdmitted(d.mobileNum, d.studentName, admDate, adm.admissionNumber);
+            addAdmitted(d.whatsappNumber, d.studentName, admDate, adm.admissionNumber);
+        });
+    });
+
+    boardAdmissions.forEach(ba => {
+        const admDate = ba.admissionDate || ba.createdAt;
+        addAdmitted(ba.mobileNum, ba.studentName, admDate, ba.admissionNumber);
+        const s = studentMap.get(ba.studentId?.toString());
+        if (s) {
+            (s.studentsDetails || []).forEach(d => {
+                addAdmitted(d.mobileNum, d.studentName, admDate, ba.admissionNumber);
+                addAdmitted(d.whatsappNumber, d.studentName, admDate, ba.admissionNumber);
+            });
         }
-    }
-    for (const s of directEnrolledStudents) {
-        for (const d of s.studentsDetails || []) {
-            addAdmitted(d.mobileNum, d.studentName);
-            addAdmitted(d.whatsappNumber, d.studentName);
-        }
-    }
-    for (const ba of boardAdmissions) {
-        addAdmitted(ba.mobileNum, ba.studentName);
-    }
+    });
+
+    directEnrolledStudents.forEach(s => {
+        (s.studentsDetails || []).forEach(d => {
+            addAdmitted(d.mobileNum, d.studentName, s.createdAt, '');
+            addAdmitted(d.whatsappNumber, d.studentName, s.createdAt, '');
+        });
+    });
 
     const counsellingPhoneMap = new Map();
     const rawCounsellingPhones = new Set([...rawAdmittedPhones]);
@@ -186,8 +208,10 @@ export async function getStudentPhoneNameMaps() {
     };
 
     // All admitted are also considered counselled
-    for (const [p, names] of admittedPhoneMap.entries()) {
-        for (const n of names) addCounselling(p, n);
+    for (const [p, entries] of admittedPhoneMap.entries()) {
+        for (const e of entries) {
+            if (e.name) addCounselling(p, e.name);
+        }
     }
     for (const bc of boardCounselling) {
         addCounselling(bc.mobileNum, bc.studentName);
@@ -208,7 +232,8 @@ export async function getStudentPhoneNameMaps() {
 }
 
 /**
- * Checks whether a given lead matches any admitted student in admittedPhoneMap
+ * Checks whether a given lead matches any admitted student whose admission occurred
+ * ON OR AFTER the lead creation date (a genuine new conversion from this lead).
  */
 export function isLeadAdmitted(lead, admittedPhoneMap) {
     if (!lead || !admittedPhoneMap) return false;
@@ -216,19 +241,58 @@ export function isLeadAdmitted(lead, admittedPhoneMap) {
     const p2 = cleanPhoneNumber(lead.secondPhoneNumber);
     const leadName = lead.name;
 
-    const admNames = new Set([
+    const admEntries = [
         ...(admittedPhoneMap.get(p1) || []),
         ...(admittedPhoneMap.get(p2) || [])
-    ]);
+    ];
 
-    if (admNames.size === 0) return false;
+    if (admEntries.length === 0) return false;
 
-    for (const an of admNames) {
-        if (isNameMatch(leadName, an)) {
-            return true;
-        }
-    }
-    return false;
+    const matching = admEntries.filter(e => isNameMatch(leadName, e.name));
+    if (matching.length === 0) return false;
+
+    // A lead is only counted as a converted admission if the admission occurred ON OR AFTER the lead's creation date (allowing same-day)
+    const leadDate = lead.createdAt ? new Date(lead.createdAt) : null;
+    if (!leadDate) return true; // fallback if no date
+
+    const startOfLeadDay = new Date(leadDate.getFullYear(), leadDate.getMonth(), leadDate.getDate()).getTime();
+    return matching.some(e => {
+        if (!e.admissionDate) return true;
+        return e.admissionDate.getTime() >= startOfLeadDay;
+    });
+}
+
+/**
+ * Checks whether a given lead matches an already-enrolled student whose admission occurred
+ * BEFORE the lead was created (i.e. existing student re-inquiring).
+ */
+export function isLeadPreEnrolled(lead, admittedPhoneMap) {
+    if (!lead || !admittedPhoneMap) return false;
+    const p1 = cleanPhoneNumber(lead.phoneNumber);
+    const p2 = cleanPhoneNumber(lead.secondPhoneNumber);
+    const leadName = lead.name;
+
+    const admEntries = [
+        ...(admittedPhoneMap.get(p1) || []),
+        ...(admittedPhoneMap.get(p2) || [])
+    ];
+
+    if (admEntries.length === 0) return false;
+
+    const matching = admEntries.filter(e => isNameMatch(leadName, e.name));
+    if (matching.length === 0) return false;
+
+    const leadDate = lead.createdAt ? new Date(lead.createdAt) : null;
+    if (!leadDate) return false;
+
+    const startOfLeadDay = new Date(leadDate.getFullYear(), leadDate.getMonth(), leadDate.getDate()).getTime();
+    const hasPostAdmission = matching.some(e => {
+        if (!e.admissionDate) return true;
+        return e.admissionDate.getTime() >= startOfLeadDay;
+    });
+
+    // If all matched admissions happened before the lead was created, it's pre-enrolled (existing student)
+    return !hasPostAdmission;
 }
 
 /**
@@ -259,7 +323,8 @@ export function isLeadCounselled(lead, counsellingPhoneMap) {
 }
 
 /**
- * Finds all lead IDs matching admitted and counselled student records within a given base query
+ * Finds all lead IDs matching admitted and counselled student records within a given base query.
+ * Segregates genuinely converted leads (admission on/after lead) from pre-enrolled existing students.
  */
 export async function getMatchingLeadIds(baseQuery = {}, phoneMaps = null) {
     const maps = phoneMaps || await getStudentPhoneNameMaps();
@@ -282,15 +347,18 @@ export async function getMatchingLeadIds(baseQuery = {}, phoneMaps = null) {
     candidateQuery.$and = baseAnd;
 
     const candidateLeads = await LeadManagement.find(candidateQuery)
-        .select("_id name phoneNumber secondPhoneNumber isCounseled")
+        .select("_id name phoneNumber secondPhoneNumber isCounseled createdAt")
         .lean();
 
     const matchingAdmittedIds = [];
+    const matchingPreEnrolledIds = [];
     const matchingCounsellingIds = [];
 
     for (const lead of candidateLeads) {
         if (isLeadAdmitted(lead, admittedPhoneMap)) {
             matchingAdmittedIds.push(lead._id);
+        } else if (isLeadPreEnrolled(lead, admittedPhoneMap)) {
+            matchingPreEnrolledIds.push(lead._id);
         }
         if (isLeadCounselled(lead, counsellingPhoneMap)) {
             matchingCounsellingIds.push(lead._id);
@@ -299,6 +367,7 @@ export async function getMatchingLeadIds(baseQuery = {}, phoneMaps = null) {
 
     return {
         matchingAdmittedIds,
+        matchingPreEnrolledIds,
         matchingCounsellingIds,
         maps
     };

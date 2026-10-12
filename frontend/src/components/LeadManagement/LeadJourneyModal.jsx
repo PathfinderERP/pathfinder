@@ -20,7 +20,8 @@ import {
     FaFileAlt,
     FaPhoneAlt,
     FaIdCard,
-    FaBuilding
+    FaBuilding,
+    FaCloudUploadAlt
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 
@@ -78,7 +79,7 @@ const LeadJourneyModal = ({ leadId, onClose, isDarkMode }) => {
 
     // Helper to get step status styling
     const getStepClass = (stepIndex) => {
-        const { totalCalls, hasCounselling, hasAdmission } = summary;
+        const { totalCalls, hasCounselling, hasAdmission, isAlreadyEnrolled } = summary;
         
         let active = false;
         let completed = false;
@@ -98,6 +99,11 @@ const LeadJourneyModal = ({ leadId, onClose, isDarkMode }) => {
         }
 
         if (completed) {
+            if (stepIndex === 3 && isAlreadyEnrolled) {
+                return isDarkMode 
+                    ? "bg-purple-600 border-purple-400 text-white shadow-[0_0_15px_rgba(168,85,247,0.4)]" 
+                    : "bg-purple-600 border-purple-600 text-white shadow-[0_0_15px_rgba(168,85,247,0.3)]";
+            }
             return isDarkMode 
                 ? "bg-cyan-500 border-cyan-400 text-black shadow-[0_0_15px_rgba(6,182,212,0.4)]" 
                 : "bg-cyan-500 border-cyan-500 text-white shadow-[0_0_15px_rgba(6,182,212,0.3)]";
@@ -114,7 +120,7 @@ const LeadJourneyModal = ({ leadId, onClose, isDarkMode }) => {
 
     // Helper to get step connector status styling
     const getConnectorClass = (stepIndex) => {
-        const { totalCalls, hasCounselling, hasAdmission } = summary;
+        const { totalCalls, hasCounselling, hasAdmission, isAlreadyEnrolled } = summary;
         let completed = false;
 
         if (stepIndex === 0) {
@@ -122,7 +128,7 @@ const LeadJourneyModal = ({ leadId, onClose, isDarkMode }) => {
         } else if (stepIndex === 1) {
             completed = hasCounselling || hasAdmission;
         } else if (stepIndex === 2) {
-            completed = hasAdmission;
+            completed = hasAdmission && !isAlreadyEnrolled;
         }
 
         return completed 
@@ -134,26 +140,43 @@ const LeadJourneyModal = ({ leadId, onClose, isDarkMode }) => {
     const renderEventCard = (event, index) => {
         switch (event.type) {
             case 'CREATION':
+                const isUpload = event.title === 'Uploaded Data' || /upload/i.test(event.title || '') || /upload/i.test(event.label || '');
                 return (
                     <div className={`border rounded-[4px] p-6 shadow-2xl transition-all hover:border-blue-500/50 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
                         <div className="flex justify-between items-start mb-4 border-b pb-3 border-gray-800/10 dark:border-gray-800">
                             <div className="flex items-center gap-2.5 text-blue-500 dark:text-blue-400">
-                                <FaPlus size={12} />
+                                {isUpload ? <FaCloudUploadAlt size={14} /> : <FaPlus size={12} />}
                                 <span className="font-black text-[10px] uppercase tracking-widest">{event.label}</span>
                             </div>
-                            <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-blue-500/10 text-blue-400' : 'bg-blue-50 text-blue-600 border border-blue-100'}`}>
+                            <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest ${
+                                isUpload
+                                    ? (isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' : 'bg-cyan-50 text-cyan-700 border border-cyan-200')
+                                    : (isDarkMode ? 'bg-blue-500/10 text-blue-400 border border-blue-500/30' : 'bg-blue-50 text-blue-600 border border-blue-100')
+                            }`}>
                                 {event.title}
                             </span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs font-bold">
                             <div className="space-y-1">
-                                <span className="text-[8px] text-gray-500 uppercase tracking-widest block">Created By</span>
+                                <span className="text-[8px] text-gray-500 uppercase tracking-widest block">{isUpload ? 'Uploaded By' : 'Created By'}</span>
                                 <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{event.details.createdBy}</span>
                             </div>
                             <div className="space-y-1">
                                 <span className="text-[8px] text-gray-500 uppercase tracking-widest block">Marketing Source</span>
                                 <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{event.details.source}</span>
                             </div>
+                            {event.details.campaignName && (
+                                <div className="space-y-1">
+                                    <span className="text-[8px] text-gray-500 uppercase tracking-widest block">Campaign / Ad</span>
+                                    <span className="text-purple-400 font-semibold">{event.details.campaignName}</span>
+                                </div>
+                            )}
+                            {event.details.marketingBy && !event.details.campaignName && (
+                                <div className="space-y-1">
+                                    <span className="text-[8px] text-gray-500 uppercase tracking-widest block">Marketing Executive</span>
+                                    <span className="text-amber-400 font-semibold">{event.details.marketingBy}</span>
+                                </div>
+                            )}
                             <div className="space-y-1">
                                 <span className="text-[8px] text-gray-500 uppercase tracking-widest block">Class & Course</span>
                                 <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{event.details.className} - {event.details.courseName}</span>
@@ -354,15 +377,29 @@ const LeadJourneyModal = ({ leadId, onClose, isDarkMode }) => {
                 const isCarryForwardAdm = /carry\s*forward/i.test(event.details.admissionOrigin || '') || event.details.previousBalance > 0;
                 const isPntseAdm = /pntse/i.test(event.details.admissionOrigin || '');
                 const isBoardAdm = /board/i.test(event.details.admissionOrigin || '');
+                const isPriorAdm = event.isPriorAdmission || event.details?.isPriorAdmission;
 
                 return (
                     <div className={`border rounded-[4px] p-6 shadow-2xl transition-all hover:border-emerald-500/50 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        {isPriorAdm && (
+                            <div className={`mb-4 p-2.5 rounded-[3px] border border-dashed flex items-center gap-2 text-[10px] font-bold ${
+                                isDarkMode ? 'bg-purple-500/10 border-purple-500/30 text-purple-300' : 'bg-purple-50 border-purple-200 text-purple-700'
+                            }`}>
+                                <span className="font-black uppercase tracking-wider">⚠️ Already Enrolled Student:</span>
+                                <span>Admitted prior to this lead inquiry. This inquiry was made by an existing enrolled student.</span>
+                            </div>
+                        )}
                         <div className="flex justify-between items-start mb-4 border-b pb-3 border-gray-800/10 dark:border-gray-800">
                             <div className="flex items-center gap-2.5 text-emerald-500 dark:text-emerald-400">
                                 <FaAward size={13} />
                                 <span className="font-black text-[10px] uppercase tracking-widest">{event.label}</span>
                             </div>
                             <div className="flex items-center gap-2">
+                                {isPriorAdm && (
+                                    <span className="px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest bg-purple-500/20 text-purple-300 border border-purple-500/40">
+                                        PRIOR ENROLLED
+                                    </span>
+                                )}
                                 <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest ${
                                     isCarryForwardAdm ? (isDarkMode ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30' : 'bg-amber-50 text-amber-700 border border-amber-200') :
                                     isPntseAdm ? (isDarkMode ? 'bg-purple-500/20 text-purple-300 border border-purple-500/30' : 'bg-purple-50 text-purple-700 border border-purple-200') :
@@ -474,6 +511,11 @@ const LeadJourneyModal = ({ leadId, onClose, isDarkMode }) => {
 
                     {/* Overall Status Banner */}
                     <div className="flex flex-wrap justify-center gap-3 mt-6">
+                        {summary.isAlreadyEnrolled && (
+                            <span className={`px-4 py-1.5 rounded-[4px] border text-[9px] font-black uppercase tracking-[0.2em] bg-purple-500/20 text-purple-300 border-purple-500/40 animate-pulse`}>
+                                ⚠️ ALREADY ENROLLED (PRIOR ADMISSION)
+                            </span>
+                        )}
                         <span className={`px-4 py-1.5 rounded-[4px] border text-[9px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20' : 'bg-cyan-50 text-cyan-700 border-cyan-200'}`}>
                             STAGE: {summary.currentStage}
                         </span>
@@ -516,7 +558,7 @@ const LeadJourneyModal = ({ leadId, onClose, isDarkMode }) => {
                             { label: "Added / Lead", icon: <FaPlus size={10} /> },
                             { label: "Calling & Service", icon: <FaPhone size={10} /> },
                             { label: "Counselling / PNTSE", icon: <FaUserCheck size={11} /> },
-                            { label: "Admitted", icon: <FaAward size={11} /> }
+                            { label: summary.isAlreadyEnrolled ? "Already Enrolled" : "Admitted", icon: <FaAward size={11} /> }
                         ].map((step, idx) => (
                             <div key={idx} className="flex flex-col items-center z-10">
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-all duration-500 font-bold ${getStepClass(idx)}`}>

@@ -121,8 +121,8 @@ export const getLeads = async (req, res) => {
             statsQueryWithoutCounseled.$and = statsQueryWithoutCounseled.$and.filter(c => !c.hasOwnProperty('isCounseled'));
         }
 
-        // Gather admitted and counselled leads using (phone + student name) matching
-        const { matchingAdmittedIds, matchingCounsellingIds } = await getMatchingLeadIds(statsQueryWithoutCounseled);
+        // Gather admitted and counselled leads using (phone + student name) matching with date-aware attribution
+        const { matchingAdmittedIds, matchingPreEnrolledIds, matchingCounsellingIds } = await getMatchingLeadIds(statsQueryWithoutCounseled);
 
         // Compute counselled and admitted counts
         const counselledBaseQuery = { ...statsQueryWithoutCounseled };
@@ -229,9 +229,20 @@ export const getLeads = async (req, res) => {
         // Refresh expired audio URLs
         const leadsWithFreshUrls = await refreshAudioUrls(leads);
 
+        const matchingAdmittedSet = new Set((matchingAdmittedIds || []).map(id => id.toString()));
+        const matchingPreEnrolledSet = new Set((matchingPreEnrolledIds || []).map(id => id.toString()));
+
+        const enrichedLeads = leadsWithFreshUrls.map(lead => {
+            const lObj = lead.toObject ? lead.toObject() : { ...lead };
+            const lid = lead._id ? lead._id.toString() : '';
+            lObj.isAdmitted = matchingAdmittedSet.has(lid);
+            lObj.isAlreadyEnrolled = matchingPreEnrolledSet.has(lid);
+            return lObj;
+        });
+
         res.status(200).json({
             message: "Leads fetched successfully",
-            leads: leadsWithFreshUrls,
+            leads: enrichedLeads,
             pagination: {
                 currentPage: page,
                 totalPages: Math.ceil(totalLeads / limit),
@@ -245,7 +256,8 @@ export const getLeads = async (req, res) => {
                 counselledCount,
                 admittedCount,
                 uploadedAdmittedCount,
-                manualAdmittedCount
+                manualAdmittedCount,
+                alreadyEnrolledCount: matchingPreEnrolledIds ? matchingPreEnrolledIds.length : 0
             }
         });
 

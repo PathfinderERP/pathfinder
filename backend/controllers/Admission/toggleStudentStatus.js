@@ -1,5 +1,6 @@
 import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
+import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 
 /**
  * Toggle student status between 'Active' and 'Deactivated'
@@ -69,6 +70,22 @@ export const toggleStudentStatus = async (req, res) => {
                 );
             }
 
+            // Also reactivate all associated BoardCourseAdmissions
+            updatePromises.push(
+                BoardCourseAdmission.updateMany(
+                    { studentId: studentId },
+                    {
+                        $set: {
+                            status: 'ACTIVE',
+                            enrolledStudentsStatus: 'ACTIVE',
+                            deactivationDate: null,
+                            deactivatedBy: null,
+                            deactivatedByUserId: null
+                        }
+                    }
+                )
+            );
+
             await Promise.all(updatePromises);
 
             // Update student status with findByIdAndUpdate to avoid schema validation errors on unrelated fields
@@ -98,6 +115,11 @@ export const toggleStudentStatus = async (req, res) => {
             await Admission.updateMany(
                 { student: studentId },
                 { $set: { admissionStatus: 'INACTIVE', deactivationDate, deactivatedBy, deactivatedByUserId } }
+            );
+
+            await BoardCourseAdmission.updateMany(
+                { studentId: studentId },
+                { $set: { status: 'DEACTIVATED', enrolledStudentsStatus: 'INACTIVE', deactivationDate, deactivatedBy, deactivatedByUserId } }
             );
 
             const updatedStudent = await Student.findByIdAndUpdate(
