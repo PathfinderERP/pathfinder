@@ -65,6 +65,16 @@ const marketingCentreBucketSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    customStock: {
+        type: Map,
+        of: Number,
+        default: {}
+    },
+    totalCustomReceived: {
+        type: Map,
+        of: Number,
+        default: {}
+    },
     lastUpdated: {
         type: Date,
         default: Date.now
@@ -73,6 +83,6 @@ const marketingCentreBucketSchema = new mongoose.Schema({
         type: mongoose.Schema.Types.ObjectId,
         ref: 'User'
     }
-}, { timestamps: true });
+}, { timestamps: true, strict: false });
 
 export default mongoose.model("MarketingCentreBucket", marketingCentreBucketSchema);

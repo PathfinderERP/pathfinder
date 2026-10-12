@@ -135,6 +135,7 @@ export const getAllCentresBuckets = async (req, res) => {
                 totalTshirtsReceived: b ? (b.totalTshirtsReceived || 0) : 0,
                 totalKtsBooksReceived: b ? (b.totalKtsBooksReceived || 0) : 0,
                 totalVsoBooksReceived: b ? (b.totalVsoBooksReceived || 0) : 0,
+                customStock: b?.customStock ? (b.customStock instanceof Map ? Object.fromEntries(b.customStock) : b.customStock) : {},
                 lastUpdated: b ? b.lastUpdated : null
             };
         });
@@ -508,6 +509,7 @@ export const approveRequisition = async (req, res) => {
             approvedTshirts, 
             approvedKtsBooks, 
             approvedVsoBooks, 
+            approvedQuantity,
             approverRemarks 
         } = req.body;
 
@@ -523,6 +525,7 @@ export const approveRequisition = async (req, res) => {
         const prevApprovedTshirts  = prevStatus === 'Approved' ? (requirement.approvedTshirts || 0) : 0;
         const prevApprovedKts      = prevStatus === 'Approved' ? (requirement.approvedKtsBooks || 0) : 0;
         const prevApprovedVso      = prevStatus === 'Approved' ? (requirement.approvedVsoBooks || 0) : 0;
+        const prevApprovedQuantity = prevStatus === 'Approved' ? (requirement.approvedQuantity || 0) : 0;
 
         // Determine final approved quantities
         const finalLeaflets = approvedLeaflets !== undefined 
@@ -549,6 +552,19 @@ export const approveRequisition = async (req, res) => {
             ? Math.max(0, parseInt(approvedVsoBooks, 10) || 0) 
             : (prevStatus === 'Approved' && requirement.approvedVsoBooks !== undefined ? requirement.approvedVsoBooks : (requirement.vsoBooks || 0));
 
+        // Check if dynamic quantity is provided or if itemType is a custom material
+        const isCoreStandard = (requirement.leaflets > 0 || requirement.banners > 0 || requirement.bags > 0 || requirement.tshirts > 0 || requirement.ktsBooks > 0 || requirement.vsoBooks > 0);
+        
+        let finalDynamicQty = 0;
+        let diffDynamicQty = 0;
+
+        if (!isCoreStandard || approvedQuantity !== undefined) {
+            finalDynamicQty = approvedQuantity !== undefined
+                ? Math.max(0, parseInt(approvedQuantity, 10) || 0)
+                : (prevStatus === 'Approved' && requirement.approvedQuantity !== undefined ? requirement.approvedQuantity : (requirement.quantity || 0));
+            diffDynamicQty = finalDynamicQty - prevApprovedQuantity;
+        }
+
         const diffLeaflets = finalLeaflets - prevApprovedLeaflets;
         const diffBanners  = finalBanners - prevApprovedBanners;
         const diffBags     = finalBags - prevApprovedBags;
@@ -564,7 +580,10 @@ export const approveRequisition = async (req, res) => {
         requirement.approvedKtsBooks = finalKts;
         requirement.approvedVsoBooks = finalVso;
         requirement.approvedBooks = finalKts + finalVso;
-        requirement.approvedQuantity = finalLeaflets + finalBanners + finalBags + finalTshirts + finalKts + finalVso;
+        
+        const coreSum = finalLeaflets + finalBanners + finalBags + finalTshirts + finalKts + finalVso;
+        requirement.approvedQuantity = coreSum > 0 ? coreSum : finalDynamicQty;
+        
         requirement.approvedBy = req.user?._id;
         requirement.approvedAt = new Date();
         requirement.approverRemarks = approverRemarks !== undefined ? approverRemarks : requirement.approverRemarks;
@@ -616,6 +635,18 @@ export const approveRequisition = async (req, res) => {
             bucket.totalTshirtsReceived  = Math.max(0, (bucket.totalTshirtsReceived || 0) + diffTshirts);
             bucket.totalKtsBooksReceived = Math.max(0, (bucket.totalKtsBooksReceived || 0) + diffKts);
             bucket.totalVsoBooksReceived = Math.max(0, (bucket.totalVsoBooksReceived || 0) + diffVso);
+
+            if (!isCoreStandard && requirement.itemType) {
+                if (!bucket.customStock) bucket.customStock = new Map();
+                const cur = (typeof bucket.customStock.get === 'function' ? bucket.customStock.get(requirement.itemType) : bucket.customStock[requirement.itemType]) || 0;
+                const nextVal = Math.max(0, cur + diffDynamicQty);
+                if (typeof bucket.customStock.set === 'function') {
+                    bucket.customStock.set(requirement.itemType, nextVal);
+                } else {
+                    bucket.customStock[requirement.itemType] = nextVal;
+                }
+            }
+
             bucket.lastUpdated = new Date();
             bucket.updatedBy = req.user?._id;
 
@@ -644,11 +675,23 @@ export const approveRequisition = async (req, res) => {
             hazraBucket.tshirts  = Math.max(0, (hazraBucket.tshirts || 0) - diffTshirts);
             hazraBucket.ktsBooks = Math.max(0, (hazraBucket.ktsBooks || 0) - diffKts);
             hazraBucket.vsoBooks = Math.max(0, (hazraBucket.vsoBooks || 0) - diffVso);
+
+            if (!isCoreStandard && requirement.itemType) {
+                if (!hazraBucket.customStock) hazraBucket.customStock = new Map();
+                const cur = (typeof hazraBucket.customStock.get === 'function' ? hazraBucket.customStock.get(requirement.itemType) : hazraBucket.customStock[requirement.itemType]) || 0;
+                const nextVal = Math.max(0, cur - diffDynamicQty);
+                if (typeof hazraBucket.customStock.set === 'function') {
+                    hazraBucket.customStock.set(requirement.itemType, nextVal);
+                } else {
+                    hazraBucket.customStock[requirement.itemType] = nextVal;
+                }
+            }
+
             hazraBucket.lastUpdated = new Date();
             hazraBucket.updatedBy = req.user?._id;
             await hazraBucket.save();
 
-            const netDiffTotal = diffLeaflets + diffBanners + diffBags + diffTshirts + diffKts + diffVso;
+            const netDiffTotal = diffLeaflets + diffBanners + diffBags + diffTshirts + diffKts + diffVso + (isCoreStandard ? 0 : diffDynamicQty);
             if (netDiffTotal !== 0) {
                 const itemDetails = [];
                 if (diffLeaflets !== 0) itemDetails.push({ material: 'Leaflets', quantity: -diffLeaflets, newStock: hazraBucket.leaflets });
@@ -657,6 +700,10 @@ export const approveRequisition = async (req, res) => {
                 if (diffTshirts !== 0)  itemDetails.push({ material: 'T-Shirts', quantity: -diffTshirts, newStock: hazraBucket.tshirts });
                 if (diffKts !== 0)      itemDetails.push({ material: 'KTS Books', quantity: -diffKts, newStock: hazraBucket.ktsBooks });
                 if (diffVso !== 0)      itemDetails.push({ material: 'VSO Books', quantity: -diffVso, newStock: hazraBucket.vsoBooks });
+                if (!isCoreStandard && diffDynamicQty !== 0 && requirement.itemType) {
+                    const customNew = (typeof hazraBucket.customStock.get === 'function' ? hazraBucket.customStock.get(requirement.itemType) : hazraBucket.customStock[requirement.itemType]) || 0;
+                    itemDetails.push({ material: requirement.itemType, quantity: -diffDynamicQty, newStock: customNew });
+                }
 
                 await MarketingStockMovement.create({
                     movementType: 'REQUISITION_DISPATCH',
@@ -1069,6 +1116,18 @@ export const updateCentreBucketDirectly = async (req, res) => {
         if (tshirts !== undefined)  bucket.tshirts  = Math.max(0, parseInt(tshirts, 10) || 0);
         if (ktsBooks !== undefined) bucket.ktsBooks = Math.max(0, parseInt(ktsBooks, 10) || 0);
         if (vsoBooks !== undefined) bucket.vsoBooks = Math.max(0, parseInt(vsoBooks, 10) || 0);
+
+        if (req.body.customStock && typeof req.body.customStock === 'object') {
+            if (!bucket.customStock) bucket.customStock = new Map();
+            Object.entries(req.body.customStock).forEach(([key, val]) => {
+                const num = Math.max(0, parseInt(val, 10) || 0);
+                if (typeof bucket.customStock.set === 'function') {
+                    bucket.customStock.set(key, num);
+                } else {
+                    bucket.customStock[key] = num;
+                }
+            });
+        }
 
         bucket.lastUpdated = new Date();
         bucket.updatedBy = req.user?._id;

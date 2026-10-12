@@ -335,7 +335,7 @@ function App() {
         <Route path="/hr/candidate-hiring" element={<ProtectedRoute><CandidateHiring /></ProtectedRoute>} />
 
         {/* Operations Routes */}
-        <Route path="/operations/store" element={<ProtectedRoute><Store /></ProtectedRoute>} />
+        {/* <Route path="/operations/store" element={<ProtectedRoute><Store /></ProtectedRoute>} /> */}
         <Route path="/operations/marketing" element={<ProtectedRoute><MarketingOperations /></ProtectedRoute>} />
         <Route path="/operations/marketing-stock" element={<ProtectedRoute><MarketingStock /></ProtectedRoute>} />
         <Route path="/operations/marketing-approval" element={<ProtectedRoute><MarketingApproval /></ProtectedRoute>} />
@@ -413,12 +413,12 @@ function App() {
         <Route path="/admissions/batch-allocation" element={<ProtectedRoute><BatchAllocation /></ProtectedRoute>} />
         <Route path="/edit-board-subjects/:admissionId" element={<ProtectedRoute><EditBoardSubjects /></ProtectedRoute>} />
         {/* PNTSE Routes */}
-        <Route path="/pntse/all-students" element={<ProtectedRoute><PNTSEAllStudents /></ProtectedRoute>} />
-        <Route path="/pntse/add-student" element={<ProtectedRoute><PNTSEAddStudent /></ProtectedRoute>} />
+        <Route path="/pntse/all-students" element={<ProtectedRoute requiredPermissionModule="pntse" requiredPermissionSection="allStudents"><PNTSEAllStudents /></ProtectedRoute>} />
+        <Route path="/pntse/add-student" element={<ProtectedRoute requiredPermissionModule="pntse" requiredPermissionSection="addStudent"><PNTSEAddStudent /></ProtectedRoute>} />
 
         {/* PMO Routes */}
-        <Route path="/pmo/all-students" element={<ProtectedRoute><PMOAllStudents /></ProtectedRoute>} />
-        <Route path="/pmo/add-student" element={<ProtectedRoute><PMOAddStudent /></ProtectedRoute>} />
+        <Route path="/pmo/all-students" element={<ProtectedRoute requiredPermissionModule="pmo" requiredPermissionSection="allStudents"><PMOAllStudents /></ProtectedRoute>} />
+        <Route path="/pmo/add-student" element={<ProtectedRoute requiredPermissionModule="pmo" requiredPermissionSection="addStudent"><PMOAddStudent /></ProtectedRoute>} />
 
         {/* BOOKS EX Routes */}
         <Route path="/books-ex" element={<ProtectedRoute><BooksEx /></ProtectedRoute>} />

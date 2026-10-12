@@ -85,8 +85,17 @@ export const updateUserBySuperAdmin = async (req, res) => {
             hasChanges = true;
         }
 
-        if (granularPermissions !== undefined && !isDeepEqual(granularPermissions, user.granularPermissions)) {
-            user.granularPermissions = granularPermissions;
+        if (granularPermissions !== undefined) {
+            let parsedGranular = granularPermissions;
+            if (typeof parsedGranular === 'string') {
+                try {
+                    parsedGranular = JSON.parse(parsedGranular);
+                } catch (e) {
+                    parsedGranular = {};
+                }
+            }
+            user.granularPermissions = parsedGranular || {};
+            user.markModified("granularPermissions");
             hasChanges = true;
         }
 
@@ -418,91 +427,15 @@ export const bulkUpdateUsers = async (req, res) => {
                 }
 
                 if (finalUpdate.granularPermissions !== undefined) {
-                    let existing = {};
-                    if (user.granularPermissions && typeof user.granularPermissions === 'object' && Object.keys(user.granularPermissions).length > 0) {
-                        existing = typeof user.granularPermissions.toObject === 'function' ? user.granularPermissions.toObject() : JSON.parse(JSON.stringify(user.granularPermissions));
-                    } else {
-                        // Initialize base permissions for user's role so default access is not wiped out
-                        const cleanRoleStr = (user.role || "").toLowerCase().replace(/\s+/g, "");
-                        const isMktTargetRole = [
-                            "counsellor", "marketing", "centerincharge", "centreincharge", 
-                            "zonalmanager", "areamanager", "zonalhead", "hod", "hr", "assistantcenterincharge", 
-                            "assistantzonalmanager", "coordinator", "classcoordinator", "class_coordinator"
-                        ].includes(cleanRoleStr);
-
-                        existing = {
-                            dailyTrackingLog: {
-                                myDailyLog: { create: true, edit: true, delete: true }
-                            }
-                        };
-
-                        if (isMktTargetRole) {
-                            existing.employeeCenter = {
-                                holidayList: { view: true, create: true, edit: true, delete: true },
-                                holidayCalendar: { view: true, create: true, edit: true, delete: true },
-                                markAttendance: { view: true, create: true, edit: true, delete: true },
-                                leaveManagement: { view: true, create: true, edit: true, delete: true },
-                                regularization: { view: true, create: true, edit: true, delete: true },
-                                profile: { view: true, create: true, edit: true, delete: true },
-                                documents: { view: true, create: true, edit: true, delete: true },
-                                training: { view: true, create: true, edit: true, delete: true },
-                                feedback: { view: true, create: true, edit: true, delete: true },
-                                posh: { view: true, create: true, edit: true, delete: true },
-                                reimbursement: { view: true, create: true, edit: true, delete: true },
-                                resign: { view: true, create: true, edit: true, delete: true }
-                            };
-                            existing.academics = {
-                                teacherRoutine: { view: true, create: true, edit: true, delete: true },
-                                classes: { view: true },
-                                classManagement: { view: true }
-                            };
-                            existing.leadManagement = {
-                                leads: { view: true, create: true, edit: true, delete: true },
-                                dashboard: { view: true }
-                            };
-                            existing.courseManagement = {
-                                courses: { view: true, create: true, edit: true, delete: true },
-                                carryForward: { view: true, create: true, edit: true, delete: true }
-                            };
-                            existing.admissions = {
-                                allLeads: { view: true, create: true, edit: true, delete: false },
-                                enrolledStudents: { view: true, create: true, edit: true, delete: false }
-                            };
-                            existing.marketingCRM = {
-                                commandCentre: { view: true, create: true, edit: true, delete: true },
-                                schoolJourney: { view: true, create: true, edit: true, delete: true },
-                                teamPerformance: { view: true, create: true, edit: true, delete: true },
-                                centrePerformance: { view: true, create: true, edit: true, delete: true }
-                            };
+                    let parsedGranular = finalUpdate.granularPermissions;
+                    if (typeof parsedGranular === 'string') {
+                        try {
+                            parsedGranular = JSON.parse(parsedGranular);
+                        } catch (e) {
+                            parsedGranular = {};
                         }
                     }
-
-                    const merged = JSON.parse(JSON.stringify(existing));
-                    const updates = finalUpdate.granularPermissions || {};
-
-                    Object.keys(updates).forEach(modKey => {
-                        const modValue = updates[modKey];
-                        if (modValue && typeof modValue === 'object' && !Array.isArray(modValue)) {
-                            merged[modKey] = {
-                                ...(merged[modKey] || {}),
-                            };
-                            Object.keys(modValue).forEach(secKey => {
-                                const secValue = modValue[secKey];
-                                if (secValue && typeof secValue === 'object' && !Array.isArray(secValue)) {
-                                    merged[modKey][secKey] = {
-                                        ...(merged[modKey][secKey] || {}),
-                                        ...secValue
-                                    };
-                                } else {
-                                    merged[modKey][secKey] = secValue;
-                                }
-                            });
-                        } else {
-                            merged[modKey] = modValue;
-                        }
-                    });
-
-                    user.granularPermissions = merged;
+                    user.granularPermissions = parsedGranular || {};
                     user.markModified("granularPermissions");
                     hasChanges = true;
                 }

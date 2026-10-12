@@ -7,8 +7,7 @@ import { hasPermission } from '../../config/permissions';
 const PMOAddStudent = () => {
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const isSuperAdmin = user.role?.toLowerCase() === 'superadmin' || user.role?.toLowerCase() === 'super admin';
-    const canCreate = isSuperAdmin || hasPermission(user, 'pmo', 'addStudent', 'create') || hasPermission(user, 'pmo', 'allStudents', 'create');
+    const canCreate = hasPermission(user, 'pmo', 'addStudent', 'create') || hasPermission(user, 'pmo', 'allStudents', 'create');
 
     useEffect(() => {
         if (!canCreate) {

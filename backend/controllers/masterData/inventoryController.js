@@ -1,12 +1,13 @@
 import InventoryMaster from "../../models/Master_data/Inventory.js";
 
-// Standard inventory items to seed if empty
-const DEFAULT_INVENTORY_ITEMS = [
-    { name: "Academic Books", code: "BK-01", description: "Standard curriculum and study books", defaultType: "Free", defaultPrice: 0, status: "Active" },
-    { name: "Dress / Uniform", code: "UN-01", description: "Student uniform and attire", defaultType: "Free", defaultPrice: 0, status: "Active" },
-    { name: "Pens & Stationery", code: "ST-01", description: "Writing essentials, notebook and stationary kit", defaultType: "Free", defaultPrice: 0, status: "Active" },
-    { name: "Bags", code: "BG-01", description: "Student backpack", defaultType: "Free", defaultPrice: 0, status: "Active" },
-    { name: "ID Card", code: "ID-01", description: "Student identity card and lanyard", defaultType: "Free", defaultPrice: 0, status: "Active" }
+// Standard inventory items to ensure existence
+const CORE_MARKETING_ITEMS = [
+    { name: "Leaflets", description: "Promotional handbills & flyers", status: "Active" },
+    { name: "Banners", description: "Flex banners, standees & posters", status: "Active" },
+    { name: "Bags", description: "Promotional student backpacks", status: "Active" },
+    { name: "T-Shirts", description: "Branded promotional T-shirts", status: "Active" },
+    { name: "KTS Books", description: "Key To Success series books", status: "Active" },
+    { name: "VSO Books", description: "Vidyamandir Science Olympiad books", status: "Active" }
 ];
 
 // Helper to ensure default items exist in database
@@ -14,8 +15,26 @@ const ensureDefaultInventoryItems = async () => {
     try {
         const count = await InventoryMaster.countDocuments();
         if (count === 0) {
-            await InventoryMaster.insertMany(DEFAULT_INVENTORY_ITEMS);
+            await InventoryMaster.insertMany(CORE_MARKETING_ITEMS);
             console.log("[InventoryMaster] Seeded default standard inventory items");
+        } else {
+            for (const item of CORE_MARKETING_ITEMS) {
+                let queryPattern = `^${item.name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`;
+                if (item.name === "Bags") queryPattern = "^(bags?)$";
+                if (item.name === "T-Shirts") queryPattern = "^(t-?shirts?)$";
+                if (item.name === "KTS Books") queryPattern = "(kts|key\\s*to\\s*success)";
+
+                const exists = await InventoryMaster.findOne({
+                    name: { $regex: new RegExp(queryPattern, "i") }
+                });
+                if (!exists) {
+                    await InventoryMaster.create({
+                        ...item,
+                        defaultType: "Free",
+                        defaultPrice: 0
+                    });
+                }
+            }
         }
     } catch (err) {
         console.error("[InventoryMaster] Error seeding default inventory items:", err);
@@ -67,7 +86,7 @@ export const createInventoryMasterItem = async (req, res) => {
             name: normalizedName,
             code: code?.trim() || undefined,
             description: description?.trim() || undefined,
-            defaultType: defaultType === "Paid" ? "Paid" : "Free",
+            defaultType: defaultType || "Free",
             defaultPrice: Number(defaultPrice) || 0,
             status: status || "Active"
         });
@@ -99,6 +118,7 @@ export const updateInventoryMasterItem = async (req, res) => {
                 _id: { $ne: id },
                 name: { $regex: new RegExp(`^${normalizedName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, "i") }
             });
+
             if (duplicate) {
                 return res.status(400).json({ message: `Inventory item '${normalizedName}' already exists` });
             }
@@ -107,7 +127,7 @@ export const updateInventoryMasterItem = async (req, res) => {
 
         if (code !== undefined) item.code = code?.trim() || "";
         if (description !== undefined) item.description = description?.trim() || "";
-        if (defaultType !== undefined) item.defaultType = defaultType === "Paid" ? "Paid" : "Free";
+        if (defaultType !== undefined) item.defaultType = defaultType;
         if (defaultPrice !== undefined) item.defaultPrice = Number(defaultPrice) || 0;
         if (status !== undefined) item.status = status;
 

@@ -7,8 +7,7 @@ import { hasPermission } from '../../config/permissions';
 const PMOAllStudents = () => {
     const navigate = useNavigate();
     const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const isSuperAdmin = user.role?.toLowerCase() === 'superadmin' || user.role?.toLowerCase() === 'super admin';
-    const canView = isSuperAdmin || hasPermission(user, 'pmo', 'allStudents', 'view');
+    const canView = hasPermission(user, 'pmo', 'allStudents', 'view');
 
     useEffect(() => {
         if (!canView) {

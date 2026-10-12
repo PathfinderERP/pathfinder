@@ -411,7 +411,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             icon: <FaCogs />,
             permissionModule: "operations",
             subItems: [
-                { name: "Store", path: "/operations/store", permissionSection: "store" },
+                // { name: "Store", path: "/operations/store", permissionSection: "store" },
                 { name: "Marketing", path: "/operations/marketing", permissionSection: "marketing" },
                 { name: "Marketing Stock", path: "/operations/marketing-stock", permissionSection: "marketingStock" },
                 { name: "Marketing Approval", path: "/operations/marketing-approval", permissionSection: "marketingApproval" },

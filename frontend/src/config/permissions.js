@@ -329,7 +329,7 @@ export const PERMISSION_MODULES = {
     operations: {
         label: "Operations",
         sections: {
-            store: { label: "Store", operations: ["view", "create", "edit", "delete"] },
+            // store: { label: "Store", operations: ["view", "create", "edit", "delete"] },
             marketing: { label: "Marketing", operations: ["view", "create", "edit", "delete"] },
             marketingStock: { label: "Marketing Stock", operations: ["view", "create", "edit", "delete"] },
             marketingApproval: { label: "Marketing Approval", operations: ["view", "create", "edit", "delete"] },
@@ -757,11 +757,11 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
         return false;
     }
 
-    if (module === 'pmo') {
+    if (module === 'pntse' || module === 'pmo') {
         if (hasGranularObject) {
-            const pmoSec = granularPermissions?.pmo;
-            if (!pmoSec || typeof pmoSec !== 'object') return false;
-            const secObj = pmoSec[section];
+            const modSec = granularPermissions?.[module];
+            if (!modSec || typeof modSec !== 'object') return false;
+            const secObj = modSec[section];
             if (!secObj || typeof secObj !== 'object') return false;
             if (operation === 'view') {
                 if (secObj.view !== undefined) return secObj.view === true;
@@ -969,10 +969,10 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
         return true; // Default to full module access like SuperAdmin
     }
 
-    // PMO module access resolution
-    if (module === 'pmo') {
+    // PNTSE & PMO module access resolution
+    if (module === 'pntse' || module === 'pmo') {
         if (hasGranularObject) {
-            const sections = granularPermissions?.pmo;
+            const sections = granularPermissions?.[module];
             if (sections && Object.keys(sections).length > 0) {
                 return Object.keys(sections).some(secKey => {
                     const sec = sections[secKey];

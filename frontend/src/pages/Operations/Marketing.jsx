@@ -69,6 +69,50 @@ const MarketingPage = () => {
     });
     const [loadingBucket, setLoadingBucket] = useState(false);
 
+    // Master Data Inventory Items
+    const [inventoryMasterList, setInventoryMasterList] = useState([]);
+
+    useEffect(() => {
+        const fetchInventoryMaster = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await axios.get(`${import.meta.env.VITE_API_URL}/master-data/inventory?status=Active`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                const items = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+                if (Array.isArray(items) && items.length > 0) {
+                    setInventoryMasterList(items);
+                }
+            } catch (err) {
+                console.error("Error loading inventory items:", err);
+            }
+        };
+        fetchInventoryMaster();
+    }, []);
+
+    const dynamicMaterialOptions = useMemo(() => {
+        if (inventoryMasterList && inventoryMasterList.length > 0) {
+            const options = inventoryMasterList.map(item => {
+                const matched = MATERIAL_OPTIONS.find(m => 
+                    m.value.toLowerCase() === item.name.toLowerCase() ||
+                    item.name.toLowerCase().includes(m.value.toLowerCase())
+                );
+                return {
+                    value: item.name,
+                    label: item.name,
+                    icon: matched ? matched.icon : FaBoxes,
+                    color: matched ? matched.color : "text-indigo-400",
+                    bg: matched ? matched.bg : "bg-indigo-500/10",
+                    border: matched ? matched.border : "border-indigo-500/30",
+                    presets: matched ? matched.presets : [10, 25, 50, 100],
+                    desc: item.description || (matched ? matched.desc : "Marketing inventory stock item")
+                };
+            });
+            return options;
+        }
+        return MATERIAL_OPTIONS;
+    }, [inventoryMasterList]);
+
     // Requisition Form State
     const [formData, setFormData] = useState({
         itemType: "Leaflets",
@@ -78,6 +122,13 @@ const MarketingPage = () => {
     });
     const [stagedItems, setStagedItems] = useState([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Keep initial form itemType synced when dynamic materials load
+    useEffect(() => {
+        if (dynamicMaterialOptions.length > 0 && !dynamicMaterialOptions.some(o => o.value === formData.itemType)) {
+            setFormData(prev => ({ ...prev, itemType: dynamicMaterialOptions[0].value }));
+        }
+    }, [dynamicMaterialOptions, formData.itemType]);
 
     // History & Filter State
     const [history, setHistory] = useState([]);
@@ -809,22 +860,16 @@ const MarketingPage = () => {
                                         }}
                                         className={`w-full p-3.5 pr-10 rounded-2xl font-bold text-sm outline-none border transition-all cursor-pointer appearance-none ${inputBg}`}
                                     >
-                                        <option value="Leaflets">Leaflets</option>
-                                        <option value="Banners">Banners</option>
-                                        <option value="Bags">Bags</option>
-                                        <option value="T-Shirts">T-Shirts</option>
-                                        <option value="Books">Books (KTS / VSO)</option>
+                                        {dynamicMaterialOptions.map(opt => (
+                                            <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        ))}
                                     </select>
                                     <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-gray-400">
                                         <FaChevronDown className="text-xs" />
                                     </div>
                                 </div>
                                 <p className="text-[11px] text-gray-400 mt-1.5">
-                                    {formData.itemType === 'Leaflets' && 'Promotional handbills for student outreach'}
-                                    {formData.itemType === 'Banners' && 'Display flex banners & signage for centres'}
-                                    {formData.itemType === 'Bags' && 'Pathfinder branded student bags'}
-                                    {formData.itemType === 'T-Shirts' && 'Pathfinder promotional T-shirts'}
-                                    {formData.itemType === 'Books' && 'Choose book sub-section (KTS Books / VSO Books) below'}
+                                    {dynamicMaterialOptions.find(o => o.value === formData.itemType)?.desc || "Marketing inventory material for centre requisition"}
                                 </p>
                             </div>
 
@@ -898,9 +943,7 @@ const MarketingPage = () => {
 
                                 {/* Preset Chips */}
                                 <div className="flex flex-wrap gap-1.5 mt-2">
-                                    {(formData.itemType === 'Leaflets' ? [500, 1000, 2000, 5000] :
-                                      formData.itemType === 'Banners' ? [2, 5, 10, 20] :
-                                      [25, 50, 100, 200]).map(val => (
+                                    {(dynamicMaterialOptions.find(o => o.value === formData.itemType)?.presets || [10, 25, 50, 100]).map(val => (
                                         <button
                                             key={val}
                                             type="button"
@@ -1425,7 +1468,7 @@ const MarketingPage = () => {
                                                 }}
                                                 className={`w-full p-3 rounded-xl border text-sm font-semibold outline-none appearance-none transition-all ${inputBg}`}
                                             >
-                                                {MATERIAL_OPTIONS.map(opt => (
+                                                {dynamicMaterialOptions.map(opt => (
                                                     <option key={opt.value} value={opt.value} className={isDarkMode ? 'bg-gray-900 text-white' : 'bg-white text-gray-900'}>
                                                         {opt.label}
                                                     </option>

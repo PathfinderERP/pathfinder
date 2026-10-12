@@ -54,6 +54,7 @@ const MarketingApprovalPage = () => {
 
     // Master data states
     const [allCentres, setAllCentres] = useState([]);
+    const [inventoryMasterList, setInventoryMasterList] = useState([]);
     const [requisitions, setRequisitions] = useState([]);
     const [loadingRequisitions, setLoadingRequisitions] = useState(true);
     const [overviewStats, setOverviewStats] = useState({
@@ -68,6 +69,17 @@ const MarketingApprovalPage = () => {
         totalKtsBooksDispatched: 0,
         totalVsoBooksDispatched: 0
     });
+
+    // Dynamic Filter options for Materials based on Master Data
+    const materialFilterOptions = useMemo(() => {
+        if (inventoryMasterList && inventoryMasterList.length > 0) {
+            return inventoryMasterList.map(item => ({
+                value: item.name,
+                label: item.name
+            }));
+        }
+        return MATERIAL_FILTER_OPTIONS;
+    }, [inventoryMasterList]);
 
     // Filters
     const [statusFilter, setStatusFilter] = useState("all");
@@ -103,6 +115,10 @@ const MarketingApprovalPage = () => {
                 if (mat.includes('vso')) {
                     return (req.vsoBooks > 0) || (req.approvedVsoBooks > 0) || (req.bookType && req.bookType.toLowerCase().includes('vso')) || (req.itemType && req.itemType.toLowerCase().includes('vso'));
                 }
+                // Dynamic material type matching
+                if (req.itemType && (req.itemType.toLowerCase().includes(mat) || mat.includes(req.itemType.toLowerCase()))) {
+                    return true;
+                }
                 return false;
             });
         });
@@ -118,6 +134,7 @@ const MarketingApprovalPage = () => {
         approvedTshirts: 0,
         approvedKtsBooks: 0,
         approvedVsoBooks: 0,
+        approvedQuantity: 0,
         approverRemarks: ""
     });
     const [approving, setApproving] = useState(false);
@@ -209,6 +226,25 @@ const MarketingApprovalPage = () => {
         }
     }, []);
 
+    // 4. Fetch Active Inventory Items from Master Data
+    const fetchInventoryMaster = useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/master-data/inventory?status=Active`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            if (res.data?.success && Array.isArray(res.data.data)) {
+                setInventoryMasterList(res.data.data);
+            }
+        } catch (err) {
+            console.error("Error fetching inventory master:", err);
+        }
+    }, []);
+
+    useEffect(() => {
+        fetchInventoryMaster();
+    }, [fetchInventoryMaster]);
+
     useEffect(() => {
         if (isSuperAdmin || canAccessApproval) {
             fetchCentres();
@@ -231,6 +267,7 @@ const MarketingApprovalPage = () => {
         const tshDef  = req.tshirts  || ((req.itemType?.toLowerCase().includes('tshirt') || req.itemType?.toLowerCase().includes('t-shirt')) ? req.quantity : 0) || 0;
         const ktsDef  = req.ktsBooks || (req.bookType?.toLowerCase().includes('kts') || req.itemType?.toLowerCase().includes('kts') ? (req.books || req.quantity) : 0) || 0;
         const vsoDef  = req.vsoBooks || (req.bookType?.toLowerCase().includes('vso') || req.itemType?.toLowerCase().includes('vso') ? (req.books || req.quantity) : 0) || 0;
+        const dynDef  = req.quantity || 0;
 
         setApprovalForm({
             approvedLeaflets: req.status === 'Approved' ? (req.approvedLeaflets !== undefined ? req.approvedLeaflets : leafDef) : leafDef,
@@ -239,6 +276,7 @@ const MarketingApprovalPage = () => {
             approvedTshirts: req.status === 'Approved' ? (req.approvedTshirts !== undefined ? req.approvedTshirts : tshDef) : tshDef,
             approvedKtsBooks: req.status === 'Approved' ? (req.approvedKtsBooks !== undefined ? req.approvedKtsBooks : ktsDef) : ktsDef,
             approvedVsoBooks: req.status === 'Approved' ? (req.approvedVsoBooks !== undefined ? req.approvedVsoBooks : vsoDef) : vsoDef,
+            approvedQuantity: req.status === 'Approved' ? (req.approvedQuantity !== undefined ? req.approvedQuantity : dynDef) : dynDef,
             approverRemarks: req.approverRemarks || ""
         });
         setApproveModalOpen(true);
@@ -294,6 +332,7 @@ const MarketingApprovalPage = () => {
                 approvedTshirts: parseInt(approvalForm.approvedTshirts, 10) || 0,
                 approvedKtsBooks: parseInt(approvalForm.approvedKtsBooks, 10) || 0,
                 approvedVsoBooks: parseInt(approvalForm.approvedVsoBooks, 10) || 0,
+                approvedQuantity: parseInt(approvalForm.approvedQuantity, 10) || 0,
                 approverRemarks: approvalForm.approverRemarks
             };
 
@@ -637,7 +676,7 @@ const MarketingApprovalPage = () => {
                         <div className="w-56 min-w-[200px]">
                             <CustomMultiSelect
                                 isMulti
-                                options={MATERIAL_FILTER_OPTIONS}
+                                options={materialFilterOptions}
                                 value={selectedMaterials}
                                 onChange={(val) => setSelectedMaterials(val || [])}
                                 placeholder="Filter Materials..."
@@ -1007,6 +1046,14 @@ const MarketingApprovalPage = () => {
                                         <span className="font-extrabold text-purple-400">{(hazraStock?.vsoBooks ?? 0).toLocaleString()}</span>
                                     </div>
                                 </div>
+                                {selectedReqForApproval?.itemType && !['Leaflets', 'Banners', 'Bags', 'T-Shirts', 'KTS Books', 'VSO Books'].includes(selectedReqForApproval.itemType) && (
+                                    <div className="mt-2.5 p-2 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-between text-xs">
+                                        <span className="font-bold text-indigo-300">Hazra Available for {selectedReqForApproval.itemType}:</span>
+                                        <span className="font-black text-indigo-400">
+                                            {((hazraStock?.customStock?.[selectedReqForApproval.itemType] ?? (hazraStock?.customStock instanceof Map ? hazraStock.customStock.get(selectedReqForApproval.itemType) : 0)) || 0).toLocaleString()} Pcs
+                                        </span>
+                                    </div>
+                                )}
                                 <p className="text-[10px] text-indigo-400/80 mt-2 flex items-center gap-1">
                                     <FaInfoCircle className="text-[9px]" />
                                     <span>Approved units will be automatically deducted from Hazra central main stock.</span>
@@ -1047,6 +1094,14 @@ const MarketingApprovalPage = () => {
                                         <p className="text-base font-black text-purple-300">{(selectedReqBucket?.vsoBooks || 0).toLocaleString()}</p>
                                     </div>
                                 </div>
+                                {selectedReqForApproval?.itemType && !['Leaflets', 'Banners', 'Bags', 'T-Shirts', 'KTS Books', 'VSO Books'].includes(selectedReqForApproval.itemType) && (
+                                    <div className="mt-2.5 p-2 rounded-xl bg-indigo-500/15 border border-indigo-500/30 flex items-center justify-between text-xs">
+                                        <span className="font-bold text-indigo-300">Centre Bucket for {selectedReqForApproval.itemType}:</span>
+                                        <span className="font-black text-indigo-400">
+                                            {((selectedReqBucket?.customStock?.[selectedReqForApproval.itemType] ?? (selectedReqBucket?.customStock instanceof Map ? selectedReqBucket.customStock.get(selectedReqForApproval.itemType) : 0)) || 0).toLocaleString()} Pcs
+                                        </span>
+                                    </div>
+                                )}
                             </div>
 
                             <form onSubmit={handleSubmitApproval} noValidate className="space-y-4">
@@ -1156,7 +1211,7 @@ const MarketingApprovalPage = () => {
                                     )}
 
                                     {/* Leaflets Approval */}
-                                    {(selectedReqForApproval.leaflets > 0 || selectedReqForApproval.itemType === 'Leaflets' || (!selectedReqForApproval.itemType && !selectedReqForApproval.ktsBooks && !selectedReqForApproval.vsoBooks && !selectedReqForApproval.bags && !selectedReqForApproval.tshirts && !selectedReqForApproval.banners)) && (
+                                    {(selectedReqForApproval.leaflets > 0 || selectedReqForApproval.itemType === 'Leaflets') && (
                                         <div>
                                             <div className="flex justify-between items-center mb-1">
                                                 <label className="block text-xs font-bold uppercase tracking-wider text-orange-500">
@@ -1199,6 +1254,32 @@ const MarketingApprovalPage = () => {
                                                 onChange={(e) => {
                                                     const val = e.target.value;
                                                     setApprovalForm({ ...approvalForm, approvedBanners: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
+                                                }}
+                                                min="0"
+                                                step="1"
+                                                className={`w-full p-3 rounded-xl font-black text-lg outline-none border transition-all ${inputBg}`}
+                                            />
+                                        </div>
+                                    )}
+
+                                    {/* Dynamic Master Material Item Approval */}
+                                    {(!selectedReqForApproval.ktsBooks && !selectedReqForApproval.vsoBooks && !selectedReqForApproval.bags && !selectedReqForApproval.tshirts && !selectedReqForApproval.leaflets && !selectedReqForApproval.banners && (!selectedReqForApproval.bookType) && (!['Leaflets', 'Banners', 'Bags', 'T-Shirts', 'KTS Books', 'VSO Books'].includes(selectedReqForApproval.itemType))) && (
+                                        <div className="p-3 rounded-2xl bg-indigo-500/5 border border-indigo-500/20">
+                                            <div className="flex justify-between items-center mb-1">
+                                                <label className="text-xs font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
+                                                    <FaBoxes className="text-xs" /> Approved {selectedReqForApproval.itemType || 'Item'}
+                                                </label>
+                                                <span className="text-[11px] font-bold text-indigo-400">
+                                                    Requested: {selectedReqForApproval.quantity || 0} Pcs
+                                                </span>
+                                            </div>
+                                            <input
+                                                type="number"
+                                                placeholder="0"
+                                                value={approvalForm.approvedQuantity}
+                                                onChange={(e) => {
+                                                    const val = e.target.value;
+                                                    setApprovalForm({ ...approvalForm, approvedQuantity: val === "" ? "" : Math.max(0, parseInt(val, 10) || 0) });
                                                 }}
                                                 min="0"
                                                 step="1"
@@ -1392,7 +1473,16 @@ const MarketingApprovalPage = () => {
                                             {filteredBuckets.map((b) => (
                                                 <tr key={b.centreId} className="hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors">
                                                     <td className="p-3 font-bold text-gray-200 whitespace-nowrap">
-                                                        {b.centreName}
+                                                        <div>{b.centreName}</div>
+                                                        {b.customStock && Object.keys(b.customStock).length > 0 && (
+                                                            <div className="flex flex-wrap gap-1 mt-1 max-w-[200px]">
+                                                                {Object.entries(b.customStock).filter(([_, qty]) => (qty || 0) > 0).map(([cName, cQty]) => (
+                                                                    <span key={cName} className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
+                                                                        {cName}: {cQty}
+                                                                    </span>
+                                                                ))}
+                                                            </div>
+                                                        )}
                                                     </td>
                                                     <td className="p-3 text-right font-black text-orange-500 tabular-nums">
                                                         {(b.leaflets || 0).toLocaleString()}

@@ -13,16 +13,7 @@ import { toast, ToastContainer } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 import CustomMultiSelect from '../../components/common/CustomMultiSelect';
 
-const MATERIAL_FILTER_OPTIONS = [
-    { value: "Leaflets", label: "Leaflets" },
-    { value: "Banners", label: "Banners" },
-    { value: "Bags", label: "Bags" },
-    { value: "T-Shirts", label: "T-Shirts" },
-    { value: "KTS Books", label: "KTS Books" },
-    { value: "VSO Books", label: "VSO Books" }
-];
-
-const MATERIALS_CONFIG = [
+const DEFAULT_MATERIALS_CONFIG = [
     { key: "leaflets", name: "Leaflets", label: "Leaflets", icon: FaRegNewspaper, color: "text-orange-500", bg: "bg-orange-500/10", border: "border-orange-500/30", desc: "Promotional handbills & flyers" },
     { key: "banners", name: "Banners", label: "Banners", icon: FaRegImage, color: "text-blue-500", bg: "bg-blue-500/10", border: "border-blue-500/30", desc: "Flex banners, standees & posters" },
     { key: "bags", name: "Bags", label: "Bags", icon: FaShoppingBag, color: "text-teal-400", bg: "bg-teal-500/10", border: "border-teal-500/30", desc: "Promotional student backpacks" },
@@ -31,12 +22,21 @@ const MATERIALS_CONFIG = [
     { key: "vsoBooks", name: "VSO Books", label: "VSO Books", icon: FaBookmark, color: "text-purple-400", bg: "bg-purple-500/10", border: "border-purple-500/30", desc: "Vidyamandir Science Olympiad books" }
 ];
 
-// Strict material matching helper to prevent substring collision (e.g., leaflets matching t-shirts)
+const MATERIAL_PALETTE = [
+    { color: "text-emerald-400", bg: "bg-emerald-500/10", border: "border-emerald-500/30", icon: FaBoxes },
+    { color: "text-indigo-400",  bg: "bg-indigo-500/10",  border: "border-indigo-500/30",  icon: FaBoxes },
+    { color: "text-pink-400",    bg: "bg-pink-500/10",    border: "border-pink-500/30",    icon: FaBoxes },
+    { color: "text-cyan-400",    bg: "bg-cyan-500/10",    border: "border-cyan-500/30",    icon: FaBoxes },
+    { color: "text-violet-400",  bg: "bg-violet-500/10",  border: "border-violet-500/30",  icon: FaBoxes },
+    { color: "text-amber-400",   bg: "bg-amber-500/10",   border: "border-amber-500/30",   icon: FaBoxes },
+];
+
+// Material matching helper to support any material name
 const matchesMaterial = (materialStr, key) => {
     if (!materialStr || !key) return false;
     const s = String(materialStr).toLowerCase().replace(/[-_\s]+/g, '');
     const k = String(key).toLowerCase().replace(/[-_\s]+/g, '');
-    
+    if (s === k) return true;
     if (k === 'leaflets' || k === 'leaflet') {
         return s.includes('leaflet');
     }
@@ -50,17 +50,20 @@ const matchesMaterial = (materialStr, key) => {
         return s.includes('tshirt') || s.includes('t-shirt');
     }
     if (k === 'ktsbooks' || k === 'kts') {
-        return s.includes('kts');
+        return s.includes('kts') || s.includes('keytosuccess');
     }
     if (k === 'vsobooks' || k === 'vso') {
         return s.includes('vso');
     }
-    return false;
+    return s.includes(k) || k.includes(s);
 };
 
 const MarketingStock = () => {
     const { theme } = useTheme();
     const isDarkMode = theme === 'dark';
+
+    // Master Data inventory items
+    const [inventoryMasterList, setInventoryMasterList] = useState([]);
 
     // Stock & Hazra Centre state
     const [hazraCentre, setHazraCentre] = useState(null);
@@ -80,6 +83,37 @@ const MarketingStock = () => {
         totalApprovedRequisitions: 0
     });
     const [loadingStock, setLoadingStock] = useState(true);
+
+    // Dynamic Materials Configuration derived from Master Data Inventory
+    const materialsConfig = useMemo(() => {
+        if (inventoryMasterList && inventoryMasterList.length > 0) {
+            return inventoryMasterList.map((item, idx) => {
+                const matched = DEFAULT_MATERIALS_CONFIG.find(d => 
+                    matchesMaterial(item.name, d.key) || matchesMaterial(item.name, d.name)
+                );
+                const paletteStyle = MATERIAL_PALETTE[idx % MATERIAL_PALETTE.length];
+                return {
+                    key: matched ? matched.key : item.name,
+                    name: item.name,
+                    label: item.name,
+                    icon: matched ? matched.icon : paletteStyle.icon,
+                    color: matched ? matched.color : paletteStyle.color,
+                    bg: matched ? matched.bg : paletteStyle.bg,
+                    border: matched ? matched.border : paletteStyle.border,
+                    desc: item.description || (matched ? matched.desc : "Marketing inventory stock item")
+                };
+            });
+        }
+        return DEFAULT_MATERIALS_CONFIG;
+    }, [inventoryMasterList]);
+
+    // Dynamic filter options for CustomMultiSelect
+    const materialFilterOptions = useMemo(() => {
+        return materialsConfig.map(m => ({
+            value: m.name,
+            label: m.label
+        }));
+    }, [materialsConfig]);
 
     // Active View Tab: Default is "consolidatedReport" as requested by user
     const [activeTab, setActiveTab] = useState("consolidatedReport"); // "consolidatedReport" | "centreReport" | "dispatchesLog" | "stockInHistory"
@@ -107,12 +141,6 @@ const MarketingStock = () => {
     // Set Stock Modal state
     const [setStockModalOpen, setSetStockModalOpen] = useState(false);
     const [setStockForm, setSetStockForm] = useState({
-        leaflets: 0,
-        banners: 0,
-        bags: 0,
-        tshirts: 0,
-        ktsBooks: 0,
-        vsoBooks: 0,
         remarks: ""
     });
     const [savingStock, setSavingStock] = useState(false);
@@ -120,7 +148,7 @@ const MarketingStock = () => {
     // Stock In Modal state
     const [stockInModalOpen, setStockInModalOpen] = useState(false);
     const [stockInForm, setStockInForm] = useState({
-        material: "Leaflets",
+        material: "",
         quantity: "",
         sourceOrVendor: "",
         remarks: ""
@@ -140,12 +168,31 @@ const MarketingStock = () => {
                 setHazraCentre(res.data.centre);
                 setStock(res.data.stock || {});
                 setStats(res.data.stats || {});
+                if (Array.isArray(res.data.inventoryItems) && res.data.inventoryItems.length > 0) {
+                    setInventoryMasterList(res.data.inventoryItems);
+                }
             }
         } catch (error) {
             console.error("Error fetching Hazra stock:", error);
             toast.error(error.response?.data?.message || "Failed to load Hazra central stock");
         } finally {
             setLoadingStock(false);
+        }
+    }, []);
+
+    // 1b. Fetch Active Inventory Items from Master Data directly
+    const fetchInventoryMaster = useCallback(async () => {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await axios.get(`${import.meta.env.VITE_API_URL}/master-data/inventory?status=Active`, {
+                headers: { Authorization: `Bearer ${token}` }
+            });
+            const items = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+            if (Array.isArray(items) && items.length > 0) {
+                setInventoryMasterList(items);
+            }
+        } catch (err) {
+            console.error("Error fetching inventory master:", err);
         }
     }, []);
 
@@ -260,21 +307,27 @@ const MarketingStock = () => {
 
     useEffect(() => {
         fetchHazraStock();
+        fetchInventoryMaster();
         fetchCentreReport();
         fetchMovements();
-    }, [fetchHazraStock, fetchCentreReport, fetchMovements]);
+    }, [fetchHazraStock, fetchInventoryMaster, fetchCentreReport, fetchMovements]);
+
+    // Keep default material updated when materialsConfig loads
+    useEffect(() => {
+        if (!stockInForm.material && materialsConfig.length > 0) {
+            setStockInForm(prev => ({ ...prev, material: materialsConfig[0].name }));
+        }
+    }, [materialsConfig, stockInForm.material]);
 
     // Open Set Current Stock Modal
     const handleOpenSetStock = () => {
-        setSetStockForm({
-            leaflets: stock.leaflets || 0,
-            banners: stock.banners || 0,
-            bags: stock.bags || 0,
-            tshirts: stock.tshirts || 0,
-            ktsBooks: stock.ktsBooks || 0,
-            vsoBooks: stock.vsoBooks || 0,
-            remarks: "Physical baseline stock update"
+        const initialForm = { remarks: "Physical baseline stock update" };
+        materialsConfig.forEach(m => {
+            const val = stock[m.name] ?? (stock[m.key] ?? (stock.customStock?.[m.name] ?? 0));
+            initialForm[m.name] = val;
+            initialForm[m.key] = val;
         });
+        setSetStockForm(initialForm);
         setSetStockModalOpen(true);
     };
 
@@ -303,9 +356,10 @@ const MarketingStock = () => {
     };
 
     // Open Stock In Modal
-    const handleOpenStockIn = (materialName = "Leaflets") => {
+    const handleOpenStockIn = (materialName = "") => {
+        const defaultMat = materialName || materialsConfig[0]?.name || "Leaflets";
         setStockInForm({
-            material: materialName,
+            material: defaultMat,
             quantity: "",
             sourceOrVendor: "",
             remarks: ""
@@ -411,14 +465,28 @@ const MarketingStock = () => {
     const materialStatsMap = useMemo(() => {
         const statsObj = {};
 
-        MATERIALS_CONFIG.forEach(item => {
+        materialsConfig.forEach(item => {
             // Total Dispatched from centreReport
             let totalDispatched = 0;
             let centresCount = 0;
             const centreBreakdown = [];
 
             centreReport.forEach(c => {
-                const qty = c[item.key] || 0;
+                let qty = 0;
+                if (c[item.name] !== undefined && c[item.name] > 0) {
+                    qty = c[item.name];
+                } else if (c[item.key] !== undefined && c[item.key] > 0) {
+                    qty = c[item.key];
+                } else if (c.customStock && c.customStock[item.name]) {
+                    qty = c.customStock[item.name];
+                } else if (Array.isArray(c.dispatches)) {
+                    c.dispatches.forEach(d => {
+                        if (d.itemType && matchesMaterial(d.itemType, item.name)) {
+                            qty += (d.approvedQuantity || d.quantity || 0);
+                        }
+                    });
+                }
+
                 if (qty > 0) {
                     totalDispatched += qty;
                     centresCount += 1;
@@ -436,12 +504,12 @@ const MarketingStock = () => {
             movements.filter(m => m.movementType === 'STOCK_IN').forEach(m => {
                 if (Array.isArray(m.items) && m.items.length > 0) {
                     m.items.forEach(it => {
-                        if (matchesMaterial(it.material, item.key)) {
+                        if (matchesMaterial(it.material, item.name) || matchesMaterial(it.material, item.key)) {
                             totalStockIn += (it.quantity || 0);
                         }
                     });
                 } else if (m.material) {
-                    if (matchesMaterial(m.material, item.key)) {
+                    if (matchesMaterial(m.material, item.name) || matchesMaterial(m.material, item.key)) {
                         totalStockIn += (m.quantity || 0);
                     }
                 }
@@ -449,10 +517,17 @@ const MarketingStock = () => {
 
             centreBreakdown.sort((a, b) => b.quantity - a.quantity);
 
-            // Available main stock = Math.max(0, Total Stock In - Total Dispatched)
-            const currentStock = Math.max(0, totalStockIn - totalDispatched);
+            // Available main stock
+            let currentStock = Math.max(0, totalStockIn - totalDispatched);
+            if (stock[item.name] !== undefined) {
+                currentStock = stock[item.name];
+            } else if (stock[item.key] !== undefined) {
+                currentStock = stock[item.key];
+            } else if (stock.customStock && stock.customStock[item.name] !== undefined) {
+                currentStock = stock.customStock[item.name];
+            }
 
-            statsObj[item.key] = {
+            const data = {
                 currentStock,
                 totalStockIn,
                 totalDispatched,
@@ -461,22 +536,25 @@ const MarketingStock = () => {
                 centreBreakdown,
                 status: currentStock > 50 ? 'In Stock' : (currentStock > 0 ? 'Low Stock' : 'Out of Stock')
             };
+
+            statsObj[item.name] = data;
+            statsObj[item.key] = data;
         });
 
         return statsObj;
-    }, [centreReport, movements]);
+    }, [materialsConfig, centreReport, movements, stock]);
 
     // Overall dynamic calculations synchronized across stock in and dispatches
     const totalCentralStockCalc = useMemo(() => {
-        return Object.values(materialStatsMap).reduce((acc, m) => acc + (m.currentStock || 0), 0);
+        return Object.values(materialStatsMap).reduce((acc, m) => acc + (m.currentStock || 0), 0) / 2;
     }, [materialStatsMap]);
 
     const totalStockInCalc = useMemo(() => {
-        return Object.values(materialStatsMap).reduce((acc, m) => acc + (m.totalStockIn || 0), 0);
+        return Object.values(materialStatsMap).reduce((acc, m) => acc + (m.totalStockIn || 0), 0) / 2;
     }, [materialStatsMap]);
 
     const totalSentToCentresCalc = useMemo(() => {
-        return Object.values(materialStatsMap).reduce((acc, m) => acc + (m.totalDispatched || 0), 0);
+        return Object.values(materialStatsMap).reduce((acc, m) => acc + (m.totalDispatched || 0), 0) / 2;
     }, [materialStatsMap]);
 
     const totalApprovedReqsCalc = useMemo(() => {
@@ -485,8 +563,8 @@ const MarketingStock = () => {
 
     // Consolidated Material Report list
     const consolidatedList = useMemo(() => {
-        let list = MATERIALS_CONFIG.map(item => {
-            const stats = materialStatsMap[item.key] || {};
+        let list = materialsConfig.map(item => {
+            const stats = materialStatsMap[item.name] || materialStatsMap[item.key] || {};
             return {
                 ...item,
                 ...stats
@@ -499,7 +577,7 @@ const MarketingStock = () => {
         }
 
         return list;
-    }, [materialStatsMap, selectedMaterials]);
+    }, [materialsConfig, materialStatsMap, selectedMaterials]);
 
     const handleViewMaterialBreakdown = (item) => {
         setSelectedMaterialBreakdown(item);
@@ -593,7 +671,7 @@ const MarketingStock = () => {
                         </button>
 
                         <button
-                            onClick={() => handleOpenStockIn("Leaflets")}
+                            onClick={() => handleOpenStockIn()}
                             className="flex items-center gap-2 px-4 py-2 text-xs md:text-sm font-semibold text-white rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 shadow-md shadow-emerald-500/20 transition active:scale-95"
                         >
                             <FaPlusCircle />
@@ -707,7 +785,7 @@ const MarketingStock = () => {
                         <h2 className="text-base md:text-lg font-bold flex items-center gap-2">
                             <span>Hazra Central Stock Inventory</span>
                             <span className={`text-xs px-2 py-0.5 rounded font-normal ${isDarkMode ? 'bg-slate-800 text-slate-400' : 'bg-slate-200 text-slate-600'}`}>
-                                6 Materials
+                                {materialsConfig.length} Materials
                             </span>
                         </h2>
                         {stock.lastUpdated && (
@@ -719,15 +797,17 @@ const MarketingStock = () => {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {MATERIALS_CONFIG.map((item) => {
+                        {materialsConfig.map((item) => {
                             const IconComponent = item.icon;
-                            const count = materialStatsMap[item.key]?.currentStock ?? (stock[item.key] || 0);
+                            const count = materialStatsMap[item.name]?.currentStock ?? (materialStatsMap[item.key]?.currentStock ?? (stock[item.name] ?? (stock[item.key] ?? (stock.customStock?.[item.name] ?? 0))));
+                            const totalAdded = materialStatsMap[item.name]?.totalStockIn ?? (materialStatsMap[item.key]?.totalStockIn ?? 0);
+                            const totalSent = materialStatsMap[item.name]?.totalDispatched ?? (materialStatsMap[item.key]?.totalDispatched ?? 0);
                             const isLow = count < 25;
                             const isOut = count === 0;
 
                             return (
                                 <div
-                                    key={item.key}
+                                    key={item.name}
                                     className={`p-4 rounded-xl border transition-all duration-200 flex flex-col justify-between ${
                                         isDarkMode 
                                             ? 'bg-slate-800/90 border-slate-700/80 hover:border-slate-600' 
@@ -778,11 +858,11 @@ const MarketingStock = () => {
                                         <div className={`grid grid-cols-2 gap-2 text-[11px] p-2 rounded-lg mb-2.5 ${isDarkMode ? 'bg-slate-900/60 border border-slate-700/50' : 'bg-slate-50 border border-slate-200/60'}`}>
                                             <div>
                                                 <span className="text-slate-400 block text-[10px]">Total Added</span>
-                                                <span className="font-bold text-emerald-500">+{((materialStatsMap[item.key]?.totalStockIn) || 0).toLocaleString()}</span>
+                                                <span className="font-bold text-emerald-500">+{totalAdded.toLocaleString()}</span>
                                             </div>
                                             <div>
                                                 <span className="text-slate-400 block text-[10px]">Dispatched Out</span>
-                                                <span className="font-bold text-blue-500">-{((materialStatsMap[item.key]?.totalDispatched) || 0).toLocaleString()}</span>
+                                                <span className="font-bold text-blue-500">-{totalSent.toLocaleString()}</span>
                                             </div>
                                         </div>
                                     </div>
@@ -886,7 +966,7 @@ const MarketingStock = () => {
                                     <div className="w-56 min-w-[200px]">
                                         <CustomMultiSelect
                                             isMulti
-                                            options={MATERIAL_FILTER_OPTIONS}
+                                            options={materialFilterOptions}
                                             value={selectedMaterials}
                                             onChange={(val) => setSelectedMaterials(val || [])}
                                             placeholder="Filter Materials..."
@@ -1013,12 +1093,9 @@ const MarketingStock = () => {
                                             isDarkMode ? 'border-slate-700 text-slate-400' : 'border-slate-200 text-slate-500'
                                         }`}>
                                             <th className="py-3 px-3">Centre Name</th>
-                                            <th className="py-3 px-3 text-center">Leaflets</th>
-                                            <th className="py-3 px-3 text-center">Banners</th>
-                                            <th className="py-3 px-3 text-center">Bags</th>
-                                            <th className="py-3 px-3 text-center">T-Shirts</th>
-                                            <th className="py-3 px-3 text-center">KTS Books</th>
-                                            <th className="py-3 px-3 text-center">VSO Books</th>
+                                            {materialsConfig.map(m => (
+                                                <th key={m.name} className="py-3 px-3 text-center">{m.label}</th>
+                                            ))}
                                             <th className="py-3 px-3 text-right">Total Sent</th>
                                             <th className="py-3 px-3 text-center">Requests</th>
                                             <th className="py-3 px-3 text-right">Last Sent</th>
@@ -1027,7 +1104,7 @@ const MarketingStock = () => {
                                     <tbody className="divide-y divide-slate-700/30">
                                         {centreReport.length === 0 ? (
                                             <tr>
-                                                <td colSpan="10" className="text-center py-6 text-slate-400">
+                                                <td colSpan={materialsConfig.length + 4} className="text-center py-6 text-slate-400">
                                                     No centre dispatches recorded yet.
                                                 </td>
                                             </tr>
@@ -1041,12 +1118,14 @@ const MarketingStock = () => {
                                                             {c.centreCode && <span className="text-[10px] text-slate-400 font-normal">({c.centreCode})</span>}
                                                         </div>
                                                     </td>
-                                                    <td className="py-2.5 px-3 text-center font-medium text-orange-400">{c.leaflets || 0}</td>
-                                                    <td className="py-2.5 px-3 text-center font-medium text-blue-400">{c.banners || 0}</td>
-                                                    <td className="py-2.5 px-3 text-center font-medium text-teal-400">{c.bags || 0}</td>
-                                                    <td className="py-2.5 px-3 text-center font-medium text-rose-400">{c.tshirts || 0}</td>
-                                                    <td className="py-2.5 px-3 text-center font-medium text-amber-400">{c.ktsBooks || 0}</td>
-                                                    <td className="py-2.5 px-3 text-center font-medium text-purple-400">{c.vsoBooks || 0}</td>
+                                                    {materialsConfig.map(m => {
+                                                        const val = c[m.name] ?? (c[m.key] ?? (c.customStock?.[m.name] ?? 0));
+                                                        return (
+                                                            <td key={m.name} className={`py-2.5 px-3 text-center font-medium ${m.color}`}>
+                                                                {val || 0}
+                                                            </td>
+                                                        );
+                                                    })}
                                                     <td className="py-2.5 px-3 text-right font-extrabold text-indigo-400">{(c.totalUnits || 0).toLocaleString()}</td>
                                                     <td className="py-2.5 px-3 text-center">
                                                         <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-purple-500/10 text-purple-400">
@@ -1064,12 +1143,14 @@ const MarketingStock = () => {
                                         {/* Total Dispatched Across All Centres Row */}
                                         <tr className={`border-t-2 font-black ${isDarkMode ? 'border-indigo-500/40 bg-slate-900/80 text-white' : 'border-indigo-500/30 bg-indigo-50/50 text-indigo-950'}`}>
                                             <td className="py-3 px-3 uppercase text-xs">Total Dispatched to Centres</td>
-                                            <td className="py-3 px-3 text-center text-orange-400 font-bold">{centreReport.reduce((acc, c) => acc + (c.leaflets || 0), 0).toLocaleString()}</td>
-                                            <td className="py-3 px-3 text-center text-blue-400 font-bold">{centreReport.reduce((acc, c) => acc + (c.banners || 0), 0).toLocaleString()}</td>
-                                            <td className="py-3 px-3 text-center text-teal-400 font-bold">{centreReport.reduce((acc, c) => acc + (c.bags || 0), 0).toLocaleString()}</td>
-                                            <td className="py-3 px-3 text-center text-rose-400 font-bold">{centreReport.reduce((acc, c) => acc + (c.tshirts || 0), 0).toLocaleString()}</td>
-                                            <td className="py-3 px-3 text-center text-amber-400 font-bold">{centreReport.reduce((acc, c) => acc + (c.ktsBooks || 0), 0).toLocaleString()}</td>
-                                            <td className="py-3 px-3 text-center text-purple-400 font-bold">{centreReport.reduce((acc, c) => acc + (c.vsoBooks || 0), 0).toLocaleString()}</td>
+                                            {materialsConfig.map(m => {
+                                                const totalDispatched = centreReport.reduce((acc, c) => acc + (c[m.name] ?? (c[m.key] ?? (c.customStock?.[m.name] ?? 0))), 0);
+                                                return (
+                                                    <td key={m.name} className={`py-3 px-3 text-center font-bold ${m.color}`}>
+                                                        {totalDispatched.toLocaleString()}
+                                                    </td>
+                                                );
+                                            })}
                                             <td className="py-3 px-3 text-right text-indigo-400 text-sm font-black">{centreReport.reduce((acc, c) => acc + (c.totalUnits || 0), 0).toLocaleString()}</td>
                                             <td className="py-3 px-3 text-center">{centreReport.reduce((acc, c) => acc + (c.approvedRequisitionsCount || 0), 0)}</td>
                                             <td className="py-3 px-3 text-right text-[10px] text-slate-400">All Centres</td>
@@ -1080,14 +1161,16 @@ const MarketingStock = () => {
                                                 <FaWarehouse className="text-xs" />
                                                 <span>Hazra Main Stock Remaining</span>
                                             </td>
-                                            <td className="py-3 px-3 text-center font-extrabold text-orange-400">{(stock.leaflets || 0).toLocaleString()}</td>
-                                            <td className="py-3 px-3 text-center font-extrabold text-blue-400">{(stock.banners || 0).toLocaleString()}</td>
-                                            <td className="py-3 px-3 text-center font-extrabold text-teal-400">{(stock.bags || 0).toLocaleString()}</td>
-                                            <td className="py-3 px-3 text-center font-extrabold text-rose-400">{(stock.tshirts || 0).toLocaleString()}</td>
-                                            <td className="py-3 px-3 text-center font-extrabold text-amber-400">{(stock.ktsBooks || 0).toLocaleString()}</td>
-                                            <td className="py-3 px-3 text-center font-extrabold text-purple-400">{(stock.vsoBooks || 0).toLocaleString()}</td>
+                                            {materialsConfig.map(m => {
+                                                const remaining = stock[m.name] ?? (stock[m.key] ?? (stock.customStock?.[m.name] ?? 0));
+                                                return (
+                                                    <td key={m.name} className={`py-3 px-3 text-center font-extrabold ${m.color}`}>
+                                                        {remaining.toLocaleString()}
+                                                    </td>
+                                                );
+                                            })}
                                             <td className="py-3 px-3 text-right text-emerald-400 text-sm font-black">
-                                                {((stock.leaflets || 0) + (stock.banners || 0) + (stock.bags || 0) + (stock.tshirts || 0) + (stock.ktsBooks || 0) + (stock.vsoBooks || 0)).toLocaleString()}
+                                                {(totalCentralStockCalc || 0).toLocaleString()}
                                             </td>
                                             <td colSpan="2" className="py-3 px-3 text-right text-xs font-semibold">Available Balance</td>
                                         </tr>
@@ -1117,7 +1200,7 @@ const MarketingStock = () => {
                                 <div className="w-56 min-w-[200px]">
                                     <CustomMultiSelect
                                         isMulti
-                                        options={MATERIAL_FILTER_OPTIONS}
+                                        options={materialFilterOptions}
                                         value={selectedMaterials}
                                         onChange={(val) => setSelectedMaterials(val || [])}
                                         placeholder="Filter Materials..."
@@ -1304,7 +1387,7 @@ const MarketingStock = () => {
                                 <div className="w-52 min-w-[180px]">
                                     <CustomMultiSelect
                                         isMulti
-                                        options={MATERIAL_FILTER_OPTIONS}
+                                        options={materialFilterOptions}
                                         value={selectedMaterials}
                                         onChange={(val) => setSelectedMaterials(val || [])}
                                         placeholder="Filter Materials..."
@@ -1418,7 +1501,7 @@ const MarketingStock = () => {
                                 <div className="w-52 min-w-[180px]">
                                     <CustomMultiSelect
                                         isMulti
-                                        options={MATERIAL_FILTER_OPTIONS}
+                                        options={materialFilterOptions}
                                         value={selectedMaterials}
                                         onChange={(val) => setSelectedMaterials(val || [])}
                                         placeholder="Filter Materials..."
@@ -1426,7 +1509,7 @@ const MarketingStock = () => {
                                     />
                                 </div>
                                 <button
-                                    onClick={() => handleOpenStockIn("Leaflets")}
+                                    onClick={() => handleOpenStockIn()}
                                     className="px-3.5 py-1.5 text-xs font-semibold text-white rounded-lg bg-emerald-600 hover:bg-emerald-500 transition flex items-center gap-1.5 self-start"
                                 >
                                     <FaPlusCircle />
@@ -1534,27 +1617,38 @@ const MarketingStock = () => {
                             </div>
 
                             <form onSubmit={handleSaveSetStock} className="space-y-4">
-                                <div className="grid grid-cols-2 gap-3">
-                                    {MATERIALS_CONFIG.map((m) => (
-                                        <div key={m.key} className="p-3 rounded-xl border border-slate-700/60 bg-slate-800/40">
-                                            <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5 mb-1.5">
-                                                <m.icon className={`${m.color} text-xs`} />
-                                                <span>{m.label}</span>
-                                            </label>
-                                            <input
-                                                type="number"
-                                                min="0"
-                                                value={setStockForm[m.key]}
-                                                onChange={(e) => setSetStockForm({ ...setStockForm, [m.key]: Math.max(0, parseInt(e.target.value, 10) || 0) })}
-                                                className={`w-full px-3 py-1.5 text-sm font-bold rounded-lg border focus:ring-1 focus:ring-indigo-500 ${
-                                                    isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-900'
-                                                }`}
-                                            />
-                                            <span className="text-[10px] text-slate-500 mt-1 block">
-                                                Current: {stock[m.key] || 0}
-                                            </span>
-                                        </div>
-                                    ))}
+                                <div className="grid grid-cols-2 gap-3 max-h-80 overflow-y-auto pr-1">
+                                    {materialsConfig.map((m) => {
+                                        const IconComp = m.icon;
+                                        const currentVal = stock[m.name] ?? (stock[m.key] ?? (stock.customStock?.[m.name] ?? 0));
+                                        return (
+                                            <div key={m.name} className="p-3 rounded-xl border border-slate-700/60 bg-slate-800/40">
+                                                <label className="text-xs font-semibold text-slate-300 flex items-center gap-1.5 mb-1.5">
+                                                    <IconComp className={`${m.color} text-xs`} />
+                                                    <span className="truncate">{m.label}</span>
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="0"
+                                                    value={setStockForm[m.name] ?? (setStockForm[m.key] ?? 0)}
+                                                    onChange={(e) => {
+                                                        const val = Math.max(0, parseInt(e.target.value, 10) || 0);
+                                                        setSetStockForm(prev => ({
+                                                            ...prev,
+                                                            [m.name]: val,
+                                                            [m.key]: val
+                                                        }));
+                                                    }}
+                                                    className={`w-full px-3 py-1.5 text-sm font-bold rounded-lg border focus:ring-1 focus:ring-indigo-500 ${
+                                                        isDarkMode ? 'bg-slate-900 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-900'
+                                                    }`}
+                                                />
+                                                <span className="text-[10px] text-slate-500 mt-1 block">
+                                                    Current: {currentVal}
+                                                </span>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
 
                                 <div>
@@ -1632,8 +1726,8 @@ const MarketingStock = () => {
                                             isDarkMode ? 'bg-slate-800 border-slate-700 text-slate-100' : 'bg-slate-50 border-slate-300 text-slate-900'
                                         }`}
                                     >
-                                        {MATERIALS_CONFIG.map(m => (
-                                            <option key={m.key} value={m.name}>{m.label}</option>
+                                        {materialsConfig.map(m => (
+                                            <option key={m.name} value={m.name}>{m.label}</option>
                                         ))}
                                     </select>
                                 </div>

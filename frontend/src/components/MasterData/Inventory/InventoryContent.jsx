@@ -16,8 +16,6 @@ const InventoryContent = () => {
         name: "",
         code: "",
         description: "",
-        defaultType: "Free",
-        defaultPrice: 0,
         status: "Active"
     });
 
@@ -66,8 +64,6 @@ const InventoryContent = () => {
                 name: item.name || "",
                 code: item.code || "",
                 description: item.description || "",
-                defaultType: item.defaultType || "Free",
-                defaultPrice: item.defaultPrice || 0,
                 status: item.status || "Active"
             });
         } else {
@@ -76,8 +72,6 @@ const InventoryContent = () => {
                 name: "",
                 code: "",
                 description: "",
-                defaultType: "Free",
-                defaultPrice: 0,
                 status: "Active"
             });
         }
@@ -91,8 +85,6 @@ const InventoryContent = () => {
             name: "",
             code: "",
             description: "",
-            defaultType: "Free",
-            defaultPrice: 0,
             status: "Active"
         });
     };
@@ -112,9 +104,10 @@ const InventoryContent = () => {
 
         try {
             const payload = {
-                ...formData,
                 name: formData.name.trim(),
-                defaultPrice: formData.defaultType === "Paid" ? Number(formData.defaultPrice) || 0 : 0
+                code: formData.code?.trim() || "",
+                description: formData.description?.trim() || "",
+                status: formData.status || "Active"
             };
 
             const response = await fetch(url, {
@@ -196,16 +189,12 @@ const InventoryContent = () => {
         { header: "Item Name", key: "name" },
         { header: "Code", key: "code" },
         { header: "Description", key: "description" },
-        { header: "Default Type", key: "defaultType" },
-        { header: "Default Price", key: "defaultPrice" },
         { header: "Status", key: "status" }
     ];
     const inventoryMapping = {
         "Item Name": "name",
         "Code": "code",
         "Description": "description",
-        "Default Type": "defaultType",
-        "Default Price": "defaultPrice",
         "Status": "status"
     };
 
@@ -221,7 +210,7 @@ const InventoryContent = () => {
                         <h2 className="text-2xl font-bold text-emerald-400">Inventory Master Data</h2>
                     </div>
                     <p className="text-gray-400 text-sm mt-1">
-                        Manage inventory items, materials, uniforms, books and default prices for Store allocation
+                        Manage inventory items and materials for Operations and Marketing Stock
                     </p>
                 </div>
 
@@ -270,8 +259,6 @@ const InventoryContent = () => {
                                 <th className="p-4">Item Name</th>
                                 <th className="p-4">Code / SKU</th>
                                 <th className="p-4">Description</th>
-                                <th className="p-4 text-center">Default Type</th>
-                                <th className="p-4 text-right">Default Price</th>
                                 <th className="p-4 text-center">Status</th>
                                 <th className="p-4 text-right">Actions</th>
                             </tr>
@@ -279,13 +266,13 @@ const InventoryContent = () => {
                         <tbody className="divide-y divide-gray-800/60">
                             {loading ? (
                                 <tr>
-                                    <td colSpan="8" className="p-8 text-center text-gray-500 font-medium">
+                                    <td colSpan="6" className="p-8 text-center text-gray-500 font-medium">
                                         Loading inventory items...
                                     </td>
                                 </tr>
                             ) : filteredItems.length === 0 ? (
                                 <tr>
-                                    <td colSpan="8" className="p-8 text-center text-gray-500 font-medium">
+                                    <td colSpan="6" className="p-8 text-center text-gray-500 font-medium">
                                         No inventory items found. Click "Add Inventory Item" to create one.
                                     </td>
                                 </tr>
@@ -312,22 +299,6 @@ const InventoryContent = () => {
                                         </td>
                                         <td className="p-4 text-gray-400 max-w-xs truncate">
                                             {item.description || "-"}
-                                        </td>
-                                        <td className="p-4 text-center">
-                                            <span className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                                                item.defaultType === 'Paid'
-                                                ? 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
-                                                : 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30'
-                                            }`}>
-                                                {item.defaultType || 'Free'}
-                                            </span>
-                                        </td>
-                                        <td className="p-4 text-right font-mono font-bold">
-                                            {item.defaultType === 'Paid' ? (
-                                                <span className="text-amber-400">₹{item.defaultPrice || 0}</span>
-                                            ) : (
-                                                <span className="text-gray-500">₹0</span>
-                                            )}
                                         </td>
                                         <td className="p-4 text-center">
                                             <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
@@ -432,59 +403,6 @@ const InventoryContent = () => {
                                 />
                             </div>
 
-                            {/* Default Type & Price */}
-                            <div className="grid grid-cols-2 gap-3">
-                                <div>
-                                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                                        Default Type
-                                    </label>
-                                    <div className="grid grid-cols-2 gap-1.5 bg-[#131619] p-1 rounded-xl border border-gray-700">
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData(prev => ({ ...prev, defaultType: "Free" }))}
-                                            className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                                formData.defaultType === "Free"
-                                                ? "bg-emerald-500 text-white shadow-sm"
-                                                : "text-gray-400 hover:text-white"
-                                            }`}
-                                        >
-                                            Free
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setFormData(prev => ({ ...prev, defaultType: "Paid" }))}
-                                            className={`py-1.5 rounded-lg text-xs font-bold transition-all ${
-                                                formData.defaultType === "Paid"
-                                                ? "bg-amber-500 text-white shadow-sm"
-                                                : "text-gray-400 hover:text-white"
-                                            }`}
-                                        >
-                                            Paid
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
-                                        Default Price (₹)
-                                    </label>
-                                    <input
-                                        type="number"
-                                        name="defaultPrice"
-                                        min="0"
-                                        disabled={formData.defaultType !== "Paid"}
-                                        placeholder="0"
-                                        value={formData.defaultPrice}
-                                        onChange={handleInputChange}
-                                        className={`w-full px-3.5 py-2.5 rounded-xl border text-white outline-none transition-all font-mono font-bold ${
-                                            formData.defaultType === "Paid"
-                                            ? "border-amber-500/60 bg-[#131619] focus:border-amber-400"
-                                            : "border-gray-800 bg-gray-900/50 text-gray-600 cursor-not-allowed"
-                                        }`}
-                                    />
-                                </div>
-                            </div>
-
                             {/* Status */}
                             <div>
                                 <label className="block text-[11px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
@@ -496,8 +414,8 @@ const InventoryContent = () => {
                                     onChange={handleInputChange}
                                     className="w-full px-3.5 py-2.5 rounded-xl border border-gray-700 bg-[#131619] text-white outline-none focus:border-emerald-500 transition-all font-medium"
                                 >
-                                    <option value="Active">Active (Available in Store)</option>
-                                    <option value="Inactive">Inactive (Hidden from Store)</option>
+                                    <option value="Active">Active (Available for Operations & Marketing)</option>
+                                    <option value="Inactive">Inactive (Hidden)</option>
                                 </select>
                             </div>
 

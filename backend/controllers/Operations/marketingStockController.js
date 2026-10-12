@@ -3,6 +3,7 @@ import MarketingStockMovement from "../../models/Operations/MarketingStockMoveme
 import MarketingRequirement from "../../models/Operations/MarketingRequirement.js";
 import CentreSchema from "../../models/Master_data/Centre.js";
 import User from "../../models/User.js";
+import InventoryMaster from "../../models/Master_data/Inventory.js";
 import { getHazraHOCentre } from "./marketingController.js";
 
 // Helper to normalize material keys
@@ -20,41 +21,53 @@ const MATERIAL_MAP = {
     'ktsbooks': 'ktsBooks',
     'kts books': 'ktsBooks',
     'kts': 'ktsBooks',
+    'key to success book': 'ktsBooks',
     'vsobooks': 'vsoBooks',
     'vso books': 'vsoBooks',
     'vso': 'vsoBooks'
 };
 
-const normalizeMaterialKey = (name = "") => {
+export const normalizeMaterialKey = (name = "") => {
+    if (!name) return "";
     const clean = name.toLowerCase().trim();
-    return MATERIAL_MAP[clean] || null;
+    if (MATERIAL_MAP[clean]) return MATERIAL_MAP[clean];
+    const noSpace = clean.replace(/[-_\s]+/g, '');
+    if (noSpace.includes('leaflet')) return 'leaflets';
+    if (noSpace.includes('banner')) return 'banners';
+    if (noSpace.includes('bag')) return 'bags';
+    if (noSpace.includes('tshirt')) return 'tshirts';
+    if (noSpace.includes('kts') || noSpace.includes('keytosuccess')) return 'ktsBooks';
+    if (noSpace.includes('vso')) return 'vsoBooks';
+    return clean.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '') || 'item';
 };
 
-// Strict material matching helper to prevent substring collision (e.g., leaflets matching t-shirts)
-export const matchesMaterial = (materialStr, key) => {
-    if (!materialStr || !key) return false;
+// Strict material matching helper to prevent substring collision
+export const matchesMaterial = (materialStr, keyOrName) => {
+    if (!materialStr || !keyOrName) return false;
     const s = String(materialStr).toLowerCase().replace(/[-_\s]+/g, '');
-    const k = String(key).toLowerCase().replace(/[-_\s]+/g, '');
+    const k = String(keyOrName).toLowerCase().replace(/[-_\s]+/g, '');
     
-    if (k === 'leaflets' || k === 'leaflet') {
-        return s.includes('leaflet');
+    if (s === k) return true;
+    
+    if (k.includes('leaflet') || s.includes('leaflet')) {
+        return s.includes('leaflet') && k.includes('leaflet');
     }
-    if (k === 'banners' || k === 'banner') {
-        return s.includes('banner');
+    if (k.includes('banner') || s.includes('banner')) {
+        return s.includes('banner') && k.includes('banner');
     }
-    if (k === 'bags' || k === 'bag') {
-        return s.includes('bag');
+    if (k.includes('bag') || s.includes('bag')) {
+        return s.includes('bag') && k.includes('bag');
     }
-    if (k === 'tshirts' || k === 'tshirt') {
-        return s.includes('tshirt') || s.includes('t-shirt');
+    if (k.includes('tshirt') || s.includes('tshirt')) {
+        return (s.includes('tshirt') || s.includes('t-shirt')) && (k.includes('tshirt') || k.includes('t-shirt'));
     }
-    if (k === 'ktsbooks' || k === 'kts') {
-        return s.includes('kts');
+    if (k.includes('kts') || s.includes('kts') || k.includes('keytosuccess') || s.includes('keytosuccess')) {
+        return (s.includes('kts') || s.includes('keytosuccess')) && (k.includes('kts') || k.includes('keytosuccess'));
     }
-    if (k === 'vsobooks' || k === 'vso') {
-        return s.includes('vso');
+    if (k.includes('vso') || s.includes('vso')) {
+        return s.includes('vso') && k.includes('vso');
     }
-    return false;
+    return s === k || s.includes(k) || k.includes(s);
 };
 
 // 1. GET Hazra Centre Current Stock & Summary
@@ -85,89 +98,94 @@ export const getHazraStock = async (req, res) => {
             });
         }
 
-        // Aggregate total approved requisitions that deducted from main stock
-        const approvedStats = await MarketingRequirement.aggregate([
-            { $match: { status: 'Approved' } },
-            {
-                $group: {
-                    _id: null,
-                    totalLeaflets: { $sum: "$approvedLeaflets" },
-                    totalBanners: { $sum: "$approvedBanners" },
-                    totalBags: { $sum: "$approvedBags" },
-                    totalTshirts: { $sum: "$approvedTshirts" },
-                    totalKts: { $sum: "$approvedKtsBooks" },
-                    totalVso: { $sum: "$approvedVsoBooks" },
-                    count: { $sum: 1 }
-                }
-            }
-        ]);
+        // Fetch all active inventory master items
+        const activeInventory = await InventoryMaster.find({ status: { $ne: 'Inactive' } }).sort({ name: 1 });
 
-        const app = approvedStats[0] || {};
-        const totalDispatched = (app.totalLeaflets || 0) +
-            (app.totalBanners || 0) +
-            (app.totalBags || 0) +
-            (app.totalTshirts || 0) +
-            (app.totalKts || 0) +
-            (app.totalVso || 0);
+        // Build unique materials list
+        const materialNames = new Set(activeInventory.map(i => i.name));
+        ['Leaflets', 'Banners', 'BAG', 'T-SHIRT', 'KEY TO SUCCESS BOOK', 'VSO Books'].forEach(c => materialNames.add(c));
 
-        // Fetch all stock in movements to Hazra to accurately determine total added per material
+        // Fetch all stock in movements to Hazra
         const stockInMovements = await MarketingStockMovement.find({
             centre: hazra._id,
             movementType: 'STOCK_IN'
         });
 
-        const stockInMap = {
-            leaflets: 0,
-            banners: 0,
-            bags: 0,
-            tshirts: 0,
-            ktsBooks: 0,
-            vsoBooks: 0
-        };
-
-        stockInMovements.forEach(mov => {
-            if (Array.isArray(mov.items) && mov.items.length > 0) {
-                mov.items.forEach(it => {
-                    const qty = it.quantity || 0;
-                    ['leaflets', 'banners', 'bags', 'tshirts', 'ktsBooks', 'vsoBooks'].forEach(k => {
-                        if (matchesMaterial(it.material, k)) {
-                            stockInMap[k] += qty;
-                        }
-                    });
-                });
-            } else if (mov.material) {
-                const qty = mov.quantity || 0;
-                ['leaflets', 'banners', 'bags', 'tshirts', 'ktsBooks', 'vsoBooks'].forEach(k => {
-                    if (matchesMaterial(mov.material, k)) {
-                        stockInMap[k] += qty;
-                    }
-                });
-            }
+        // Fetch all approved requirements
+        const approvedReqs = await MarketingRequirement.find({
+            status: 'Approved'
         });
 
-        const totalStockInCalculated = Object.values(stockInMap).reduce((a, b) => a + b, 0);
+        // Compute stats for each material dynamically
+        const dynamicStats = {};
+        const dynamicStockMap = {};
+        let totalStockInCalculated = 0;
+        let totalDispatchedCalculated = 0;
 
-        // Synchronize bucket: available stock = Math.max(0, Total In - Total Dispatched)
-        bucket.leaflets = Math.max(0, stockInMap.leaflets - (app.totalLeaflets || 0));
-        bucket.banners = Math.max(0, stockInMap.banners - (app.totalBanners || 0));
-        bucket.bags = Math.max(0, stockInMap.bags - (app.totalBags || 0));
-        bucket.tshirts = Math.max(0, stockInMap.tshirts - (app.totalTshirts || 0));
-        bucket.ktsBooks = Math.max(0, stockInMap.ktsBooks - (app.totalKts || 0));
-        bucket.vsoBooks = Math.max(0, stockInMap.vsoBooks - (app.totalVso || 0));
-        bucket.totalLeafletsReceived = stockInMap.leaflets;
-        bucket.totalBannersReceived = stockInMap.banners;
-        bucket.totalBagsReceived = stockInMap.bags;
-        bucket.totalTshirtsReceived = stockInMap.tshirts;
-        bucket.totalKtsBooksReceived = stockInMap.ktsBooks;
-        bucket.totalVsoBooksReceived = stockInMap.vsoBooks;
+        for (const mat of materialNames) {
+            let totalStockIn = 0;
+            stockInMovements.forEach(mov => {
+                if (Array.isArray(mov.items) && mov.items.length > 0) {
+                    mov.items.forEach(it => {
+                        if (matchesMaterial(it.material, mat)) {
+                            totalStockIn += (it.quantity || 0);
+                        }
+                    });
+                } else if (mov.material && matchesMaterial(mov.material, mat)) {
+                    totalStockIn += (mov.quantity || 0);
+                }
+            });
+
+            let totalDispatched = 0;
+            approvedReqs.forEach(r => {
+                let qty = 0;
+                if (matchesMaterial(mat, 'leaflets')) qty = r.approvedLeaflets || 0;
+                else if (matchesMaterial(mat, 'banners')) qty = r.approvedBanners || 0;
+                else if (matchesMaterial(mat, 'bags')) qty = r.approvedBags || 0;
+                else if (matchesMaterial(mat, 'tshirts')) qty = r.approvedTshirts || 0;
+                else if (matchesMaterial(mat, 'ktsBooks')) qty = r.approvedKtsBooks || 0;
+                else if (matchesMaterial(mat, 'vsoBooks')) qty = r.approvedVsoBooks || 0;
+
+                if (qty === 0 && r.itemType && matchesMaterial(r.itemType, mat)) {
+                    qty = r.approvedQuantity || r.quantity || 0;
+                }
+                totalDispatched += qty;
+            });
+
+            const currentStock = Math.max(0, totalStockIn - totalDispatched);
+            totalStockInCalculated += totalStockIn;
+            totalDispatchedCalculated += totalDispatched;
+
+            dynamicStats[mat] = {
+                currentStock,
+                totalStockIn,
+                totalDispatched
+            };
+            dynamicStockMap[mat] = currentStock;
+
+            // Sync with standard fields if applicable
+            const normKey = normalizeMaterialKey(mat);
+            const standardKeys = ['leaflets', 'banners', 'bags', 'tshirts', 'ktsBooks', 'vsoBooks'];
+            if (standardKeys.includes(normKey)) {
+                bucket[normKey] = currentStock;
+                const totRec = `total${normKey.charAt(0).toUpperCase() + normKey.slice(1)}Received`;
+                if (bucket[totRec] !== undefined) {
+                    bucket[totRec] = totalStockIn;
+                }
+            } else {
+                if (!bucket.customStock) bucket.customStock = new Map();
+                if (typeof bucket.customStock.set === 'function') {
+                    bucket.customStock.set(mat, currentStock);
+                } else {
+                    bucket.customStock[mat] = currentStock;
+                }
+            }
+        }
+
+        bucket.lastUpdated = new Date();
         await bucket.save();
 
-        const totalUnitsInStock = (bucket.leaflets || 0) +
-            (bucket.banners || 0) +
-            (bucket.bags || 0) +
-            (bucket.tshirts || 0) +
-            (bucket.ktsBooks || 0) +
-            (bucket.vsoBooks || 0);
+        const totalUnitsInStock = Object.values(dynamicStats).reduce((a, b) => a + (b.currentStock || 0), 0);
 
         return res.status(200).json({
             success: true,
@@ -177,12 +195,18 @@ export const getHazraStock = async (req, res) => {
                 code: hazra.centreCode,
                 location: hazra.location
             },
-            stock: bucket,
+            stock: {
+                ...bucket.toObject(),
+                customStock: bucket.customStock ? Object.fromEntries(bucket.customStock) : {},
+                ...dynamicStockMap
+            },
+            inventoryItems: activeInventory.map(i => ({ _id: i._id, name: i.name, code: i.code, description: i.description })),
+            materialStats: dynamicStats,
             stats: {
                 totalUnitsInStock,
                 totalStockIn: totalStockInCalculated,
-                totalDispatched,
-                totalApprovedRequisitions: app.count || 0
+                totalDispatched: totalDispatchedCalculated,
+                totalApprovedRequisitions: approvedReqs.length
             }
         });
     } catch (error) {
@@ -199,7 +223,7 @@ export const updateHazraStockDirectly = async (req, res) => {
             return res.status(404).json({ success: false, message: "Hazra H.O centre not found in database." });
         }
 
-        const { leaflets, banners, bags, tshirts, ktsBooks, vsoBooks, remarks } = req.body;
+        const { remarks, items, ...fields } = req.body;
 
         let bucket = await MarketingCentreBucket.findOne({ centre: hazra._id });
         if (!bucket) {
@@ -209,57 +233,62 @@ export const updateHazraStockDirectly = async (req, res) => {
             });
         }
 
-        const prevValues = {
-            leaflets: bucket.leaflets || 0,
-            banners: bucket.banners || 0,
-            bags: bucket.bags || 0,
-            tshirts: bucket.tshirts || 0,
-            ktsBooks: bucket.ktsBooks || 0,
-            vsoBooks: bucket.vsoBooks || 0
-        };
-
         const itemsChanged = [];
+        const standardKeys = ['leaflets', 'banners', 'bags', 'tshirts', 'ktsBooks', 'vsoBooks'];
 
-        if (leaflets !== undefined) {
-            const val = Math.max(0, parseInt(leaflets, 10) || 0);
-            if (val !== prevValues.leaflets) {
-                itemsChanged.push({ material: 'Leaflets', quantity: val - prevValues.leaflets, previousStock: prevValues.leaflets, newStock: val });
-                bucket.leaflets = val;
+        // 1. Process items array if passed
+        if (Array.isArray(items) && items.length > 0) {
+            for (const item of items) {
+                const matName = item.material?.trim();
+                const val = Math.max(0, parseInt(item.quantity, 10) || 0);
+                if (matName) {
+                    const norm = normalizeMaterialKey(matName);
+                    let prev = 0;
+                    if (standardKeys.includes(norm)) {
+                        prev = bucket[norm] || 0;
+                        if (val !== prev) {
+                            itemsChanged.push({ material: matName, quantity: val - prev, previousStock: prev, newStock: val });
+                            bucket[norm] = val;
+                        }
+                    } else {
+                        if (!bucket.customStock) bucket.customStock = new Map();
+                        prev = (typeof bucket.customStock.get === 'function' ? bucket.customStock.get(matName) : bucket.customStock[matName]) || 0;
+                        if (val !== prev) {
+                            itemsChanged.push({ material: matName, quantity: val - prev, previousStock: prev, newStock: val });
+                            if (typeof bucket.customStock.set === 'function') {
+                                bucket.customStock.set(matName, val);
+                            } else {
+                                bucket.customStock[matName] = val;
+                            }
+                        }
+                    }
+                }
             }
         }
-        if (banners !== undefined) {
-            const val = Math.max(0, parseInt(banners, 10) || 0);
-            if (val !== prevValues.banners) {
-                itemsChanged.push({ material: 'Banners', quantity: val - prevValues.banners, previousStock: prevValues.banners, newStock: val });
-                bucket.banners = val;
-            }
-        }
-        if (bags !== undefined) {
-            const val = Math.max(0, parseInt(bags, 10) || 0);
-            if (val !== prevValues.bags) {
-                itemsChanged.push({ material: 'Bags', quantity: val - prevValues.bags, previousStock: prevValues.bags, newStock: val });
-                bucket.bags = val;
-            }
-        }
-        if (tshirts !== undefined) {
-            const val = Math.max(0, parseInt(tshirts, 10) || 0);
-            if (val !== prevValues.tshirts) {
-                itemsChanged.push({ material: 'T-Shirts', quantity: val - prevValues.tshirts, previousStock: prevValues.tshirts, newStock: val });
-                bucket.tshirts = val;
-            }
-        }
-        if (ktsBooks !== undefined) {
-            const val = Math.max(0, parseInt(ktsBooks, 10) || 0);
-            if (val !== prevValues.ktsBooks) {
-                itemsChanged.push({ material: 'KTS Books', quantity: val - prevValues.ktsBooks, previousStock: prevValues.ktsBooks, newStock: val });
-                bucket.ktsBooks = val;
-            }
-        }
-        if (vsoBooks !== undefined) {
-            const val = Math.max(0, parseInt(vsoBooks, 10) || 0);
-            if (val !== prevValues.vsoBooks) {
-                itemsChanged.push({ material: 'VSO Books', quantity: val - prevValues.vsoBooks, previousStock: prevValues.vsoBooks, newStock: val });
-                bucket.vsoBooks = val;
+
+        // 2. Process direct key-value pairs (leaflets, banners, or dynamic material names)
+        for (const [k, v] of Object.entries(fields)) {
+            if (v !== undefined && v !== null && k !== 'items' && k !== 'remarks') {
+                const val = Math.max(0, parseInt(v, 10) || 0);
+                const norm = normalizeMaterialKey(k);
+                if (standardKeys.includes(norm)) {
+                    const prev = bucket[norm] || 0;
+                    if (val !== prev) {
+                        itemsChanged.push({ material: k, quantity: val - prev, previousStock: prev, newStock: val });
+                        bucket[norm] = val;
+                    }
+                } else {
+                    if (!bucket.customStock) bucket.customStock = new Map();
+                    const prev = (typeof bucket.customStock.get === 'function' ? bucket.customStock.get(k) : bucket.customStock[k]) || 0;
+                    if (val !== prev) {
+                        itemsChanged.push({ material: k, quantity: val - prev, previousStock: prev, newStock: val });
+                        if (typeof bucket.customStock.set === 'function') {
+                            bucket.customStock.set(k, val);
+                        } else {
+                            bucket.customStock[k] = val;
+                        }
+                    }
+                }
             }
         }
 
@@ -315,22 +344,22 @@ export const recordStockIn = async (req, res) => {
 
         if (Array.isArray(items) && items.length > 0) {
             for (const item of items) {
-                const key = normalizeMaterialKey(item.material);
+                const matName = (item.material || "").trim();
                 const qty = Math.max(0, parseInt(item.quantity, 10) || 0);
-                if (key && qty > 0) {
-                    itemsToAdd.push({ key, material: item.material, quantity: qty });
+                if (matName && qty > 0) {
+                    itemsToAdd.push({ material: matName, quantity: qty });
                 }
             }
         } else {
-            const key = normalizeMaterialKey(material);
+            const matName = (material || "").trim();
             const qty = Math.max(0, parseInt(quantity, 10) || 0);
-            if (!key) {
-                return res.status(400).json({ success: false, message: "Please specify a valid marketing material type." });
+            if (!matName) {
+                return res.status(400).json({ success: false, message: "Please select or specify a material name." });
             }
             if (qty <= 0) {
                 return res.status(400).json({ success: false, message: "Stock in quantity must be greater than 0." });
             }
-            itemsToAdd.push({ key, material, quantity: qty });
+            itemsToAdd.push({ material: matName, quantity: qty });
         }
 
         if (itemsToAdd.length === 0) {
@@ -339,15 +368,39 @@ export const recordStockIn = async (req, res) => {
 
         const recordedItems = [];
         let totalQtyAdded = 0;
+        const standardKeys = ['leaflets', 'banners', 'bags', 'tshirts', 'ktsBooks', 'vsoBooks'];
 
         for (const item of itemsToAdd) {
-            const prevStock = bucket[item.key] || 0;
-            const newStock = prevStock + item.quantity;
-            bucket[item.key] = newStock;
+            const normKey = normalizeMaterialKey(item.material);
+            let prevStock = 0;
+            let newStock = 0;
 
-            const totalRecKey = `total${item.key.charAt(0).toUpperCase() + item.key.slice(1)}Received`;
-            if (bucket[totalRecKey] !== undefined) {
-                bucket[totalRecKey] = (bucket[totalRecKey] || 0) + item.quantity;
+            if (standardKeys.includes(normKey)) {
+                prevStock = bucket[normKey] || 0;
+                newStock = prevStock + item.quantity;
+                bucket[normKey] = newStock;
+                const totRecKey = `total${normKey.charAt(0).toUpperCase() + normKey.slice(1)}Received`;
+                if (bucket[totRecKey] !== undefined) {
+                    bucket[totRecKey] = (bucket[totRecKey] || 0) + item.quantity;
+                }
+            } else {
+                if (!bucket.customStock) bucket.customStock = new Map();
+                const cur = (typeof bucket.customStock.get === 'function' ? bucket.customStock.get(item.material) : bucket.customStock[item.material]) || 0;
+                prevStock = cur;
+                newStock = prevStock + item.quantity;
+                if (typeof bucket.customStock.set === 'function') {
+                    bucket.customStock.set(item.material, newStock);
+                } else {
+                    bucket.customStock[item.material] = newStock;
+                }
+
+                if (!bucket.totalCustomReceived) bucket.totalCustomReceived = new Map();
+                const curRec = (typeof bucket.totalCustomReceived.get === 'function' ? bucket.totalCustomReceived.get(item.material) : bucket.totalCustomReceived[item.material]) || 0;
+                if (typeof bucket.totalCustomReceived.set === 'function') {
+                    bucket.totalCustomReceived.set(item.material, curRec + item.quantity);
+                } else {
+                    bucket.totalCustomReceived[item.material] = curRec + item.quantity;
+                }
             }
 
             recordedItems.push({
@@ -591,28 +644,47 @@ export const getConsolidatedReport = async (req, res) => {
             centre: hazra._id
         }).sort({ createdAt: -1 });
 
-        const materialsMeta = [
+        // Fetch active materials from InventoryMaster
+        const invMasterItems = await InventoryMaster.find({ status: { $ne: 'Inactive' } }).sort({ name: 1 });
+        
+        // Build unique materials list
+        const materialMap = new Map();
+        invMasterItems.forEach(i => {
+            materialMap.set(i.name, { key: normalizeMaterialKey(i.name), name: i.name, description: i.description || "" });
+        });
+
+        // Ensure default core materials are represented
+        const fallbackCore = [
             { key: 'leaflets', name: 'Leaflets' },
             { key: 'banners', name: 'Banners' },
-            { key: 'bags', name: 'Bags' },
-            { key: 'tshirts', name: 'T-Shirts' },
-            { key: 'ktsBooks', name: 'KTS Books' },
+            { key: 'bags', name: 'BAG' },
+            { key: 'tshirts', name: 'T-SHIRT' },
+            { key: 'ktsBooks', name: 'KEY TO SUCCESS BOOK' },
             { key: 'vsoBooks', name: 'VSO Books' }
         ];
+        fallbackCore.forEach(f => {
+            if (!Array.from(materialMap.keys()).some(k => matchesMaterial(k, f.key) || matchesMaterial(k, f.name))) {
+                materialMap.set(f.name, f);
+            }
+        });
 
-        const materials = materialsMeta.map(m => {
+        const materials = Array.from(materialMap.values()).map(m => {
             let totalDispatched = 0;
             let reqsCount = 0;
             const centreDispatchesMap = new Map();
 
             approvedReqs.forEach(r => {
                 let qty = 0;
-                if (m.key === 'leaflets') qty = r.approvedLeaflets || 0;
-                else if (m.key === 'banners') qty = r.approvedBanners || 0;
-                else if (m.key === 'bags') qty = r.approvedBags || 0;
-                else if (m.key === 'tshirts') qty = r.approvedTshirts || 0;
-                else if (m.key === 'ktsBooks') qty = r.approvedKtsBooks || 0;
-                else if (m.key === 'vsoBooks') qty = r.approvedVsoBooks || 0;
+                if (matchesMaterial(m.name, 'leaflets')) qty = r.approvedLeaflets || 0;
+                else if (matchesMaterial(m.name, 'banners')) qty = r.approvedBanners || 0;
+                else if (matchesMaterial(m.name, 'bags')) qty = r.approvedBags || 0;
+                else if (matchesMaterial(m.name, 'tshirts')) qty = r.approvedTshirts || 0;
+                else if (matchesMaterial(m.name, 'ktsBooks')) qty = r.approvedKtsBooks || 0;
+                else if (matchesMaterial(m.name, 'vsoBooks')) qty = r.approvedVsoBooks || 0;
+
+                if (qty === 0 && r.itemType && matchesMaterial(r.itemType, m.name)) {
+                    qty = r.approvedQuantity || r.quantity || 0;
+                }
 
                 if (qty > 0) {
                     totalDispatched += qty;
@@ -626,12 +698,12 @@ export const getConsolidatedReport = async (req, res) => {
             movements.filter(mov => mov.movementType === 'STOCK_IN').forEach(mov => {
                 if (Array.isArray(mov.items) && mov.items.length > 0) {
                     mov.items.forEach(it => {
-                        if (matchesMaterial(it.material, m.key)) {
+                        if (matchesMaterial(it.material, m.name) || matchesMaterial(it.material, m.key)) {
                             totalStockIn += (it.quantity || 0);
                         }
                     });
                 } else if (mov.material) {
-                    if (matchesMaterial(mov.material, m.key)) {
+                    if (matchesMaterial(mov.material, m.name) || matchesMaterial(mov.material, m.key)) {
                         totalStockIn += (mov.quantity || 0);
                     }
                 }

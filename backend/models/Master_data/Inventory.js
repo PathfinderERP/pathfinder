@@ -18,7 +18,6 @@ const inventorySchema = new mongoose.Schema(
         },
         defaultType: {
             type: String,
-            enum: ["Free", "Paid"],
             default: "Free"
         },
         defaultPrice: {
