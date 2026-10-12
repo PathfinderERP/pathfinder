@@ -1042,8 +1042,8 @@ export const getTransactionReport = async (req, res) => {
                             if: { $eq: ["$paymentMethod", "CHEQUE"] },
                             then: {
                                 $ifNull: [
-                                    { $toDate: "$clearedOrRejectedDate" },
-                                    { $toDate: "$paidDate" }
+                                    { $toDate: "$paidDate" },
+                                    { $toDate: "$clearedOrRejectedDate" }
                                 ]
                             },
                             else: {
