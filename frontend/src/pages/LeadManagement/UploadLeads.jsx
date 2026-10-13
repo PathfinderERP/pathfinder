@@ -6,6 +6,7 @@ import { useTheme } from "../../context/ThemeContext";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import * as XLSX from "xlsx";
+import DuplicateLeadsModal from "../../components/LeadManagement/DuplicateLeadsModal";
 import {
     FaUpload, FaFileExcel, FaArrowLeft, FaCheckCircle, FaTimesCircle,
     FaDownload, FaSpinner, FaUsers, FaEye, FaTrash, FaCloudUploadAlt,
@@ -94,6 +95,8 @@ const UploadLeads = () => {
     const [analyzingAi, setAnalyzingAi] = useState(false);
     const [validationErrors, setValidationErrors] = useState([]);
     const [skippedRows, setSkippedRows] = useState([]);
+    const [duplicateLeads, setDuplicateLeads] = useState([]);
+    const [showDuplicateModal, setShowDuplicateModal] = useState(false);
     
     const analyzeErrorWithAI = async (errorMsg) => {
         setAnalyzingAi(true);
@@ -285,6 +288,7 @@ const UploadLeads = () => {
                 body: JSON.stringify({ leads: parsedRows }),
             });
             const data = await res.json();
+            const dups = data.duplicates || [];
             if (res.ok) {
                 setUploadResult(data);
                 setStep("done");
@@ -293,6 +297,10 @@ const UploadLeads = () => {
                 setAiFeedback("");
                 setValidationErrors([]);
                 setSkippedRows(data.skippedDetails || []);
+                setDuplicateLeads(dups);
+                if (dups.length > 0) {
+                    setShowDuplicateModal(true);
+                }
             } else {
                 const msg = data.message || "Upload failed.";
                 toast.error(msg);
@@ -302,6 +310,10 @@ const UploadLeads = () => {
                     setValidationErrors([]);
                 }
                 setSkippedRows(data.skippedDetails || []);
+                setDuplicateLeads(dups);
+                if (dups.length > 0) {
+                    setShowDuplicateModal(true);
+                }
                 analyzeErrorWithAI(msg);
                 setStep("preview");
             }
@@ -322,6 +334,8 @@ const UploadLeads = () => {
         setAiFeedback("");
         setValidationErrors([]);
         setSkippedRows([]);
+        setDuplicateLeads([]);
+        setShowDuplicateModal(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
@@ -636,6 +650,14 @@ const UploadLeads = () => {
                                 ))}
                             </div>
                             <div className="flex flex-wrap gap-3 justify-center">
+                                {duplicateLeads.length > 0 && (
+                                    <button
+                                        onClick={() => setShowDuplicateModal(true)}
+                                        className="px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-500/20 transition-all hover:-translate-y-0.5 active:scale-95 flex items-center gap-2"
+                                    >
+                                        <FaExclamationTriangle size={11} /> View & Export Duplicates ({duplicateLeads.length})
+                                    </button>
+                                )}
                                 <button
                                     onClick={handleReset}
                                     className={`px-6 py-3 rounded-xl text-[11px] font-black uppercase tracking-widest border transition-all hover:scale-105 active:scale-95
@@ -865,6 +887,15 @@ const UploadLeads = () => {
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDark ? "#333" : "#cbd5e1"}; border-radius: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: ${isDark ? "#444" : "#94a3b8"}; }
             `}</style>
+
+            {/* ── Duplicate Leads Popup Modal ── */}
+            <DuplicateLeadsModal
+                isOpen={showDuplicateModal}
+                onClose={() => setShowDuplicateModal(false)}
+                duplicates={duplicateLeads}
+                totalUploaded={uploadResult?.total || 0}
+                isDarkMode={isDark}
+            />
         </Layout>
     );
 };

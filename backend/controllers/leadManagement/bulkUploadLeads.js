@@ -244,11 +244,13 @@ export const bulkUploadLeads = async (req, res) => {
         // Map: cleanPhone -> Array of names seen in this import file
         const seenInImportMap = new Map();
         const skippedDetails = [];
+        const duplicates = [];
         let skipped = 0;
 
         for (let idx = 0; idx < prepared.length; idx++) {
             const row = prepared[idx];
             const originalRowIndex = idx + 1;
+            const rawRow = leads[idx] || {};
 
             if (!row.name) {
                 const missing = [];
@@ -256,7 +258,10 @@ export const bulkUploadLeads = async (req, res) => {
                 skippedDetails.push({
                     row: originalRowIndex,
                     name: row.name || "Unknown Name",
-                    reason: `Missing required field(s): ${missing.join(", ")}`
+                    phoneNumber: row.phoneNumber || "",
+                    secondPhoneNumber: row.secondPhoneNumber || "",
+                    reason: `Missing required field(s): ${missing.join(", ")}`,
+                    isDuplicate: false
                 });
                 skipped++;
                 continue;
@@ -268,7 +273,10 @@ export const bulkUploadLeads = async (req, res) => {
                 skippedDetails.push({
                     row: originalRowIndex,
                     name: row.name,
-                    reason: "enter the correct phone number"
+                    phoneNumber: row.phoneNumber || "",
+                    secondPhoneNumber: row.secondPhoneNumber || "",
+                    reason: "enter the correct phone number",
+                    isDuplicate: false
                 });
                 skipped++;
                 continue;
@@ -278,7 +286,10 @@ export const bulkUploadLeads = async (req, res) => {
                 skippedDetails.push({
                     row: originalRowIndex,
                     name: row.name,
-                    reason: "enter the correct phone number"
+                    phoneNumber: row.phoneNumber || "",
+                    secondPhoneNumber: row.secondPhoneNumber || "",
+                    reason: "enter the correct phone number",
+                    isDuplicate: false
                 });
                 skipped++;
                 continue;
@@ -286,32 +297,68 @@ export const bulkUploadLeads = async (req, res) => {
 
             let isDuplicate = false;
             let duplicateReason = "";
+            let matchedWith = "";
+            let duplicateType = "";
 
             const cleanP = cleanPhoneNumber(p);
             if (cleanP) {
-                // Check against database: duplicate if same phone AND matching name
+                // Check against database: duplicate if same phone AND matching name, or existing phone number in DB
                 const existingNames = existingPhoneNamesMap.get(cleanP) || [];
                 const matchedExistingName = existingNames.find(exName => isNameMatch(row.name, exName));
                 if (matchedExistingName) {
                     isDuplicate = true;
+                    duplicateType = "Database Duplicate";
+                    matchedWith = matchedExistingName;
                     duplicateReason = `A lead with phone '${p}' and student name '${row.name}' already exists in database.`;
+                } else if (existingNames.length > 0) {
+                    isDuplicate = true;
+                    duplicateType = "Database Duplicate";
+                    matchedWith = existingNames[0];
+                    duplicateReason = `A lead with phone '${p}' already exists in database (registered under '${existingNames[0]}').`;
                 } else {
                     // Check against already seen rows in this import
                     const seenNames = seenInImportMap.get(cleanP) || [];
                     const matchedSeenName = seenNames.find(sName => isNameMatch(row.name, sName));
                     if (matchedSeenName) {
                         isDuplicate = true;
+                        duplicateType = "File Duplicate";
+                        matchedWith = matchedSeenName;
                         duplicateReason = `A lead with phone '${p}' and student name '${row.name}' is duplicated within the uploaded file.`;
+                    } else if (seenNames.length > 0) {
+                        isDuplicate = true;
+                        duplicateType = "File Duplicate";
+                        matchedWith = seenNames[0];
+                        duplicateReason = `A lead with phone '${p}' is duplicated within the uploaded file.`;
                     }
                 }
             }
 
             if (isDuplicate) {
-                skippedDetails.push({
+                const centreName = rawRow.centre || (allCentres.find(c => c._id?.toString() === row.centre?.toString())?.centreName) || "";
+                const courseName = rawRow.course || (allCourses.find(c => c._id?.toString() === row.course?.toString())?.courseName) || row.courseText || "";
+                const className = rawRow.className || rawRow.Class || (allClasses.find(c => c._id?.toString() === row.className?.toString())?.name) || "";
+                const boardName = rawRow.board || (allBoards.find(b => b._id?.toString() === row.board?.toString())?.boardName || b.boardCourse) || "";
+
+                const dupItem = {
                     row: originalRowIndex,
                     name: row.name,
-                    reason: duplicateReason
-                });
+                    phoneNumber: row.phoneNumber,
+                    secondPhoneNumber: row.secondPhoneNumber || "",
+                    schoolName: row.schoolName || "",
+                    centre: centreName,
+                    course: courseName,
+                    className: className,
+                    board: boardName,
+                    source: row.source || rawRow.source || "",
+                    leadType: row.leadType || "",
+                    reason: duplicateReason,
+                    matchedWith,
+                    duplicateType,
+                    isDuplicate: true
+                };
+
+                duplicates.push(dupItem);
+                skippedDetails.push(dupItem);
                 skipped++;
                 continue;
             }
@@ -328,15 +375,19 @@ export const bulkUploadLeads = async (req, res) => {
 
         if (valid.length === 0) {
             const phoneErrors = skippedDetails.filter(d => d.reason === "enter the correct phone number");
-            if (phoneErrors.length > 0) {
+            if (phoneErrors.length > 0 && duplicates.length === 0) {
                 return res.status(400).json({
                     message: "enter the correct phone number",
-                    skippedDetails
+                    skippedDetails,
+                    duplicates
                 });
             }
             return res.status(400).json({
-                message: "All rows were skipped because they are missing required fields or contain duplicate phone numbers.",
-                skippedDetails
+                message: duplicates.length > 0
+                    ? `All ${duplicates.length} lead(s) were identified as duplicates and not uploaded.`
+                    : "All rows were skipped because they are missing required fields or contain duplicate phone numbers.",
+                skippedDetails,
+                duplicates
             });
         }
 
@@ -348,10 +399,11 @@ export const bulkUploadLeads = async (req, res) => {
         }
 
         return res.status(201).json({
-            message:    `${inserted.length} lead(s) uploaded successfully.`,
+            message:    `${inserted.length} lead(s) uploaded successfully.` + (duplicates.length > 0 ? ` (${duplicates.length} duplicate(s) detected).` : ""),
             total:      inserted.length,
             skipped,
             skippedDetails,
+            duplicates,
             uploadedBy: uploaderName,
             campaign:   resolvedCampaignId || null,
         });

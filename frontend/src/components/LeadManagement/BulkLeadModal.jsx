@@ -7,6 +7,7 @@ import {
 import { toast } from "react-toastify";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import DuplicateLeadsModal from "./DuplicateLeadsModal";
 
 /* ─── Column map: Excel header → internal field ───────────────────────── */
 const COL_MAP = {
@@ -56,6 +57,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
     const [uploadResult, setUploadResult] = useState(null);
     const [skippedDetails, setSkippedDetails] = useState([]);
+    const [duplicateLeads, setDuplicateLeads] = useState([]);
+    const [showDuplicateModal, setShowDuplicateModal] = useState(false);
     const [validationErrors, setValidationErrors] = useState([]);
 
     const [aiFeedback, setAiFeedback] = useState("");
@@ -165,6 +168,8 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
         setStep("idle");
         setUploadResult(null);
         setSkippedDetails([]);
+        setDuplicateLeads([]);
+        setShowDuplicateModal(false);
         setValidationErrors([]);
         setAiFeedback("");
         setAnalyzingAi(false);
@@ -209,9 +214,14 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 body: JSON.stringify({ leads: parsedRows }),
             });
             const data = await res.json();
+            const dups = data.duplicates || [];
             if (res.ok) {
                 setUploadResult(data);
                 setSkippedDetails(data.skippedDetails || []);
+                setDuplicateLeads(dups);
+                if (dups.length > 0) {
+                    setShowDuplicateModal(true);
+                }
                 setValidationErrors([]);
                 setStep("done");
                 toast.success(data.message);
@@ -222,6 +232,10 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                 if (data.invalidSources) setValidationErrors(data.invalidSources);
                 else setValidationErrors([]);
                 setSkippedDetails(data.skippedDetails || []);
+                setDuplicateLeads(dups);
+                if (dups.length > 0) {
+                    setShowDuplicateModal(true);
+                }
                 analyzeErrorsWithAI([msg]);
                 setStep("preview");
             }
@@ -510,6 +524,14 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                                     ))}
                                 </div>
                                 <div className="flex gap-3 flex-wrap justify-center">
+                                    {duplicateLeads.length > 0 && (
+                                        <button
+                                            onClick={() => setShowDuplicateModal(true)}
+                                            className="px-5 py-2.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest bg-amber-600 hover:bg-amber-500 text-white shadow-lg shadow-amber-500/20 transition-all hover:-translate-y-0.5 active:scale-95 flex items-center gap-2"
+                                        >
+                                            <FaExclamationTriangle size={11} /> View & Export Duplicates ({duplicateLeads.length})
+                                        </button>
+                                    )}
                                     <button
                                         onClick={handleReset}
                                         className={`px-5 py-2.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest border transition-all hover:scale-105 active:scale-95 ${d ? "bg-gray-800 border-gray-700 text-gray-300 hover:text-white" : "bg-gray-100 border-gray-200 text-gray-600"}`}
@@ -528,11 +550,21 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
                             {/* Duplicate / Skipped rows report */}
                             {skippedDetails.length > 0 && (
                                 <div className={`p-4 rounded-[4px] border flex flex-col gap-3 ${d ? 'bg-orange-500/10 border-orange-500/20 text-orange-300' : 'bg-orange-50 border-orange-200 text-orange-700'}`}>
-                                    <div className="flex items-center gap-2">
-                                        <FaExclamationTriangle className="text-orange-500" />
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
-                                            Skipped Rows — Not Uploaded ({skippedDetails.length})
-                                        </span>
+                                    <div className="flex items-center justify-between flex-wrap gap-2">
+                                        <div className="flex items-center gap-2">
+                                            <FaExclamationTriangle className="text-orange-500" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-orange-500">
+                                                Skipped Rows — Not Uploaded ({skippedDetails.length})
+                                            </span>
+                                        </div>
+                                        {duplicateLeads.length > 0 && (
+                                            <button
+                                                onClick={() => setShowDuplicateModal(true)}
+                                                className="px-3 py-1 rounded bg-amber-500 hover:bg-amber-400 text-black text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow"
+                                            >
+                                                Export / Copy Duplicates ({duplicateLeads.length})
+                                            </button>
+                                        )}
                                     </div>
                                     <p className="text-xs font-semibold">
                                         The following rows were <b>not uploaded</b> due to duplicate phone numbers or missing required fields:
@@ -562,6 +594,15 @@ const BulkLeadModal = ({ onClose, onSuccess, isDarkMode }) => {
 
                 </div>
             </div>
+
+            {/* ── Duplicate Leads Popup Modal ── */}
+            <DuplicateLeadsModal
+                isOpen={showDuplicateModal}
+                onClose={() => setShowDuplicateModal(false)}
+                duplicates={duplicateLeads}
+                totalUploaded={uploadResult?.total || 0}
+                isDarkMode={isDarkMode}
+            />
 
             <style>{`
                 .custom-scrollbar-bulk::-webkit-scrollbar { width: 4px; height: 4px; }
