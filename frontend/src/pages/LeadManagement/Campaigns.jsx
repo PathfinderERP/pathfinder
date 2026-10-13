@@ -214,7 +214,7 @@ export default function Campaigns() {
             "Board": row.boardStr || "—",
             "Lead Type": row.leadType || "—",
             "Assigned To": row.leadResponsibility || row.uploaderName || "—",
-            "Push Status": row.isPushed ? "Pushed to Lead Mgmt" : "Unpushed",
+            "Push Status": row.isDuplicate ? `Duplicate (${row.duplicateReason || 'Already exists'})` : (row.isPushed ? "Pushed to Lead Mgmt" : "Unpushed"),
             "Created At": row.createdAt ? new Date(row.createdAt).toLocaleDateString('en-IN') : "—"
         }));
         downloadExcel(exportData, `Leads_${selectedCampaignForLeads?.adName?.replace(/\s+/g, '_') || 'Campaign'}`);
@@ -235,7 +235,8 @@ export default function Campaigns() {
             const matchesType = leadsTypeFilter === "ALL" || (lead.leadType || "").toUpperCase().includes(leadsTypeFilter);
             const matchesStatus = leadsStatusFilter === "ALL" ||
                 (leadsStatusFilter === "PUSHED" && lead.isPushed) ||
-                (leadsStatusFilter === "UNPUSHED" && !lead.isPushed);
+                (leadsStatusFilter === "UNPUSHED" && !lead.isPushed && !lead.isDuplicate) ||
+                (leadsStatusFilter === "DUPLICATE" && lead.isDuplicate);
 
             const matchesCentre = leadsCentreFilter === "ALL" || lead.centreStr === leadsCentreFilter;
             const matchesClass = leadsClassFilter === "ALL" || lead.classNameStr === leadsClassFilter;
@@ -1370,6 +1371,11 @@ export default function Campaigns() {
                                     <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20">
                                         Unpushed: {campaignLeadsSummary.unpushedCount}
                                     </span>
+                                    {campaignLeadsSummary.duplicateCount > 0 && (
+                                        <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">
+                                            Duplicate: {campaignLeadsSummary.duplicateCount}
+                                        </span>
+                                    )}
                                 </div>
 
                                 <button
@@ -1450,6 +1456,7 @@ export default function Campaigns() {
                                     <option value="ALL">All Push Status</option>
                                     <option value="PUSHED">Pushed</option>
                                     <option value="UNPUSHED">Unpushed</option>
+                                    <option value="DUPLICATE">Duplicate</option>
                                 </select>
                             </div>
                         </div>
@@ -1537,9 +1544,18 @@ export default function Campaigns() {
                                                         </td>
                                                         <td className="p-3 font-bold">{row.leadResponsibility || row.uploaderName || "—"}</td>
                                                         <td className="p-3">
-                                                            <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${row.isPushed ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-amber-500/15 text-amber-400 border-amber-500/30"}`}>
-                                                                {row.isPushed ? "Pushed" : "Unpushed"}
-                                                            </span>
+                                                            {row.isDuplicate ? (
+                                                                <span
+                                                                    title={row.duplicateReason || "Duplicate phone number - not pushed to All Leads"}
+                                                                    className="px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border bg-red-500/15 text-red-400 border-red-500/30 cursor-help inline-block"
+                                                                >
+                                                                    Duplicate
+                                                                </span>
+                                                            ) : (
+                                                                <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider border ${row.isPushed ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" : "bg-amber-500/15 text-amber-400 border-amber-500/30"}`}>
+                                                                    {row.isPushed ? "Pushed" : "Unpushed"}
+                                                                </span>
+                                                            )}
                                                         </td>
                                                         <td className="p-3 text-center">
                                                             <button
