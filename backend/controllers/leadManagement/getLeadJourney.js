@@ -249,6 +249,26 @@ export const getLeadJourney = async (req, res) => {
         }
 
         // ----------------------------------------------------
+        // 2b. LEAD QUERIES (ADD QUERY EVENTS)
+        // ----------------------------------------------------
+        if (lead && Array.isArray(lead.queries) && lead.queries.length > 0) {
+            lead.queries.forEach((q, idx) => {
+                events.push({
+                    date: q.date,
+                    type: 'QUERY',
+                    label: `Student Query #${idx + 1}`,
+                    title: q.queryText || 'Query Submitted',
+                    icon: 'comment',
+                    details: {
+                        queryText: q.queryText,
+                        addedBy: q.addedBy || 'System',
+                        role: q.addedByRole || 'Admin'
+                    }
+                });
+            });
+        }
+
+        // ----------------------------------------------------
         // 3. PNTSE REGISTRATION & EXAM EVENT
         // ----------------------------------------------------
         if (pntseStudent) {

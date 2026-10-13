@@ -1,8 +1,8 @@
 import React from "react";
-import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt, FaMicrophone, FaPlay, FaMicrophoneSlash, FaPause, FaTh, FaPhoneSlash, FaRoute } from "react-icons/fa";
+import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaMapMarkerAlt, FaBook, FaInfoCircle, FaBullseye, FaTrash, FaEdit, FaCommentAlt, FaMicrophone, FaPlay, FaMicrophoneSlash, FaPause, FaTh, FaPhoneSlash, FaRoute, FaQuestionCircle } from "react-icons/fa";
 import { toast } from "react-toastify";
 
-const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, onWalkIn, onViewJourney, onTogglePriority, canEdit, canDelete, isDarkMode }) => {
+const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCounseling, onShowHistory, onWalkIn, onViewJourney, onTogglePriority, onAddQuery, canEdit, canDelete, isDarkMode }) => {
     const [recordings, setRecordings] = React.useState((lead?.recordings || []).filter(rec => rec.audioUrl && !rec.audioUrl.toLowerCase().includes("twilio")));
     const [userProfile, setUserProfile] = React.useState(null);
 
@@ -310,6 +310,17 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                            {['superadmin', 'super admin', 'digital'].includes(userProfile?.role?.toLowerCase()?.replace(/[\s\-_]+/g, '')) && (
+                                <button
+                                    onClick={() => {
+                                        if (onAddQuery) onAddQuery(lead);
+                                    }}
+                                    className="px-5 py-3 sm:py-2.5 justify-center rounded-[4px] bg-amber-500 hover:bg-amber-400 text-black font-black uppercase tracking-widest transition-all flex items-center gap-2 text-[10px] shadow-lg shadow-amber-500/20 active:scale-95"
+                                    title="Add Query (Mark Priority & Pending)"
+                                >
+                                    <FaQuestionCircle size={12} /> Add Query
+                                </button>
+                            )}
                             {['superadmin', 'zonalmanager'].includes(userProfile?.role?.toLowerCase()?.replace(/\s+/g, '')) && (
                                 <button
                                     onClick={() => onTogglePriority(lead._id)}

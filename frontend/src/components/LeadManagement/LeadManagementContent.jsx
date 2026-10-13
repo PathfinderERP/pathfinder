@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaChevronDown, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle, FaUserGraduate, FaGraduationCap, FaTimes, FaWalking, FaLayerGroup } from "react-icons/fa";
+import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaChevronDown, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle, FaUserGraduate, FaGraduationCap, FaTimes, FaWalking, FaLayerGroup, FaQuestionCircle } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
 import { saveAs } from "file-saver";
@@ -11,6 +11,7 @@ import AddFollowUpModal from "./AddFollowUpModal";
 import FollowUpHistoryModal from "./FollowUpHistoryModal";
 import FollowUpListModal from "./FollowUpListModal";
 import CentreAnalysisModal from "./CentreAnalysisModal";
+import AddQueryModal from "./AddQueryModal";
 import CustomMultiSelect from "../common/CustomMultiSelect";
 import { hasPermission } from "../../config/permissions";
 import { useTheme } from "../../context/ThemeContext";
@@ -50,6 +51,8 @@ const LeadManagementContent = () => {
     const [selectedLead, setSelectedLead] = useState(null);
     const [selectedDetailLead, setSelectedDetailLead] = useState(null);
     const [showDetailModal, setShowDetailModal] = useState(false);
+    const [showAddQueryModal, setShowAddQueryModal] = useState(false);
+    const [addQueryLead, setAddQueryLead] = useState(null);
     const [dailyLeads, setDailyLeads] = useState([]); // Added state
     const [selectedLeads, setSelectedLeads] = useState([]);
     const shouldSelectNewPageRef = useRef(false);
@@ -1112,6 +1115,19 @@ const LeadManagementContent = () => {
         }
     };
 
+    const handleOpenAddQueryModal = (lead) => {
+        setAddQueryLead(lead);
+        setShowAddQueryModal(true);
+    };
+
+    const handleQuerySuccess = (updatedLead) => {
+        fetchLeads();
+        fetchFollowUpStats();
+        if (selectedDetailLead && updatedLead && selectedDetailLead._id === updatedLead._id) {
+            setSelectedDetailLead(updatedLead);
+        }
+    };
+
     const handleNormalCounseling = () => {
         setConversionModal(prev => ({ ...prev, isOpen: false }));
         setShowDetailModal(false);
@@ -2032,7 +2048,7 @@ const LeadManagementContent = () => {
                                     {renderSortableHeader("Last Feedback", "followUps.feedback")}
                                     {renderSortableHeader("Next Follow Up", "nextFollowUpDate")}
                                     {renderSortableHeader("Uploaded By", "createdBy")}
-                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[460px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
+                                    <th className={`px-6 py-4 text-left text-[9px] font-black uppercase tracking-widest min-w-[540px] ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Actions</th>
                                 </tr>
                             </thead>
                             <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-200'}`}>
@@ -2106,7 +2122,13 @@ const LeadManagementContent = () => {
                                                 )}
                                             </td>
                                             <td className="px-6 py-4">
-                                                {lead.isWalkIn || lead.source?.toLowerCase() === 'walk in' ? (
+                                                {lead.hasPendingQuery ? (
+                                                    <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-[2px] border transition-all ${isDarkMode ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : 'bg-yellow-50 border-yellow-100 text-yellow-600'}`}>
+                                                        <div className="w-1.5 h-1.5 rounded-full bg-current animate-pulse"></div>
+                                                        <span className="text-[9px] font-black uppercase tracking-widest">Pending</span>
+                                                        <span className={`ml-1 text-[8px] font-black px-1.5 py-0.5 rounded-full ${isDarkMode ? 'bg-yellow-500/20' : 'bg-yellow-100'}`} title={`${lead.followUps?.length || 0} previous follow-ups preserved`}>{lead.followUps?.length || 0}</span>
+                                                    </div>
+                                                ) : lead.isWalkIn || lead.source?.toLowerCase() === 'walk in' ? (
                                                     <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-[2px] border transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-cyan-50 border-cyan-100 text-cyan-600'}`}>
                                                         <FaWalking size={10} className="animate-pulse" />
                                                         <span className="text-[9px] font-black uppercase tracking-widest">Walk In</span>
@@ -2131,11 +2153,18 @@ const LeadManagementContent = () => {
                                                     <div className={`text-[11px] font-black uppercase tracking-tight ${isDarkMode ? 'text-white group-hover:text-cyan-400' : 'text-gray-900 group-hover:text-cyan-600'}`}>
                                                         {lead.name}
                                                     </div>
-                                                    {lead.isPriority && (
-                                                        <span className="inline-block px-1.5 py-0.5 rounded-[2px] text-[7px] font-black uppercase tracking-widest border border-red-500 bg-red-500/20 text-red-400 self-start leading-none">
-                                                            Priority
-                                                        </span>
-                                                    )}
+                                                    <div className="flex flex-wrap items-center gap-1">
+                                                        {lead.isPriority && (
+                                                            <span className="inline-block px-1.5 py-0.5 rounded-[2px] text-[7px] font-black uppercase tracking-widest border border-red-500 bg-red-500/20 text-red-400 self-start leading-none">
+                                                                Priority
+                                                            </span>
+                                                        )}
+                                                        {lead.hasPendingQuery && (
+                                                            <span className="inline-block px-1.5 py-0.5 rounded-[2px] text-[7px] font-black uppercase tracking-widest border border-amber-500 bg-amber-500/20 text-amber-300 self-start leading-none" title="New query waiting for telecaller response">
+                                                                Query Pending
+                                                            </span>
+                                                        )}
+                                                    </div>
                                                     {lead.isAlreadyEnrolled && (
                                                         <span
                                                             className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-[2px] text-[7px] font-black uppercase tracking-widest border border-purple-500 bg-purple-500/20 text-purple-300 self-start leading-none"
@@ -2227,8 +2256,19 @@ const LeadManagementContent = () => {
                                                     {lead.createdBy?.name || "—"}
                                                 </div>
                                             </td>
-                                            <td className="px-6 py-4 min-w-[460px]">
+                                            <td className="px-6 py-4 min-w-[540px]">
                                                 <div className="flex items-center gap-2.5 whitespace-nowrap min-w-max">
+
+                                                    {['superadmin', 'super admin', 'digital'].includes(user?.role?.toLowerCase()?.replace(/[\s\-_]+/g, '')) && (
+                                                        <button
+                                                            onClick={(e) => { e.stopPropagation(); handleOpenAddQueryModal(lead); }}
+                                                            className="bg-amber-500 hover:bg-amber-400 text-black px-3.5 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-amber-500/20 active:scale-95 transition-all whitespace-nowrap flex items-center gap-1.5"
+                                                            title="Add Query (Mark as Priority & Pending)"
+                                                        >
+                                                            <FaQuestionCircle size={9} />
+                                                            Add Query
+                                                        </button>
+                                                    )}
 
                                                     {['superadmin', 'zonalmanager'].includes(user?.role?.toLowerCase()?.replace(/\s+/g, '')) && (
                                                         <button
@@ -2429,7 +2469,19 @@ const LeadManagementContent = () => {
                     onSuccess={() => { setShowBulkUpdateModal(false); clearSelection(); fetchLeads(); fetchFollowUpStats(); }}
                 />
             )}
-            {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead, startCall = false) => { setShowDetailModal(false); setSelectedLead(lead); setStartCallOnOpen(startCall); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} onWalkIn={handleTagWalkIn} onViewJourney={(lead) => { setShowDetailModal(false); handleViewJourney(lead); }} onTogglePriority={handleTogglePriority} />}
+            {showDetailModal && selectedDetailLead && <LeadDetailsModal isDarkMode={isDarkMode} lead={selectedDetailLead} canEdit={canEdit} canDelete={canDelete} onClose={() => { setShowDetailModal(false); setSelectedDetailLead(null); }} onEdit={(lead) => { setShowDetailModal(false); handleEdit(lead); }} onDelete={(id) => { handleDelete(id); setShowDetailModal(false); setSelectedDetailLead(null); }} onFollowUp={(lead, startCall = false) => { setShowDetailModal(false); setSelectedLead(lead); setStartCallOnOpen(startCall); setShowFollowUpModal(true); }} onCounseling={(lead) => handleCounseling(lead)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} onWalkIn={handleTagWalkIn} onViewJourney={(lead) => { setShowDetailModal(false); handleViewJourney(lead); }} onTogglePriority={handleTogglePriority} onAddQuery={(lead) => handleOpenAddQueryModal(lead)} />}
+            {showAddQueryModal && addQueryLead && (
+                <AddQueryModal
+                    isOpen={showAddQueryModal}
+                    onClose={() => {
+                        setShowAddQueryModal(false);
+                        setAddQueryLead(null);
+                    }}
+                    lead={addQueryLead}
+                    onSuccess={handleQuerySuccess}
+                    isDarkMode={isDarkMode}
+                />
+            )}
             {showFollowUpModal && selectedLead && <AddFollowUpModal isDarkMode={isDarkMode} lead={selectedLead} startCall={startCallOnOpen} onClose={() => { setShowFollowUpModal(false); setSelectedLead(null); setStartCallOnOpen(false); }} onSuccess={() => { setShowFollowUpModal(false); setSelectedLead(null); setStartCallOnOpen(false); fetchLeads(); fetchFollowUpStats(); }} />}
             {showHistoryModal && selectedDetailLead && <FollowUpHistoryModal isDarkMode={isDarkMode} lead={selectedDetailLead} onClose={() => setShowHistoryModal(false)} />}
             {showFollowUpListModal && <FollowUpListModal isDarkMode={isDarkMode} onClose={() => setShowFollowUpListModal(false)} onShowHistory={(lead) => { setSelectedDetailLead(lead); setShowHistoryModal(true); }} />}

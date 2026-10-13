@@ -78,7 +78,7 @@ export const getLeads = async (req, res) => {
             contactedAnd.push({ $or: contactedQuery.$or });
             delete contactedQuery.$or;
         }
-        contactedAnd.push({ followUps: { $exists: true, $not: { $size: 0 } } });
+        contactedAnd.push({ followUps: { $exists: true, $not: { $size: 0 } }, hasPendingQuery: { $ne: true } });
         contactedQuery.$and = contactedAnd;
         const contactedCount = await LeadManagement.countDocuments(contactedQuery);
 
@@ -92,7 +92,8 @@ export const getLeads = async (req, res) => {
         remainingAnd.push({
             $or: [
                 { followUps: { $size: 0 } },
-                { followUps: { $exists: false } }
+                { followUps: { $exists: false } },
+                { hasPendingQuery: true }
             ]
         });
         remainingQuery.$and = remainingAnd;

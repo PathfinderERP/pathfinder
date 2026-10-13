@@ -21,7 +21,8 @@ import {
     FaPhoneAlt,
     FaIdCard,
     FaBuilding,
-    FaCloudUploadAlt
+    FaCloudUploadAlt,
+    FaQuestionCircle
 } from "react-icons/fa";
 import { toast } from "react-toastify";
 
@@ -229,6 +230,39 @@ const LeadJourneyModal = ({ leadId, onClose, isDarkMode }) => {
                                 <div className="text-[9px] font-black uppercase tracking-widest text-orange-500 flex items-center gap-1.5 pt-1">
                                     <FaClock size={10} />
                                     <span>Next Follow Up: {new Date(event.details.nextFollowUpDate).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).toUpperCase()}</span>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                );
+
+            case 'QUERY':
+                return (
+                    <div className={`border rounded-[4px] p-6 shadow-2xl transition-all hover:border-amber-500/50 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200'}`}>
+                        <div className="flex justify-between items-start mb-4 border-b pb-3 border-gray-800/10 dark:border-gray-800">
+                            <div className="flex items-center gap-2.5 text-amber-500 dark:text-amber-400">
+                                <FaQuestionCircle size={13} className="animate-pulse" />
+                                <span className="font-black text-[10px] uppercase tracking-widest">{event.label}</span>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest ${isDarkMode ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' : 'bg-amber-50 text-amber-600 border border-amber-200'}`}>
+                                {event.title}
+                            </span>
+                        </div>
+                        <div className="space-y-3 text-xs font-bold">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1">
+                                    <span className="text-[8px] text-gray-500 uppercase tracking-widest block">Added By</span>
+                                    <span className={isDarkMode ? 'text-white' : 'text-gray-900'}>{event.details.addedBy} {event.details.role ? `(${event.details.role})` : ''}</span>
+                                </div>
+                                <div className="space-y-1">
+                                    <span className="text-[8px] text-gray-500 uppercase tracking-widest block">Status Transition</span>
+                                    <span className="text-amber-400">Marked as Priority & Pending</span>
+                                </div>
+                            </div>
+                            {event.details.queryText && (
+                                <div className={`p-3 rounded-[4px] border border-dashed text-xs ${isDarkMode ? 'bg-black/20 border-gray-800 text-gray-300' : 'bg-gray-50 border-gray-100 text-gray-700'}`}>
+                                    <span className="text-[8px] text-gray-500 uppercase tracking-widest block mb-1 font-black">Query Content / Remarks</span>
+                                    <span className="italic">"{event.details.queryText}"</span>
                                 </div>
                             )}
                         </div>

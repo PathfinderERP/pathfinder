@@ -655,13 +655,14 @@ export const buildLeadQuery = async (queryParams, user) => {
 
         const statusOr = [];
         if (statusVals.includes('contacted')) {
-            statusOr.push({ followUps: { $exists: true, $not: { $size: 0 } } });
+            statusOr.push({ followUps: { $exists: true, $not: { $size: 0 } }, hasPendingQuery: { $ne: true } });
         }
         if (statusVals.includes('remaining')) {
             statusOr.push({
                 $or: [
                     { followUps: { $size: 0 } },
-                    { followUps: { $exists: false } }
+                    { followUps: { $exists: false } },
+                    { hasPendingQuery: true }
                 ]
             });
         }

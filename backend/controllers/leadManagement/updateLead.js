@@ -137,3 +137,55 @@ export const toggleLeadPriority = async (req, res) => {
     }
 };
 
+export const addLeadQuery = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { remarks } = req.body;
+
+        // Check if user is SuperAdmin or Digital role
+        const userRole = req.user?.role?.toLowerCase()?.replace(/[\s\-_]+/g, '') || '';
+        const allowedRoles = ['superadmin', 'digital'];
+        if (!allowedRoles.includes(userRole)) {
+            return res.status(403).json({
+                message: "Access denied. Only Super Admin and Digital role users can add queries to leads."
+            });
+        }
+
+        const lead = await LeadManagement.findById(id);
+        if (!lead) {
+            return res.status(404).json({ message: "Lead not found" });
+        }
+
+        // 1. Mark as Priority
+        lead.isPriority = true;
+
+        // 2. Convert to Pending state so it appears in pending / remaining queue
+        lead.hasPendingQuery = true;
+        lead.pendingQueryDate = new Date();
+
+        // 3. Keep previous conversations / followUps completely intact (do NOT delete)
+        if (!lead.queries) {
+            lead.queries = [];
+        }
+        lead.queries.push({
+            queryText: (remarks && String(remarks).trim()) ? String(remarks).trim() : "New query added",
+            date: new Date(),
+            addedBy: req.user?.name || req.user?.email || "Authorized User",
+            addedByRole: req.user?.role || "Digital/SuperAdmin"
+        });
+
+        await lead.save();
+
+        const updatedLead = await LeadManagement.findById(id)
+            .populate(['className', 'centre', 'course', 'board', 'campaign']);
+
+        res.status(200).json({
+            message: "Query added successfully. Lead is marked as Priority and converted to Pending.",
+            lead: updatedLead
+        });
+    } catch (err) {
+        console.error("Add lead query error:", err);
+        res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+

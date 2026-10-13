@@ -172,12 +172,35 @@ const leadManagementSchema = new mongoose.Schema({
     },
     campaignFrom: {
         type: String
-    }
+    },
+    hasPendingQuery: {
+        type: Boolean,
+        default: false
+    },
+    pendingQueryDate: {
+        type: Date
+    },
+    queries: [{
+        queryText: {
+            type: String
+        },
+        date: {
+            type: Date,
+            default: Date.now
+        },
+        addedBy: {
+            type: String
+        },
+        addedByRole: {
+            type: String
+        }
+    }]
 }, { timestamps: true });
 
 leadManagementSchema.index({ phoneNumber: 1 });
 leadManagementSchema.index({ secondPhoneNumber: 1 });
 leadManagementSchema.index({ email: 1 });
+leadManagementSchema.index({ hasPendingQuery: 1 });
 
 const LeadManagement = new mongoose.model("LeadManagement", leadManagementSchema);
 export default LeadManagement;

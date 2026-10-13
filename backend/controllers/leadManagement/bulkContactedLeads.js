@@ -141,6 +141,7 @@ export const bulkContactedLeads = async (req, res) => {
                     };
 
                     lead.followUps.push(newFollowUp);
+                    lead.hasPendingQuery = false;
                     lead.lastFollowUpDate = new Date();
                     if (nextFollowUpDate) lead.nextFollowUpDate = new Date(nextFollowUpDate);
                 }

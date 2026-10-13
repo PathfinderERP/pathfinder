@@ -37,6 +37,7 @@ export const addFollowUp = async (req, res) => {
         };
 
         lead.followUps.push(newFollowUp);
+        lead.hasPendingQuery = false;
 
         // Update root fields
         lead.lastFollowUpDate = newFollowUp.date;
