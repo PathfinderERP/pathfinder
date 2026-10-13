@@ -670,7 +670,7 @@ export const getAllAttendance = async (req, res) => {
             } else if (recordDate >= todayStart && attObj.checkIn?.time && !attObj.checkOut?.time) {
                 attObj.isCurrentlyWorking = true;
             }
-            if (attObj.workingHours > 0 && attObj.employeeId && attObj.status !== "Week Off" && attObj.status !== "Leave" && attObj.status !== "Holiday") {
+            if (attObj.workingHours > 0 && attObj.employeeId && attObj.status !== "Leave" && attObj.status !== "Holiday") {
                 const target = getTargetWorkingHours(attObj.employeeId.workingHours);
                 attObj.status = determineAttendanceStatus(attObj.workingHours, target);
             }
@@ -741,8 +741,15 @@ export const getAllAttendance = async (req, res) => {
                     const dayKey = `${emp._id.toString()}_${dayStr}`;
                     if (!existingAttendanceMap.has(dayKey)) {
                         let isOffDay = false;
-                        if (emp.workingDays && emp.workingDays[dayName] === false && Object.values(emp.workingDays).some(v => v === true)) {
-                            isOffDay = true;
+                        const hasWorkingDaysSet = Object.values(emp.workingDays || {}).some(v => v === true);
+                        if (hasWorkingDaysSet) {
+                            if (emp.workingDays[dayName] === false) {
+                                isOffDay = true;
+                            }
+                        } else {
+                            if (dayOfWeek === 0) {
+                                isOffDay = true;
+                            }
                         }
 
                         syntheticRecords.push({
@@ -921,7 +928,7 @@ export const getAttendanceAnalysis = async (req, res) => {
         let checkInCount = 0;
         let checkOutCount = 0;
 
-        const statusDistribution = { Present: 0, Late: 0, 'Half Day': 0, Absent: 0, 'Early Leave': 0, Overtime: 0 };
+        const statusDistribution = { Present: 0, Late: 0, 'Half Day': 0, Absent: 0, 'Early Leave': 0, Overtime: 0, 'Week Off': 0 };
         const snapshotStr = format(referenceDate, 'yyyy-MM-dd');
         let todayRecord = null;
         
@@ -943,6 +950,9 @@ export const getAttendanceAnalysis = async (req, res) => {
                 if (isPastDay && att.checkIn?.time && !att.checkOut?.time) {
                     status = 'Absent';
                     wh = 0;
+                } else if (wh > 0 && employee && status !== 'Leave' && status !== 'Holiday') {
+                    const target = getTargetWorkingHours(employee.workingHours);
+                    status = determineAttendanceStatus(wh, target);
                 }
 
                 totalHours += wh;
@@ -990,14 +1000,29 @@ export const getAttendanceAnalysis = async (req, res) => {
                     manuallyMarkedBy: att.manuallyMarkedBy
                 };
             } else {
-                const isWeekendDay = day.getDay() === 0; // Sunday
-                if (!isWeekendDay) statusDistribution.Absent++;
+                const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                const dayOfWeek = day.getDay();
+                const dayName = dayNames[dayOfWeek];
+                const hasConfiguredWorkingDays = Boolean(
+                    employee?.workingDays &&
+                    typeof employee.workingDays === 'object' &&
+                    Object.values(employee.workingDays).some(v => v === true)
+                );
+                const isOffDay = hasConfiguredWorkingDays
+                    ? employee.workingDays[dayName] === false
+                    : dayOfWeek === 0;
+
+                if (isOffDay) {
+                    statusDistribution['Week Off'] = (statusDistribution['Week Off'] || 0) + 1;
+                } else {
+                    statusDistribution.Absent = (statusDistribution.Absent || 0) + 1;
+                }
 
                 return {
                     day: format(day, 'dd'),
                     fullDate: format(day, 'dd MMM'),
                     hours: 0,
-                    status: 'Absent',
+                    status: isOffDay ? 'Week Off' : 'Absent',
                     checkIn: '-',
                     checkOut: '-',
                     regularization: reg
@@ -1026,6 +1051,7 @@ export const getAttendanceAnalysis = async (req, res) => {
                 totalDays: filteredAttendances.length,
                 presentDays: statusDistribution.Present + statusDistribution.Late + statusDistribution['Half Day'] + statusDistribution['Early Leave'] + statusDistribution.Overtime,
                 absentDays: statusDistribution.Absent,
+                weekOffDays: statusDistribution['Week Off'] || 0,
                 totalHours: parseFloat(totalHours.toFixed(2)),
                 averageHours: parseFloat(avgHours),
                 minHours: parseFloat(minHours.toFixed(2)),
@@ -1042,6 +1068,7 @@ export const getAttendanceAnalysis = async (req, res) => {
                 { name: 'Early Leave', value: statusDistribution['Early Leave'], color: '#ec4899' },
                 { name: 'Half Day', value: statusDistribution['Half Day'], color: '#f59e0b' },
                 { name: 'Absent', value: statusDistribution.Absent, color: '#ef4444' },
+                { name: 'Week Off', value: statusDistribution['Week Off'], color: '#6b7280' },
                 { name: 'Late', value: statusDistribution.Late, color: '#6366f1' }
             ].filter(i => i.value > 0)
         });
@@ -1170,8 +1197,15 @@ export const getAttendanceDashboardStats = async (req, res) => {
                 const dayKey = `${emp._id.toString()}_${dayStr}`;
                 if (!existingAttendanceMap.has(dayKey)) {
                     let isOffDay = false;
-                    if (emp.workingDays && emp.workingDays[dayName] === false && Object.values(emp.workingDays).some(v => v === true)) {
-                        isOffDay = true;
+                    const hasWorkingDaysSet = Object.values(emp.workingDays || {}).some(v => v === true);
+                    if (hasWorkingDaysSet) {
+                        if (emp.workingDays[dayName] === false) {
+                            isOffDay = true;
+                        }
+                    } else {
+                        if (dayOfWeek === 0) {
+                            isOffDay = true;
+                        }
                     }
                     if (!isOffDay) {
                         unrecordedAbsentCount++;
@@ -1248,8 +1282,15 @@ export const getAttendanceDashboardStats = async (req, res) => {
                 const dayKey = `${emp._id.toString()}_${dayStr}`;
                 if (!existingAttendanceMap.has(dayKey)) {
                     let isOffDay = false;
-                    if (emp.workingDays && emp.workingDays[dayName] === false && Object.values(emp.workingDays).some(v => v === true)) {
-                        isOffDay = true;
+                    const hasWorkingDaysSet = Object.values(emp.workingDays || {}).some(v => v === true);
+                    if (hasWorkingDaysSet) {
+                        if (emp.workingDays[dayName] === false) {
+                            isOffDay = true;
+                        }
+                    } else {
+                        if (dayOfWeek === 0) {
+                            isOffDay = true;
+                        }
                     }
                     if (!isOffDay) {
                         dayUnrecordedAbsent++;

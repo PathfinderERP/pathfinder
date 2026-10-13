@@ -88,6 +88,14 @@ const campaignLeadSchema = new mongoose.Schema({
     },
     pushedAt: {
         type: Date
+    },
+    isDuplicate: {
+        type: Boolean,
+        default: false
+    },
+    duplicateReason: {
+        type: String,
+        default: ""
     }
 }, { timestamps: true });
 

@@ -1945,28 +1945,49 @@ const EmployeesAttendance = () => {
                                                         const recordDate = format(new Date(r.date), 'yyyy-MM-dd');
                                                         const todayStr = format(new Date(), 'yyyy-MM-dd');
                                                         const isPastDate = recordDate < todayStr;
-
                                                         const target = Array.isArray(r.employeeId?.workingHours) && r.employeeId.workingHours.length > 0 ? Math.min(...r.employeeId.workingHours) : (typeof r.employeeId?.workingHours === 'number' ? r.employeeId.workingHours : 9);
+
+                                                        const dateObj = new Date(r.date);
+                                                        const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
+                                                        const dayName = dayNames[dateObj.getDay()];
+                                                        const empWd = r.employeeId?.workingDays;
+                                                        const hasConfiguredWorkingDays = Boolean(empWd && typeof empWd === 'object' && Object.values(empWd).some(v => v === true));
+                                                        const isScheduledWeekOff = hasConfiguredWorkingDays ? (empWd[dayName] === false) : (dateObj.getDay() === 0);
+
+                                                        const hasWorked = hours > 0 || Boolean(r.checkIn?.time && r.checkOut?.time);
+                                                        const isCheckedInActive = Boolean(r.checkIn?.time && !r.checkOut?.time && !isPastDate);
 
                                                         let badgeCls = 'bg-emerald-500/10 text-emerald-400';
                                                         let label = s || 'Present';
 
-                                                        if (s === 'Absent' || (isPastDate && r.checkIn?.time && !r.checkOut?.time)) {
-                                                             badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
-                                                        } else if (hours < 4 && r.checkOut) {
-                                                            badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
-                                                        } else if (s === 'Half Day' || (hours < (target / 2) && r.checkOut)) {
-                                                            badgeCls = 'bg-orange-500/10 text-orange-400'; label = 'Half Day';
-                                                        } else if (s === 'Early Leave' || (hours < (target - 0.5) && r.checkOut)) {
-                                                            badgeCls = 'bg-pink-500/10 text-pink-400'; label = 'Early Leave';
-                                                        } else if (hours < target && r.checkOut) {
-                                                            badgeCls = 'bg-lime-500/10 text-lime-400'; label = 'Short';
-                                                        } else if (s === 'Overtime' || ((hours > target + (5 / 60)) && r.checkOut)) {
-                                                            badgeCls = 'bg-indigo-500/10 text-indigo-400'; label = 'Overtime ★';
-                                                        } else if (s === 'Week Off') {
-                                                            badgeCls = 'bg-gray-500/10 text-gray-500'; label = 'Day Off';
-                                                        } else if (!r.checkOut && !isPastDate) {
+                                                        if (hasWorked) {
+                                                            if (hours < 4 && r.checkOut) {
+                                                                badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
+                                                            } else if (s === 'Half Day' || (hours < (target / 2) && r.checkOut)) {
+                                                                badgeCls = 'bg-orange-500/10 text-orange-400'; label = 'Half Day';
+                                                            } else if (s === 'Early Leave' || (hours < (target - 0.5) && r.checkOut)) {
+                                                                badgeCls = 'bg-pink-500/10 text-pink-400'; label = 'Early Leave';
+                                                            } else if (hours < target && r.checkOut) {
+                                                                badgeCls = 'bg-lime-500/10 text-lime-400'; label = 'Short';
+                                                            } else if (s === 'Overtime' || ((hours > target + (5 / 60)) && r.checkOut)) {
+                                                                badgeCls = 'bg-indigo-500/10 text-indigo-400'; label = 'Overtime ★';
+                                                            } else {
+                                                                badgeCls = 'bg-emerald-500/10 text-emerald-400'; label = 'Present';
+                                                            }
+                                                        } else if (isCheckedInActive) {
                                                             badgeCls = 'bg-emerald-500/10 text-emerald-400'; label = 'Active';
+                                                        } else if (isPastDate && r.checkIn?.time && !r.checkOut?.time) {
+                                                            badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
+                                                        } else {
+                                                            if (s === 'Week Off' || isScheduledWeekOff) {
+                                                                badgeCls = 'bg-gray-500/10 text-gray-400 border border-gray-500/20'; label = 'Week Off';
+                                                            } else if (s === 'Holiday') {
+                                                                badgeCls = 'bg-blue-500/10 text-blue-400 border border-blue-500/20'; label = 'Holiday';
+                                                            } else if (s === 'Leave') {
+                                                                badgeCls = 'bg-purple-500/10 text-purple-400 border border-purple-500/20'; label = 'Leave';
+                                                            } else {
+                                                                badgeCls = 'bg-red-500/10 text-red-400 border border-red-500/20'; label = 'Absent';
+                                                            }
                                                         }
 
                                                         return (
@@ -2041,7 +2062,10 @@ const EmployeesAttendance = () => {
                                                             let badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
                                                             let label = record.status;
 
-                                                            if (s === "Absent" || (hours < 4 && record.checkOut)) {
+                                                            if (s === "Week Off") {
+                                                                badgeClass = "bg-gray-500/10 text-gray-400 border border-gray-500/20";
+                                                                label = "Week Off";
+                                                            } else if (s === "Absent" || (hours < 4 && record.checkOut)) {
                                                                 badgeClass = "bg-red-500/10 text-red-500 border border-red-500/20";
                                                             } else if (s === "Half Day" || (hours < 4.5 && record.checkOut)) {
                                                                 badgeClass = "bg-orange-500/10 text-orange-500 border border-orange-500/20";
