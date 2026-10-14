@@ -221,7 +221,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     ]
                 },
                 {
-                    name: "BOOKS EX",
+                    name: "Books External",
                     icon: <FaBook />,
                     path: "/books-ex"
                 },

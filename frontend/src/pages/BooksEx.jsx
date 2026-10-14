@@ -154,7 +154,7 @@ const BooksEx = () => {
                 }
             }
         } catch (err) {
-            console.error("Error fetching master data for BOOKS EX:", err);
+            console.error("Error fetching master data for Books External:", err);
         } finally {
             setLoadingMaster(false);
         }
@@ -509,7 +509,7 @@ const BooksEx = () => {
                         <div>
                             <div className="flex items-center gap-2">
                                 <h1 className={`text-xl sm:text-2xl font-black uppercase tracking-tight ${isDarkMode ? 'text-white' : 'text-slate-900'}`}>
-                                    BOOKS EX
+                                    BOOKS EXTERNAL
                                 </h1>
                                 <span className={`px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-widest ${
                                     isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-100 text-purple-700 border border-purple-300'
@@ -887,7 +887,7 @@ const BooksEx = () => {
                                             Buy Books for External Student
                                         </h3>
                                         <p className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-slate-500'}`}>
-                                            Auto-Sequential Bill Generation &bull; Module BOOKS EX
+                                            Auto-Sequential Bill Generation &bull; Module Books External
                                         </p>
                                     </div>
                                 </div>

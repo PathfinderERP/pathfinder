@@ -420,9 +420,11 @@ function App() {
         <Route path="/pmo/all-students" element={<ProtectedRoute requiredPermissionModule="pmo" requiredPermissionSection="allStudents"><PMOAllStudents /></ProtectedRoute>} />
         <Route path="/pmo/add-student" element={<ProtectedRoute requiredPermissionModule="pmo" requiredPermissionSection="addStudent"><PMOAddStudent /></ProtectedRoute>} />
 
-        {/* BOOKS EX Routes */}
+        {/* Books External Routes */}
         <Route path="/books-ex" element={<ProtectedRoute><BooksEx /></ProtectedRoute>} />
+        <Route path="/books-external" element={<ProtectedRoute><BooksEx /></ProtectedRoute>} />
         <Route path="/admissions/books-ex" element={<ProtectedRoute><BooksEx /></ProtectedRoute>} />
+        <Route path="/admissions/books-external" element={<ProtectedRoute><BooksEx /></ProtectedRoute>} />
 
         <Route path="/user-management" element={<ProtectedRoute><UserManagement /></ProtectedRoute>} />
         {/* <Route path="/system-logs" element={<ProtectedRoute><SystemLogs /></ProtectedRoute>} /> */}
