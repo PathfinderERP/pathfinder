@@ -3,6 +3,7 @@ import LeaveRequest from '../../models/Attendance/LeaveRequest.js';
 import LeaveType from '../../models/Attendance/LeaveType.js';
 import EmployeeAttendance from '../../models/Attendance/EmployeeAttendance.js';
 import Employee from '../../models/HR/Employee.js';
+import Department from '../../models/Master_data/Department.js';
 import User from '../../models/User.js';
 import { getSignedFileUrl } from "../../utils/r2Upload.js";
 import { eachDayOfInterval, startOfDay } from 'date-fns';
@@ -120,7 +121,7 @@ const checkAvailableLeaveBalance = async (employeeId, leaveTypeId, requestingDay
 // Get all leave requests (for HR/Superadmin, Reporting Manager, or employee's own requests)
 export const getLeaveRequests = async (req, res) => {
     try {
-        const { employeeId, status, startDate, endDate, search, page, limit, myRequests } = req.query;
+        const { employeeId, status, startDate, endDate, search, page, limit, myRequests, department, departments } = req.query;
 
         let filter = {};
         let isRequesterPartTime = false;
@@ -213,6 +214,44 @@ export const getLeaveRequests = async (req, res) => {
             }
         }
 
+        // Department Multi-selection Filter
+        const deptParam = departments || department;
+        let requestedDepts = [];
+        if (Array.isArray(deptParam)) {
+            requestedDepts = deptParam.flatMap(d => typeof d === 'string' ? d.split(',') : d).map(d => String(d).trim()).filter(Boolean);
+        } else if (typeof deptParam === 'string' && deptParam.trim()) {
+            requestedDepts = deptParam.split(',').map(d => d.trim()).filter(Boolean);
+        }
+
+        if (requestedDepts.length > 0) {
+            const validDeptIds = requestedDepts.filter(d => mongoose.Types.ObjectId.isValid(d));
+            const deptNames = requestedDepts.filter(d => !mongoose.Types.ObjectId.isValid(d));
+
+            if (deptNames.length > 0) {
+                const matchedDepts = await Department.find({
+                    departmentName: { $in: deptNames.map(n => new RegExp(`^${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i')) }
+                }).select('_id');
+                validDeptIds.push(...matchedDepts.map(d => d._id));
+            }
+
+            const deptEmployees = await Employee.find({
+                department: { $in: validDeptIds }
+            }).select('_id');
+            const deptEmpIds = deptEmployees.map(e => e._id.toString());
+
+            if (filter.employee && filter.employee.$in) {
+                const currentAllowedIds = filter.employee.$in.map(id => id.toString());
+                const intersected = currentAllowedIds.filter(id => deptEmpIds.includes(id));
+                filter.employee = { $in: intersected };
+            } else if (filter.employee) {
+                if (!deptEmpIds.includes(filter.employee.toString())) {
+                    filter.employee = { $in: [] };
+                }
+            } else {
+                filter.employee = { $in: deptEmpIds };
+            }
+        }
+
         // Status Filter
         if (status && status !== 'All' && status !== '') {
             filter.status = status;
@@ -234,7 +273,14 @@ export const getLeaveRequests = async (req, res) => {
         const totalPages = Math.ceil(totalItems / limitNum);
 
         const requests = await LeaveRequest.find(filter)
-            .populate('employee', 'name employeeId email profileImage')
+            .populate({
+                path: 'employee',
+                select: 'name employeeId email profileImage department',
+                populate: {
+                    path: 'department',
+                    select: 'departmentName'
+                }
+            })
             .populate('leaveType', 'name days')
             .populate('reviewedBy', 'name email')
             .sort({ createdAt: -1 })
