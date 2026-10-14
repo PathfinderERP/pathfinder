@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Allocation from "../../models/Inventory/Allocation.js";
 import Payment from "../../models/Payment/Payment.js";
 import Student from "../../models/Students.js";
@@ -12,6 +13,75 @@ import ExamTagSchema from "../../models/Master_data/ExamTag.js";
 import InventoryMaster from "../../models/Master_data/Inventory.js";
 import Course from "../../models/Master_data/Courses.js";
 import { generateBillId } from "../../utils/billIdGenerator.js";
+
+// Helper: Resolve assigned centre names and ObjectIds for a user from User Management
+export const getUserAssignedCentres = async (user) => {
+    if (!user) return { isSuperAdmin: false, centreNames: [], centreObjectIds: [] };
+
+    const isSuperAdmin = user.role === "superAdmin" || user.role === "Super Admin" || user.role === "superadmin";
+    if (isSuperAdmin) {
+        return { isSuperAdmin: true, centreNames: [], centreObjectIds: [] };
+    }
+
+    const centreObjectIds = [];
+    const centreNames = [];
+
+    const rawCentres = Array.isArray(user.centres) ? [...user.centres] : (user.centres ? [user.centres] : []);
+    if (user.primaryCentre) {
+        rawCentres.push(user.primaryCentre);
+    }
+
+    for (const c of rawCentres) {
+        if (!c) continue;
+        if (typeof c === 'string') {
+            if (mongoose.Types.ObjectId.isValid(c)) {
+                centreObjectIds.push(new mongoose.Types.ObjectId(c));
+            } else {
+                centreNames.push(c.trim());
+            }
+        } else if (c instanceof mongoose.Types.ObjectId) {
+            centreObjectIds.push(c);
+        } else if (typeof c === 'object') {
+            const cid = c._id || c.id;
+            if (cid && mongoose.Types.ObjectId.isValid(cid)) {
+                centreObjectIds.push(new mongoose.Types.ObjectId(cid));
+            }
+            if (c.centreName) centreNames.push(c.centreName.trim());
+            if (c.name) centreNames.push(c.name.trim());
+        }
+    }
+
+    // Also check Employee record in case primaryCentre is set on Employee
+    try {
+        const Employee = (await import("../../models/HR/Employee.js")).default;
+        const emp = await Employee.findOne({ user: user._id || user.id })
+            .populate("primaryCentre", "centreName enterCode centreCode")
+            .lean();
+        if (emp?.primaryCentre) {
+            if (emp.primaryCentre._id && mongoose.Types.ObjectId.isValid(emp.primaryCentre._id)) {
+                centreObjectIds.push(new mongoose.Types.ObjectId(emp.primaryCentre._id));
+            }
+            if (emp.primaryCentre.centreName) centreNames.push(emp.primaryCentre.centreName.trim());
+        }
+    } catch (empErr) {
+        // non-fatal
+    }
+
+    if (centreObjectIds.length > 0) {
+        const centreDocs = await CentreSchema.find({
+            _id: { $in: centreObjectIds }
+        }).select("centreName enterCode centreCode").lean();
+
+        centreDocs.forEach(cd => {
+            if (cd.centreName) centreNames.push(cd.centreName.trim());
+            if (cd.enterCode) centreNames.push(cd.enterCode.trim());
+            if (cd.centreCode) centreNames.push(cd.centreCode.trim());
+        });
+    }
+
+    const uniqueNames = [...new Set(centreNames.filter(Boolean))];
+    return { isSuperAdmin: false, centreNames: uniqueNames, centreObjectIds };
+};
 
 // Fast Store Overview: aggregates active centres, active student counts, item allocations, master filters & global stats
 export const getStoreOverview = async (req, res) => {
@@ -654,6 +724,16 @@ export const createAllocation = async (req, res) => {
         const targetCentreName = centreName || profile.studentInfo?.centre || 'MAIN';
         const finalAdmissionId = profile.finalAdmissionId;
 
+        // Verify that non-superAdmin users can only create allocations/buy books for their assigned centres
+        const { isSuperAdmin: isSuperUser, centreNames: allowedCentresList } = await getUserAssignedCentres(req.user);
+        if (!isSuperUser) {
+            if (allowedCentresList.length === 0 || !allowedCentresList.some(cn => cn.toLowerCase() === targetCentreName.trim().toLowerCase())) {
+                return res.status(403).json({ 
+                    message: `You do not have access to purchase or allocate books for centre: ${targetCentreName}. Assigned centres: ${allowedCentresList.join(', ') || 'None'}` 
+                });
+            }
+        }
+
         // Resolve chosen Course Name, Department, Class, Exam Tag & Session
         let resolvedCourseName = courseName || null;
         let resolvedDepartment = profile.resolvedDepartment;
@@ -1144,6 +1224,16 @@ export const getBillDetailsByBillId = async (req, res) => {
         }
 
         const targetCentreName = allocation?.centre || payment?.centre || 'MAIN';
+
+        if (req.user) {
+            const { isSuperAdmin: isSuperForBill, centreNames: userCentresForBill } = await getUserAssignedCentres(req.user);
+            if (!isSuperForBill && userCentresForBill.length > 0) {
+                if (!userCentresForBill.some(cn => cn.toLowerCase() === targetCentreName.trim().toLowerCase())) {
+                    return res.status(403).json({ message: "You do not have permission to view bill receipt for this centre" });
+                }
+            }
+        }
+
         const centreDoc = await CentreSchema.findOne({
             $or: [
                 { centreName: new RegExp(`^${targetCentreName.trim()}$`, 'i') },
@@ -1254,24 +1344,80 @@ export const getBillDetailsByBillId = async (req, res) => {
     }
 };
 
-// Get all External Book purchases
+// Get all External Book purchases (strictly filtered by user's assigned centres from User Management)
 export const getExternalBookAllocations = async (req, res) => {
     try {
-        const allocations = await Allocation.find({
-            $or: [
-                { isExternal: true },
-                { admission: null }
-            ]
-        })
-        .populate({
-            path: 'student',
-            select: 'studentsDetails uid'
-        })
-        .populate('payment')
-        .populate('allocatedBy', 'name')
-        .sort({ createdAt: -1 })
-        .limit(300)
-        .lean();
+        const { isSuperAdmin, centreNames } = await getUserAssignedCentres(req.user);
+
+        const andConditions = [
+            {
+                $or: [
+                    { isExternal: true },
+                    { admission: null }
+                ]
+            }
+        ];
+
+        // Non-superAdmin users can ONLY see allocations for their assigned centres in User Management
+        if (!isSuperAdmin) {
+            if (centreNames.length === 0) {
+                return res.status(200).json({
+                    success: true,
+                    allocations: []
+                });
+            }
+
+            const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const centreRegexes = centreNames.map(name => new RegExp(`^${escapeRegex(name)}$`, 'i'));
+
+            const matchingStudents = await Student.find({
+                "studentsDetails.centre": { $in: centreRegexes }
+            }).select("_id").lean();
+            const matchingStudentIds = matchingStudents.map(s => s._id);
+
+            andConditions.push({
+                $or: [
+                    { centre: { $in: centreRegexes } },
+                    { centreCode: { $in: centreRegexes } },
+                    { student: { $in: matchingStudentIds } }
+                ]
+            });
+        }
+
+        // Optional centre filter via query parameter
+        const reqCentre = req.query?.centre;
+        if (reqCentre && reqCentre !== "ALL") {
+            const escapeRegex = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const targetRegex = new RegExp(`^${escapeRegex(reqCentre.trim())}$`, 'i');
+
+            // If non-superAdmin, ensure requested centre is within their assigned centres
+            if (!isSuperAdmin && !centreNames.some(cn => cn.toLowerCase() === reqCentre.trim().toLowerCase())) {
+                return res.status(200).json({
+                    success: true,
+                    allocations: []
+                });
+            }
+
+            andConditions.push({
+                $or: [
+                    { centre: targetRegex },
+                    { centreCode: targetRegex }
+                ]
+            });
+        }
+
+        const query = andConditions.length > 1 ? { $and: andConditions } : andConditions[0];
+
+        const allocations = await Allocation.find(query)
+            .populate({
+                path: 'student',
+                select: 'studentsDetails uid'
+            })
+            .populate('payment')
+            .populate('allocatedBy', 'name')
+            .sort({ createdAt: -1 })
+            .limit(300)
+            .lean();
 
         res.status(200).json({
             success: true,

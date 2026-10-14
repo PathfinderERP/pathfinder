@@ -19,7 +19,8 @@ import {
     FaGraduationCap, 
     FaBuilding, 
     FaDownload,
-    FaReceipt
+    FaReceipt,
+    FaCalendarCheck
 } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
@@ -110,7 +111,20 @@ const BooksEx = () => {
             if (profileRes.ok) {
                 const pData = await profileRes.json();
                 const u = pData.user || {};
-                userCentres = (u.centres || []).map(c => c.centreName || c.name || c).filter(Boolean);
+                userCentres = (u.centres || []).map(c => c.centreName || c.name || (typeof c === 'string' ? c : '')).filter(Boolean);
+                if (userCentres.length === 0 && u.primaryCentre) {
+                    const pName = u.primaryCentre.centreName || u.primaryCentre.name || (typeof u.primaryCentre === 'string' ? u.primaryCentre : '');
+                    if (pName) userCentres.push(pName);
+                }
+            }
+
+            // Fallback to localStorage user object if profile response didn't supply centres
+            if (userCentres.length === 0 && user.centres && Array.isArray(user.centres)) {
+                userCentres = user.centres.map(c => c.centreName || c.name || (typeof c === 'string' ? c : '')).filter(Boolean);
+            }
+            if (userCentres.length === 0 && user.primaryCentre) {
+                const pName = user.primaryCentre.centreName || user.primaryCentre.name || (typeof user.primaryCentre === 'string' ? user.primaryCentre : '');
+                if (pName) userCentres.push(pName);
             }
 
             if (centresRes.ok) {
@@ -122,17 +136,21 @@ const BooksEx = () => {
                     .sort((a, b) => a.localeCompare(b));
 
                 const isSuper = user.role === 'superAdmin' || user.role === 'Super Admin' || user.role === 'superadmin';
-                if (isSuper || userCentres.length === 0) {
+                if (isSuper) {
                     setAllowedCentres(activeCentres);
-                    if (!form.centreName && activeCentres.length > 0) {
-                        setForm(prev => ({ ...prev, centreName: activeCentres[0] }));
-                    }
+                    setForm(prev => ({
+                        ...prev,
+                        centreName: prev.centreName || activeCentres[0] || ""
+                    }));
                 } else {
-                    const filtered = activeCentres.filter(c => userCentres.includes(c));
-                    setAllowedCentres(filtered.length > 0 ? filtered : activeCentres);
-                    if (!form.centreName && filtered.length > 0) {
-                        setForm(prev => ({ ...prev, centreName: filtered[0] }));
-                    }
+                    const userCentresLower = userCentres.map(c => c.trim().toLowerCase());
+                    const filtered = activeCentres.filter(c => userCentresLower.includes(c.trim().toLowerCase()));
+                    const finalCentres = filtered.length > 0 ? filtered : userCentres;
+                    setAllowedCentres(finalCentres);
+                    setForm(prev => ({
+                        ...prev,
+                        centreName: finalCentres.includes(prev.centreName) ? prev.centreName : (finalCentres[0] || "")
+                    }));
                 }
             }
         } catch (err) {
@@ -140,7 +158,7 @@ const BooksEx = () => {
         } finally {
             setLoadingMaster(false);
         }
-    }, [apiUrl, user.role, form.centreName]);
+    }, [apiUrl, user]);
 
     // 2. Fetch External Book Allocations
     const fetchAllocations = useCallback(async () => {
@@ -393,6 +411,9 @@ const BooksEx = () => {
 
     // Filter Allocations Table
     const filteredAllocations = useMemo(() => {
+        const isSuper = user.role === 'superAdmin' || user.role === 'Super Admin' || user.role === 'superadmin';
+        const allowedLower = allowedCentres.map(c => c.trim().toLowerCase());
+
         return allocations.filter(item => {
             // Student details
             const sDetails = item.student?.studentsDetails?.[0] || {};
@@ -400,7 +421,13 @@ const BooksEx = () => {
             const sMobile = (sDetails.mobileNum || sDetails.whatsappNumber || item.mobileNum || "").toLowerCase();
             const billNo = (item.billNumber || "").toLowerCase();
             const courseName = (item.payment?.boardCourseName || item.items?.[0]?.itemName || "").toLowerCase();
-            const centreName = (item.centre || sDetails.centre || "").toUpperCase();
+            const centreName = (item.centre || sDetails.centre || "").trim();
+
+            // Enforce user's assigned centres if non-superAdmin
+            if (!isSuper) {
+                if (allowedCentres.length === 0) return false;
+                if (!allowedLower.includes(centreName.toLowerCase())) return false;
+            }
 
             // Search Filter
             if (searchTerm.trim()) {
@@ -410,7 +437,7 @@ const BooksEx = () => {
             }
 
             // Centre Filter
-            if (centreFilter !== "ALL" && centreName !== centreFilter.toUpperCase()) {
+            if (centreFilter !== "ALL" && centreName.toUpperCase() !== centreFilter.toUpperCase()) {
                 return false;
             }
 
@@ -433,7 +460,7 @@ const BooksEx = () => {
 
             return true;
         });
-    }, [allocations, searchTerm, centreFilter, paymentFilter, startDate, endDate]);
+    }, [allocations, searchTerm, centreFilter, paymentFilter, startDate, endDate, allowedCentres, user.role]);
 
     // Financial Metric Totals
     const metrics = useMemo(() => {
@@ -444,7 +471,7 @@ const BooksEx = () => {
 
         const todayStr = new Date().toDateString();
 
-        allocations.forEach(a => {
+        filteredAllocations.forEach(a => {
             const net = Number(a.totalAmount || a.payment?.amount || 0);
             const gross = Number(a.grossAmount || (a.items?.reduce((s, i) => s + (Number(i.price) * (Number(i.quantity) || 1)), 0)) || net);
             const disc = Number(a.discount || 0);
@@ -460,13 +487,13 @@ const BooksEx = () => {
         });
 
         return {
-            totalCount: allocations.length,
+            totalCount: filteredAllocations.length,
             totalRevenue,
             totalGross,
             totalDiscount,
             todayRevenue
         };
-    }, [allocations]);
+    }, [filteredAllocations]);
 
     return (
         <Layout activePage="Admissions">
@@ -566,7 +593,7 @@ const BooksEx = () => {
                         <div className="flex items-center justify-between">
                             <span className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-400' : 'text-slate-600'}`}>Today's Collections</span>
                             <div className={`p-2 rounded-lg ${isDarkMode ? 'bg-purple-500/10 text-purple-400' : 'bg-purple-50 text-purple-600 border border-purple-200'}`}>
-                                <FaCalendarCheckIcon size={14} />
+                                <FaCalendarCheck size={14} />
                             </div>
                         </div>
                         <p className={`text-xl sm:text-2xl font-black mt-2 ${isDarkMode ? 'text-purple-400' : 'text-purple-600'}`}>
@@ -606,7 +633,11 @@ const BooksEx = () => {
                                         : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                 }`}
                             >
-                                <option value="ALL">All Centres / Branches</option>
+                                <option value="ALL">
+                                    {(user.role === 'superAdmin' || user.role === 'Super Admin' || user.role === 'superadmin')
+                                        ? "All Centres / Branches"
+                                        : (allowedCentres.length > 1 ? "All Assigned Centres" : (allowedCentres[0] ? `${allowedCentres[0]} (Assigned)` : "No Centre Assigned"))}
+                                </option>
                                 {allowedCentres.map(c => (
                                     <option key={c} value={c}>{c}</option>
                                 ))}
@@ -1013,9 +1044,13 @@ const BooksEx = () => {
                                                             : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500 shadow-sm'
                                                     }`}
                                                 >
-                                                    {allowedCentres.map(c => (
-                                                        <option key={c} value={c}>{c}</option>
-                                                    ))}
+                                                    {allowedCentres.length === 0 ? (
+                                                        <option value="">No Centre Assigned</option>
+                                                    ) : (
+                                                        allowedCentres.map(c => (
+                                                            <option key={c} value={c}>{c}</option>
+                                                        ))
+                                                    )}
                                                 </select>
                                             </div>
                                         </div>
