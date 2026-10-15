@@ -9,7 +9,16 @@ import {
     FaSun, FaMoon, FaFileExcel
 } from "react-icons/fa";
 import { toast } from "react-toastify";
-import { format } from "date-fns";
+import {
+    format,
+    startOfMonth,
+    endOfMonth,
+    eachDayOfInterval,
+    startOfWeek,
+    endOfWeek,
+    startOfDay,
+    endOfDay
+} from "date-fns";
 import {
     ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
     Tooltip, CartesianGrid, Cell, LineChart, Line, AreaChart, Area, PieChart, Pie
@@ -28,6 +37,62 @@ const formatWorkingHours = (hoursDecimal) => {
         return `${h + 1}h 0m`;
     }
     return `${h}h ${m}m`;
+};
+
+export const resolveEmployeeCentre = (emp, usr = null, att = null, centresList = []) => {
+    if (!emp && !usr && !att) return 'N/A';
+
+    const getCentreName = (c) => {
+        if (!c) return null;
+        if (typeof c === 'object') {
+            if (c.centreName) return c.centreName;
+            if (c.name) return c.name;
+            if (c._id && Array.isArray(centresList) && centresList.length > 0) {
+                const found = centresList.find(item => item._id?.toString() === c._id?.toString());
+                if (found) return found.centreName || found.name;
+            }
+        }
+        if (typeof c === 'string' && c.trim()) {
+            if (Array.isArray(centresList) && centresList.length > 0) {
+                const found = centresList.find(item => item._id?.toString() === c.trim() || item.centreName?.toLowerCase() === c.trim().toLowerCase());
+                if (found) return found.centreName || found.name;
+            }
+            if (!/^[0-9a-fA-F]{24}$/.test(c.trim())) {
+                return c.trim();
+            }
+        }
+        return null;
+    };
+
+    const userObj = usr || emp?.user;
+
+    // 1. Employee primaryCentre
+    const empPrimary = getCentreName(emp?.primaryCentre);
+    if (empPrimary) return empPrimary;
+
+    // 2. User primaryCentre
+    const userPrimary = getCentreName(userObj?.primaryCentre);
+    if (userPrimary) return userPrimary;
+
+    // 3. Employee centres array
+    if (Array.isArray(emp?.centres) && emp.centres.length > 0) {
+        const names = emp.centres.map(c => getCentreName(c)).filter(Boolean);
+        if (names.length > 0) return names.join(", ");
+    }
+
+    // 4. User centres array
+    if (Array.isArray(userObj?.centres) && userObj.centres.length > 0) {
+        const names = userObj.centres.map(c => getCentreName(c)).filter(Boolean);
+        if (names.length > 0) return names.join(", ");
+    }
+
+    // 5. Attendance record centreId or checkIn centre
+    if (att) {
+        const attCentre = getCentreName(att.centreId) || getCentreName(att.checkIn?.centreId) || getCentreName(att.checkOut?.centreId);
+        if (attCentre) return attCentre;
+    }
+
+    return 'N/A';
 };
 
 const LegendItem = ({ color, label, isDarkMode }) => (
@@ -674,6 +739,7 @@ const EmployeesAttendance = () => {
     const navigate = useNavigate();
     // Shared State
     const [centres, setCentres] = useState([]);
+    const [allCentresList, setAllCentresList] = useState([]);
     const [departments, setDepartments] = useState([]);
     const [designations, setDesignations] = useState([]);
     const [attendanceList, setAttendanceList] = useState([]);
@@ -718,6 +784,18 @@ const EmployeesAttendance = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage] = useState(10);
     const [jumpToPage, setJumpToPage] = useState('');
+    const [showExportMenu, setShowExportMenu] = useState(false);
+    const exportMenuRef = useRef(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(event.target)) {
+                setShowExportMenu(false);
+            }
+        };
+        document.addEventListener("mousedown", handleClickOutside);
+        return () => document.removeEventListener("mousedown", handleClickOutside);
+    }, []);
 
     const activeParamsRef = useRef({
         viewMode,
@@ -820,6 +898,7 @@ const EmployeesAttendance = () => {
 
             if (centresRes.ok) {
                 const allCentres = await centresRes.json();
+                setAllCentresList(allCentres);
                 const activeCentres = allCentres.filter(c => c.status === 'active');
                 if (!isSuperAdmin && userCentres.length > 0) {
                     setCentres(activeCentres.filter(c => userCentres.includes(c._id)));
@@ -847,7 +926,7 @@ const EmployeesAttendance = () => {
 
         const employeeName = selectedUser.employeeId?.name || "Employee";
         const employeeId = selectedUser.employeeId?.employeeId || "N/A";
-        const centreName = selectedUser.employeeId?.primaryCentre?.centreName || "N/A";
+        const centreName = resolveEmployeeCentre(selectedUser.employeeId, selectedUser.user, null, allCentresList.length > 0 ? allCentresList : centres);
 
         // 1. Monthly Summary Sheet
         const summaryData = userAnalysisData.monthlyStats.map(m => ({
@@ -940,7 +1019,7 @@ const EmployeesAttendance = () => {
         }
     };
 
-    const handleExportExcel = () => {
+    const handleExportExcel = (exportType = 'combined') => {
         if (!attendanceList.length) return toast.error("No data to export");
 
         let exportList = attendanceList;
@@ -960,13 +1039,14 @@ const EmployeesAttendance = () => {
 
         if (!exportList.length) return toast.error("No matching data to export");
 
-        const exportData = exportList.map(att => ({
+        // 1. Detailed Daily Logs Sheet (preserving individual punch records day by day)
+        const detailedLogsData = exportList.map(att => ({
             'Date': format(new Date(att.date), 'dd MMM yyyy'),
             'Employee ID': att.employeeId?.employeeId || 'N/A',
             'Name': att.employeeId?.name || 'N/A',
-            'Centre': att.employeeId?.primaryCentre?.centreName || (Array.isArray(att.employeeId?.centres) && att.employeeId.centres.length > 0 ? att.employeeId.centres.map(c => c.centreName || c).join(", ") : 'N/A'),
-            'Department': att.employeeId?.department?.departmentName || 'N/A',
-            'Designation': att.employeeId?.designation?.name || 'N/A',
+            'Centre': resolveEmployeeCentre(att.employeeId, att.user, att, allCentresList.length > 0 ? allCentresList : centres),
+            'Department': att.employeeId?.department?.departmentName || att.employeeId?.department || 'N/A',
+            'Designation': att.employeeId?.designation?.name || att.employeeId?.designation || 'N/A',
             'Check In': att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--',
             'Check Out': att.checkOut?.time ? format(new Date(att.checkOut.time), 'HH:mm') : '--:--',
             'Duration': att.workingHours ? formatWorkingHours(att.workingHours) : '--:--',
@@ -980,9 +1060,272 @@ const EmployeesAttendance = () => {
             'Remarks': att.remarks || ''
         }));
 
+        // 2. Date Range Boundaries for HR Attendance Matrix
+        let startDate, endDate;
+        if (viewMode === 'month') {
+            startDate = startOfMonth(new Date(filters.year, filters.month - 1, 1));
+            endDate = endOfMonth(new Date(filters.year, filters.month - 1, 1));
+        } else if (viewMode === 'range') {
+            startDate = filters.fromDate ? startOfDay(new Date(filters.fromDate)) : startOfDay(new Date());
+            endDate = filters.toDate ? endOfDay(new Date(filters.toDate)) : endOfDay(startDate);
+            if (startDate > endDate) {
+                const tmp = startDate;
+                startDate = endDate;
+                endDate = tmp;
+            }
+        } else if (viewMode === 'week') {
+            const refDate = selectedDate ? new Date(selectedDate) : new Date();
+            startDate = startOfWeek(refDate, { weekStartsOn: 1 });
+            endDate = endOfWeek(refDate, { weekStartsOn: 1 });
+        } else {
+            startDate = selectedDate ? startOfDay(new Date(selectedDate)) : startOfDay(new Date());
+            endDate = endOfDay(startDate);
+        }
+
+        const daysInInterval = eachDayOfInterval({ start: startDate, end: endDate });
+        const todayStart = startOfDay(new Date());
+        const isMultiYear = startDate.getFullYear() !== endDate.getFullYear();
+
+        // 3. Unique Employee Mapping & Date-wise Lookup
+        const employeeMap = new Map();
+        const attendanceByEmpDate = new Map();
+
+        exportList.forEach(att => {
+            const emp = att.employeeId;
+            if (!emp) return;
+            const empKey = (emp._id || emp.employeeId || emp.name)?.toString();
+            if (!empKey) return;
+
+            if (!employeeMap.has(empKey)) {
+                employeeMap.set(empKey, {
+                    id: empKey,
+                    empCode: emp.employeeId || 'N/A',
+                    name: emp.name || 'N/A',
+                    centre: resolveEmployeeCentre(emp, att.user, att, allCentresList.length > 0 ? allCentresList : centres),
+                    department: emp.department?.departmentName || emp.department?.name || (typeof emp.department === 'string' ? emp.department : 'N/A'),
+                    designation: emp.designation?.name || emp.designation?.title || (typeof emp.designation === 'string' ? emp.designation : 'N/A'),
+                    dateOfJoining: emp.dateOfJoining ? new Date(emp.dateOfJoining) : null
+                });
+            } else {
+                const existing = employeeMap.get(empKey);
+                if (existing && existing.centre === 'N/A') {
+                    const resolved = resolveEmployeeCentre(emp, att.user, att, allCentresList.length > 0 ? allCentresList : centres);
+                    if (resolved !== 'N/A') {
+                        existing.centre = resolved;
+                    }
+                }
+            }
+
+            if (att.date) {
+                const dayStr = format(new Date(att.date), 'yyyy-MM-dd');
+                const lookupKey = `${empKey}_${dayStr}`;
+                const existing = attendanceByEmpDate.get(lookupKey);
+
+                if (!existing) {
+                    attendanceByEmpDate.set(lookupKey, att);
+                } else if ((att.workingHours || 0) > (existing.workingHours || 0)) {
+                    attendanceByEmpDate.set(lookupKey, att);
+                } else if (att.checkIn?.time && !existing.checkIn?.time) {
+                    attendanceByEmpDate.set(lookupKey, att);
+                } else if (att.status !== 'Absent' && existing.status === 'Absent') {
+                    attendanceByEmpDate.set(lookupKey, att);
+                }
+            }
+        });
+
+        // Sort employees: primarily by Employee ID (natural alphanumeric order), then by Name
+        const sortedEmployees = Array.from(employeeMap.values()).sort((a, b) => {
+            if (a.empCode !== 'N/A' && b.empCode !== 'N/A') {
+                return a.empCode.localeCompare(b.empCode, undefined, { numeric: true, sensitivity: 'base' });
+            }
+            return a.name.localeCompare(b.name);
+        });
+
+        // Helper to format punch times as concise labels e.g. 10am, 9.30pm
+        const formatTimeLabel = (dateVal) => {
+            if (!dateVal) return '';
+            const d = new Date(dateVal);
+            if (isNaN(d.getTime())) return '';
+            const mins = d.getMinutes();
+            const minStr = mins === 0 ? '' : `.${mins < 10 ? '0' + mins : mins}`;
+            return `${format(d, 'h')}${minStr}${format(d, 'a').toLowerCase()}`;
+        };
+
+        const getPunchTimeInterval = (checkInTime, checkOutTime) => {
+            const inStr = formatTimeLabel(checkInTime);
+            const outStr = formatTimeLabel(checkOutTime);
+            if (inStr && outStr) {
+                return `(${inStr}-${outStr})`;
+            } else if (inStr) {
+                return `(${inStr})`;
+            }
+            return '';
+        };
+
+        // 4. Build HR Matrix Rows (Single row per employee with date-wise attendance)
+        const matrixData = sortedEmployees.map(emp => {
+            let presentCount = 0;
+            let absentCount = 0;
+            let halfDayCount = 0;
+            let weekOffCount = 0;
+            let holidayCount = 0;
+            let leaveCount = 0;
+            let totalWorkingHours = 0;
+
+            const row = {
+                'Employee ID': emp.empCode,
+                'Employee Name': emp.name,
+                'Centre': emp.centre,
+                'Department': emp.department,
+                'Designation': emp.designation
+            };
+
+            daysInInterval.forEach(day => {
+                const dayStr = format(day, 'yyyy-MM-dd');
+                const colHeader = isMultiYear ? format(day, 'dd MMM yyyy (EEE)') : format(day, 'dd MMM (EEE)');
+                const isFuture = day > todayStart;
+                const lookupKey = `${emp.id}_${dayStr}`;
+                const att = attendanceByEmpDate.get(lookupKey);
+
+                let code = '-';
+                if (att) {
+                    const s = att.status;
+                    const hours = att.workingHours || 0;
+                    totalWorkingHours += hours;
+
+                    if (s === 'Week Off' || s === 'DAY OFF') {
+                        code = 'WO';
+                        weekOffCount++;
+                    } else if (s === 'Holiday' || att.isHoliday) {
+                        code = 'H';
+                        holidayCount++;
+                    } else if (s === 'Leave') {
+                        code = 'L';
+                        leaveCount++;
+                    } else if (s === 'Half Day') {
+                        code = 'HD';
+                        halfDayCount++;
+                    } else if (s === 'Overtime') {
+                        code = 'OT';
+                        presentCount++;
+                    } else if (s === 'Early Leave') {
+                        code = 'EL';
+                        presentCount++;
+                    } else if (s === 'Short Leave') {
+                        code = 'SL';
+                        presentCount++;
+                    } else if (s === 'Late') {
+                        code = 'LT';
+                        presentCount++;
+                    } else if (s === 'Forgot to Checkout') {
+                        code = 'FCO';
+                        absentCount++;
+                    } else if (s === 'Present') {
+                        code = 'P';
+                        presentCount++;
+                    } else if (s === 'Absent' || att.isAbsent) {
+                        code = 'A';
+                        absentCount++;
+                    } else if (att.checkIn?.time) {
+                        code = 'P';
+                        presentCount++;
+                    } else if (!isFuture) {
+                        code = 'A';
+                        absentCount++;
+                    } else {
+                        code = '-';
+                    }
+                } else {
+                    if (emp.dateOfJoining && day < startOfDay(emp.dateOfJoining)) {
+                        code = '-';
+                    } else if (isFuture) {
+                        code = '-';
+                    } else {
+                        code = 'A';
+                        absentCount++;
+                    }
+                }
+
+                // If check-in time exists, attach formatted timing interval e.g. "OT (10am-9.30pm)"
+                let cellValue = code;
+                if (code !== '-' && att?.checkIn?.time) {
+                    const timeIntervalStr = getPunchTimeInterval(att.checkIn?.time, att.checkOut?.time);
+                    if (timeIntervalStr) {
+                        cellValue = `${code} ${timeIntervalStr}`;
+                    }
+                }
+
+                row[colHeader] = cellValue;
+            });
+
+            const totalDays = daysInInterval.length;
+            const payableDays = presentCount + (halfDayCount * 0.5) + weekOffCount + holidayCount + leaveCount;
+            const workingDays = totalDays - weekOffCount - holidayCount;
+            const attendancePercent = workingDays > 0 ? (((presentCount + (halfDayCount * 0.5)) / workingDays) * 100).toFixed(1) + '%' : '0.0%';
+
+            row['Total Days'] = totalDays;
+            row['Present (P)'] = presentCount;
+            row['Absent (A)'] = absentCount;
+            row['Half Day (HD)'] = halfDayCount;
+            row['Week Off (WO)'] = weekOffCount;
+            row['Holiday (H)'] = holidayCount;
+            row['Leave (L)'] = leaveCount;
+            row['Payable Days'] = payableDays;
+            row['Total Hours'] = formatWorkingHours(totalWorkingHours);
+            row['Attendance %'] = attendancePercent;
+
+            return row;
+        });
+
+        // 5. Status Legend Data
+        const legendData = [
+            { 'Code': 'P', 'Status': 'Present', 'Description': 'Attended standard full shift hours' },
+            { 'Code': 'A', 'Status': 'Absent', 'Description': 'No punch record or marked absent' },
+            { 'Code': 'HD', 'Status': 'Half Day', 'Description': 'Worked partial day (counted as 0.5 payable day)' },
+            { 'Code': 'WO', 'Status': 'Week Off', 'Description': 'Scheduled weekly day off' },
+            { 'Code': 'H', 'Status': 'Holiday', 'Description': 'Official organizational holiday' },
+            { 'Code': 'L', 'Status': 'Leave', 'Description': 'Approved formal leave request' },
+            { 'Code': 'OT', 'Status': 'Overtime', 'Description': 'Shift exceeded standard target hours (counted as Present)' },
+            { 'Code': 'EL', 'Status': 'Early Leave', 'Description': 'Departed before standard shift hours (counted as Present)' },
+            { 'Code': 'SL', 'Status': 'Short Leave', 'Description': 'Shift duration fell short of required target (counted as Present)' },
+            { 'Code': 'LT', 'Status': 'Late Arrival', 'Description': 'Punched in after grace period (counted as Present)' },
+            { 'Code': 'FCO', 'Status': 'Forgot Checkout', 'Description': 'Missing checkout punch (flagged / marked absent)' },
+            { 'Code': '-', 'Status': 'Future / Inactive', 'Description': 'Upcoming future date or date prior to employee joining' }
+        ];
+
+        // 6. Build Workbook
         const wb = XLSX.utils.book_new();
-        const ws = XLSX.utils.json_to_sheet(exportData);
-        XLSX.utils.book_append_sheet(wb, ws, "Attendance Report");
+
+        if (exportType === 'combined' || exportType === 'matrix') {
+            const wsMatrix = XLSX.utils.json_to_sheet(matrixData);
+            const matrixCols = Object.keys(matrixData[0] || {}).map(key => {
+                if (key === 'Employee ID') return { wch: 15 };
+                if (key === 'Employee Name') return { wch: 24 };
+                if (key === 'Centre') return { wch: 20 };
+                if (key === 'Department') return { wch: 18 };
+                if (key === 'Designation') return { wch: 20 };
+                if (key.includes('(')) return { wch: 21 }; // Date columns like '01 Oct (Thu)' with 'OT (10am-9.30pm)'
+                return { wch: Math.max(key.length + 2, 12) };
+            });
+            wsMatrix['!cols'] = matrixCols;
+            XLSX.utils.book_append_sheet(wb, wsMatrix, "Attendance Matrix");
+        }
+
+        if (exportType === 'combined' || exportType === 'detailed') {
+            const wsDaily = XLSX.utils.json_to_sheet(detailedLogsData);
+            const dailyCols = Object.keys(detailedLogsData[0] || {}).map(key => ({
+                wch: Math.min(32, Math.max(key.length + 3, 14))
+            }));
+            wsDaily['!cols'] = dailyCols;
+            XLSX.utils.book_append_sheet(wb, wsDaily, "Detailed Daily Logs");
+        }
+
+        if (exportType === 'combined' || exportType === 'matrix') {
+            const wsLegend = XLSX.utils.json_to_sheet(legendData);
+            wsLegend['!cols'] = [{ wch: 10 }, { wch: 22 }, { wch: 65 }];
+            XLSX.utils.book_append_sheet(wb, wsLegend, "Status Legend");
+        }
+
         const excelBuffer = XLSX.write(wb, { bookType: 'xlsx', type: 'array' });
         const data = new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 
@@ -997,9 +1340,30 @@ const EmployeesAttendance = () => {
             dateLabel = `${selectedDate}`;
         }
 
-        const reportName = activeCaution ? `Attendance_${activeCaution}_${viewMode}_${dateLabel}.xlsx` : `Attendance_Report_${viewMode}_${dateLabel}.xlsx`;
+        let reportName = '';
+        if (exportType === 'matrix') {
+            reportName = activeCaution
+                ? `Attendance_Matrix_${activeCaution}_${viewMode}_${dateLabel}.xlsx`
+                : `HR_Attendance_Matrix_${viewMode}_${dateLabel}.xlsx`;
+        } else if (exportType === 'detailed') {
+            reportName = activeCaution
+                ? `Attendance_Detailed_${activeCaution}_${viewMode}_${dateLabel}.xlsx`
+                : `Attendance_Detailed_Report_${viewMode}_${dateLabel}.xlsx`;
+        } else {
+            reportName = activeCaution
+                ? `Attendance_Register_${activeCaution}_${viewMode}_${dateLabel}.xlsx`
+                : `HR_Attendance_Register_${viewMode}_${dateLabel}.xlsx`;
+        }
+
         saveAs(data, reportName);
-        toast.success("Excel Report Downloaded");
+
+        if (exportType === 'matrix') {
+            toast.success("HR Attendance Matrix Downloaded");
+        } else if (exportType === 'detailed') {
+            toast.success("Detailed Attendance Logs Downloaded");
+        } else {
+            toast.success("Comprehensive HR Attendance Register Downloaded (Matrix + Daily Logs)");
+        }
     };
 
     const handleExportAbsentExcel = () => {
@@ -1009,7 +1373,7 @@ const EmployeesAttendance = () => {
             'Date': format(new Date(att.date), 'dd MMM yyyy'),
             'Employee ID': att.employeeId?.employeeId || 'N/A',
             'Name': att.employeeId?.name || 'N/A',
-            'Centre': att.employeeId?.primaryCentre?.centreName || (Array.isArray(att.employeeId?.centres) && att.employeeId.centres.length > 0 ? att.employeeId.centres.map(c => c.centreName || c).join(", ") : 'N/A'),
+            'Centre': resolveEmployeeCentre(att.employeeId, att.user, att, allCentresList.length > 0 ? allCentresList : centres),
             'Department': att.employeeId?.department?.departmentName || 'N/A',
             'Designation': att.employeeId?.designation?.name || 'N/A',
             'Check In': att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--',
@@ -1047,7 +1411,7 @@ const EmployeesAttendance = () => {
             'Date': format(new Date(att.date), 'dd MMM yyyy'),
             'Employee ID': att.employeeId?.employeeId || 'N/A',
             'Name': att.employeeId?.name || 'N/A',
-            'Centre': att.employeeId?.primaryCentre?.centreName || (Array.isArray(att.employeeId?.centres) && att.employeeId.centres.length > 0 ? att.employeeId.centres.map(c => c.centreName || c).join(", ") : 'N/A'),
+            'Centre': resolveEmployeeCentre(att.employeeId, att.user, att, allCentresList.length > 0 ? allCentresList : centres),
             'Department': att.employeeId?.department?.departmentName || 'N/A',
             'Designation': att.employeeId?.designation?.name || 'N/A',
             'Check In': att.checkIn?.time ? format(new Date(att.checkIn.time), 'HH:mm') : '--:--',
@@ -1312,12 +1676,113 @@ const EmployeesAttendance = () => {
                             >
                                 <FaUserClock /> Manual Attendance Override
                             </button>
-                            <button
-                                onClick={handleExportExcel}
-                                className="px-6 py-3 bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white rounded-[2px] border border-emerald-500/20 transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest shadow-[0_0_15px_rgba(16,185,129,0.1)] hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-                            >
-                                <FaChartBar /> Export Excel
-                            </button>
+                            {/* Enhanced Export Excel with Dropdown */}
+                            <div className="relative" ref={exportMenuRef}>
+                                <div className="flex items-center rounded-[2px] border border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.15)] overflow-hidden bg-emerald-500/10">
+                                    <button
+                                        onClick={() => handleExportExcel('combined')}
+                                        className="px-5 py-3 text-emerald-500 hover:bg-emerald-500 hover:text-white transition-all flex items-center gap-2.5 font-black text-[10px] uppercase tracking-widest"
+                                        title="Download complete HR Attendance Register (Matrix + Daily Logs)"
+                                    >
+                                        <FaFileExcel className="text-xs" />
+                                        <span>Export Excel</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setShowExportMenu(prev => !prev)}
+                                        className="px-2.5 py-3 text-emerald-500 hover:bg-emerald-500 hover:text-white border-l border-emerald-500/30 transition-all flex items-center justify-center"
+                                        title="Export format options"
+                                    >
+                                        <FaChevronDown className={`text-[9px] transition-transform duration-200 ${showExportMenu ? 'rotate-180' : ''}`} />
+                                    </button>
+                                </div>
+
+                                {showExportMenu && (
+                                    <div className={`absolute right-0 top-full mt-2 w-72 rounded-[2px] border shadow-2xl z-[150] p-1.5 backdrop-blur-md animate-fade-in ${
+                                        isDarkMode ? 'bg-[#181d22]/95 border-gray-700/80' : 'bg-white/95 border-gray-200'
+                                    }`}>
+                                        <div className="px-3 py-2 border-b border-gray-500/10 mb-1 flex items-center justify-between">
+                                            <span className={`text-[9px] font-black uppercase tracking-[0.2em] ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                Export Options
+                                            </span>
+                                            <span className="text-[8px] font-bold text-emerald-500 uppercase tracking-wider">Excel .xlsx</span>
+                                        </div>
+
+                                        {/* Option 1: Consolidated HR Register */}
+                                        <button
+                                            onClick={() => {
+                                                handleExportExcel('combined');
+                                                setShowExportMenu(false);
+                                            }}
+                                            className={`w-full text-left px-3 py-2.5 rounded-[2px] flex items-start gap-3 transition-colors ${
+                                                isDarkMode ? 'hover:bg-emerald-500/10 group' : 'hover:bg-emerald-50 group'
+                                            }`}
+                                        >
+                                            <div className="p-1.5 rounded bg-emerald-500/10 text-emerald-500 mt-0.5 shrink-0">
+                                                <FaFileExcel size={13} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <div className="flex items-center justify-between">
+                                                    <span className={`text-[10px] font-black uppercase tracking-wider ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                        Complete HR Register
+                                                    </span>
+                                                    <span className="text-[8px] font-black px-1.5 py-0.2 bg-emerald-500/20 text-emerald-400 rounded">
+                                                        Default
+                                                    </span>
+                                                </div>
+                                                <p className={`text-[8px] font-medium leading-tight mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    Both Attendance Matrix (1 row/emp) & Detailed Daily Logs in one workbook
+                                                </p>
+                                            </div>
+                                        </button>
+
+                                        {/* Option 2: Attendance Matrix Only */}
+                                        <button
+                                            onClick={() => {
+                                                handleExportExcel('matrix');
+                                                setShowExportMenu(false);
+                                            }}
+                                            className={`w-full text-left px-3 py-2.5 rounded-[2px] flex items-start gap-3 transition-colors ${
+                                                isDarkMode ? 'hover:bg-cyan-500/10 group' : 'hover:bg-cyan-50 group'
+                                            }`}
+                                        >
+                                            <div className="p-1.5 rounded bg-cyan-500/10 text-cyan-400 mt-0.5 shrink-0">
+                                                <FaChartBar size={13} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <span className={`text-[10px] font-black uppercase tracking-wider block ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                    HR Attendance Matrix
+                                                </span>
+                                                <p className={`text-[8px] font-medium leading-tight mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    Single employee code per row with date-wise attendance columns & totals
+                                                </p>
+                                            </div>
+                                        </button>
+
+                                        {/* Option 3: Detailed Daily Logs Only */}
+                                        <button
+                                            onClick={() => {
+                                                handleExportExcel('detailed');
+                                                setShowExportMenu(false);
+                                            }}
+                                            className={`w-full text-left px-3 py-2.5 rounded-[2px] flex items-start gap-3 transition-colors ${
+                                                isDarkMode ? 'hover:bg-purple-500/10 group' : 'hover:bg-purple-50 group'
+                                            }`}
+                                        >
+                                            <div className="p-1.5 rounded bg-purple-500/10 text-purple-400 mt-0.5 shrink-0">
+                                                <FaClock size={13} />
+                                            </div>
+                                            <div className="flex-1 min-w-0">
+                                                <span className={`text-[10px] font-black uppercase tracking-wider block ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                                    Detailed Daily Logs
+                                                </span>
+                                                <p className={`text-[8px] font-medium leading-tight mt-0.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                                    Day-by-day logs with punch in/out timings, duration, status & remarks
+                                                </p>
+                                            </div>
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
                             <button
                                 onClick={handleReset}
                                 className={`px-6 py-3 border transition-all flex items-center gap-3 font-black text-[10px] uppercase tracking-widest ${isDarkMode ? 'bg-gray-800 text-gray-400 border-gray-700 hover:text-white' : 'bg-white text-gray-400 border-gray-200 hover:text-gray-900'}`}
@@ -1667,7 +2132,9 @@ const EmployeesAttendance = () => {
                                                         <div className="flex flex-col items-start px-8 w-1/2 min-w-0">
                                                             <p className="text-[8px] text-gray-600 uppercase font-black tracking-widest mb-1">Assigned Hub</p>
                                                             <span className={`text-[10px] font-black uppercase truncate w-full ${isDarkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                                                                {att.employeeId?.primaryCentre?.centreName || 'HQ Central'}
+                                                                {resolveEmployeeCentre(att.employeeId, att.user, att, allCentresList.length > 0 ? allCentresList : centres) !== 'N/A'
+                                                                    ? resolveEmployeeCentre(att.employeeId, att.user, att, allCentresList.length > 0 ? allCentresList : centres)
+                                                                    : 'HQ Central'}
                                                             </span>
                                                         </div>
                                                         <div className="flex flex-col items-start px-8 w-1/2 min-w-0">
@@ -1854,7 +2321,9 @@ const EmployeesAttendance = () => {
                                         </div>
 
                                         <h3 className={`font-black text-2xl tracking-tighter uppercase italic mb-1 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{selectedUser.employeeId?.name}</h3>
-                                        <p className="text-cyan-500 text-[10px] font-black tracking-[0.3em] uppercase mb-4">{selectedUser.employeeId?.primaryCentre?.centreName}</p>
+                                        <p className="text-cyan-500 text-[10px] font-black tracking-[0.3em] uppercase mb-4">
+                                            {resolveEmployeeCentre(selectedUser.employeeId, selectedUser.user, null, allCentresList.length > 0 ? allCentresList : centres)}
+                                        </p>
 
                                         <div className="flex flex-wrap justify-center gap-2 mt-4">
                                             <button

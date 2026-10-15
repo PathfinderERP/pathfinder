@@ -2,7 +2,7 @@ import Regularization from '../../models/Attendance/Regularization.js';
 import EmployeeAttendance from '../../models/Attendance/EmployeeAttendance.js';
 import Employee from '../../models/HR/Employee.js';
 import { uploadToR2, getSignedFileUrl } from '../../utils/r2Upload.js';
-import { startOfDay, format } from 'date-fns';
+import { startOfDay, endOfDay, format } from 'date-fns';
 import { determineAttendanceStatus, getTargetWorkingHours } from './employeeAttendanceController.js';
 
 export const createRegularization = async (req, res) => {

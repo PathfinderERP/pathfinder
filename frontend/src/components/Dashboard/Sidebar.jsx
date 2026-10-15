@@ -32,6 +32,13 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     }
                 });
 
+                if (response.status === 401) {
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+                    window.location.href = "/";
+                    return;
+                }
+
                 if (response.ok) {
                     const data = await response.json();
                     if (data.user) {

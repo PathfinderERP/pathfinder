@@ -649,9 +649,19 @@ export const getAllAttendance = async (req, res) => {
         let attendances = await EmployeeAttendance.find(query)
             .populate({
                 path: "employeeId",
-                populate: ["department", "designation", "primaryCentre"]
+                populate: [
+                    "department",
+                    "designation",
+                    "primaryCentre",
+                    "centres",
+                    { path: "user", populate: ["primaryCentre", "centres"] }
+                ]
             })
-            .populate("user", "role")
+            .populate({
+                path: "user",
+                select: "role primaryCentre centres",
+                populate: ["primaryCentre", "centres"]
+            })
             .populate("checkIn.centreId", "centreName")
             .populate("checkOut.centreId", "centreName")
             .populate("manuallyMarkedBy", "name")
@@ -659,10 +669,39 @@ export const getAllAttendance = async (req, res) => {
 
         const todayStart = startOfDay(new Date());
 
+        // Fetch centre lookup map to ensure any raw centre ObjectIds or strings are converted to centre objects
+        const allCentresList = await Centre.find().select('centreName enterCode').lean();
+        const centreLookup = new Map();
+        allCentresList.forEach(c => {
+            centreLookup.set(c._id.toString(), c);
+            if (c.centreName) centreLookup.set(c.centreName.toLowerCase(), c);
+        });
+
+        const resolveCentreObj = (raw) => {
+            if (!raw) return null;
+            if (typeof raw === 'object' && raw.centreName) return raw;
+            const idOrName = (raw._id || raw).toString();
+            if (centreLookup.has(idOrName)) return centreLookup.get(idOrName);
+            if (centreLookup.has(idOrName.toLowerCase())) return centreLookup.get(idOrName.toLowerCase());
+            return typeof raw === 'object' ? raw : { centreName: idOrName };
+        };
+
         // Dynamic Status Update: Past days with check-in but no check-out -> Absent
         attendances = attendances.map(att => {
             const attObj = att.toObject ? att.toObject() : att;
             const recordDate = startOfDay(new Date(attObj.date));
+
+            if (attObj.employeeId) {
+                if (!attObj.employeeId.primaryCentre) {
+                    attObj.employeeId.primaryCentre = attObj.employeeId.user?.primaryCentre || attObj.user?.primaryCentre || (attObj.user?.centres && attObj.user.centres[0]);
+                }
+                attObj.employeeId.primaryCentre = resolveCentreObj(attObj.employeeId.primaryCentre);
+
+                if (!attObj.employeeId.centres || attObj.employeeId.centres.length === 0) {
+                    attObj.employeeId.centres = attObj.employeeId.user?.centres || attObj.user?.centres || (attObj.employeeId.primaryCentre ? [attObj.employeeId.primaryCentre] : []);
+                }
+                attObj.employeeId.centres = (attObj.employeeId.centres || []).map(resolveCentreObj).filter(Boolean);
+            }
 
             if (recordDate < todayStart && attObj.checkIn?.time && !attObj.checkOut?.time) {
                 attObj.status = "Absent";
@@ -697,9 +736,23 @@ export const getAllAttendance = async (req, res) => {
                 .populate("department", "departmentName")
                 .populate("designation", "name")
                 .populate("primaryCentre", "centreName")
+                .populate("centres", "centreName")
+                .populate({
+                    path: "user",
+                    populate: ["primaryCentre", "centres"]
+                })
                 .lean();
 
             activeEmployees.forEach(emp => {
+                if (!emp.primaryCentre && emp.user) {
+                    emp.primaryCentre = emp.user.primaryCentre || (emp.user.centres && emp.user.centres[0]);
+                }
+                emp.primaryCentre = resolveCentreObj(emp.primaryCentre);
+
+                if ((!emp.centres || emp.centres.length === 0) && emp.user?.centres?.length > 0) {
+                    emp.centres = emp.user.centres;
+                }
+                emp.centres = (emp.centres || []).map(resolveCentreObj).filter(Boolean);
                 let normalizedWorkingDays = emp.workingDays || {};
                 const hasWorkingDaysSet = Object.values(normalizedWorkingDays).some(v => v === true);
                 if (!hasWorkingDaysSet && emp.workingDaysList && emp.workingDaysList.length > 0) {
@@ -880,15 +933,17 @@ export const getAttendanceAnalysis = async (req, res) => {
         }));
 
         yearAttendances.forEach(att => {
+            const wh = att.workingHours || 0;
             const mIndex = new Date(att.date).getMonth();
-            monthlyStats[mIndex].present++;
-            monthlyStats[mIndex].totalHours += (att.workingHours || 0);
-            monthlyStats[mIndex].count++;
+            if (att.status !== 'Week Off' && wh > 0) {
+                monthlyStats[mIndex].present++;
+                monthlyStats[mIndex].totalHours += wh;
+                monthlyStats[mIndex].count++;
+            }
         });
 
         monthlyStats.forEach(m => {
             m.avgHours = m.count ? parseFloat((m.totalHours / m.count).toFixed(2)) : 0;
-            // distinct absent logic requires checking 'expected' days per month, skipping for brevity/speed unless requested
         });
 
         // 2. Filter for specific period (Priority: Custom Range > Selection)
@@ -946,8 +1001,22 @@ export const getAttendanceAnalysis = async (req, res) => {
                 let wh = att.workingHours || 0;
                 let status = att.status;
 
-                // Dynamic Status for Analysis
-                if (isPastDay && att.checkIn?.time && !att.checkOut?.time) {
+                // If this day has an approved regularization, override working hours and status
+                if (reg && reg.status === 'Approved') {
+                    if (reg.fromTime && reg.toTime) {
+                        const [fH, fM] = reg.fromTime.split(':').map(Number);
+                        const [tH, tM] = reg.toTime.split(':').map(Number);
+                        const diff = (tH * 60 + tM) - (fH * 60 + fM);
+                        if (diff > 0) {
+                            wh = Number((diff / 60).toFixed(2));
+                            const target = getTargetWorkingHours(employee?.workingHours);
+                            status = determineAttendanceStatus(wh, target);
+                        }
+                    } else if (wh <= 0 && employee) {
+                        wh = getTargetWorkingHours(employee.workingHours);
+                        status = 'Present';
+                    }
+                } else if (isPastDay && att.checkIn?.time && !att.checkOut?.time) {
                     status = 'Absent';
                     wh = 0;
                 } else if (wh > 0 && employee && status !== 'Leave' && status !== 'Holiday') {
@@ -960,17 +1029,24 @@ export const getAttendanceAnalysis = async (req, res) => {
                 if (wh < minHours && wh > 0) minHours = wh;
 
                 // Time analysis
-                if (att.checkIn?.time) {
-                    const d = new Date(att.checkIn.time);
-                    totalCheckInMinutes += d.getHours() * 60 + d.getMinutes();
-                    checkInCount++;
+                const checkInTimeVal = att.checkIn?.time || (reg?.status === 'Approved' && reg?.fromTime ? `${dayStr}T${reg.fromTime}:00+05:30` : null);
+                const checkOutTimeVal = att.checkOut?.time || (reg?.status === 'Approved' && reg?.toTime ? `${dayStr}T${reg.toTime}:00+05:30` : null);
+
+                if (checkInTimeVal) {
+                    const d = new Date(checkInTimeVal);
+                    if (!isNaN(d.getTime())) {
+                        totalCheckInMinutes += d.getHours() * 60 + d.getMinutes();
+                        checkInCount++;
+                    }
                 }
 
                 // Only count check-out if it exists and it's not a dynamic absent case
-                if (att.checkOut?.time && status !== 'Absent') {
-                    const d = new Date(att.checkOut.time);
-                    totalCheckOutMinutes += d.getHours() * 60 + d.getMinutes();
-                    checkOutCount++;
+                if (checkOutTimeVal && status !== 'Absent') {
+                    const d = new Date(checkOutTimeVal);
+                    if (!isNaN(d.getTime())) {
+                        totalCheckOutMinutes += d.getHours() * 60 + d.getMinutes();
+                        checkOutCount++;
+                    }
                 }
 
                 statusDistribution[status] = (statusDistribution[status] || 0) + 1;
@@ -978,12 +1054,12 @@ export const getAttendanceAnalysis = async (req, res) => {
                 // Capture relevant record specifically (based on snapshot date)
                 if (dayStr === snapshotStr) {
                     todayRecord = {
-                        checkIn: att.checkIn?.time,
-                        checkInCentre: att.checkIn?.centreId?.centreName || att.centreId?.centreName,
-                        checkInLabel: att.checkIn?.address,
-                        checkOut: att.checkOut?.time,
-                        checkOutCentre: att.checkOut?.centreId?.centreName || att.centreId?.centreName,
-                        checkOutLabel: att.checkOut?.address,
+                        checkIn: checkInTimeVal,
+                        checkInCentre: att.checkIn?.centreId?.centreName || att.centreId?.centreName || (reg?.type || "Office"),
+                        checkInLabel: att.checkIn?.address || reg?.locationAddress,
+                        checkOut: checkOutTimeVal,
+                        checkOutCentre: att.checkOut?.centreId?.centreName || att.centreId?.centreName || (reg?.type || ""),
+                        checkOutLabel: att.checkOut?.address || reg?.locationAddress,
                         status: status,
                         workingHours: wh
                     };
@@ -994,12 +1070,69 @@ export const getAttendanceAnalysis = async (req, res) => {
                     fullDate: format(day, 'dd MMM'),
                     hours: wh,
                     status: status,
-                    checkIn: att.checkIn?.time || '-',
-                    checkOut: (att.checkOut?.time && status !== 'Absent') ? att.checkOut.time : '-',
+                    checkIn: checkInTimeVal || '-',
+                    checkOut: (checkOutTimeVal && status !== 'Absent') ? checkOutTimeVal : '-',
                     regularization: reg,
                     manuallyMarkedBy: att.manuallyMarkedBy
                 };
             } else {
+                if (reg && reg.status === 'Approved') {
+                    let regWh = 0;
+                    if (reg.fromTime && reg.toTime) {
+                        const [fH, fM] = reg.fromTime.split(':').map(Number);
+                        const [tH, tM] = reg.toTime.split(':').map(Number);
+                        const diff = (tH * 60 + tM) - (fH * 60 + fM);
+                        if (diff > 0) regWh = Number((diff / 60).toFixed(2));
+                    }
+                    const target = getTargetWorkingHours(employee?.workingHours);
+                    if (regWh <= 0) regWh = target;
+                    const regStatus = determineAttendanceStatus(regWh, target);
+                    totalHours += regWh;
+                    if (regWh > maxHours) maxHours = regWh;
+                    if (regWh < minHours && regWh > 0) minHours = regWh;
+                    statusDistribution[regStatus] = (statusDistribution[regStatus] || 0) + 1;
+
+                    const regCheckIn = reg.fromTime ? `${dayStr}T${reg.fromTime}:00+05:30` : null;
+                    const regCheckOut = reg.toTime ? `${dayStr}T${reg.toTime}:00+05:30` : null;
+                    if (regCheckIn) {
+                        const d = new Date(regCheckIn);
+                        if (!isNaN(d.getTime())) {
+                            totalCheckInMinutes += d.getHours() * 60 + d.getMinutes();
+                            checkInCount++;
+                        }
+                    }
+                    if (regCheckOut) {
+                        const d = new Date(regCheckOut);
+                        if (!isNaN(d.getTime())) {
+                            totalCheckOutMinutes += d.getHours() * 60 + d.getMinutes();
+                            checkOutCount++;
+                        }
+                    }
+
+                    if (dayStr === snapshotStr) {
+                        todayRecord = {
+                            checkIn: regCheckIn,
+                            checkInCentre: reg.type || "Office",
+                            checkInLabel: reg.locationAddress,
+                            checkOut: regCheckOut,
+                            checkOutCentre: reg.type || "Office",
+                            checkOutLabel: reg.locationAddress,
+                            status: regStatus,
+                            workingHours: regWh
+                        };
+                    }
+
+                    return {
+                        day: format(day, 'dd'),
+                        fullDate: format(day, 'dd MMM'),
+                        hours: regWh,
+                        status: regStatus,
+                        checkIn: regCheckIn || '-',
+                        checkOut: regCheckOut || '-',
+                        regularization: reg
+                    };
+                }
+
                 const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
                 const dayOfWeek = day.getDay();
                 const dayName = dayNames[dayOfWeek];
@@ -1032,8 +1165,11 @@ export const getAttendanceAnalysis = async (req, res) => {
 
         if (minHours === Infinity) minHours = 0;
 
-        // Averages
-        const avgHours = filteredAttendances.length ? (totalHours / filteredAttendances.length).toFixed(2) : 0;
+        // Averages (Exclude Week Off days and 0-hour days from average working hours calculation)
+        const workedDays = dailyData.filter(d => d && d.status !== 'Week Off' && d.hours > 0);
+        const avgHours = workedDays.length
+            ? (totalHours / workedDays.length).toFixed(2)
+            : '0.00';
 
         const formatMinutesToTime = (totalMins, count) => {
             if (!count) return '--:--';
@@ -1046,9 +1182,11 @@ export const getAttendanceAnalysis = async (req, res) => {
         const avgCheckIn = formatMinutesToTime(totalCheckInMinutes, checkInCount);
         const avgCheckOut = formatMinutesToTime(totalCheckOutMinutes, checkOutCount);
 
+        const nonWeekOffDays = dailyData.filter(d => d && d.status !== 'Week Off');
+
         res.status(200).json({
             summary: {
-                totalDays: filteredAttendances.length,
+                totalDays: nonWeekOffDays.length,
                 presentDays: statusDistribution.Present + statusDistribution.Late + statusDistribution['Half Day'] + statusDistribution['Early Leave'] + statusDistribution.Overtime,
                 absentDays: statusDistribution.Absent,
                 weekOffDays: statusDistribution['Week Off'] || 0,

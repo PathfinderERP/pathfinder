@@ -21,6 +21,20 @@ const ProtectedRoute = ({ children, allowedRoles, requiredPermissionModule, requ
         return <Navigate to="/" replace />;
     }
 
+    // Check if JWT token is expired
+    try {
+        const payload = JSON.parse(atob(token.split('.')[1]));
+        if (payload.exp && payload.exp * 1000 < Date.now()) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('user');
+            return <Navigate to="/" replace />;
+        }
+    } catch {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        return <Navigate to="/" replace />;
+    }
+
     try {
         const user = JSON.parse(userString);
         const userRoles = Array.isArray(user.role) ? user.role : [user.role || ''];
