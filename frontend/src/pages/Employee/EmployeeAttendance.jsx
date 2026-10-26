@@ -143,8 +143,8 @@ const parseTargetHours = (wh) => {
     return (!isNaN(n) && n > 0) ? n : 9;
 };
 
-const computeStatusFromHours = (status, hours, target = 9) => {
-    if (status === "Week Off" || status === "Leave" || status === "Holiday") return status;
+const computeStatusFromHours = (status, hours, target = 9, hasApprovedReg = false) => {
+    if (!hasApprovedReg && (status === "Week Off" || status === "Leave" || status === "Holiday")) return status;
     const targetNum = parseTargetHours(target);
     if (hours > 0) {
         if (hours < 4) return "Absent";
@@ -154,7 +154,7 @@ const computeStatusFromHours = (status, hours, target = 9) => {
         if (hours > (targetNum + (5 / 60))) return "Overtime";
         return "Present";
     }
-    return status;
+    return hasApprovedReg ? "Present" : status;
 };
 
 const DayDetailsModal = React.memo(({
@@ -227,8 +227,8 @@ const DayDetailsModal = React.memo(({
                                             <span className={`inline-block px-3 py-1 rounded-full text-[10px] font-black uppercase ${
                                                 status.name === 'Early Leave' || status.status === 'Early Leave' ? 'bg-pink-500/20 text-pink-400 border border-pink-500/30' :
                                                 status.name === 'Short Leave' || status.status === 'Short Leave' ? 'bg-lime-500/20 text-lime-400 border border-lime-500/30' :
-                                                status.status === 'Present' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
-                                                status.status === 'Overtime' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
+                                                status.status === 'Present' || status.name === 'Present (Regularized)' ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' :
+                                                status.status === 'Overtime' || status.name === 'Overtime (Regularized)' ? 'bg-indigo-500/20 text-indigo-400 border border-indigo-500/30' :
                                                 status.status === 'Half Day' ? 'bg-orange-500/20 text-orange-400 border border-orange-500/30' :
                                                 status.status === 'Absent' ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
                                                 status.status === 'Forgot to Checkout' ? 'bg-orange-900/40 text-orange-400 border border-orange-500/30' :
@@ -1021,27 +1021,30 @@ const EmployeeAttendance = () => {
                     if (calculatedWh === 0) calculatedWh = totalApprovedRegHours > 0 ? totalApprovedRegHours : targetHoursNum;
                 }
 
-                const calculatedStatus = computeStatusFromHours(record.status, calculatedWh, targetHoursNum);
+                const hasApprovedReg = approvedRegs.length > 0;
+                const calculatedStatus = computeStatusFromHours(record.status, calculatedWh, targetHoursNum, hasApprovedReg);
                 result = {
-                    type: record.status === "Week Off" ? "Off" : "Present",
-                    name: record.status === "Week Off" ? "Week Off" : (approvedRegs.length > 0 ? "Present (Regularized)" : undefined),
+                    type: (record.status === "Week Off" && !hasApprovedReg) ? "Off" : "Present",
+                    name: (record.status === "Week Off" && !hasApprovedReg)
+                        ? "Week Off"
+                        : (hasApprovedReg ? (calculatedStatus === "Overtime" ? "Overtime (Regularized)" : "Present (Regularized)") : undefined),
                     checkIn: checkInTime,
                     checkOut: checkOutTime,
                     status: calculatedStatus,
                     workingHours: calculatedWh,
                     checkInCentre: record.checkIn?.centreId?.centreName || record.centreId?.centreName || (regularization?.type || "Office"),
-                    checkInLabel: record.checkIn?.address || regularization?.locationAddress || "",
+                    checkInLabel: record.checkIn?.address || regularization?.locationAddress || (hasApprovedReg ? "Regularized" : ""),
                     checkOutCentre: record.checkOut?.centreId?.centreName || (regularization?.type || ""),
-                    checkOutLabel: record.checkOut?.address || regularization?.locationAddress || "",
+                    checkOutLabel: record.checkOut?.address || regularization?.locationAddress || (hasApprovedReg ? "Regularized" : ""),
                     regularization,
                     regularizations: dayRegularizations
                 };
             } else if (approvedRegs.length > 0) {
                 let regHours = totalApprovedRegHours > 0 ? totalApprovedRegHours : targetHoursNum;
-                const regStatus = computeStatusFromHours(null, regHours, targetHoursNum);
+                const regStatus = computeStatusFromHours(null, regHours, targetHoursNum, true);
                 result = {
                     type: "Present",
-                    name: "Regularized",
+                    name: regStatus === "Overtime" ? "Overtime (Regularized)" : "Present (Regularized)",
                     checkIn: earliestRegFromTime || null,
                     checkOut: latestRegToTime || null,
                     status: regStatus,

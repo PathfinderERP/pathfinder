@@ -587,7 +587,6 @@ const BoardAdmissionsContent = () => {
     };
 
     useEffect(() => {
-        setCounsellingForm(prev => ({ ...prev, counselledBy: "" }));
         if (counsellingForm.centre) {
             fetchCounselledByOptions(counsellingForm.centre);
         } else {
@@ -672,26 +671,44 @@ const BoardAdmissionsContent = () => {
             const user = JSON.parse(localStorage.getItem("user") || "{}");
             const currentUserId = user._id || user.id || "";
 
+            const cleanLeadMobile = (leadData.mobileNum || leadData.phoneNumber || "").toString().replace(/\D/g, '').trim();
+            const cleanLeadWhatsapp = (leadData.secondaryMobile || leadData.whatsappNumber || leadData.phoneNumber || "").toString().replace(/\D/g, '').trim();
+            const cleanLeadGuardianMobile = (leadData.fatherMobile || leadData.parentMobile || leadData.guardianMobile || "").toString().replace(/\D/g, '').trim();
+            const activeSessionName = sessions.find(s => s.isGlobalActive)?.sessionName || "";
+
+            let initialDept = leadData.department?._id || leadData.department || "";
+            if (!initialDept && departments.length > 0) {
+                const targetName = (leadData.course?.courseName || leadData.board?.boardName || leadData.board?.boardCourse || leadData.board || leadData.examName || "").toString().toLowerCase().trim();
+                const matched = departments.find(d =>
+                    d.departmentName && (
+                        d.departmentName.toLowerCase() === targetName ||
+                        targetName.includes(d.departmentName.toLowerCase()) ||
+                        d.departmentName.toLowerCase().includes(targetName)
+                    )
+                );
+                if (matched) initialDept = matched._id;
+            }
+
             setCounsellingForm({
                 studentId: leadData._id || "",
-                studentName: leadData.studentName || leadData.name || "",
-                mobileNum: leadData.mobileNum || leadData.phoneNumber || "",
-                whatsappNumber: leadData.secondaryMobile || leadData.whatsappNumber || leadData.phoneNumber || "",
-                studentEmail: leadData.studentEmail || leadData.email || "",
+                studentName: (leadData.studentName || leadData.name || "").toString().trim(),
+                mobileNum: cleanLeadMobile,
+                whatsappNumber: cleanLeadWhatsapp || cleanLeadMobile,
+                studentEmail: (leadData.studentEmail || leadData.email || "").toString().trim(),
                 dateOfBirth: leadData.dob ? new Date(leadData.dob).toISOString().split('T')[0] :
                     (leadData.dateOfBirth ? new Date(leadData.dateOfBirth).toISOString().split('T')[0] : ""),
                 gender: leadData.gender || "",
                 centre: leadData.centre?.centreName || leadData.centre || (allowedCentres && allowedCentres.length > 0 ? allowedCentres[0] : ""),
-                programme: leadData.programme || "",
-                department: leadData.department?._id || leadData.department || "",
+                programme: leadData.programme || "CRP",
+                department: initialDept,
                 board: leadData.board?.boardName || leadData.board?.boardCourse || leadData.board || "",
                 state: leadData.state || "",
                 schoolName: leadData.schoolName || "",
                 pincode: leadData.pincode || "",
                 address: leadData.address || "",
                 guardianName: leadData.fatherName || leadData.parentName || leadData.guardianName || "",
-                guardianMobile: leadData.fatherMobile || leadData.parentMobile || leadData.guardianMobile || "",
-                guardianEmail: leadData.guardianEmail || "",
+                guardianMobile: cleanLeadGuardianMobile,
+                guardianEmail: (leadData.guardianEmail || "").toString().trim(),
                 occupation: leadData.fatherOccupation || leadData.parentOccupation || leadData.occupation || "",
                 lastClass: classVal,
                 examStatus: "",
@@ -701,7 +718,7 @@ const BoardAdmissionsContent = () => {
                 boardId: leadData.board?._id || "",
                 selectedSubjectIds: [],
                 remarks: leadData.remarks || "",
-                academicSession: leadData.academicSession || leadData.session || "",
+                academicSession: leadData.academicSession || leadData.session || activeSessionName,
                 counselledBy: currentUserId
             });
             setShowCounsellingModal(true);
@@ -709,7 +726,7 @@ const BoardAdmissionsContent = () => {
             // Optional: prevent loop if modal is closed and re-opened
             navigate(location.pathname + location.search, { replace: true, state: {} });
         }
-    }, [location.state, showCounsellingModal, allowedCentres, navigate, location.pathname, location.search]);
+    }, [location.state, showCounsellingModal, allowedCentres, navigate, location.pathname, location.search, departments, sessions]);
 
     // Auto-match boardId if board name is present but boardId is not
     useEffect(() => {
@@ -723,6 +740,35 @@ const BoardAdmissionsContent = () => {
             }
         }
     }, [boards, counsellingForm.board, counsellingForm.boardId]);
+
+    // Auto-match department if department is not set
+    useEffect(() => {
+        if (!counsellingForm.department && departments.length > 0) {
+            const courseOrBoard = (counsellingForm.board || counsellingForm.examName || "").toString().toLowerCase().trim();
+            if (courseOrBoard) {
+                const matchedDept = departments.find(d =>
+                    d.departmentName && (
+                        d.departmentName.toLowerCase() === courseOrBoard ||
+                        courseOrBoard.includes(d.departmentName.toLowerCase()) ||
+                        d.departmentName.toLowerCase().includes(courseOrBoard)
+                    )
+                );
+                if (matchedDept) {
+                    setCounsellingForm(prev => ({ ...prev, department: matchedDept._id }));
+                }
+            }
+        }
+    }, [departments, counsellingForm.department, counsellingForm.board, counsellingForm.examName]);
+
+    // Auto-match academicSession if not set
+    useEffect(() => {
+        if (!counsellingForm.academicSession && sessions.length > 0) {
+            const activeSession = sessions.find(s => s.isGlobalActive) || sessions[0];
+            if (activeSession) {
+                setCounsellingForm(prev => ({ ...prev, academicSession: activeSession.sessionName }));
+            }
+        }
+    }, [sessions, counsellingForm.academicSession]);
 
     const handleToggleBoardStatus = async (admissionId, currentStatus) => {
         const isCurrentlyDeactivated = currentStatus === 'DEACTIVATED' || currentStatus === 'INACTIVE' || currentStatus === 'Deactivated';
@@ -1540,6 +1586,10 @@ const BoardAdmissionsContent = () => {
                 : `${import.meta.env.VITE_API_URL}/board-admission/counsel/create`;
             const method = isEditing ? "PUT" : "POST";
 
+            const cleanMobile = typeof mobileNum === 'string' ? mobileNum.replace(/\D/g, '').trim() : (mobileNum ? String(mobileNum).replace(/\D/g, '').trim() : "");
+            const cleanWhatsapp = typeof whatsappNumber === 'string' ? whatsappNumber.replace(/\D/g, '').trim() : (cleanMobile || "");
+            const cleanGuardianMobile = typeof guardianMobile === 'string' ? guardianMobile.replace(/\D/g, '').trim() : (guardianMobile ? String(guardianMobile).replace(/\D/g, '').trim() : "");
+
             const response = await fetch(url, {
                 method,
                 headers: {
@@ -1547,9 +1597,13 @@ const BoardAdmissionsContent = () => {
                     "Authorization": `Bearer ${token}`
                 },
                 body: JSON.stringify({
-                    studentId, studentName, mobileNum, whatsappNumber, studentEmail, dateOfBirth, gender,
+                    studentId, studentName: (studentName || "").trim(),
+                    mobileNum: cleanMobile,
+                    whatsappNumber: cleanWhatsapp,
+                    studentEmail: (studentEmail || "").trim(),
+                    dateOfBirth, gender,
                     centre, programme, board, state, schoolName, pincode, address,
-                    guardianName, guardianMobile, guardianEmail, occupation,
+                    guardianName, guardianMobile: cleanGuardianMobile, guardianEmail, occupation,
                     lastClass, examStatus, markAggregate, scienceMathPercent, examName,
                     boardId, selectedSubjectIds, remarks, department, counselledBy, academicSession
                 })

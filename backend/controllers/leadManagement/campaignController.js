@@ -18,7 +18,7 @@ export const getCampaigns = async (req, res) => {
         const enhancedCampaigns = await Promise.all(campaigns.map(async (campaign) => {
             // Count leads linked to this campaign from both LeadManagement and unpushed CampaignLead
             const lmLeadsCount = await LeadManagement.countDocuments({ campaign: campaign._id });
-            const clUnpushedCount = await CampaignLead.countDocuments({ campaign: campaign._id, isPushed: false });
+            const clUnpushedCount = await CampaignLead.countDocuments({ campaign: campaign._id, isPushed: false, isDuplicate: { $ne: true } });
             const totalLeadsCount = lmLeadsCount + clUnpushedCount;
 
             // Count contacted vs uncontacted leads linked to this campaign
@@ -43,7 +43,7 @@ export const getCampaigns = async (req, res) => {
             // Get all lead phone numbers for this campaign
             const [lmLeads, clLeads] = await Promise.all([
                 LeadManagement.find({ campaign: campaign._id }).select('phoneNumber secondPhoneNumber').lean(),
-                CampaignLead.find({ campaign: campaign._id, isPushed: false }).select('phoneNumber secondPhoneNumber').lean()
+                CampaignLead.find({ campaign: campaign._id, isPushed: false, isDuplicate: { $ne: true } }).select('phoneNumber secondPhoneNumber').lean()
             ]);
             const campaignLeads = [...lmLeads, ...clLeads];
 
@@ -154,6 +154,8 @@ export const getCampaignLeadsDetails = async (req, res) => {
             return {
                 ...l,
                 isPushed,
+                isDuplicate: Boolean(l.isDuplicate),
+                duplicateReason: l.duplicateReason || '',
                 email,
                 schoolName,
                 leadType,
@@ -182,7 +184,8 @@ export const getCampaignLeadsDetails = async (req, res) => {
             summary: {
                 total: allLeads.length,
                 pushedCount: formattedPushed.length,
-                unpushedCount: formattedUnpushed.length
+                unpushedCount: formattedUnpushed.filter(l => !l.isDuplicate).length,
+                duplicateCount: formattedUnpushed.filter(l => l.isDuplicate).length
             },
             leads: allLeads
         });
@@ -575,7 +578,7 @@ export const getCampaignAdmissionsDetails = async (req, res) => {
         // Get all lead phone numbers for this campaign
         const [lmLeads, clLeads] = await Promise.all([
             LeadManagement.find({ campaign: id }).select('phoneNumber secondPhoneNumber').lean(),
-            CampaignLead.find({ campaign: id, isPushed: false }).select('phoneNumber secondPhoneNumber').lean()
+            CampaignLead.find({ campaign: id, isPushed: false, isDuplicate: { $ne: true } }).select('phoneNumber secondPhoneNumber').lean()
         ]);
         const campaignLeads = [...lmLeads, ...clLeads];
 

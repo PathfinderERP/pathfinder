@@ -102,7 +102,14 @@ export default function CampaignUploadLeads() {
             });
             const data = await res.json();
             if (res.ok) {
-                toast.success(data.message || "Leads successfully pushed to Lead Management!");
+                if (data.skippedCount > 0) {
+                    toast.warning(data.message || `${data.count} lead(s) pushed. ${data.skippedCount} duplicate lead(s) skipped.`);
+                    if (data.skippedDetails?.length) {
+                        setSkippedRows(data.skippedDetails);
+                    }
+                } else {
+                    toast.success(data.message || "Leads successfully pushed to Lead Management!");
+                }
             } else {
                 toast.error(data.message || "Failed to push leads.");
             }

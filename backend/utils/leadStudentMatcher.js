@@ -49,6 +49,29 @@ export function cleanPhoneNumber(phone) {
 }
 
 /**
+ * Generates phone search variants (10-digit, +91, 91, \t, etc.) for database indexed $in queries
+ */
+export function getPhoneVariants(phoneListOrSet) {
+    const variants = new Set();
+    const list = Array.isArray(phoneListOrSet) ? phoneListOrSet : Array.from(phoneListOrSet || []);
+    list.forEach(raw => {
+        if (!raw) return;
+        const clean = cleanPhoneNumber(raw);
+        if (clean && clean.length === 10) {
+            variants.add(clean);
+            variants.add(`+91${clean}`);
+            variants.add(`91${clean}`);
+            variants.add(`+91 ${clean}`);
+            variants.add(`\t${clean}`);
+            variants.add(` ${clean}`);
+        } else if (clean) {
+            variants.add(clean);
+        }
+    });
+    return Array.from(variants);
+}
+
+/**
  * Smart matching between two student names:
  * - Returns true for exact or case/space insensitive match
  * - Handles minor phonetic / spelling variations

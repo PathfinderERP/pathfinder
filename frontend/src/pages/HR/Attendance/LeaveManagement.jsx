@@ -1,17 +1,24 @@
 import React, { useState, useEffect } from "react";
 import Layout from "../../../components/Layout";
 import Pagination from "../../../components/common/Pagination";
+import MultiSelectFilter from "../../../components/common/MultiSelectFilter";
+import { useTheme } from "../../../context/ThemeContext";
+import { downloadExcel } from "../../../utils/exportUtils";
 import { FaSearch, FaFilter, FaCheck, FaTimes, FaSpinner, FaFileDownload, FaEye, FaPlus, FaCalendarAlt, FaUserEdit } from "react-icons/fa";
 import { toast } from "react-toastify";
 
 const LeaveManagement = () => {
+    const { theme } = useTheme();
+    const isDarkMode = theme === 'dark';
     const [requests, setRequests] = useState([]);
+    const [departmentsList, setDepartmentsList] = useState([]);
     const [loading, setLoading] = useState(true);
     const [filters, setFilters] = useState({
         search: "",
         status: "Pending",
         startDate: "",
-        endDate: ""
+        endDate: "",
+        departments: []
     });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -20,6 +27,25 @@ const LeaveManagement = () => {
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [reviewData, setReviewData] = useState({ status: "Approved", remark: "" });
+
+    // Fetch master departments list
+    useEffect(() => {
+        const fetchDepartments = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const res = await fetch(`${import.meta.env.VITE_API_URL}/department`, {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setDepartmentsList(Array.isArray(data) ? data : []);
+                }
+            } catch (err) {
+                console.error("Error loading departments for filter:", err);
+            }
+        };
+        fetchDepartments();
+    }, []);
 
     useEffect(() => {
         fetchRequests(1, itemsPerPage, filters);
@@ -41,6 +67,9 @@ const LeaveManagement = () => {
             }
             if (currentFilters.endDate) {
                 queryParams.append("endDate", currentFilters.endDate);
+            }
+            if (currentFilters.departments && currentFilters.departments.length > 0) {
+                queryParams.append("departments", currentFilters.departments.join(","));
             }
             queryParams.append("page", page.toString());
             queryParams.append("limit", limit.toString());
@@ -71,10 +100,33 @@ const LeaveManagement = () => {
     };
 
     const handleReset = () => {
-        const defaultFilters = { search: "", status: "Pending", startDate: "", endDate: "" };
+        const defaultFilters = { search: "", status: "Pending", startDate: "", endDate: "", departments: [] };
         setFilters(defaultFilters);
         setCurrentPage(1);
         fetchRequests(1, itemsPerPage, defaultFilters);
+    };
+
+    const handleExport = () => {
+        if (!requests || requests.length === 0) {
+            toast.info("No leave applications available to export");
+            return;
+        }
+        const exportData = requests.map((req, idx) => ({
+            "Sl No.": (currentPage - 1) * itemsPerPage + idx + 1,
+            "Employee Name": req.employee?.name || "N/A",
+            "Employee ID": req.employee?.employeeId || "N/A",
+            "Department": req.employee?.department?.departmentName || req.employee?.department || "N/A",
+            "Leave Type": req.leaveType?.name || "N/A",
+            "From Date": req.startDate ? new Date(req.startDate).toLocaleDateString() : "N/A",
+            "To Date": req.endDate ? new Date(req.endDate).toLocaleDateString() : "N/A",
+            "Days": req.days || 0,
+            "Status": req.status || "Pending",
+            "Reason": req.reason || "",
+            "Admin Remarks": req.reviewRemark || "",
+            "Reviewed By": req.reviewedBy?.name || ""
+        }));
+        downloadExcel(exportData, `Leave_Applications_${new Date().toISOString().split('T')[0]}`);
+        toast.success("Exported to Excel successfully!");
     };
 
     const handleStatusUpdate = async (e) => {
@@ -124,7 +176,10 @@ const LeaveManagement = () => {
                         <p className="text-sm text-gray-500 dark:text-gray-400">Review and manage employee leave applications</p>
                     </div>
                     <div className="flex items-center gap-3">
-                        <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 transition-all font-bold text-sm border dark:border-gray-700">
+                        <button
+                            onClick={handleExport}
+                            className="flex items-center gap-2 px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 transition-all font-bold text-sm border dark:border-gray-700 shadow-sm cursor-pointer"
+                        >
                             <FaFileDownload /> Export to Excel
                         </button>
                     </div>
@@ -132,7 +187,7 @@ const LeaveManagement = () => {
 
                 {/* Filters */}
                 <div className="bg-white dark:bg-[#1a1f24] p-6 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-800">
-                    <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4 items-end">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-end">
                         <div className="space-y-1.5 font-medium">
                             <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Search Employee</label>
                             <input
@@ -140,8 +195,19 @@ const LeaveManagement = () => {
                                 value={filters.search}
                                 onChange={(e) => setFilters({ ...filters, search: e.target.value })}
                                 onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
+                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 outline-none"
                                 placeholder="Employee ID or Name..."
+                            />
+                        </div>
+                        <div className="space-y-1.5 font-medium">
+                            <label className="text-[10px] font-bold uppercase text-gray-500 ml-1">Department</label>
+                            <MultiSelectFilter
+                                label="Dept"
+                                placeholder="All Departments"
+                                options={departmentsList.map(d => ({ value: d._id, label: d.departmentName.toUpperCase() }))}
+                                selectedValues={filters.departments}
+                                onChange={(selected) => setFilters(prev => ({ ...prev, departments: selected }))}
+                                theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>
                         <div className="space-y-1.5 font-medium">
@@ -150,7 +216,7 @@ const LeaveManagement = () => {
                                 type="date"
                                 value={filters.startDate}
                                 onChange={(e) => setFilters({ ...filters, startDate: e.target.value })}
-                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white"
+                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white outline-none"
                             />
                         </div>
                         <div className="space-y-1.5 font-medium">
@@ -159,7 +225,7 @@ const LeaveManagement = () => {
                                 type="date"
                                 value={filters.endDate}
                                 onChange={(e) => setFilters({ ...filters, endDate: e.target.value })}
-                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white"
+                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white outline-none"
                             />
                         </div>
                         <div className="space-y-1.5 font-medium">
@@ -167,7 +233,7 @@ const LeaveManagement = () => {
                             <select
                                 value={filters.status}
                                 onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white outline-none"
+                                className="w-full px-4 py-2.5 bg-gray-50 dark:bg-gray-800/50 border border-gray-100 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white outline-none cursor-pointer"
                             >
                                 <option value="Pending" className="bg-white dark:bg-[#1a1f24] text-gray-900 dark:text-white">Pending</option>
                                 <option value="Approved" className="bg-white dark:bg-[#1a1f24] text-gray-900 dark:text-white">Approved</option>
@@ -176,8 +242,8 @@ const LeaveManagement = () => {
                             </select>
                         </div>
                         <div className="flex gap-2">
-                            <button onClick={handleSearch} className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold text-sm">Search</button>
-                            <button onClick={handleReset} className="px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-xl hover:bg-gray-200 font-bold text-sm">Reset</button>
+                            <button onClick={handleSearch} className="flex-1 px-4 py-2.5 bg-blue-600 text-white rounded-xl hover:bg-blue-700 font-bold text-sm shadow-sm transition-colors cursor-pointer">Search</button>
+                            <button onClick={handleReset} className="px-4 py-2.5 bg-gray-100 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-xl hover:bg-gray-200 dark:hover:bg-gray-700 font-bold text-sm transition-colors cursor-pointer">Reset</button>
                         </div>
                     </div>
                 </div>
@@ -190,6 +256,7 @@ const LeaveManagement = () => {
                                 <tr className="bg-gray-50/50 dark:bg-gray-800/50 border-b border-gray-100 dark:border-gray-800">
                                     <th className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase">Sl No.</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase">Employee Details</th>
+                                    <th className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase">Department</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase">Leave Type</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase">Date Range</th>
                                     <th className="px-6 py-4 text-[10px] font-bold text-gray-500 uppercase text-center">Days</th>
@@ -200,14 +267,14 @@ const LeaveManagement = () => {
                             </thead>
                             <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                                 {loading ? (
-                                    <tr><td colSpan="8" className="px-6 py-10 text-center"><FaSpinner className="animate-spin mx-auto text-blue-600" size={30} /></td></tr>
+                                    <tr><td colSpan="9" className="px-6 py-10 text-center"><FaSpinner className="animate-spin mx-auto text-blue-600" size={30} /></td></tr>
                                 ) : requests.length > 0 ? (
                                     requests.map((request, index) => (
                                         <tr key={request._id} className="hover:bg-gray-50/50 dark:hover:bg-gray-800/20 transition-colors group">
                                             <td className="px-6 py-4 text-xs font-medium text-gray-500">{(currentPage - 1) * itemsPerPage + index + 1}</td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center gap-3">
-                                                    <div className="w-8 h-8 rounded-full border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden">
+                                                    <div className="w-8 h-8 rounded-full border border-gray-100 dark:border-gray-800 bg-gray-50 dark:bg-gray-800 flex items-center justify-center overflow-hidden shrink-0">
                                                         {request.employee?.profileImage && !request.employee.profileImage.startsWith('undefined/') ? (
                                                             <img src={request.employee.profileImage} alt="" className="w-full h-full object-cover" />
                                                         ) : (
@@ -219,6 +286,11 @@ const LeaveManagement = () => {
                                                         <span className="text-[10px] text-gray-500 font-bold">{request.employee?.employeeId || "N/A"}</span>
                                                     </div>
                                                 </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-tight bg-gray-100 dark:bg-gray-800/60 px-2.5 py-1 rounded-lg border border-gray-200/60 dark:border-gray-700/60 inline-block">
+                                                    {request.employee?.department?.departmentName || request.employee?.department || "N/A"}
+                                                </span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="text-xs font-bold text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10 px-2 py-0.5 rounded-lg">{request.leaveType?.name}</span>
@@ -264,11 +336,11 @@ const LeaveManagement = () => {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex items-center justify-center gap-2">
-                                                    <button onClick={() => { setSelectedRequest(request); setReviewData({ status: "Approved", remark: "" }); setShowStatusModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg">
+                                                    <button onClick={() => { setSelectedRequest(request); setReviewData({ status: "Approved", remark: "" }); setShowStatusModal(true); }} className="p-2 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg cursor-pointer transition-colors" title="Review Request">
                                                         <FaUserEdit size={14} />
                                                     </button>
                                                     {request.documentUrl && (
-                                                        <button onClick={() => window.open(request.documentUrl, '_blank')} className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg">
+                                                        <button onClick={() => window.open(request.documentUrl, '_blank')} className="p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-500/10 rounded-lg cursor-pointer transition-colors" title="View Document">
                                                             <FaEye size={14} />
                                                         </button>
                                                     )}
@@ -277,7 +349,7 @@ const LeaveManagement = () => {
                                         </tr>
                                     ))
                                 ) : (
-                                    <tr><td colSpan="8" className="px-6 py-10 text-center text-gray-500 text-sm italic">No leave applications found matching your criteria</td></tr>
+                                    <tr><td colSpan="9" className="px-6 py-10 text-center text-gray-500 text-sm italic">No leave applications found matching your criteria</td></tr>
                                 )}
                             </tbody>
                         </table>
@@ -321,6 +393,10 @@ const LeaveManagement = () => {
                                 <div className="flex justify-between">
                                     <span className="text-gray-500">Employee:</span>
                                     <span className="font-bold text-gray-800 dark:text-white uppercase">{selectedRequest.employee?.name} ({selectedRequest.employee?.employeeId})</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">Department:</span>
+                                    <span className="font-bold text-gray-800 dark:text-white uppercase">{selectedRequest.employee?.department?.departmentName || selectedRequest.employee?.department || "N/A"}</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-gray-500">Leave Type & Days:</span>

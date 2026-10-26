@@ -104,6 +104,12 @@ const Header = ({ toggleSidebar }) => {
                 const res = await fetch(`${import.meta.env.VITE_API_URL}/profile/me`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
+                if (res.status === 401) {
+                    localStorage.removeItem("token");
+                    localStorage.removeItem("user");
+                    window.location.href = "/";
+                    return;
+                }
                 if (res.ok) {
                     const data = await res.json();
                     if (data.user) {

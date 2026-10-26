@@ -8,7 +8,7 @@ import Boards from "../../models/Master_data/Boards.js";
 import Course from "../../models/Master_data/Courses.js";
 import Sources from "../../models/Master_data/Sources.js";
 import User from "../../models/User.js";
-import { cleanPhoneNumber, isNameMatch } from "../../utils/leadStudentMatcher.js";
+import { cleanPhoneNumber, isNameMatch, getPhoneVariants } from "../../utils/leadStudentMatcher.js";
 
 /**
  * POST /lead-management/bulk-upload
@@ -193,55 +193,62 @@ export const bulkUploadLeads = async (req, res) => {
             return doc;
         });
 
-        // Collect all non-empty primary phone numbers from prepared data
+
+        // Collect all non-empty primary & secondary phone numbers from prepared data
         const incomingPhones = new Set();
         prepared.forEach(row => {
             if (row.phoneNumber) incomingPhones.add(row.phoneNumber);
+            if (row.secondPhoneNumber) incomingPhones.add(row.secondPhoneNumber);
         });
 
-        // Find existing leads in database by phone numbers, storing their names
-        // Map: cleanPhone -> Array of existing names
-        const existingPhoneNamesMap = new Map();
+        // Find existing leads in database by phone numbers
+        // Map: cleanPhone -> { name, source }
+        const existingPhoneMap = new Map();
         if (incomingPhones.size > 0) {
-            const phoneList = Array.from(incomingPhones);
+            const variantList = getPhoneVariants(incomingPhones);
             const [leadsWithPhones, campaignLeadsWithPhones] = await Promise.all([
                 LeadManagement.find({
                     $or: [
-                        { phoneNumber: { $in: phoneList } },
-                        { secondPhoneNumber: { $in: phoneList } }
+                        { phoneNumber: { $in: variantList } },
+                        { secondPhoneNumber: { $in: variantList } }
                     ]
                 }, 'name phoneNumber secondPhoneNumber').lean(),
-                CampaignLead.find({
+                resolvedCampaignId ? CampaignLead.find({
+                    campaign: resolvedCampaignId,
                     $or: [
-                        { phoneNumber: { $in: phoneList } },
-                        { secondPhoneNumber: { $in: phoneList } }
+                        { phoneNumber: { $in: variantList } },
+                        { secondPhoneNumber: { $in: variantList } }
+                    ]
+                }, 'name phoneNumber secondPhoneNumber').lean() : CampaignLead.find({
+                    $or: [
+                        { phoneNumber: { $in: variantList } },
+                        { secondPhoneNumber: { $in: variantList } }
                     ]
                 }, 'name phoneNumber secondPhoneNumber').lean()
             ]);
 
-            const recordPhone = (phone, name) => {
-                if (!phone || !name) return;
+            const recordPhone = (phone, name, source) => {
+                if (!phone) return;
                 const pClean = cleanPhoneNumber(phone);
                 if (!pClean) return;
-                if (!existingPhoneNamesMap.has(pClean)) {
-                    existingPhoneNamesMap.set(pClean, []);
+                if (!existingPhoneMap.has(pClean)) {
+                    existingPhoneMap.set(pClean, { name: name || 'Existing Lead', source });
                 }
-                existingPhoneNamesMap.get(pClean).push(name);
             };
 
             leadsWithPhones.forEach(l => {
-                recordPhone(l.phoneNumber, l.name);
-                recordPhone(l.secondPhoneNumber, l.name);
+                recordPhone(l.phoneNumber, l.name, 'All Leads');
+                recordPhone(l.secondPhoneNumber, l.name, 'All Leads');
             });
             campaignLeadsWithPhones.forEach(l => {
-                recordPhone(l.phoneNumber, l.name);
-                recordPhone(l.secondPhoneNumber, l.name);
+                recordPhone(l.phoneNumber, l.name, resolvedCampaignId ? 'Campaign' : 'Campaign Leads');
+                recordPhone(l.secondPhoneNumber, l.name, resolvedCampaignId ? 'Campaign' : 'Campaign Leads');
             });
         }
 
         // Filter valid leads and check for duplicates (both against DB and within the file)
         const valid = [];
-        // Map: cleanPhone -> Array of names seen in this import file
+        // Map: cleanPhone -> name seen in this import file
         const seenInImportMap = new Map();
         const skippedDetails = [];
         const duplicates = [];
@@ -301,35 +308,41 @@ export const bulkUploadLeads = async (req, res) => {
             let duplicateType = "";
 
             const cleanP = cleanPhoneNumber(p);
+            const cleanSecP = cleanPhoneNumber(row.secondPhoneNumber);
+
+            // 1. Check primary phone
             if (cleanP) {
-                // Check against database: duplicate if same phone AND matching name, or existing phone number in DB
-                const existingNames = existingPhoneNamesMap.get(cleanP) || [];
-                const matchedExistingName = existingNames.find(exName => isNameMatch(row.name, exName));
-                if (matchedExistingName) {
+                if (existingPhoneMap.has(cleanP)) {
+                    const match = existingPhoneMap.get(cleanP);
                     isDuplicate = true;
                     duplicateType = "Database Duplicate";
-                    matchedWith = matchedExistingName;
-                    duplicateReason = `A lead with phone '${p}' and student name '${row.name}' already exists in database.`;
-                } else if (existingNames.length > 0) {
+                    matchedWith = match.name;
+                    duplicateReason = match.source === 'All Leads'
+                        ? `Phone number '${p}' already exists in All Leads (${match.name}).`
+                        : `Phone number '${p}' already exists in ${match.source} (${match.name}).`;
+                } else if (seenInImportMap.has(cleanP)) {
+                    isDuplicate = true;
+                    duplicateType = "File Duplicate";
+                    matchedWith = seenInImportMap.get(cleanP);
+                    duplicateReason = `Phone number '${p}' is duplicated within the uploaded file.`;
+                }
+            }
+
+            // 2. Check secondary phone
+            if (!isDuplicate && cleanSecP) {
+                if (existingPhoneMap.has(cleanSecP)) {
+                    const match = existingPhoneMap.get(cleanSecP);
                     isDuplicate = true;
                     duplicateType = "Database Duplicate";
-                    matchedWith = existingNames[0];
-                    duplicateReason = `A lead with phone '${p}' already exists in database (registered under '${existingNames[0]}').`;
-                } else {
-                    // Check against already seen rows in this import
-                    const seenNames = seenInImportMap.get(cleanP) || [];
-                    const matchedSeenName = seenNames.find(sName => isNameMatch(row.name, sName));
-                    if (matchedSeenName) {
-                        isDuplicate = true;
-                        duplicateType = "File Duplicate";
-                        matchedWith = matchedSeenName;
-                        duplicateReason = `A lead with phone '${p}' and student name '${row.name}' is duplicated within the uploaded file.`;
-                    } else if (seenNames.length > 0) {
-                        isDuplicate = true;
-                        duplicateType = "File Duplicate";
-                        matchedWith = seenNames[0];
-                        duplicateReason = `A lead with phone '${p}' is duplicated within the uploaded file.`;
-                    }
+                    matchedWith = match.name;
+                    duplicateReason = match.source === 'All Leads'
+                        ? `Secondary phone '${row.secondPhoneNumber}' already exists in All Leads (${match.name}).`
+                        : `Secondary phone '${row.secondPhoneNumber}' already exists in ${match.source} (${match.name}).`;
+                } else if (seenInImportMap.has(cleanSecP)) {
+                    isDuplicate = true;
+                    duplicateType = "File Duplicate";
+                    matchedWith = seenInImportMap.get(cleanSecP);
+                    duplicateReason = `Secondary phone '${row.secondPhoneNumber}' is duplicated within the uploaded file.`;
                 }
             }
 
@@ -352,8 +365,8 @@ export const bulkUploadLeads = async (req, res) => {
                     source: row.source || rawRow.source || "",
                     leadType: row.leadType || "",
                     reason: duplicateReason,
-                    matchedWith,
-                    duplicateType,
+                    matchedWith: matchedWith || "",
+                    duplicateType: duplicateType || "Database Duplicate",
                     isDuplicate: true
                 };
 
@@ -363,12 +376,8 @@ export const bulkUploadLeads = async (req, res) => {
                 continue;
             }
 
-            if (cleanP) {
-                if (!seenInImportMap.has(cleanP)) {
-                    seenInImportMap.set(cleanP, []);
-                }
-                seenInImportMap.get(cleanP).push(row.name);
-            }
+            if (cleanP) seenInImportMap.set(cleanP, row.name);
+            if (cleanSecP) seenInImportMap.set(cleanSecP, row.name);
 
             valid.push(row);
         }
