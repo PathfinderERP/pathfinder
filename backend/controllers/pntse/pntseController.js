@@ -318,6 +318,12 @@ export const buildPntseQuery = async (params = {}, user = {}) => {
     let assignedCentres = null;
     if (!isSuperAdmin) {
         assignedCentres = (user.centres || []).map(c => (c._id || c).toString());
+        if (assignedCentres.length === 0 && user.primaryCentre) {
+            assignedCentres.push((user.primaryCentre._id || user.primaryCentre).toString());
+        }
+        if (assignedCentres.length === 0 && user.centre) {
+            assignedCentres.push((user.centre._id || user.centre).toString());
+        }
     }
 
     const zoneIds = parseList(zone);
@@ -419,6 +425,48 @@ export const getPNTSEStudents = async (req, res) => {
     try {
         const query = await buildPntseQuery(req.query, req.user);
 
+        // Fast path for results directory to load instantly
+        if (req.query.resultsOnly === 'true') {
+            const hasResultFilter = {
+                $or: [
+                    { "result.totalMarks": { $ne: null } },
+                    { "result.air": { $ne: null } },
+                    { "result.centreRank": { $ne: null } },
+                    { "result.subjects.0": { $exists: true } },
+                    { score: { $gt: 0 } }
+                ]
+            };
+            if (query.$or) {
+                query.$and = [
+                    { $or: query.$or },
+                    hasResultFilter
+                ];
+                delete query.$or;
+            } else {
+                query.$or = hasResultFilter.$or;
+            }
+
+            const students = await PNTSEStudent.find(query)
+                .select('name rollNo centre class result score rank course createdAt')
+                .populate('class', 'name')
+                .populate('centre', 'centreName enterCode code')
+                .sort({ 'result.air': 1, 'result.centreRank': 1, createdAt: -1 })
+                .lean();
+
+            students.forEach(st => {
+                if (st.result) {
+                    const marks = (st.result.totalMarks !== null && st.result.totalMarks !== undefined)
+                        ? Number(st.result.totalMarks)
+                        : (st.score !== null && st.score !== undefined ? Number(st.score) : null);
+                    if (marks !== null && !isNaN(marks)) {
+                        st.result.percentage = Number(marks.toFixed(2));
+                    }
+                }
+            });
+
+            return res.status(200).json(students);
+        }
+
         const students = await PNTSEStudent.find(query)
             .populate('class')
             .populate('centre')
@@ -429,6 +477,18 @@ export const getPNTSEStudents = async (req, res) => {
             .sort({ createdAt: -1 });
 
         let enrichedStudents = await attachAdmissionStatus(students);
+
+        // Normalize percentage to be calculated out of 100 based on total marks
+        enrichedStudents.forEach(st => {
+            if (st.result) {
+                const marks = (st.result.totalMarks !== null && st.result.totalMarks !== undefined)
+                    ? Number(st.result.totalMarks)
+                    : (st.score !== null && st.score !== undefined ? Number(st.score) : null);
+                if (marks !== null && !isNaN(marks)) {
+                    st.result.percentage = Number(marks.toFixed(2));
+                }
+            }
+        });
 
         const admissionStatusList = parseList(req.query.admissionStatus);
         if (admissionStatusList.length > 0) {
@@ -1406,9 +1466,16 @@ export const uploadResults = async (req, res) => {
 
         // Granular check: Only allow centre-wise uploads for assigned centres if not superAdmin
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
-        if (!isSuperAdmin && centreId) {
-            const assignedCentres = (req.user.centres || []).map(c => (c._id || c).toString());
-            if (!assignedCentres.includes(centreId.toString())) {
+        let assignedCentres = [];
+        if (!isSuperAdmin) {
+            assignedCentres = (req.user.centres || []).map(c => (c._id || c).toString());
+            if (assignedCentres.length === 0 && req.user.primaryCentre) {
+                assignedCentres.push((req.user.primaryCentre._id || req.user.primaryCentre).toString());
+            }
+            if (assignedCentres.length === 0 && req.user.centre) {
+                assignedCentres.push((req.user.centre._id || req.user.centre).toString());
+            }
+            if (centreId && !assignedCentres.includes(centreId.toString())) {
                 return res.status(403).json({ message: "Access denied: You are not assigned to this centre." });
             }
         }
@@ -1423,7 +1490,7 @@ export const uploadResults = async (req, res) => {
         if (uploadMode === "centre" && centreId) {
             studentFilter.centre = centreId;
         } else if (!isSuperAdmin) {
-            studentFilter.centre = { $in: (req.user.centres || []).map(c => c._id || c) };
+            studentFilter.centre = { $in: assignedCentres };
         }
 
         const admittedStudents = await PNTSEStudent.find(studentFilter)
@@ -1515,6 +1582,14 @@ export const uploadResults = async (req, res) => {
                 matchedCount++;
                 matchedStudentIds.add(matchedStudent._id.toString());
 
+                // Calculate percentage out of 100 based on totalMarks
+                let finalPercentage = null;
+                if (parsed.totalMarks !== null && !isNaN(Number(parsed.totalMarks))) {
+                    finalPercentage = Number(Number(parsed.totalMarks).toFixed(2));
+                } else if (parsed.percentage !== null && !isNaN(Number(parsed.percentage))) {
+                    finalPercentage = Number(Number(parsed.percentage).toFixed(2));
+                }
+
                 if (sampleMatched.length < 20) {
                     sampleMatched.push({
                         studentId: matchedStudent._id,
@@ -1522,7 +1597,7 @@ export const uploadResults = async (req, res) => {
                         rollNo: matchedStudent.rollNo,
                         excelRoll: rawRollStr,
                         totalMarks: parsed.totalMarks,
-                        percentage: parsed.percentage,
+                        percentage: finalPercentage,
                         centreRank: parsed.centreRank,
                         air: parsed.air
                     });
@@ -1538,7 +1613,7 @@ export const uploadResults = async (req, res) => {
                                     subjects: parsed.subjects,
                                     subjectMarks: parsed.subjectMarks,
                                     totalMarks: parsed.totalMarks,
-                                    percentage: parsed.percentage,
+                                    percentage: finalPercentage,
                                     centreRank: parsed.centreRank,
                                     air: parsed.air,
                                     allFields: parsed.allFields,
@@ -1613,7 +1688,13 @@ export const saveSingleStudentResult = async (req, res) => {
         // Granular check: Ensure user has permission for student's centre
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
         if (!isSuperAdmin) {
-            const assignedCentres = (req.user.centres || []).map(c => (c._id || c).toString());
+            let assignedCentres = (req.user.centres || []).map(c => (c._id || c).toString());
+            if (assignedCentres.length === 0 && req.user.primaryCentre) {
+                assignedCentres.push((req.user.primaryCentre._id || req.user.primaryCentre).toString());
+            }
+            if (assignedCentres.length === 0 && req.user.centre) {
+                assignedCentres.push((req.user.centre._id || req.user.centre).toString());
+            }
             if (!assignedCentres.includes(student.centre.toString())) {
                 return res.status(403).json({ message: "Access denied: You are not assigned to this student's centre." });
             }
@@ -1629,12 +1710,19 @@ export const saveSingleStudentResult = async (req, res) => {
             });
         }
 
+        let finalPercentage = null;
+        if (totalMarks !== null && !isNaN(Number(totalMarks))) {
+            finalPercentage = Number(Number(totalMarks).toFixed(2));
+        } else if (percentage !== null && !isNaN(Number(percentage))) {
+            finalPercentage = Number(Number(percentage).toFixed(2));
+        }
+
         student.result = {
             examSet,
             subjects: Array.isArray(subjects) ? subjects : [],
             subjectMarks: mergedSubjectMarks,
             totalMarks: totalMarks !== null && !isNaN(Number(totalMarks)) ? Number(totalMarks) : null,
-            percentage: percentage !== null && !isNaN(Number(percentage)) ? Number(percentage) : null,
+            percentage: finalPercentage,
             centreRank: centreRank !== null && !isNaN(Number(centreRank)) ? Number(centreRank) : null,
             air: air !== null && !isNaN(Number(air)) ? Number(air) : null,
             allFields: allFields || {},
@@ -1686,6 +1774,15 @@ export const getStudentResult = async (req, res) => {
 
         if (!student) {
             return res.status(404).json({ message: "Student not found." });
+        }
+
+        if (student.result) {
+            const marks = (student.result.totalMarks !== null && student.result.totalMarks !== undefined)
+                ? Number(student.result.totalMarks)
+                : (student.score !== null && student.score !== undefined ? Number(student.score) : null);
+            if (marks !== null && !isNaN(marks)) {
+                student.result.percentage = Number(marks.toFixed(2));
+            }
         }
 
         return res.status(200).json({
@@ -1743,7 +1840,14 @@ export const getResultsSummary = async (req, res) => {
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
         const filter = {};
         if (!isSuperAdmin) {
-            filter.centre = { $in: (req.user.centres || []).map(c => c._id || c) };
+            let userCentres = (req.user.centres || []).map(c => (c._id || c).toString());
+            if (userCentres.length === 0 && req.user.primaryCentre) {
+                userCentres.push((req.user.primaryCentre._id || req.user.primaryCentre).toString());
+            }
+            if (userCentres.length === 0 && req.user.centre) {
+                userCentres.push((req.user.centre._id || req.user.centre).toString());
+            }
+            filter.centre = { $in: userCentres };
         }
 
         const [totalStudents, studentsWithResults, topRankers] = await Promise.all([

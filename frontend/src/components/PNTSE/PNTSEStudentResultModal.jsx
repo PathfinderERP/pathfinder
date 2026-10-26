@@ -54,11 +54,18 @@ const PNTSEStudentResultModal = ({
         return name && !NON_SUBJECT_NAMES.has(name);
     });
 
+    const initialMarks = currentResult.totalMarks !== null && currentResult.totalMarks !== undefined
+        ? currentResult.totalMarks
+        : (student.score !== null && student.score !== undefined ? student.score : '');
+    const initialPct = initialMarks !== '' && !isNaN(Number(initialMarks))
+        ? Number(initialMarks)
+        : (currentResult.percentage !== null && currentResult.percentage !== undefined ? currentResult.percentage : '');
+
     // Form state for editing or entering result
     const [formData, setFormData] = useState({
         examSet: currentResult.examSet || '',
-        totalMarks: currentResult.totalMarks !== null && currentResult.totalMarks !== undefined ? currentResult.totalMarks : '',
-        percentage: currentResult.percentage !== null && currentResult.percentage !== undefined ? currentResult.percentage : '',
+        totalMarks: initialMarks,
+        percentage: initialPct,
         centreRank: currentResult.centreRank !== null && currentResult.centreRank !== undefined ? currentResult.centreRank : '',
         air: currentResult.air !== null && currentResult.air !== undefined ? currentResult.air : '',
         subjects: validModalSubjects.length > 0
@@ -86,6 +93,7 @@ const PNTSEStudentResultModal = ({
             if (numericMarks.length > 0) {
                 const total = numericMarks.reduce((a, b) => a + b, 0);
                 next.totalMarks = total;
+                next.percentage = total; // out of 100
             }
             return next;
         });
@@ -448,9 +456,19 @@ const PNTSEStudentResultModal = ({
                                     </div>
                                     <div>
                                         <p className="text-3xl font-extrabold text-white print:text-black">
-                                            {currentResult.percentage !== null && currentResult.percentage !== undefined
-                                                ? `${Number(currentResult.percentage).toFixed(2)}%`
-                                                : '—'}
+                                            {(() => {
+                                                const marks = (currentResult.totalMarks !== null && currentResult.totalMarks !== undefined)
+                                                    ? Number(currentResult.totalMarks)
+                                                    : ((student.score !== null && student.score !== undefined) ? Number(student.score) : null);
+                                                if (marks !== null && !isNaN(marks)) {
+                                                    return `${Number.isInteger(marks) ? marks : Number(marks.toFixed(2))}%`;
+                                                }
+                                                if (currentResult.percentage !== null && currentResult.percentage !== undefined) {
+                                                    const p = Number(currentResult.percentage);
+                                                    return `${Number.isInteger(p) ? p : Number(p.toFixed(2))}%`;
+                                                }
+                                                return '—';
+                                            })()}
                                         </p>
                                         <p className="text-[11px] text-gray-400 mt-1 print:text-gray-600">Overall Score</p>
                                     </div>

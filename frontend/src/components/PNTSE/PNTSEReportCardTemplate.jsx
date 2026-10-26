@@ -1,4 +1,5 @@
 import React, { forwardRef } from 'react';
+import pathfinderLogo from '../../assets/pathfinder-logo.png';
 
 /**
  * Helper to convert class name to Roman numeral (e.g. Class 8 -> Class VIII)
@@ -73,29 +74,25 @@ const PNTSEReportCardTemplate = forwardRef(({ student, totalCentreStudents = 150
             { subjectName: 'ENGLISH', marks: 2 }
         ];
 
-    // Total Marks & Maximum Marks
+    // Total Marks & Maximum Marks (PNTSE exam total is out of 100)
     const totalMarks = result.totalMarks !== null && result.totalMarks !== undefined
         ? Number(result.totalMarks)
         : activeSubjects.reduce((acc, s) => acc + (Number(s.marks) || 0), 0);
 
-    // Sum of max marks for valid subjects (Science: 60, Maths: 20, MAT: 10, English: 10 = 100)
-    const maxTotalMarks = activeSubjects.reduce((acc, s) => acc + getSubjectMaxMarks(s.subjectName), 0) || 100;
+    const maxTotalMarks = 100;
 
-    const percentage = result.percentage !== null && result.percentage !== undefined
-        ? Number(result.percentage).toFixed(1)
-        : (maxTotalMarks > 0 ? ((totalMarks / maxTotalMarks) * 100).toFixed(1) : '30.0');
+    const percentage = totalMarks !== null && !isNaN(totalMarks)
+        ? (Number.isInteger(totalMarks) ? String(totalMarks) : totalMarks.toFixed(1))
+        : (result.percentage !== null && result.percentage !== undefined ? Number(result.percentage).toFixed(1) : '30.0');
 
     const centreRank = result.centreRank || 18;
     const air = result.air || (centreRank ? centreRank * 15 : 284);
 
-    // Build subject list with individual max marks and benchmark averages
+    // Build subject list with individual max marks and ranks
     const processedSubjects = activeSubjects.map((sub, index) => {
         const marksNum = Number(sub.marks) || 0;
         const maxMarks = getSubjectMaxMarks(sub.subjectName);
         const scorePercent = maxMarks > 0 ? Math.round((marksNum / maxMarks) * 100) : marksNum;
-        
-        // Benchmark PF average (calculated or derived around 50-54%)
-        const pfAvg = Math.max(40, Math.min(75, 50 + ((index % 3) * 2)));
 
         // Derived ranks for subject row
         const subjectCentreRank = Math.max(1, Math.min(totalCentreStudents, Math.round(centreRank * (1 + (index * 0.3)))));
@@ -106,7 +103,6 @@ const PNTSEReportCardTemplate = forwardRef(({ student, totalCentreStudents = 150
             marks: marksNum,
             maxMarks,
             scorePercent,
-            pfAvg,
             subjectCentreRank,
             subjectPfRank
         };
@@ -114,28 +110,44 @@ const PNTSEReportCardTemplate = forwardRef(({ student, totalCentreStudents = 150
 
     // Find highest and lowest scoring subjects for "What your result says"
     const sortedSubjects = [...processedSubjects].sort((a, b) => b.scorePercent - a.scorePercent);
-    const highestSubject = sortedSubjects[0] || { name: 'SCIENCE', scorePercent: 33, pfAvg: 52 };
-    const lowestSubject = sortedSubjects[sortedSubjects.length - 1] || { name: 'ENGLISH', scorePercent: 20, pfAvg: 52 };
-    const highestDiff = Math.abs(highestSubject.scorePercent - highestSubject.pfAvg);
-    const lowestDiff = Math.abs(lowestSubject.pfAvg - lowestSubject.scorePercent);
+    const highestSubject = sortedSubjects[0] || { name: 'SCIENCE', scorePercent: 33 };
+    const lowestSubject = sortedSubjects[sortedSubjects.length - 1] || { name: 'ENGLISH', scorePercent: 20 };
 
     return (
         <div
             ref={ref}
-            className="w-[780px] bg-white text-slate-900 font-sans mx-auto shadow-2xl print:shadow-none print:w-full print:max-w-none print:m-0"
+            className="w-[780px] bg-white text-slate-900 font-sans mx-auto shadow-2xl print:shadow-none print:w-full print:max-w-none print:m-0 rounded-2xl overflow-hidden"
             style={{
                 fontFamily: "Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
                 color: '#0f172a',
                 backgroundColor: '#ffffff'
             }}
         >
+            {/* ── TOP HEADER WITH OFFICIAL PATHFINDER LOGO ── */}
+            <div className="px-10 py-5 bg-white flex items-center justify-between border-b border-slate-100">
+                <img
+                    src={pathfinderLogo}
+                    alt="PATHFINDER — Where Aspiration Meets Success"
+                    className="h-12 w-auto object-contain"
+                />
+                <div className="text-right">
+                    <span
+                        className="text-[11px] font-extrabold tracking-[0.16em] uppercase block"
+                        style={{ color: '#0891b2' }}
+                    >
+                        Pathfinder Talent Search Examination
+                    </span>
+                    <span className="text-[13px] font-black text-slate-800 tracking-tight">
+                        Official Performance Report Card
+                    </span>
+                </div>
+            </div>
+
             {/* ── TOP DARK NAVY BANNER ── */}
             <div
-                className="px-10 py-8 text-white"
+                className="px-10 py-7 text-white"
                 style={{
-                    backgroundColor: '#0c2338',
-                    borderTopLeftRadius: '12px',
-                    borderTopRightRadius: '12px'
+                    backgroundColor: '#0c2338'
                 }}
             >
                 <div className="flex items-center justify-between mb-3">
@@ -280,8 +292,7 @@ const PNTSEReportCardTemplate = forwardRef(({ student, totalCentreStudents = 150
                                 >
                                     <th className="py-3 px-4 text-[11px] font-extrabold tracking-[0.08em] text-slate-600 uppercase">SUBJECT</th>
                                     <th className="py-3 px-4 text-[11px] font-extrabold tracking-[0.08em] text-slate-600 uppercase text-center">MARKS</th>
-                                    <th className="py-3 px-4 text-[11px] font-extrabold tracking-[0.08em] text-slate-600 uppercase text-center">SCORE</th>
-                                    <th className="py-3 px-4 text-[11px] font-extrabold tracking-[0.08em] text-slate-600 uppercase text-center">PF AVG.</th>
+                                    <th className="py-3 px-4 text-[11px] font-extrabold tracking-[0.08em] text-slate-600 uppercase text-center">PERCENTAGE</th>
                                     <th className="py-3 px-4 text-[11px] font-extrabold tracking-[0.08em] text-slate-600 uppercase text-center">CENTRE</th>
                                     <th className="py-3 px-4 text-[11px] font-extrabold tracking-[0.08em] text-slate-600 uppercase text-center">PF RANK</th>
                                 </tr>
@@ -298,9 +309,6 @@ const PNTSEReportCardTemplate = forwardRef(({ student, totalCentreStudents = 150
                                         <td className="py-3.5 px-4 font-bold text-slate-900 text-center">
                                             {sub.scorePercent}%
                                         </td>
-                                        <td className="py-3.5 px-4 font-medium text-slate-500 text-center">
-                                            {sub.pfAvg}%
-                                        </td>
                                         <td className="py-3.5 px-4 font-medium text-slate-700 text-center">
                                             {sub.subjectCentreRank} / {totalCentreStudents}
                                         </td>
@@ -314,7 +322,7 @@ const PNTSEReportCardTemplate = forwardRef(({ student, totalCentreStudents = 150
                     </div>
 
                     <p className="text-[11px] text-slate-500 mt-2 italic">
-                        All averages and ranks compare {romanClass}, Set {examSet} only.
+                        All ranks compare {romanClass}, Set {examSet} only.
                     </p>
                 </div>
 
@@ -345,10 +353,7 @@ const PNTSEReportCardTemplate = forwardRef(({ student, totalCentreStudents = 150
                                 BUILD ON THIS
                             </p>
                             <p className="text-[12.5px] leading-relaxed text-slate-700">
-                                <strong>{highestSubject.name}</strong> is your highest-scoring subject: <strong>{highestSubject.scorePercent}%</strong>
-                                {highestSubject.scorePercent >= highestSubject.pfAvg
-                                    ? `, which is ${highestSubject.scorePercent - highestSubject.pfAvg} percentage points above the Pathfinder class average.`
-                                    : `, demonstrating your strongest conceptual grasp across sections.`}
+                                <strong>{highestSubject.name}</strong> is your highest-scoring subject with <strong>{highestSubject.scorePercent}%</strong>, demonstrating your strongest conceptual grasp across sections.
                             </p>
                         </div>
 
@@ -367,10 +372,7 @@ const PNTSEReportCardTemplate = forwardRef(({ student, totalCentreStudents = 150
                                 START HERE
                             </p>
                             <p className="text-[12.5px] leading-relaxed text-slate-700">
-                                <strong>{lowestSubject.name}</strong> is your lowest-scoring subject: <strong>{lowestSubject.scorePercent}%</strong>
-                                {lowestSubject.scorePercent <= lowestSubject.pfAvg
-                                    ? `, which is ${lowestSubject.pfAvg - lowestSubject.scorePercent} percentage points below the Pathfinder class average.`
-                                    : `, target this area for rapid score acceleration.`}
+                                <strong>{lowestSubject.name}</strong> is your lowest-scoring subject with <strong>{lowestSubject.scorePercent}%</strong>, target this area for rapid score acceleration.
                             </p>
                         </div>
                     </div>

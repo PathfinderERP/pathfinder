@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     FaCloudUploadAlt,
@@ -19,7 +19,11 @@ import {
     FaExclamationTriangle,
     FaMedal,
     FaPercent,
-    FaFileAlt
+    FaFileAlt,
+    FaChevronLeft,
+    FaChevronRight,
+    FaAngleDoubleLeft,
+    FaAngleDoubleRight
 } from 'react-icons/fa';
 import PNTSEStudentResultModal from './PNTSEStudentResultModal';
 
@@ -27,8 +31,43 @@ const PNTSEUploadResultsContent = () => {
     const navigate = useNavigate();
     const fileInputRef = useRef(null);
 
-    // Active Tab: 'allCentres' | 'centreWise' | 'singleStudent' | 'resultsDirectory'
-    const [activeTab, setActiveTab] = useState('allCentres');
+    // Helper to get allowed centre IDs based on user management centre access
+    const getAllowedCentreIds = () => {
+        try {
+            const user = JSON.parse(localStorage.getItem("user") || "{}");
+            const role = String(user.role || '').toLowerCase().replace(/[\s\-_]+/g, '');
+            // Only superAdmin has unrestricted access across all centres
+            if (role === 'superadmin') {
+                return null;
+            }
+
+            const ids = new Set();
+            if (Array.isArray(user.centres)) {
+                user.centres.forEach(c => {
+                    const id = (c && typeof c === 'object') ? (c._id || c.id) : c;
+                    if (id) ids.add(String(id).trim());
+                });
+            }
+            if (user.primaryCentre) {
+                const id = typeof user.primaryCentre === 'object' ? (user.primaryCentre._id || user.primaryCentre.id) : user.primaryCentre;
+                if (id) ids.add(String(id).trim());
+            }
+            if (user.centre) {
+                const id = typeof user.centre === 'object' ? (user.centre._id || user.centre.id) : user.centre;
+                if (id) ids.add(String(id).trim());
+            }
+
+            return Array.from(ids);
+        } catch {
+            return null;
+        }
+    };
+
+    const allowedCentreIds = getAllowedCentreIds();
+    const isCentreRestricted = allowedCentreIds !== null;
+
+    // Active Tab: if centre restricted, default to 'centreWise'
+    const [activeTab, setActiveTab] = useState(isCentreRestricted ? 'centreWise' : 'allCentres');
 
     // Centres list
     const [centres, setCentres] = useState([]);
@@ -77,7 +116,11 @@ const PNTSEUploadResultsContent = () => {
     const [directoryLoading, setDirectoryLoading] = useState(false);
     const [dirSearchQuery, setDirSearchQuery] = useState('');
     const [dirCentreFilter, setDirCentreFilter] = useState('');
+    const [dirClassFilter, setDirClassFilter] = useState('');
+    const [dbClasses, setDbClasses] = useState([]);
     const [modalStudent, setModalStudent] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(25);
 
     const getHeaders = () => {
         const token = localStorage.getItem("token");
@@ -86,10 +129,11 @@ const PNTSEUploadResultsContent = () => {
         };
     };
 
-    // Fetch summary and centres on load
+    // Fetch summary, centres and classes on load
     useEffect(() => {
         fetchSummary();
         fetchCentres();
+        fetchClasses();
     }, []);
 
     // When Results Directory tab is active, fetch list
@@ -133,25 +177,72 @@ const PNTSEUploadResultsContent = () => {
                         list = Array.isArray(fallbackData) ? fallbackData : (fallbackData.centres || fallbackData.data || []);
                     }
                 }
+
+                // Filter centres based on user's centre-wise access under user management
+                const allowedIds = getAllowedCentreIds();
+                if (allowedIds !== null) {
+                    list = list.filter(c => {
+                        const cId = String(c._id || c.id || '').trim();
+                        return allowedIds.includes(cId);
+                    });
+                }
+
                 setCentres(list);
+
+                // Auto-select if user only has 1 centre or none selected yet
+                if (list.length === 1) {
+                    setSelectedCentre(list[0]._id);
+                    setDirCentreFilter(list[0]._id);
+                } else if (list.length > 0 && isCentreRestricted && !selectedCentre) {
+                    setSelectedCentre(list[0]._id);
+                }
             }
         } catch (err) {
             console.error("Failed to fetch centres:", err);
         }
     };
 
-    const fetchDirectoryStudents = async () => {
-        setDirectoryLoading(true);
+    const fetchClasses = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/pntse/list`, {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/class`, {
                 headers: getHeaders()
             });
             if (res.ok) {
                 const data = await res.json();
+                const list = Array.isArray(data) ? data : (data.classes || data.data || []);
+                setDbClasses(list);
+            }
+        } catch (err) {
+            console.error("Failed to fetch classes:", err);
+        }
+    };
+
+    // Reset pagination when directory filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [dirSearchQuery, dirCentreFilter, dirClassFilter]);
+
+    const fetchDirectoryStudents = async () => {
+        setDirectoryLoading(true);
+        try {
+            const res = await fetch(`${import.meta.env.VITE_API_URL}/pntse/list?resultsOnly=true`, {
+                headers: getHeaders()
+            });
+            if (res.ok) {
+                const data = await res.json();
+                const allowedIds = getAllowedCentreIds();
                 // Filter only students that have a result or score
-                const withResults = Array.isArray(data)
+                let withResults = Array.isArray(data)
                     ? data.filter(s => s.result && (s.result.totalMarks !== null || s.result.air || s.result.centreRank || (s.result.subjects && s.result.subjects.length > 0)))
                     : [];
+
+                if (allowedIds !== null) {
+                    withResults = withResults.filter(s => {
+                        const sCentreId = String(s.centre?._id || s.centre || '').trim();
+                        return allowedIds.includes(sCentreId);
+                    });
+                }
+
                 setDirectoryStudents(withResults);
             }
         } catch (err) {
@@ -247,7 +338,15 @@ const PNTSEUploadResultsContent = () => {
             });
             if (res.ok) {
                 const data = await res.json();
-                setSearchResults(Array.isArray(data) ? data.slice(0, 10) : []);
+                const allowedIds = getAllowedCentreIds();
+                let results = Array.isArray(data) ? data : [];
+                if (allowedIds !== null) {
+                    results = results.filter(s => {
+                        const sCentreId = String(s.centre?._id || s.centre || '').trim();
+                        return allowedIds.includes(sCentreId);
+                    });
+                }
+                setSearchResults(results.slice(0, 10));
             }
         } catch (err) {
             console.error(err);
@@ -264,10 +363,16 @@ const PNTSEUploadResultsContent = () => {
         setSingleErrorMsg('');
 
         const res = student.result || {};
+        const studentMarks = res.totalMarks !== null && res.totalMarks !== undefined
+            ? res.totalMarks
+            : (student.score !== null && student.score !== undefined ? student.score : '');
+        const studentPct = studentMarks !== '' && !isNaN(Number(studentMarks))
+            ? Number(studentMarks)
+            : (res.percentage !== null && res.percentage !== undefined ? res.percentage : '');
         setSingleStudentResult({
             examSet: res.examSet || '',
-            totalMarks: res.totalMarks !== null && res.totalMarks !== undefined ? res.totalMarks : '',
-            percentage: res.percentage !== null && res.percentage !== undefined ? res.percentage : '',
+            totalMarks: studentMarks,
+            percentage: studentPct,
             centreRank: res.centreRank !== null && res.centreRank !== undefined ? res.centreRank : '',
             air: res.air !== null && res.air !== undefined ? res.air : '',
             subjects: res.subjects && res.subjects.length > 0
@@ -290,7 +395,9 @@ const PNTSEUploadResultsContent = () => {
                 .map(s => Number(s.marks))
                 .filter(m => !isNaN(m) && m !== 0);
             if (numericMarks.length > 0) {
-                next.totalMarks = numericMarks.reduce((a, b) => a + b, 0);
+                const total = numericMarks.reduce((a, b) => a + b, 0);
+                next.totalMarks = total;
+                next.percentage = total; // out of 100
             }
             return next;
         });
@@ -356,14 +463,92 @@ const PNTSEUploadResultsContent = () => {
         }
     };
 
+    // Compute sorted list of unique classes for the filter dropdown
+    const availableClasses = useMemo(() => {
+        const map = new Map();
+
+        // 1. Add from dbClasses
+        dbClasses.forEach(c => {
+            const id = String(c._id || c.id || '');
+            const name = c.name || c.className || '';
+            if (id && name) {
+                map.set(id, { id, name });
+            }
+        });
+
+        // 2. Add any classes from directoryStudents that might not be in dbClasses or are by course name
+        directoryStudents.forEach(s => {
+            const classObj = s.class;
+            if (classObj && typeof classObj === 'object' && classObj._id && classObj.name) {
+                if (!map.has(String(classObj._id))) {
+                    map.set(String(classObj._id), { id: String(classObj._id), name: classObj.name });
+                }
+            } else if (s.course) {
+                const courseName = String(s.course).trim();
+                if (courseName && !Array.from(map.values()).some(v => v.name.toLowerCase() === courseName.toLowerCase())) {
+                    map.set(`course_${courseName}`, { id: courseName, name: courseName });
+                }
+            }
+        });
+
+        const list = Array.from(map.values());
+        // Sort naturally: Class 5, Class 6, Class 7, etc.
+        list.sort((a, b) => {
+            const numA = parseInt(a.name.replace(/\D/g, ''), 10) || 0;
+            const numB = parseInt(b.name.replace(/\D/g, ''), 10) || 0;
+            if (numA !== numB) return numA - numB;
+            return a.name.localeCompare(b.name);
+        });
+
+        return list;
+    }, [dbClasses, directoryStudents]);
+
     // Filter directory students
     const filteredDirectory = directoryStudents.filter(s => {
         const matchesSearch = !dirSearchQuery ||
             s.name?.toLowerCase().includes(dirSearchQuery.toLowerCase()) ||
             s.rollNo?.toLowerCase().includes(dirSearchQuery.toLowerCase());
-        const matchesCentre = !dirCentreFilter || (s.centre?._id === dirCentreFilter || s.centre === dirCentreFilter);
-        return matchesSearch && matchesCentre;
+        const sCentreId = String(s.centre?._id || s.centre || '');
+        const matchesCentre = !dirCentreFilter || sCentreId === String(dirCentreFilter);
+
+        const matchesClass = !dirClassFilter || (() => {
+            const classId = String(s.class?._id || s.class || '').trim();
+            const className = String(s.class?.name || s.course || '').trim().toLowerCase();
+            const filterVal = String(dirClassFilter).trim().toLowerCase();
+
+            if (classId && String(dirClassFilter).trim() === classId) return true;
+            if (className === filterVal) return true;
+
+            const cleanStudentClass = className.replace(/^class\s*/i, '').trim();
+            const cleanFilter = filterVal.replace(/^class\s*/i, '').trim();
+            if (cleanStudentClass && cleanFilter && cleanStudentClass === cleanFilter) return true;
+
+            return false;
+        })();
+
+        return matchesSearch && matchesCentre && matchesClass;
     });
+
+    // Pagination calculations for results directory
+    const totalRecords = filteredDirectory.length;
+    const totalPages = Math.max(1, Math.ceil(totalRecords / pageSize));
+    const safeCurrentPage = Math.min(Math.max(1, currentPage), totalPages);
+    const startIndex = (safeCurrentPage - 1) * pageSize;
+    const endIndex = Math.min(startIndex + pageSize, totalRecords);
+    const paginatedDirectory = filteredDirectory.slice(startIndex, endIndex);
+
+    const getPageNumbers = (current, total) => {
+        if (total <= 7) {
+            return Array.from({ length: total }, (_, i) => i + 1);
+        }
+        if (current <= 4) {
+            return [1, 2, 3, 4, 5, '...', total];
+        }
+        if (current >= total - 3) {
+            return [1, '...', total - 4, total - 3, total - 2, total - 1, total];
+        }
+        return [1, '...', current - 1, current, current + 1, '...', total];
+    };
 
     return (
         <div className="min-h-screen bg-gray-950 text-gray-100 p-4 sm:p-6 lg:p-8">
@@ -467,17 +652,19 @@ const PNTSEUploadResultsContent = () => {
 
             {/* Main Tabs Navigation */}
             <div className="flex items-center gap-2 border-b border-gray-800 mb-6 overflow-x-auto pb-1">
-                <button
-                    onClick={() => { setActiveTab('allCentres'); setUploadResponse(null); setUploadError(''); }}
-                    className={`px-5 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
-                        activeTab === 'allCentres'
-                            ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
-                            : 'text-gray-400 hover:text-white hover:bg-gray-900'
-                    }`}
-                >
-                    <FaCloudUploadAlt size={16} />
-                    All Centres Upload
-                </button>
+                {!isCentreRestricted && (
+                    <button
+                        onClick={() => { setActiveTab('allCentres'); setUploadResponse(null); setUploadError(''); }}
+                        className={`px-5 py-3 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap cursor-pointer flex items-center gap-2 ${
+                            activeTab === 'allCentres'
+                                ? 'bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg shadow-blue-500/25'
+                                : 'text-gray-400 hover:text-white hover:bg-gray-900'
+                        }`}
+                    >
+                        <FaCloudUploadAlt size={16} />
+                        All Centres Upload
+                    </button>
+                )}
 
                 <button
                     onClick={() => { setActiveTab('centreWise'); setUploadResponse(null); setUploadError(''); }}
@@ -488,7 +675,7 @@ const PNTSEUploadResultsContent = () => {
                     }`}
                 >
                     <FaBuilding size={14} />
-                    Centre-Wise Upload
+                    {isCentreRestricted ? 'Centre Upload' : 'Centre-Wise Upload'}
                 </button>
 
                 <button
@@ -725,7 +912,19 @@ const PNTSEUploadResultsContent = () => {
                                                         <td className="px-4 py-3 text-center font-bold text-amber-400">#{s.air || '—'}</td>
                                                         <td className="px-4 py-3 text-center font-bold text-cyan-400">#{s.centreRank || '—'}</td>
                                                         <td className="px-4 py-3 text-center font-semibold text-white">{s.totalMarks ?? '—'}</td>
-                                                        <td className="px-4 py-3 text-center text-emerald-400 font-semibold">{s.percentage ? `${s.percentage}%` : '—'}</td>
+                                                        <td className="px-4 py-3 text-center text-emerald-400 font-semibold">
+                                                            {(() => {
+                                                                const marks = s.totalMarks !== null && s.totalMarks !== undefined ? Number(s.totalMarks) : null;
+                                                                if (marks !== null && !isNaN(marks)) {
+                                                                    return `${Number.isInteger(marks) ? marks : Number(marks.toFixed(2))}%`;
+                                                                }
+                                                                if (s.percentage !== null && s.percentage !== undefined) {
+                                                                    const p = Number(s.percentage);
+                                                                    return `${Number.isInteger(p) ? p : Number(p.toFixed(2))}%`;
+                                                                }
+                                                                return '—';
+                                                            })()}
+                                                        </td>
                                                     </tr>
                                                 ))}
                                             </tbody>
@@ -991,20 +1190,41 @@ const PNTSEUploadResultsContent = () => {
                             </div>
 
                             <select
+                                value={dirClassFilter}
+                                onChange={e => setDirClassFilter(e.target.value)}
+                                className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-cyan-500"
+                            >
+                                <option value="">All Classes</option>
+                                {availableClasses.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+
+                            <select
                                 value={dirCentreFilter}
                                 onChange={e => setDirCentreFilter(e.target.value)}
                                 className="px-3 py-2 bg-gray-800 border border-gray-700 rounded-xl text-xs text-gray-200 focus:outline-none focus:border-cyan-500"
                             >
-                                <option value="">All Centres</option>
+                                <option value="">{isCentreRestricted ? 'All Assigned Centres' : 'All Centres'}</option>
                                 {centres.map(c => (
                                     <option key={c._id} value={c._id}>{c.centreName || c.name || c.centerName || c.enterCode}</option>
                                 ))}
                             </select>
                         </div>
 
-                        <span className="text-xs text-gray-400">
-                            Showing <strong>{filteredDirectory.length}</strong> record(s)
-                        </span>
+                        <div className="flex items-center gap-3">
+                            <span className="text-xs text-gray-400">
+                                Total: <strong className="text-white">{filteredDirectory.length}</strong> record{filteredDirectory.length === 1 ? '' : 's'}
+                            </span>
+                            <button
+                                onClick={fetchDirectoryStudents}
+                                disabled={directoryLoading}
+                                className="p-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-xl border border-gray-700 transition cursor-pointer"
+                                title="Refresh Results"
+                            >
+                                <FaSync className={directoryLoading ? 'animate-spin' : ''} size={12} />
+                            </button>
+                        </div>
                     </div>
 
                     {/* Table */}
@@ -1020,55 +1240,154 @@ const PNTSEUploadResultsContent = () => {
                                 <p className="text-sm">No results found matching current criteria</p>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-xs text-left">
-                                    <thead className="bg-gray-800/80 text-gray-400 uppercase font-semibold">
-                                        <tr>
-                                            <th className="px-4 py-3.5">Sl.</th>
-                                            <th className="px-4 py-3.5">Student Name</th>
-                                            <th className="px-4 py-3.5">Roll No</th>
-                                            <th className="px-4 py-3.5">Class</th>
-                                            <th className="px-4 py-3.5">Centre</th>
-                                            <th className="px-4 py-3.5 text-center">AIR</th>
-                                            <th className="px-4 py-3.5 text-center">Centre Rank</th>
-                                            <th className="px-4 py-3.5 text-center">Total Marks</th>
-                                            <th className="px-4 py-3.5 text-center">Percentage</th>
-                                            <th className="px-4 py-3.5 text-center">Result Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y divide-gray-800">
-                                        {filteredDirectory.map((st, i) => (
-                                            <tr key={st._id} className="hover:bg-gray-800/40 transition-colors">
-                                                <td className="px-4 py-3.5 text-gray-400">{i + 1}</td>
-                                                <td className="px-4 py-3.5 font-semibold text-white">{st.name}</td>
-                                                <td className="px-4 py-3.5 font-mono text-cyan-400">{st.rollNo}</td>
-                                                <td className="px-4 py-3.5 text-gray-300">{st.class?.name || 'Class ' + st.course?.replace(/\D/g, '')}</td>
-                                                <td className="px-4 py-3.5 text-gray-300">{st.centre?.centreName || st.centre?.enterCode}</td>
-                                                <td className="px-4 py-3.5 text-center font-bold text-amber-400">
-                                                    {st.result?.air ? `#${st.result.air}` : '—'}
-                                                </td>
-                                                <td className="px-4 py-3.5 text-center font-bold text-cyan-400">
-                                                    {st.result?.centreRank ? `#${st.result.centreRank}` : '—'}
-                                                </td>
-                                                <td className="px-4 py-3.5 text-center font-semibold text-white">
-                                                    {st.result?.totalMarks ?? st.score ?? '—'}
-                                                </td>
-                                                <td className="px-4 py-3.5 text-center font-semibold text-emerald-400">
-                                                    {st.result?.percentage ? `${st.result.percentage}%` : '—'}
-                                                </td>
-                                                <td className="px-4 py-3.5 text-center">
-                                                    <button
-                                                        onClick={() => setModalStudent(st)}
-                                                        className="px-3 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-semibold shadow transition-all cursor-pointer inline-flex items-center gap-1.5"
-                                                    >
-                                                        <FaEye size={11} /> Student Result
-                                                    </button>
-                                                </td>
+                            <>
+                                <div className="overflow-x-auto">
+                                    <table className="w-full text-xs text-left">
+                                        <thead className="bg-gray-800/80 text-gray-400 uppercase font-semibold">
+                                            <tr>
+                                                <th className="px-4 py-3.5">Sl.</th>
+                                                <th className="px-4 py-3.5">Student Name</th>
+                                                <th className="px-4 py-3.5">Roll No</th>
+                                                <th className="px-4 py-3.5">Class</th>
+                                                <th className="px-4 py-3.5">Centre</th>
+                                                <th className="px-4 py-3.5 text-center">AIR</th>
+                                                <th className="px-4 py-3.5 text-center">Centre Rank</th>
+                                                <th className="px-4 py-3.5 text-center">Total Marks</th>
+                                                <th className="px-4 py-3.5 text-center">Percentage</th>
+                                                <th className="px-4 py-3.5 text-center">Result Action</th>
                                             </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-800">
+                                            {paginatedDirectory.map((st, i) => (
+                                                <tr key={st._id} className="hover:bg-gray-800/40 transition-colors">
+                                                    <td className="px-4 py-3.5 text-gray-400">{startIndex + i + 1}</td>
+                                                    <td className="px-4 py-3.5 font-semibold text-white">{st.name}</td>
+                                                    <td className="px-4 py-3.5 font-mono text-cyan-400">{st.rollNo}</td>
+                                                    <td className="px-4 py-3.5 text-gray-300">{st.class?.name || 'Class ' + st.course?.replace(/\D/g, '')}</td>
+                                                    <td className="px-4 py-3.5 text-gray-300">{st.centre?.centreName || st.centre?.enterCode}</td>
+                                                    <td className="px-4 py-3.5 text-center font-bold text-amber-400">
+                                                        {st.result?.air ? `#${st.result.air}` : '—'}
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-center font-bold text-cyan-400">
+                                                        {st.result?.centreRank ? `#${st.result.centreRank}` : '—'}
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-center font-semibold text-white">
+                                                        {st.result?.totalMarks ?? st.score ?? '—'}
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-center font-semibold text-emerald-400">
+                                                        {(() => {
+                                                            const marks = (st.result?.totalMarks !== null && st.result?.totalMarks !== undefined)
+                                                                ? Number(st.result.totalMarks)
+                                                                : ((st.score !== null && st.score !== undefined) ? Number(st.score) : null);
+                                                            if (marks !== null && !isNaN(marks)) {
+                                                                return `${Number.isInteger(marks) ? marks : Number(marks.toFixed(2))}%`;
+                                                            }
+                                                            if (st.result?.percentage !== null && st.result?.percentage !== undefined) {
+                                                                const p = Number(st.result.percentage);
+                                                                return `${Number.isInteger(p) ? p : Number(p.toFixed(2))}%`;
+                                                            }
+                                                            return '—';
+                                                        })()}
+                                                    </td>
+                                                    <td className="px-4 py-3.5 text-center">
+                                                        <button
+                                                            onClick={() => setModalStudent(st)}
+                                                            className="px-3 py-1 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-semibold shadow transition-all cursor-pointer inline-flex items-center gap-1.5"
+                                                        >
+                                                            <FaEye size={11} /> Student Result
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Pagination Footer */}
+                                {totalRecords > 0 && (
+                                    <div className="px-4 py-3 bg-gray-900 border-t border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-gray-400">
+                                        <div className="flex items-center gap-3">
+                                            <span>
+                                                Showing <strong className="text-white">{totalRecords === 0 ? 0 : startIndex + 1}</strong> to{' '}
+                                                <strong className="text-white">{endIndex}</strong> of{' '}
+                                                <strong className="text-white">{totalRecords}</strong> records
+                                            </span>
+                                            <div className="flex items-center gap-1.5 ml-2">
+                                                <span>Rows:</span>
+                                                <select
+                                                    value={pageSize}
+                                                    onChange={(e) => {
+                                                        setPageSize(Number(e.target.value));
+                                                        setCurrentPage(1);
+                                                    }}
+                                                    className="px-2 py-1 bg-gray-800 border border-gray-700 rounded-lg text-xs text-gray-200 focus:outline-none focus:border-cyan-500 cursor-pointer"
+                                                >
+                                                    <option value={10}>10</option>
+                                                    <option value={25}>25</option>
+                                                    <option value={50}>50</option>
+                                                    <option value={100}>100</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        {totalPages > 1 && (
+                                            <div className="flex items-center gap-1">
+                                                <button
+                                                    onClick={() => setCurrentPage(1)}
+                                                    disabled={safeCurrentPage === 1}
+                                                    className="p-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300 rounded-lg border border-gray-700 transition cursor-pointer"
+                                                    title="First Page"
+                                                >
+                                                    <FaAngleDoubleLeft size={11} />
+                                                </button>
+                                                <button
+                                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                                    disabled={safeCurrentPage === 1}
+                                                    className="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300 rounded-lg border border-gray-700 transition cursor-pointer flex items-center gap-1"
+                                                    title="Previous Page"
+                                                >
+                                                    <FaChevronLeft size={10} /> Prev
+                                                </button>
+
+                                                {getPageNumbers(safeCurrentPage, totalPages).map((p, idx) => (
+                                                    p === '...' ? (
+                                                        <span key={`ellipsis-${idx}`} className="px-2 py-1 text-gray-600">...</span>
+                                                    ) : (
+                                                        <button
+                                                            key={p}
+                                                            onClick={() => setCurrentPage(p)}
+                                                            className={`min-w-[28px] h-7 px-2 rounded-lg border text-xs font-semibold transition cursor-pointer ${
+                                                                safeCurrentPage === p
+                                                                    ? 'bg-cyan-600 text-white border-cyan-500 shadow-sm shadow-cyan-500/30'
+                                                                    : 'bg-gray-800 hover:bg-gray-700 text-gray-300 border-gray-700'
+                                                            }`}
+                                                        >
+                                                            {p}
+                                                        </button>
+                                                    )
+                                                ))}
+
+                                                <button
+                                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                                    disabled={safeCurrentPage === totalPages}
+                                                    className="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300 rounded-lg border border-gray-700 transition cursor-pointer flex items-center gap-1"
+                                                    title="Next Page"
+                                                >
+                                                    Next <FaChevronRight size={10} />
+                                                </button>
+                                                <button
+                                                    onClick={() => setCurrentPage(totalPages)}
+                                                    disabled={safeCurrentPage === totalPages}
+                                                    className="p-1.5 bg-gray-800 hover:bg-gray-700 disabled:opacity-30 disabled:cursor-not-allowed text-gray-300 rounded-lg border border-gray-700 transition cursor-pointer"
+                                                    title="Last Page"
+                                                >
+                                                    <FaAngleDoubleRight size={11} />
+                                                </button>
+                                            </div>
+                                        )}
+                                    </div>
+                                )}
+                            </>
                         )}
                     </div>
                 </div>
