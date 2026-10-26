@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import './overflow-fix.css';
 import ProtectedRoute from "./components/ProtectedRoute";
 import LandingPage from "./pages/LandingPage";
@@ -187,7 +187,6 @@ import Store from "./pages/Operations/Store";
 import MarketingOperations from "./pages/Operations/Marketing";
 import MarketingStock from "./pages/Operations/MarketingStock";
 import MarketingApproval from "./pages/Operations/MarketingApproval";
-import AcademicsOperations from "./pages/Operations/Academics";
 import ExamSchedule from "./pages/Operations/ExamSchedule";
 import DailyCenterTracking from "./pages/DailyCenterTracking";
 import DailyCenterTrackingDetails from "./pages/DailyCenterTrackingDetails";
@@ -339,7 +338,6 @@ function App() {
         <Route path="/operations/marketing" element={<ProtectedRoute><MarketingOperations /></ProtectedRoute>} />
         <Route path="/operations/marketing-stock" element={<ProtectedRoute><MarketingStock /></ProtectedRoute>} />
         <Route path="/operations/marketing-approval" element={<ProtectedRoute><MarketingApproval /></ProtectedRoute>} />
-        <Route path="/operations/academics" element={<ProtectedRoute><AcademicsOperations /></ProtectedRoute>} />
         <Route path="/operations/exam-schedule" element={<ProtectedRoute><ExamSchedule /></ProtectedRoute>} />
         <Route path="/daily-center-tracking" element={<ProtectedRoute><DailyCenterTracking /></ProtectedRoute>} />
         <Route path="/daily-center-tracking/:centerId" element={<ProtectedRoute><DailyCenterTrackingDetails /></ProtectedRoute>} />
@@ -431,6 +429,12 @@ function App() {
         <Route path="/task-workflow/tasks" element={<ProtectedRoute><Tasks /></ProtectedRoute>} />
         <Route path="/task-workflow/assign-task" element={<ProtectedRoute><AssignTask /></ProtectedRoute>} />
         <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+
+        {/* Redirect removed operations/academics route to dashboard */}
+        <Route path="/operations/academics" element={<Navigate to="/dashboard" replace />} />
+
+        {/* Catch-all fallback */}
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </BrowserRouter>
   );
