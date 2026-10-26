@@ -4,12 +4,13 @@ import { FaSearch, FaDownload, FaFileImport, FaFileExcel,
     FaGraduationCap, FaUsers, FaTrophy, FaChartLine, FaSortUp, FaSortDown,
     FaSpinner, FaTimes, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaFileInvoice,
     FaEdit, FaTrash, FaEye, FaBookOpen, FaChalkboardTeacher, FaSchool, FaPlus, FaMoneyBillWave,
-    FaCalendarAlt, FaPhone, FaCheck, FaChevronDown, FaUserCheck
+    FaCalendarAlt, FaPhone, FaCheck, FaChevronDown, FaUserCheck, FaPoll, FaCloudUploadAlt
 } from 'react-icons/fa';
 import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
 import PNTSEAdmitCard from './PNTSEAdmitCard';
 import PNTSEBulkImportModal from './PNTSEBulkImportModal';
+import PNTSEStudentResultModal from './PNTSEStudentResultModal';
 import Pagination from '../common/Pagination';
 import BulkAdmitCardModal from '../common/BulkAdmitCardModal';
 import StudentFollowUpModal from '../common/StudentFollowUpModal';
@@ -331,6 +332,10 @@ const PNTSEAllStudentsContent = () => {
     const [admitCardStudent, setAdmitCardStudent] = useState(null);
     const [showBulkAdmitCardModal, setShowBulkAdmitCardModal] = useState(false);
     const [selectedStudentIds, setSelectedStudentIds] = useState(new Set());
+
+    // Student Result Modal State
+    const [selectedResultStudent, setSelectedResultStudent] = useState(null);
+    const [showResultModal, setShowResultModal] = useState(false);
 
     const toggleSelectStudent = (id) => {
         setSelectedStudentIds(prev => {
@@ -1196,6 +1201,14 @@ const PNTSEAllStudentsContent = () => {
                         <FaDownload className="text-base" />
                         Bulk Admit Cards
                     </button>
+                    <button
+                        onClick={() => navigate('/pntse/upload-results')}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-emerald-500/25 cursor-pointer"
+                        title="Upload Student Rank & Results by Excel"
+                    >
+                        <FaTrophy className="text-amber-300 text-base" />
+                        Upload Results
+                    </button>
                 </div>
             </div>
 
@@ -1432,13 +1445,14 @@ const PNTSEAllStudentsContent = () => {
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Admission Status</th>
                                 <th className="px-4 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Attendance</th>
                                 <th className="px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Admit Card</th>
+                                <th className="px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Student Result</th>
                                 <th className="px-3 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center min-w-[130px]">Actions</th>
                             </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-800/50">
                             {paginatedStudents.length === 0 ? (
                                 <tr>
-                                    <td colSpan={19} className="text-center py-16 text-gray-500">
+                                    <td colSpan={20} className="text-center py-16 text-gray-500">
                                         <FaGraduationCap className="text-4xl mx-auto mb-3 opacity-30" />
                                         <p>No students found</p>
                                     </td>
@@ -1551,6 +1565,27 @@ const PNTSEAllStudentsContent = () => {
                                             <FaDownload size={12} />
                                             Admit Card
                                         </button>
+                                    </td>
+                                    <td className="px-5 py-4 text-center">
+                                        {student.result && (student.result.totalMarks !== null || student.result.air || student.result.centreRank || (student.result.subjects && student.result.subjects.length > 0)) ? (
+                                            <button
+                                                onClick={() => { setSelectedResultStudent(student); setShowResultModal(true); }}
+                                                className="px-2.5 py-1.5 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white rounded-lg text-xs font-semibold shadow transition-all cursor-pointer flex items-center justify-center gap-1.5 mx-auto"
+                                                title={`AIR: #${student.result?.air || '—'} | Centre Rank: #${student.result?.centreRank || '—'} | Marks: ${student.result?.totalMarks || '—'}`}
+                                            >
+                                                <FaTrophy size={11} className="text-amber-300" />
+                                                Student Result
+                                            </button>
+                                        ) : (
+                                            <button
+                                                onClick={() => { setSelectedResultStudent(student); setShowResultModal(true); }}
+                                                className="px-2.5 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white rounded-lg text-xs font-semibold border border-gray-700 shadow-sm transition-all cursor-pointer flex items-center justify-center gap-1.5 mx-auto"
+                                                title="View or Enter Result"
+                                            >
+                                                <FaPoll size={11} className="text-cyan-400" />
+                                                Student Result
+                                            </button>
+                                        )}
                                     </td>
                                     <td className="px-3 py-3">
                                         <div className="flex flex-col items-center gap-1.5 min-w-[120px]">
@@ -2534,6 +2569,19 @@ const PNTSEAllStudentsContent = () => {
                         </form>
                     </div>
                 </div>
+            )}
+
+            {/* Student Result Modal */}
+            {showResultModal && selectedResultStudent && (
+                <PNTSEStudentResultModal
+                    student={selectedResultStudent}
+                    onClose={() => { setShowResultModal(false); setSelectedResultStudent(null); }}
+                    canEdit={canEdit}
+                    onResultUpdated={(updatedStudent) => {
+                        setStudents(prev => prev.map(s => s._id === updatedStudent._id ? { ...s, ...updatedStudent } : s));
+                        setSelectedResultStudent(updatedStudent);
+                    }}
+                />
             )}
         </div>
     );

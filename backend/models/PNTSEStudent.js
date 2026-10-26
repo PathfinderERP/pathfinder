@@ -181,6 +181,51 @@ const pntseStudentSchema = new mongoose.Schema({
     rank: {
         type: Number,
         required: false,
+    },
+    result: {
+        examSet: {
+            type: String,
+            default: "",
+        },
+        subjects: [{
+            subjectName: { type: String },
+            marks: { type: mongoose.Schema.Types.Mixed }
+        }],
+        subjectMarks: {
+            type: Map,
+            of: mongoose.Schema.Types.Mixed,
+            default: {}
+        },
+        totalMarks: {
+            type: Number,
+            default: null,
+        },
+        percentage: {
+            type: Number,
+            default: null,
+        },
+        centreRank: {
+            type: Number,
+            default: null,
+        },
+        air: {
+            type: Number,
+            default: null,
+        },
+        allFields: {
+            type: Map,
+            of: mongoose.Schema.Types.Mixed,
+            default: {}
+        },
+        uploadedAt: {
+            type: Date,
+            default: Date.now,
+        },
+        uploadedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User',
+            default: null,
+        }
     }
 }, { timestamps: true });
 

@@ -216,6 +216,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                     subItems: [
                         { name: "All Students", path: "/pntse/all-students", permissionSection: "allStudents" },
                         { name: "Add Student", path: "/pntse/add-student", permissionSection: "addStudent" },
+                        { name: "Upload Results", path: "/pntse/upload-results", permissionSection: "allStudents" },
                     ]
                 },
                 {
