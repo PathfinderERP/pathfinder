@@ -203,6 +203,7 @@ import RedFlagDesk from "./pages/RedFlagDesk";
 import DailyTrackingLog from "./pages/DailyTrackingLog";
 import PNTSEAllStudents from "./pages/PNTSE/PNTSEAllStudents";
 import PNTSEAddStudent from "./pages/PNTSE/PNTSEAddStudent";
+import PNTSEUploadResults from "./pages/PNTSE/PNTSEUploadResults";
 import PMOAllStudents from "./pages/PMO/PMOAllStudents";
 import PMOAddStudent from "./pages/PMO/PMOAddStudent";
 import BooksEx from "./pages/BooksEx";
@@ -415,6 +416,7 @@ function App() {
         {/* PNTSE Routes */}
         <Route path="/pntse/all-students" element={<ProtectedRoute requiredPermissionModule="pntse" requiredPermissionSection="allStudents"><PNTSEAllStudents /></ProtectedRoute>} />
         <Route path="/pntse/add-student" element={<ProtectedRoute requiredPermissionModule="pntse" requiredPermissionSection="addStudent"><PNTSEAddStudent /></ProtectedRoute>} />
+        <Route path="/pntse/upload-results" element={<ProtectedRoute requiredPermissionModule="pntse" requiredPermissionSection="allStudents"><PNTSEUploadResults /></ProtectedRoute>} />
 
         {/* PMO Routes */}
         <Route path="/pmo/all-students" element={<ProtectedRoute requiredPermissionModule="pmo" requiredPermissionSection="allStudents"><PMOAllStudents /></ProtectedRoute>} />

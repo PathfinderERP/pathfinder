@@ -1306,3 +1306,472 @@ export const getPNTSESchools = async (req, res) => {
         res.status(500).json({ message: "Failed to fetch schools" });
     }
 };
+
+/**
+ * Standard headers that should NOT be considered as subject columns
+ */
+const STANDARD_RESULT_HEADERS = [
+    'name', 'student name', 'student_name', 'student',
+    'roll no', 'rollno', 'roll number', 'roll', 'roll_no', 'roll_num', 'student roll',
+    'class', 'std', 'class name', 'classname',
+    'exam set', 'set', 'exam_set', 'examset',
+    'total marks', 'total mark', 'total', 'total score', 'total_marks', 'totalmarks',
+    'percentage', 'percent', '%', 'pct',
+    'centre rank', 'center rank', 'centre_rank', 'center_rank', 'cr',
+    'air', 'all india rank', 'all_india_rank', 'allindiarank', 'rank',
+    'remarks', 'remark', 'status', 'sl', 'sl.', 's.no', 'sno', 'serial'
+];
+
+/**
+ * Parses a single row from the Excel file
+ */
+const parseResultRow = (row) => {
+    const keys = Object.keys(row);
+
+    const findVal = (...names) => {
+        for (const name of names) {
+            const key = keys.find(k => k.trim().toLowerCase() === name.toLowerCase());
+            if (key !== undefined && row[key] !== undefined && row[key] !== null && String(row[key]).trim() !== '') {
+                return row[key];
+            }
+        }
+        return null;
+    };
+
+    const rawRoll = findVal('roll no', 'rollno', 'roll number', 'roll', 'roll_no', 'roll_num', 'student roll');
+    const name = findVal('name', 'student name', 'student_name', 'student');
+    const className = findVal('class', 'std', 'class name', 'classname');
+    const examSet = findVal('exam set', 'set', 'exam_set', 'examset');
+    const totalMarks = findVal('total marks', 'total mark', 'total', 'total score', 'total_marks', 'totalmarks');
+    const percentage = findVal('percentage', 'percent', '%', 'pct');
+    const centreRank = findVal('centre rank', 'center rank', 'centre_rank', 'center_rank', 'cr');
+    const air = findVal('air', 'all india rank', 'all_india_rank', 'allindiarank', 'rank');
+
+    const subjects = [];
+    const subjectMarks = {};
+    const allFields = {};
+
+    keys.forEach(k => {
+        const cleanKey = k.trim();
+        const lowerKey = cleanKey.toLowerCase();
+        const val = row[k];
+        allFields[cleanKey] = val;
+
+        if (!STANDARD_RESULT_HEADERS.includes(lowerKey)) {
+            // Dynamic subject column (e.g. SCIENCE, MATHS, MAT, ENGLISH, PHYSICS, etc.)
+            const numVal = (val !== null && val !== undefined && val !== '' && !isNaN(Number(val)))
+                ? Number(val)
+                : val;
+            subjects.push({
+                subjectName: cleanKey,
+                marks: numVal
+            });
+            subjectMarks[cleanKey] = numVal;
+        }
+    });
+
+    return {
+        rawRoll,
+        name: name ? String(name).trim() : '',
+        className: className ? String(className).trim() : '',
+        examSet: examSet ? String(examSet).trim() : '',
+        totalMarks: totalMarks !== null && !isNaN(Number(totalMarks)) ? Number(totalMarks) : (totalMarks !== null ? totalMarks : null),
+        percentage: percentage !== null && !isNaN(Number(percentage)) ? Number(percentage) : (percentage !== null ? percentage : null),
+        centreRank: centreRank !== null && !isNaN(Number(centreRank)) ? Number(centreRank) : null,
+        air: air !== null && !isNaN(Number(air)) ? Number(air) : null,
+        subjects,
+        subjectMarks,
+        allFields
+    };
+};
+
+/**
+ * Upload students rank & result via Excel file
+ * Supports multi-sheet (e.g. Class 5, Class 6...) or single-sheet workbooks.
+ * Matches Excel roll number digits with admitted PNTSE student roll number digits.
+ * Rolls not matching are simply ignored without error.
+ */
+export const uploadResults = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: "No Excel file uploaded" });
+        }
+
+        const { uploadMode = "all", centreId } = req.body;
+
+        // Granular check: Only allow centre-wise uploads for assigned centres if not superAdmin
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        if (!isSuperAdmin && centreId) {
+            const assignedCentres = (req.user.centres || []).map(c => (c._id || c).toString());
+            if (!assignedCentres.includes(centreId.toString())) {
+                return res.status(403).json({ message: "Access denied: You are not assigned to this centre." });
+            }
+        }
+
+        const workbook = XLSX.read(req.file.buffer, { type: 'buffer' });
+        if (!workbook.SheetNames || workbook.SheetNames.length === 0) {
+            return res.status(400).json({ message: "Uploaded file contains no sheets." });
+        }
+
+        // Fetch PNTSE students for matching
+        const studentFilter = {};
+        if (uploadMode === "centre" && centreId) {
+            studentFilter.centre = centreId;
+        } else if (!isSuperAdmin) {
+            studentFilter.centre = { $in: (req.user.centres || []).map(c => c._id || c) };
+        }
+
+        const admittedStudents = await PNTSEStudent.find(studentFilter)
+            .select("_id name rollNo centre class score rank")
+            .populate("centre", "centreName enterCode")
+            .populate("class", "name")
+            .lean();
+
+        if (admittedStudents.length === 0) {
+            return res.status(400).json({
+                message: uploadMode === "centre"
+                    ? "No admitted PNTSE students found for the selected centre."
+                    : "No admitted PNTSE students found in the database."
+            });
+        }
+
+        // Build digit-based lookup map for lightning fast O(1) matching
+        const digitMap = new Map();
+        for (const s of admittedStudents) {
+            if (!s.rollNo) continue;
+            const rawRoll = String(s.rollNo).trim();
+            const digits = rawRoll.replace(/\D/g, '');
+
+            if (digits) {
+                digitMap.set(digits, s);
+                // Also map without leading zeros (e.g. '0805001' <-> '805001')
+                const intDigits = String(parseInt(digits, 10));
+                if (intDigits && intDigits !== 'NaN') {
+                    if (!digitMap.has(intDigits)) {
+                        digitMap.set(intDigits, s);
+                    }
+                }
+            }
+            // Also map uppercase clean string
+            digitMap.set(rawRoll.toUpperCase(), s);
+        }
+
+        let totalRows = 0;
+        let matchedCount = 0;
+        let unmatchedCount = 0;
+        const sheetsProcessed = [];
+        const sampleMatched = [];
+        const sampleUnmatched = [];
+        const bulkOps = [];
+        const matchedStudentIds = new Set();
+
+        for (const sheetName of workbook.SheetNames) {
+            // Skip explicit 'Not Found' or empty sheets if they don't contain data
+            const lowerSheet = sheetName.trim().toLowerCase();
+            if (lowerSheet === 'not found' && workbook.SheetNames.length > 1) {
+                continue;
+            }
+
+            const sheet = workbook.Sheets[sheetName];
+            const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+            if (!rows || rows.length === 0) continue;
+
+            sheetsProcessed.push(sheetName);
+
+            for (const row of rows) {
+                const parsed = parseResultRow(row);
+                if (!parsed.rawRoll && parsed.rawRoll !== 0) {
+                    continue; // Skip blank or header repetition rows
+                }
+
+                totalRows++;
+                const rawRollStr = String(parsed.rawRoll).trim();
+                const excelDigits = rawRollStr.replace(/\D/g, '');
+                const intDigits = excelDigits ? String(parseInt(excelDigits, 10)) : '';
+
+                // Find matching student
+                const matchedStudent = (excelDigits && digitMap.get(excelDigits)) ||
+                                       (intDigits && intDigits !== 'NaN' && digitMap.get(intDigits)) ||
+                                       digitMap.get(rawRollStr.toUpperCase());
+
+                if (!matchedStudent) {
+                    // "which are not matching dont need to do anything for them"
+                    unmatchedCount++;
+                    if (sampleUnmatched.length < 50) {
+                        sampleUnmatched.push({
+                            sheet: sheetName,
+                            rollNo: rawRollStr,
+                            name: parsed.name || "N/A"
+                        });
+                    }
+                    continue;
+                }
+
+                matchedCount++;
+                matchedStudentIds.add(matchedStudent._id.toString());
+
+                if (sampleMatched.length < 20) {
+                    sampleMatched.push({
+                        studentId: matchedStudent._id,
+                        name: matchedStudent.name,
+                        rollNo: matchedStudent.rollNo,
+                        excelRoll: rawRollStr,
+                        totalMarks: parsed.totalMarks,
+                        percentage: parsed.percentage,
+                        centreRank: parsed.centreRank,
+                        air: parsed.air
+                    });
+                }
+
+                bulkOps.push({
+                    updateOne: {
+                        filter: { _id: matchedStudent._id },
+                        update: {
+                            $set: {
+                                result: {
+                                    examSet: parsed.examSet || "",
+                                    subjects: parsed.subjects,
+                                    subjectMarks: parsed.subjectMarks,
+                                    totalMarks: parsed.totalMarks,
+                                    percentage: parsed.percentage,
+                                    centreRank: parsed.centreRank,
+                                    air: parsed.air,
+                                    allFields: parsed.allFields,
+                                    uploadedAt: new Date(),
+                                    uploadedBy: req.user?._id || null
+                                },
+                                score: (parsed.totalMarks !== null && !isNaN(Number(parsed.totalMarks)))
+                                    ? Number(parsed.totalMarks)
+                                    : (matchedStudent.score || 0),
+                                rank: parsed.air || parsed.centreRank || matchedStudent.rank || null
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        if (bulkOps.length > 0) {
+            // Execute in batches of 1000 for high performance
+            const batchSize = 1000;
+            for (let i = 0; i < bulkOps.length; i += batchSize) {
+                const batch = bulkOps.slice(i, i + batchSize);
+                await PNTSEStudent.bulkWrite(batch, { ordered: false });
+            }
+        }
+
+        return res.status(200).json({
+            success: true,
+            message: `Successfully processed ${sheetsProcessed.length} sheet(s). Uploaded results for ${matchedCount} student(s).`,
+            totalRows,
+            matchedCount,
+            unmatchedCount,
+            sheetsProcessed,
+            sampleMatched,
+            sampleUnmatched
+        });
+    } catch (err) {
+        console.error("Error in uploadResults:", err);
+        return res.status(500).json({ message: "Failed to upload results", error: err.message });
+    }
+};
+
+/**
+ * Save / Update Single Student Result manually
+ */
+export const saveSingleStudentResult = async (req, res) => {
+    try {
+        const {
+            studentId,
+            rollNo,
+            examSet = "",
+            subjects = [],
+            subjectMarks = {},
+            totalMarks = null,
+            percentage = null,
+            centreRank = null,
+            air = null,
+            allFields = {}
+        } = req.body;
+
+        if (!studentId && !rollNo) {
+            return res.status(400).json({ message: "Student ID or Roll No is required." });
+        }
+
+        const query = studentId ? { _id: studentId } : { rollNo: String(rollNo).trim() };
+        const student = await PNTSEStudent.findOne(query);
+
+        if (!student) {
+            return res.status(404).json({ message: "Student not found in PNTSE." });
+        }
+
+        // Granular check: Ensure user has permission for student's centre
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        if (!isSuperAdmin) {
+            const assignedCentres = (req.user.centres || []).map(c => (c._id || c).toString());
+            if (!assignedCentres.includes(student.centre.toString())) {
+                return res.status(403).json({ message: "Access denied: You are not assigned to this student's centre." });
+            }
+        }
+
+        // Ensure subjectMarks map has all entries from subjects array
+        const mergedSubjectMarks = { ...subjectMarks };
+        if (Array.isArray(subjects)) {
+            subjects.forEach(sub => {
+                if (sub && sub.subjectName) {
+                    mergedSubjectMarks[sub.subjectName] = sub.marks;
+                }
+            });
+        }
+
+        student.result = {
+            examSet,
+            subjects: Array.isArray(subjects) ? subjects : [],
+            subjectMarks: mergedSubjectMarks,
+            totalMarks: totalMarks !== null && !isNaN(Number(totalMarks)) ? Number(totalMarks) : null,
+            percentage: percentage !== null && !isNaN(Number(percentage)) ? Number(percentage) : null,
+            centreRank: centreRank !== null && !isNaN(Number(centreRank)) ? Number(centreRank) : null,
+            air: air !== null && !isNaN(Number(air)) ? Number(air) : null,
+            allFields: allFields || {},
+            uploadedAt: new Date(),
+            uploadedBy: req.user?._id || null
+        };
+
+        if (totalMarks !== null && !isNaN(Number(totalMarks))) {
+            student.score = Number(totalMarks);
+        }
+        if (air || centreRank) {
+            student.rank = air || centreRank;
+        }
+
+        await student.save();
+
+        const populatedStudent = await PNTSEStudent.findById(student._id)
+            .populate('class')
+            .populate('centre')
+            .populate('session')
+            .populate('examTag')
+            .populate('board');
+
+        return res.status(200).json({
+            success: true,
+            message: "Student result saved successfully",
+            student: populatedStudent
+        });
+    } catch (err) {
+        console.error("Error in saveSingleStudentResult:", err);
+        return res.status(500).json({ message: "Failed to save student result", error: err.message });
+    }
+};
+
+/**
+ * Get Student Result by Student ID or Roll No
+ */
+export const getStudentResult = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const student = await PNTSEStudent.findOne({
+            $or: [{ _id: id.match(/^[0-9a-fA-F]{24}$/) ? id : null }, { rollNo: id }]
+        })
+            .populate('class')
+            .populate('centre')
+            .populate('session')
+            .populate('examTag')
+            .populate('board');
+
+        if (!student) {
+            return res.status(404).json({ message: "Student not found." });
+        }
+
+        return res.status(200).json({
+            success: true,
+            student,
+            result: student.result || null
+        });
+    } catch (err) {
+        console.error("Error in getStudentResult:", err);
+        return res.status(500).json({ message: "Failed to fetch student result", error: err.message });
+    }
+};
+
+/**
+ * Delete / Clear Student Result
+ */
+export const deleteStudentResult = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const student = await PNTSEStudent.findById(id);
+
+        if (!student) {
+            return res.status(404).json({ message: "Student not found." });
+        }
+
+        // Granular permission check
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        if (!isSuperAdmin) {
+            const assignedCentres = (req.user.centres || []).map(c => (c._id || c).toString());
+            if (!assignedCentres.includes(student.centre.toString())) {
+                return res.status(403).json({ message: "Access denied." });
+            }
+        }
+
+        student.result = undefined;
+        student.score = 0;
+        student.rank = null;
+        await student.save();
+
+        return res.status(200).json({
+            success: true,
+            message: "Student result removed successfully"
+        });
+    } catch (err) {
+        console.error("Error in deleteStudentResult:", err);
+        return res.status(500).json({ message: "Failed to delete student result", error: err.message });
+    }
+};
+
+/**
+ * Get Results Summary & Statistics
+ */
+export const getResultsSummary = async (req, res) => {
+    try {
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        const filter = {};
+        if (!isSuperAdmin) {
+            filter.centre = { $in: (req.user.centres || []).map(c => c._id || c) };
+        }
+
+        const [totalStudents, studentsWithResults, topRankers] = await Promise.all([
+            PNTSEStudent.countDocuments(filter),
+            PNTSEStudent.countDocuments({
+                ...filter,
+                $or: [
+                    { "result.totalMarks": { $ne: null } },
+                    { "result.air": { $ne: null } },
+                    { "result.centreRank": { $ne: null } }
+                ]
+            }),
+            PNTSEStudent.find({
+                ...filter,
+                "result.air": { $ne: null, $gt: 0 }
+            })
+                .sort({ "result.air": 1 })
+                .limit(10)
+                .select("name rollNo result centre class")
+                .populate("centre", "centreName enterCode")
+                .populate("class", "name")
+                .lean()
+        ]);
+
+        return res.status(200).json({
+            totalStudents,
+            studentsWithResults,
+            studentsWithoutResults: Math.max(0, totalStudents - studentsWithResults),
+            topRankers
+        });
+    } catch (err) {
+        console.error("Error in getResultsSummary:", err);
+        return res.status(500).json({ message: "Failed to fetch results summary", error: err.message });
+    }
+};
+
