@@ -45,15 +45,24 @@ const PNTSEAdmitCardTemplate = forwardRef(({ student }, ref) => {
         }
     }
 
-    // Pad roll number or use empty boxes
-    const rollBoxes = Array(7).fill('');
-    if (student.rollNo) {
-        const rollStr = student.rollNo.toString().replace(/[^a-zA-Z0-9]/g, '');
-        const rollChars = rollStr.substring(rollStr.length - 7).padStart(7, ' ').split('');
-        for (let i = 0; i < 7; i++) {
-            rollBoxes[i] = rollChars[i];
-        }
-    }
+    // Extract registration number digits/characters (supports 7 or 8+ digits dynamically)
+    const getRollBoxes = (rollNo) => {
+        if (!rollNo) return Array(7).fill('');
+        const cleanStr = String(rollNo).trim();
+        // Remove common alphabetical prefixes (e.g. PATH, PMO, ERP, ADM)
+        const withoutPrefix = cleanStr.replace(/^[A-Za-z]+/, '').trim();
+        // Extract digits; fallback to alphanumeric without prefix if no digits
+        const digits = withoutPrefix.replace(/\D/g, '');
+        const rawChars = digits.length > 0 ? digits : withoutPrefix.replace(/[^a-zA-Z0-9]/g, '');
+
+        if (!rawChars) return Array(7).fill('');
+
+        // Dynamically size boxes: 8 digits for 8-digit roll numbers, 7 for 7-digit or shorter
+        const boxCount = rawChars.length >= 8 ? rawChars.length : 7;
+        return rawChars.slice(-boxCount).padStart(boxCount, ' ').split('');
+    };
+
+    const rollBoxes = getRollBoxes(student.rollNo || student.registrationNo || student.admissionNumber);
 
     return (
         <div ref={ref} className="w-[840px] bg-white text-black p-6 font-sans">

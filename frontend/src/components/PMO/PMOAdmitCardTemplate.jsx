@@ -45,21 +45,39 @@ const PMOAdmitCardTemplate = forwardRef(({ student }, ref) => {
         }
     }
 
-    const rollBoxes = Array(7).fill('');
-    if (student.rollNo) {
-        const rollStr = student.rollNo.toString().replace(/[^a-zA-Z0-9]/g, '');
-        const rollChars = rollStr.substring(rollStr.length - 7).padStart(7, ' ').split('');
-        for (let i = 0; i < 7; i++) {
-            rollBoxes[i] = rollChars[i];
-        }
-    }
+    // Extract registration number digits/characters (supports 7 or 8+ digits dynamically)
+    const getRollBoxes = (rollNo) => {
+        if (!rollNo) return Array(7).fill('');
+        const cleanStr = String(rollNo).trim();
+        // Remove common alphabetical prefixes (e.g. PATH, PMO, ERP, ADM)
+        const withoutPrefix = cleanStr.replace(/^[A-Za-z]+/, '').trim();
+        // Extract digits; fallback to alphanumeric without prefix if no digits
+        const digits = withoutPrefix.replace(/\D/g, '');
+        const rawChars = digits.length > 0 ? digits : withoutPrefix.replace(/[^a-zA-Z0-9]/g, '');
+
+        if (!rawChars) return Array(7).fill('');
+
+        // Dynamically size boxes: 8 digits for 8-digit roll numbers, 7 for 7-digit or shorter
+        const boxCount = rawChars.length >= 8 ? rawChars.length : 7;
+        return rawChars.slice(-boxCount).padStart(boxCount, ' ').split('');
+    };
+
+    const rollBoxes = getRollBoxes(student.rollNo || student.registrationNo || student.admissionNumber);
 
     return (
         <div 
             ref={ref}
-            className="bg-white text-black p-8 w-[210mm] min-h-[297mm] shadow-lg flex flex-col justify-between font-serif relative box-border"
+            className="bg-white text-black p-6 w-[210mm] min-h-[297mm] shadow-lg flex flex-col justify-between font-serif relative box-border"
             style={{ border: '2px solid black' }}
         >
+            {/* Define print specific styles inside */}
+            <style type="text/css" media="print">
+                {`
+                    @page { size: A4 portrait; margin: 10mm; }
+                    body { background: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                `}
+            </style>
+
             <div>
                 {/* Inner Double Border Simulation */}
                 <div className="border border-black p-4 h-full relative">
@@ -94,32 +112,32 @@ const PMOAdmitCardTemplate = forwardRef(({ student }, ref) => {
                         </h2>
                     </div>
 
-                    <div className="flex mt-8 gap-4">
-                        <div className="flex-1 flex flex-col gap-6">
+                    <div className="flex mt-6 gap-3 items-start">
+                        <div className="flex-1 min-w-0 flex flex-col gap-5">
                             {/* Row 1: Reg No and Centre */}
-                            <div className="flex items-end justify-between">
+                            <div className="flex items-start justify-between gap-2">
                                 <div>
-                                    <div className="flex gap-4 items-center">
-                                        <span className="font-bold text-sm w-32 leading-tight">
-                                            Registration Number<br/><span className="font-normal italic text-xs">(for Office Use Only)</span>
+                                    <div className="flex gap-2 items-center">
+                                        <span className="font-bold text-xs w-28 leading-tight">
+                                            Registration Number<br/><span className="font-normal italic text-[10px] text-gray-600">(for Office Use Only)</span>
                                         </span>
                                         <div className="flex">
                                             {rollBoxes.map((char, i) => (
-                                                <div key={i} className={`w-8 h-8 border border-black flex items-center justify-center font-bold text-lg ${i===1 ? 'border-r-0' : ''}`}>
+                                                <div key={i} className={`w-7 h-8 border border-black flex items-center justify-center font-bold text-base ${i > 0 ? 'border-l-0' : ''}`}>
                                                     {char}
                                                 </div>
                                             ))}
                                         </div>
                                     </div>
-                                    <div className="flex ml-[144px]">
-                                        <div className="bg-black text-white text-[10px] px-1 font-bold w-16 text-center mt-0.5">Centre Code</div>
+                                    <div className="flex ml-[120px]">
+                                        <div className="bg-black text-white text-[9px] px-1 font-bold w-14 text-center mt-0.5">Centre Code</div>
                                     </div>
                                 </div>
                                 
-                                <div className="flex items-center gap-2">
-                                    <span className="font-bold text-sm">Name of Centre:</span>
-                                    <div className="border border-black px-3 py-1 min-w-[150px] font-bold text-sm">
-                                        {centreName}
+                                <div className="flex items-center gap-1.5 pt-1 shrink-0">
+                                    <span className="font-bold text-xs whitespace-nowrap">Name of Centre:</span>
+                                    <div className="border border-black px-2 py-0.5 font-bold text-xs max-w-[150px] truncate" title={centreName}>
+                                        {centreName || '-'}
                                     </div>
                                 </div>
                             </div>
@@ -178,7 +196,7 @@ const PMOAdmitCardTemplate = forwardRef(({ student }, ref) => {
                         </div>
 
                         {/* Photo Box */}
-                        <div className="w-32 h-40 border-2 border-dashed border-gray-400 flex flex-col items-center justify-center p-2 text-center text-xs text-gray-500 font-sans flex-shrink-0">
+                        <div className="w-[120px] h-[150px] border-2 border-dashed border-gray-400 flex flex-col items-center justify-center p-2 text-center text-[11px] leading-tight text-gray-500 font-sans shrink-0 bg-white">
                             <span>Affix Recent Passport Size Photograph</span>
                         </div>
                     </div>
