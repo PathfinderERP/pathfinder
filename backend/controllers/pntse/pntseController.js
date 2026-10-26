@@ -1318,6 +1318,11 @@ const STANDARD_RESULT_HEADERS = [
     'total marks', 'total mark', 'total', 'total score', 'total_marks', 'totalmarks',
     'percentage', 'percent', '%', 'pct',
     'centre rank', 'center rank', 'centre_rank', 'center_rank', 'cr',
+    'centre', 'center', 'centre name', 'center name', 'centre_name', 'center_name', 'centre code', 'center code',
+    'zone', 'zone name', 'zone_name',
+    'school', 'school name', 'school_name',
+    'board', 'board name', 'session', 'course',
+    'mobile', 'email', 'gender', 'dob',
     'air', 'all india rank', 'all_india_rank', 'allindiarank', 'rank',
     'remarks', 'remark', 'status', 'sl', 'sl.', 's.no', 'sno', 'serial'
 ];

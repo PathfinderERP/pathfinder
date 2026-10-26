@@ -16,6 +16,7 @@ import {
     FaInfoCircle,
     FaGraduationCap
 } from 'react-icons/fa';
+import PNTSEReportCardModal from './PNTSEReportCardModal';
 
 const PNTSEStudentResultModal = ({
     student,
@@ -26,6 +27,7 @@ const PNTSEStudentResultModal = ({
     if (!student) return null;
 
     const [isEditing, setIsEditing] = useState(false);
+    const [showReportCardModal, setShowReportCardModal] = useState(false);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
@@ -40,6 +42,18 @@ const PNTSEStudentResultModal = ({
         )
     );
 
+    const NON_SUBJECT_NAMES = new Set([
+        'centre', 'center', 'centre name', 'center name', 'centre_name', 'center_name', 'centre code', 'center code',
+        'zone', 'zone name', 'school', 'board', 'session', 'course',
+        'roll', 'roll no', 'rollno', 'roll number', 'name', 'student name', 'class', 'set', 'exam set',
+        'total', 'total marks', 'totalmarks', 'percentage', 'percent', 'air', 'cr', 'centre rank', 'center rank'
+    ]);
+
+    const validModalSubjects = (currentResult.subjects || []).filter(s => {
+        const name = String(s.subjectName || '').trim().toLowerCase();
+        return name && !NON_SUBJECT_NAMES.has(name);
+    });
+
     // Form state for editing or entering result
     const [formData, setFormData] = useState({
         examSet: currentResult.examSet || '',
@@ -47,8 +61,8 @@ const PNTSEStudentResultModal = ({
         percentage: currentResult.percentage !== null && currentResult.percentage !== undefined ? currentResult.percentage : '',
         centreRank: currentResult.centreRank !== null && currentResult.centreRank !== undefined ? currentResult.centreRank : '',
         air: currentResult.air !== null && currentResult.air !== undefined ? currentResult.air : '',
-        subjects: currentResult.subjects && currentResult.subjects.length > 0
-            ? currentResult.subjects.map(s => ({ subjectName: s.subjectName || '', marks: s.marks !== null && s.marks !== undefined ? s.marks : '' }))
+        subjects: validModalSubjects.length > 0
+            ? validModalSubjects.map(s => ({ subjectName: s.subjectName || '', marks: s.marks !== null && s.marks !== undefined ? s.marks : '' }))
             : [
                 { subjectName: 'SCIENCE', marks: '' },
                 { subjectName: 'MATHS', marks: '' },
@@ -164,7 +178,7 @@ const PNTSEStudentResultModal = ({
     };
 
     const handlePrint = () => {
-        window.print();
+        setShowReportCardModal(true);
     };
 
     // Get list of raw excel fields if any
@@ -444,7 +458,7 @@ const PNTSEStudentResultModal = ({
                             </div>
 
                             {/* Subject Wise Performance */}
-                            {currentResult.subjects && currentResult.subjects.length > 0 && (
+                            {validModalSubjects.length > 0 && (
                                 <div className="bg-gray-950/50 border border-gray-800 rounded-2xl p-5 print:border-gray-300 print:bg-white">
                                     <div className="flex items-center justify-between mb-4">
                                         <h3 className="text-xs font-bold uppercase tracking-wider text-gray-300 print:text-black flex items-center gap-2">
@@ -452,12 +466,12 @@ const PNTSEStudentResultModal = ({
                                             Subject-wise Breakdown
                                         </h3>
                                         <span className="text-xs text-gray-500">
-                                            {currentResult.subjects.length} subject(s)
+                                            {validModalSubjects.length} subject(s)
                                         </span>
                                     </div>
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        {currentResult.subjects.map((sub, i) => (
+                                        {validModalSubjects.map((sub, i) => (
                                             <div
                                                 key={i}
                                                 className="bg-gray-900/90 border border-gray-800/80 rounded-xl p-3.5 flex items-center justify-between print:border-gray-300 print:bg-gray-50"
@@ -540,7 +554,7 @@ const PNTSEStudentResultModal = ({
                                         onClick={handlePrint}
                                         className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl text-xs font-semibold transition-all shadow-md flex items-center gap-2 cursor-pointer"
                                     >
-                                        <FaPrint size={12} /> Print Result Card
+                                        <FaPrint size={12} /> Print Official Report Card
                                     </button>
                                 </div>
                             </div>
@@ -571,6 +585,14 @@ const PNTSEStudentResultModal = ({
                     )}
                 </div>
             </div>
+
+            {/* Official Report Card Modal for Print / PDF */}
+            {showReportCardModal && (
+                <PNTSEReportCardModal
+                    student={student}
+                    onClose={() => setShowReportCardModal(false)}
+                />
+            )}
         </div>
     );
 };
