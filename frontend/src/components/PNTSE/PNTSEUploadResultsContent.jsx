@@ -118,12 +118,21 @@ const PNTSEUploadResultsContent = () => {
 
     const fetchCentres = async () => {
         try {
-            const res = await fetch(`${import.meta.env.VITE_API_URL}/centres`, {
-                headers: getHeaders()
-            });
+            const headers = getHeaders();
+            let res = await fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers });
+            if (!res.ok) {
+                res = await fetch(`${import.meta.env.VITE_API_URL}/centres`, { headers });
+            }
             if (res.ok) {
                 const data = await res.json();
-                const list = Array.isArray(data) ? data : data.centres || [];
+                let list = Array.isArray(data) ? data : (data.centres || data.data || []);
+                if (list.length === 0) {
+                    const fallbackRes = await fetch(`${import.meta.env.VITE_API_URL}/centre?fetchAll=true`, { headers });
+                    if (fallbackRes.ok) {
+                        const fallbackData = await fallbackRes.json();
+                        list = Array.isArray(fallbackData) ? fallbackData : (fallbackData.centres || fallbackData.data || []);
+                    }
+                }
                 setCentres(list);
             }
         } catch (err) {
@@ -528,7 +537,7 @@ const PNTSEUploadResultsContent = () => {
                                     <option value="">— Choose a Centre —</option>
                                     {centres.map(c => (
                                         <option key={c._id} value={c._id}>
-                                            {c.centreName} {c.enterCode ? `(${c.enterCode})` : ''}
+                                            {c.centreName || c.name || c.centerName || c.enterCode} {c.enterCode && (c.centreName || c.name) ? `(${c.enterCode})` : ''}
                                         </option>
                                     ))}
                                 </select>
@@ -988,7 +997,7 @@ const PNTSEUploadResultsContent = () => {
                             >
                                 <option value="">All Centres</option>
                                 {centres.map(c => (
-                                    <option key={c._id} value={c._id}>{c.centreName}</option>
+                                    <option key={c._id} value={c._id}>{c.centreName || c.name || c.centerName || c.enterCode}</option>
                                 ))}
                             </select>
                         </div>

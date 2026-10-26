@@ -164,6 +164,7 @@ app.use("/api/payment-reminder", paymentReminderRoutes);
 app.use("/api/payment", paymentRoutes);
 
 app.use("/api/centre", centreRoutes);
+app.use("/api/centres", centreRoutes);
 app.use("/api/profile", profileRoutes);
 app.use("/api/lead-management", leadManagementRoutes);
 app.use("/api/source", sourceRoutes);
