@@ -686,10 +686,23 @@ export const getAllAttendance = async (req, res) => {
             return typeof raw === 'object' ? raw : { centreName: idOrName };
         };
 
-        // Dynamic Status Update: Past days with check-in but no check-out -> Absent
+        // Fetch holidays for the query date range
+        const rangeStart = query.date?.$gte || startOfDay(new Date());
+        const rangeEnd = query.date?.$lte || endOfDay(new Date());
+        const holidaysInRange = await Holiday.find({
+            date: { $gte: startOfDay(rangeStart), $lte: endOfDay(rangeEnd) }
+        }).lean();
+        const holidayMap = new Map();
+        holidaysInRange.forEach(h => {
+            holidayMap.set(format(new Date(h.date), 'yyyy-MM-dd'), h);
+        });
+
+        // Dynamic Status Update: Past days with check-in but no check-out -> Absent, Holiday handling, Working status
         attendances = attendances.map(att => {
             const attObj = att.toObject ? att.toObject() : att;
             const recordDate = startOfDay(new Date(attObj.date));
+            const dayStr = format(recordDate, 'yyyy-MM-dd');
+            const holiday = holidayMap.get(dayStr);
 
             if (attObj.employeeId) {
                 if (!attObj.employeeId.primaryCentre) {
@@ -703,20 +716,35 @@ export const getAllAttendance = async (req, res) => {
                 attObj.employeeId.centres = (attObj.employeeId.centres || []).map(resolveCentreObj).filter(Boolean);
             }
 
-            if (recordDate < todayStart && attObj.checkIn?.time && !attObj.checkOut?.time) {
-                attObj.status = "Absent";
-                attObj.isForgotCheckout = true; // Flag for frontend chart/UI if needed
+            const hasWorked = (attObj.workingHours > 0) || Boolean(attObj.checkIn?.time && attObj.checkOut?.time);
+
+            if (hasWorked) {
+                // If employee is working (even on a holiday), determine status based on target working hours
+                if (attObj.employeeId && attObj.status !== "Leave") {
+                    const target = getTargetWorkingHours(attObj.employeeId.workingHours);
+                    attObj.status = determineAttendanceStatus(attObj.workingHours, target);
+                    if (holiday) {
+                        attObj.isWorkedOnHoliday = true;
+                        attObj.holidayName = holiday.name;
+                    }
+                }
             } else if (recordDate >= todayStart && attObj.checkIn?.time && !attObj.checkOut?.time) {
                 attObj.isCurrentlyWorking = true;
-            }
-            if (attObj.workingHours > 0 && attObj.employeeId && attObj.status !== "Leave" && attObj.status !== "Holiday") {
-                const target = getTargetWorkingHours(attObj.employeeId.workingHours);
-                attObj.status = determineAttendanceStatus(attObj.workingHours, target);
+            } else if (recordDate < todayStart && attObj.checkIn?.time && !attObj.checkOut?.time) {
+                attObj.status = "Absent";
+                attObj.isForgotCheckout = true; // Flag for frontend chart/UI if needed
+            } else if (holiday && attObj.status !== "Leave") {
+                // If date is a holiday and employee has not worked, status should be Holiday instead of Absent
+                attObj.status = "Holiday";
+                attObj.isHoliday = true;
+                attObj.holidayName = holiday.name;
+                attObj.isAbsent = false;
+                attObj.remarks = attObj.remarks || `Holiday (${holiday.name})`;
             }
             return attObj;
         });
 
-        // Generate Absent records for active employees with no punch record in the date range
+        // Generate Absent / Holiday / Week Off records for active employees with no punch record in the date range
         try {
             const empQuery = { status: "Active" };
             if (centreId) {
@@ -767,8 +795,6 @@ export const getAllAttendance = async (req, res) => {
                 emp.workingDays = normalizedWorkingDays;
             });
 
-            const rangeStart = query.date?.$gte || startOfDay(new Date());
-            const rangeEnd = query.date?.$lte || endOfDay(new Date());
             const daysInInterval = eachDayOfInterval({ start: rangeStart, end: rangeEnd });
             const today = new Date();
 
@@ -789,6 +815,7 @@ export const getAllAttendance = async (req, res) => {
                 const dayStr = format(day, 'yyyy-MM-dd');
                 const dayOfWeek = day.getDay();
                 const dayName = dayNames[dayOfWeek];
+                const holiday = holidayMap.get(dayStr);
 
                 for (const emp of activeEmployees) {
                     const dayKey = `${emp._id.toString()}_${dayStr}`;
@@ -805,17 +832,33 @@ export const getAllAttendance = async (req, res) => {
                             }
                         }
 
+                        let status = 'Absent';
+                        let remarks = 'Absent (No check-in recorded)';
+                        let isAbsent = true;
+
+                        if (holiday) {
+                            status = 'Holiday';
+                            remarks = `Holiday (${holiday.name})`;
+                            isAbsent = false;
+                        } else if (isOffDay) {
+                            status = 'Week Off';
+                            remarks = 'Scheduled Week Off';
+                            isAbsent = false;
+                        }
+
                         syntheticRecords.push({
                             _id: `absent_${emp._id}_${dayStr}`,
                             date: day,
                             employeeId: emp,
                             user: emp.user,
-                            status: isOffDay ? 'Week Off' : 'Absent',
+                            status,
                             workingHours: 0,
                             checkIn: null,
                             checkOut: null,
-                            remarks: isOffDay ? 'Scheduled Week Off' : 'Absent (No check-in recorded)',
-                            isAbsent: !isOffDay
+                            remarks,
+                            isAbsent,
+                            isHoliday: Boolean(holiday),
+                            holidayName: holiday ? holiday.name : undefined
                         });
                     }
                 }
@@ -974,6 +1017,15 @@ export const getAttendanceAnalysis = async (req, res) => {
             }).populate("reviewedBy", "name");
         }
 
+        // Fetch holidays for the period
+        const analysisHolidays = await Holiday.find({
+            date: { $gte: periodStart, $lte: periodEnd }
+        }).lean();
+        const analysisHolidayMap = new Map();
+        analysisHolidays.forEach(h => {
+            analysisHolidayMap.set(format(new Date(h.date), 'yyyy-MM-dd'), h);
+        });
+
         // 3. Calculate Detailed Period Stats
         let totalHours = 0;
         let minHours = Infinity;
@@ -983,7 +1035,7 @@ export const getAttendanceAnalysis = async (req, res) => {
         let checkInCount = 0;
         let checkOutCount = 0;
 
-        const statusDistribution = { Present: 0, Late: 0, 'Half Day': 0, Absent: 0, 'Early Leave': 0, Overtime: 0, 'Week Off': 0 };
+        const statusDistribution = { Present: 0, Late: 0, 'Half Day': 0, Absent: 0, 'Early Leave': 0, Overtime: 0, 'Week Off': 0, Holiday: 0 };
         const snapshotStr = format(referenceDate, 'yyyy-MM-dd');
         let todayRecord = null;
         
@@ -996,6 +1048,7 @@ export const getAttendanceAnalysis = async (req, res) => {
             const att = filteredAttendances.find(a => format(new Date(a.date), 'yyyy-MM-dd') === dayStr);
             const isPastDay = startOfDay(day) < todayStart;
             const reg = regularizations.find(r => format(new Date(r.date), 'yyyy-MM-dd') === dayStr);
+            const isHolidayOnDay = analysisHolidayMap.has(dayStr);
 
             if (att) {
                 let wh = att.workingHours || 0;
@@ -1019,9 +1072,11 @@ export const getAttendanceAnalysis = async (req, res) => {
                 } else if (isPastDay && att.checkIn?.time && !att.checkOut?.time) {
                     status = 'Absent';
                     wh = 0;
-                } else if (wh > 0 && employee && status !== 'Leave' && status !== 'Holiday') {
+                } else if (wh > 0 && employee && status !== 'Leave') {
                     const target = getTargetWorkingHours(employee.workingHours);
                     status = determineAttendanceStatus(wh, target);
+                } else if (isHolidayOnDay && wh <= 0 && !att.checkIn?.time) {
+                    status = 'Holiday';
                 }
 
                 totalHours += wh;
@@ -1129,6 +1184,19 @@ export const getAttendanceAnalysis = async (req, res) => {
                         status: regStatus,
                         checkIn: regCheckIn || '-',
                         checkOut: regCheckOut || '-',
+                        regularization: reg
+                    };
+                }
+
+                if (isHolidayOnDay) {
+                    statusDistribution['Holiday'] = (statusDistribution['Holiday'] || 0) + 1;
+                    return {
+                        day: format(day, 'dd'),
+                        fullDate: format(day, 'dd MMM'),
+                        hours: 0,
+                        status: 'Holiday',
+                        checkIn: '-',
+                        checkOut: '-',
                         regularization: reg
                     };
                 }
@@ -1310,6 +1378,15 @@ export const getAttendanceDashboardStats = async (req, res) => {
         const todayStart = startOfDay(new Date());
         const todayStr = format(new Date(), 'yyyy-MM-dd');
 
+        // Fetch holidays for the period
+        const dashboardHolidays = await Holiday.find({
+            date: { $gte: startDate, $lte: endDate }
+        }).lean();
+        const dashboardHolidayMap = new Map();
+        dashboardHolidays.forEach(h => {
+            dashboardHolidayMap.set(format(new Date(h.date), 'yyyy-MM-dd'), h);
+        });
+
         const existingAttendanceMap = new Map();
         attendances.forEach(a => {
             const empId = (a.employeeId?._id || a.employeeId)?.toString();
@@ -1330,6 +1407,7 @@ export const getAttendanceDashboardStats = async (req, res) => {
             const dayStr = format(day, 'yyyy-MM-dd');
             const dayOfWeek = day.getDay();
             const dayName = dayNames[dayOfWeek];
+            const isHoliday = dashboardHolidayMap.has(dayStr);
 
             for (const emp of activeEmployees) {
                 const dayKey = `${emp._id.toString()}_${dayStr}`;
@@ -1345,7 +1423,7 @@ export const getAttendanceDashboardStats = async (req, res) => {
                             isOffDay = true;
                         }
                     }
-                    if (!isOffDay) {
+                    if (!isOffDay && !isHoliday) {
                         unrecordedAbsentCount++;
                     }
                 }
@@ -1354,6 +1432,9 @@ export const getAttendanceDashboardStats = async (req, res) => {
 
         const recordedAbsentCount = attendances.filter(a => {
             const recordDate = startOfDay(new Date(a.date));
+            const dayStr = format(recordDate, 'yyyy-MM-dd');
+            const isHoliday = dashboardHolidayMap.has(dayStr);
+            if (isHoliday && (!a.workingHours || a.workingHours === 0) && !a.checkIn?.time) return false;
             if (a.status === 'Absent') return true;
             if (recordDate < todayStart && a.checkIn?.time && !a.checkOut?.time) return true;
             if (a.workingHours > 0 && a.workingHours < 4 && a.status !== 'Week Off' && a.status !== 'Leave' && a.status !== 'Holiday') return true;
@@ -1406,7 +1487,9 @@ export const getAttendanceDashboardStats = async (req, res) => {
 
             const dailyAtts = attendances.filter(a => format(new Date(a.date), 'yyyy-MM-dd') === dayStr);
             const dayRecordDate = startOfDay(new Date(day));
+            const isHoliday = dashboardHolidayMap.has(dayStr);
             const dayRecordedAbsent = dailyAtts.filter(a => {
+                if (isHoliday && (!a.workingHours || a.workingHours === 0) && !a.checkIn?.time) return false;
                 if (a.status === 'Absent') return true;
                 if (dayRecordDate < todayStart && a.checkIn?.time && !a.checkOut?.time) return true;
                 if (a.workingHours > 0 && a.workingHours < 4 && a.status !== 'Week Off' && a.status !== 'Leave' && a.status !== 'Holiday') return true;
@@ -1416,25 +1499,27 @@ export const getAttendanceDashboardStats = async (req, res) => {
             const dayOfWeek = day.getDay();
             const dayName = dayNames[dayOfWeek];
             let dayUnrecordedAbsent = 0;
-            activeEmployees.forEach(emp => {
-                const dayKey = `${emp._id.toString()}_${dayStr}`;
-                if (!existingAttendanceMap.has(dayKey)) {
-                    let isOffDay = false;
-                    const hasWorkingDaysSet = Object.values(emp.workingDays || {}).some(v => v === true);
-                    if (hasWorkingDaysSet) {
-                        if (emp.workingDays[dayName] === false) {
-                            isOffDay = true;
+            if (!isHoliday) {
+                activeEmployees.forEach(emp => {
+                    const dayKey = `${emp._id.toString()}_${dayStr}`;
+                    if (!existingAttendanceMap.has(dayKey)) {
+                        let isOffDay = false;
+                        const hasWorkingDaysSet = Object.values(emp.workingDays || {}).some(v => v === true);
+                        if (hasWorkingDaysSet) {
+                            if (emp.workingDays[dayName] === false) {
+                                isOffDay = true;
+                            }
+                        } else {
+                            if (dayOfWeek === 0) {
+                                isOffDay = true;
+                            }
                         }
-                    } else {
-                        if (dayOfWeek === 0) {
-                            isOffDay = true;
+                        if (!isOffDay) {
+                            dayUnrecordedAbsent++;
                         }
                     }
-                    if (!isOffDay) {
-                        dayUnrecordedAbsent++;
-                    }
-                }
-            });
+                });
+            }
 
             const totalDayAbsent = dayRecordedAbsent + dayUnrecordedAbsent;
             const dayPresentCount = dailyAtts.filter(a => a.status !== 'Absent' && a.checkIn?.time).length;

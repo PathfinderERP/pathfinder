@@ -743,6 +743,7 @@ const EmployeesAttendance = () => {
     const [departments, setDepartments] = useState([]);
     const [designations, setDesignations] = useState([]);
     const [attendanceList, setAttendanceList] = useState([]);
+    const [holidaysList, setHolidaysList] = useState([]);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
     const [showPresentModal, setShowPresentModal] = useState(false);
@@ -753,6 +754,16 @@ const EmployeesAttendance = () => {
     const [activeCaution, setActiveCaution] = useState(null); // 'Overtime', 'Early Leave', 'Half Day', 'Short Leave'
     const { theme, toggleTheme } = useTheme();
     const isDarkMode = theme === 'dark';
+
+    const holidayDatesMap = useMemo(() => {
+        const map = new Map();
+        (holidaysList || []).forEach(h => {
+            if (h.date) {
+                map.set(format(new Date(h.date), 'yyyy-MM-dd'), h);
+            }
+        });
+        return map;
+    }, [holidaysList]);
 
     // Current User Context
     const currentUser = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
@@ -890,10 +901,11 @@ const EmployeesAttendance = () => {
     const fetchMetadata = async () => {
         try {
             const token = localStorage.getItem("token");
-            const [centresRes, deptRes, desigRes] = await Promise.all([
+            const [centresRes, deptRes, desigRes, holidaysRes] = await Promise.all([
                 fetch(`${import.meta.env.VITE_API_URL}/centre`, { headers: { Authorization: `Bearer ${token}` } }),
                 fetch(`${import.meta.env.VITE_API_URL}/department`, { headers: { Authorization: `Bearer ${token}` } }),
-                fetch(`${import.meta.env.VITE_API_URL}/designation`, { headers: { Authorization: `Bearer ${token}` } })
+                fetch(`${import.meta.env.VITE_API_URL}/designation`, { headers: { Authorization: `Bearer ${token}` } }),
+                fetch(`${import.meta.env.VITE_API_URL}/hr/attendance/holidays?year=${new Date().getFullYear()}`, { headers: { Authorization: `Bearer ${token}` } })
             ]);
 
             if (centresRes.ok) {
@@ -908,6 +920,10 @@ const EmployeesAttendance = () => {
             }
             if (deptRes.ok) setDepartments(await deptRes.json());
             if (desigRes.ok) setDesignations(await desigRes.json());
+            if (holidaysRes && holidaysRes.ok) {
+                const hData = await holidaysRes.json();
+                setHolidaysList(Array.isArray(hData) ? hData : hData.holidays || []);
+            }
         } catch (error) {
             console.error("Metadata fetch error:", error);
         }
@@ -2186,6 +2202,9 @@ const EmployeesAttendance = () => {
                                                             } else if (s === "Overtime" || (hours > 9.05 && att.checkOut)) {
                                                                 badgeClass = "bg-indigo-500/10 text-indigo-400 border border-indigo-500/20";
                                                                 label = "Overtime ★";
+                                                            } else if (s === "Holiday" || att.isHoliday) {
+                                                                badgeClass = "bg-blue-500/10 text-blue-400 border border-blue-500/20";
+                                                                label = "Holiday";
                                                             } else if (s === "Week Off") {
                                                                 badgeClass = "bg-gray-500/10 text-gray-500 border border-gray-500/20";
                                                                 label = "Week Off";
@@ -2422,6 +2441,7 @@ const EmployeesAttendance = () => {
                                                         const empWd = r.employeeId?.workingDays;
                                                         const hasConfiguredWorkingDays = Boolean(empWd && typeof empWd === 'object' && Object.values(empWd).some(v => v === true));
                                                         const isScheduledWeekOff = hasConfiguredWorkingDays ? (empWd[dayName] === false) : (dateObj.getDay() === 0);
+                                                        const isHoliday = r.isHoliday || s === 'Holiday' || holidayDatesMap.has(recordDate);
 
                                                         const hasWorked = hours > 0 || Boolean(r.checkIn?.time && r.checkOut?.time);
                                                         const isCheckedInActive = Boolean(r.checkIn?.time && !r.checkOut?.time && !isPastDate);
@@ -2431,7 +2451,8 @@ const EmployeesAttendance = () => {
 
                                                         if (hasWorked) {
                                                             if (hours < 4 && r.checkOut) {
-                                                                badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
+                                                                badgeCls = isHoliday ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400';
+                                                                label = isHoliday ? 'Present' : 'Absent';
                                                             } else if (s === 'Half Day' || (hours < (target / 2) && r.checkOut)) {
                                                                 badgeCls = 'bg-orange-500/10 text-orange-400'; label = 'Half Day';
                                                             } else if (s === 'Early Leave' || (hours < (target - 0.5) && r.checkOut)) {
@@ -2448,16 +2469,24 @@ const EmployeesAttendance = () => {
                                                         } else if (isPastDate && r.checkIn?.time && !r.checkOut?.time) {
                                                             badgeCls = 'bg-red-500/10 text-red-400'; label = 'Absent';
                                                         } else {
-                                                            if (s === 'Week Off' || isScheduledWeekOff) {
-                                                                badgeCls = 'bg-gray-500/10 text-gray-400 border border-gray-500/20'; label = 'Week Off';
-                                                            } else if (s === 'Holiday') {
+                                                            if (isHoliday) {
                                                                 badgeCls = 'bg-blue-500/10 text-blue-400 border border-blue-500/20'; label = 'Holiday';
+                                                            } else if (s === 'Week Off' || isScheduledWeekOff) {
+                                                                badgeCls = 'bg-gray-500/10 text-gray-400 border border-gray-500/20'; label = 'Week Off';
                                                             } else if (s === 'Leave') {
                                                                 badgeCls = 'bg-purple-500/10 text-purple-400 border border-purple-500/20'; label = 'Leave';
                                                             } else {
                                                                 badgeCls = 'bg-red-500/10 text-red-400 border border-red-500/20'; label = 'Absent';
                                                             }
                                                         }
+
+                                                        const formatDuration = (hVal) => {
+                                                            if (!hVal || isNaN(hVal) || hVal <= 0) return '--';
+                                                            const totalMinutes = Math.round(hVal * 60);
+                                                            const h = Math.floor(totalMinutes / 60);
+                                                            const m = totalMinutes % 60;
+                                                            return `${h}h ${m}m`;
+                                                        };
 
                                                         return (
                                                             <div
@@ -2494,7 +2523,7 @@ const EmployeesAttendance = () => {
                                                                     {r.checkOut?.time ? format(new Date(r.checkOut.time), 'HH:mm') : '--:--'}
                                                                 </span>
                                                                 <span className={`text-[9px] font-black text-center ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                                                    {hours > 0 ? `${hours.toFixed(1)}h` : '--'}
+                                                                    {formatDuration(hours)}
                                                                 </span>
                                                                 <span className={`text-[7px] font-black uppercase tracking-widest px-1.5 py-0.5 rounded-[2px] text-center ${badgeCls}`}>
                                                                     {label}
@@ -2531,7 +2560,10 @@ const EmployeesAttendance = () => {
                                                             let badgeClass = "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20";
                                                             let label = record.status;
 
-                                                            if (s === "Week Off") {
+                                                            if (s === "Holiday") {
+                                                                badgeClass = "bg-blue-500/10 text-blue-400 border border-blue-500/20";
+                                                                label = "Holiday";
+                                                            } else if (s === "Week Off") {
                                                                 badgeClass = "bg-gray-500/10 text-gray-400 border border-gray-500/20";
                                                                 label = "Week Off";
                                                             } else if (s === "Absent" || (hours < 4 && record.checkOut)) {

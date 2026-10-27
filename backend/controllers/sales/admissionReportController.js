@@ -55,6 +55,12 @@ export const getAdmissionReport = async (req, res) => {
         admissionQuery.admissionDate = { $gte: start, $lte: end };
         leadQuery.createdAt = { $gte: start, $lte: end };
 
+        // Exclude cancelled/inactive admissions and deactivated students
+        admissionQuery.admissionStatus = { $nin: ["INACTIVE", "CANCELLED"] };
+        const deactivatedStudents = await Student.find({ status: "Deactivated" }).select("_id").lean();
+        const deactivatedStudentIds = deactivatedStudents.map(s => s._id);
+        admissionQuery.student = { $nin: deactivatedStudentIds };
+
         // Resolve Centre IDs for filtering
         let activeCentres = await Centre.find({ status: { $ne: "deactive" } }).select("centreName");
         let activeCentreIds = activeCentres.map(c => c._id.toString());
@@ -150,7 +156,7 @@ export const getAdmissionReport = async (req, res) => {
 
         // Programme Filter
         if (programme) {
-            const studentsWithProg = await Student.find({ "studentsDetails.programme": programme }).select("_id").lean();
+            const studentsWithProg = await Student.find({ "studentsDetails.programme": programme, status: { $ne: "Deactivated" } }).select("_id").lean();
             const studentIdsWithProg = studentsWithProg.map(s => s._id);
             admissionQuery.student = { $in: studentIdsWithProg };
 
@@ -227,6 +233,10 @@ export const getAdmissionReport = async (req, res) => {
 
         // Dedicated Query for Board Course Admissions (includes board, subject filtering)
         let boardAdmissionQuery = { ...admissionQuery };
+        delete boardAdmissionQuery.student;
+        delete boardAdmissionQuery.admissionStatus;
+        boardAdmissionQuery.status = { $nin: ["DEACTIVATED", "CANCELLED", "INACTIVE"] };
+        boardAdmissionQuery.enrolledStudentsStatus = { $ne: "INACTIVE" };
         if (boardAdmissionQuery.class) {
             delete boardAdmissionQuery.class;
         }
@@ -247,10 +257,11 @@ export const getAdmissionReport = async (req, res) => {
             boardAdmissionQuery.lastClass = { $in: boardClassMatches };
         }
         if (programme) {
-            delete boardAdmissionQuery.student;
-            const studentsWithProg = await Student.find({ "studentsDetails.programme": programme }).select("_id").lean();
+            const studentsWithProg = await Student.find({ "studentsDetails.programme": programme, status: { $ne: "Deactivated" } }).select("_id").lean();
             const studentIdsWithProg = studentsWithProg.map(s => s._id);
             boardAdmissionQuery.studentId = { $in: studentIdsWithProg };
+        } else {
+            boardAdmissionQuery.studentId = { $nin: deactivatedStudentIds };
         }
         // Remove centre from boardAdmissionQuery if it references ObjectId (board admission uses string centre)
         // boardAdmissionQuery already has date filter inherited from admissionQuery
@@ -400,7 +411,8 @@ export const getAdmissionReport = async (req, res) => {
                     examTag: 1,
                     department: 1,
                     admissionNumber: 1,
-                    student: 1
+                    student: 1,
+                    admissionStatus: 1
                 }
             },
             {
@@ -420,7 +432,9 @@ export const getAdmissionReport = async (req, res) => {
                                 department: 1,
                                 admissionNumber: 1,
                                 student: "$studentId",
-                                studentName: 1
+                                studentName: 1,
+                                status: 1,
+                                enrolledStudentsStatus: 1
                             }
                         }
                     ]
@@ -435,6 +449,14 @@ export const getAdmissionReport = async (req, res) => {
                 }
             },
             { $unwind: { path: "$studentDoc", preserveNullAndEmptyArrays: true } },
+            {
+                $match: {
+                    "studentDoc.status": { $ne: "Deactivated" },
+                    admissionStatus: { $nin: ["INACTIVE", "CANCELLED"] },
+                    status: { $nin: ["DEACTIVATED", "CANCELLED", "INACTIVE"] },
+                    enrolledStudentsStatus: { $ne: "INACTIVE" }
+                }
+            },
             {
                 $lookup: {
                     from: "payments",
@@ -521,41 +543,53 @@ export const getAdmissionReport = async (req, res) => {
                 $addFields: {
                     resolvedDeptName: {
                         $cond: {
-                            if: { $ne: [{ $ifNull: ["$departmentInfo.departmentName", ""] }, ""] },
-                            then: "$departmentInfo.departmentName",
+                            if: {
+                                $regexMatch: {
+                                    input: { $ifNull: ["$departmentInfo.departmentName", ""] },
+                                    regex: "^(academic department|sales department|fort william)$",
+                                    options: "i"
+                                }
+                            },
+                            then: "EXCLUDED",
                             else: {
                                 $cond: {
-                                    if: { $regexMatch: { input: "$resolvedBoardName", regex: "icse", options: "i" } },
-                                    then: "ICSE",
+                                    if: { $ne: [{ $ifNull: ["$departmentInfo.departmentName", ""] }, ""] },
+                                    then: "$departmentInfo.departmentName",
                                     else: {
                                         $cond: {
-                                            if: { $regexMatch: { input: "$resolvedBoardName", regex: "isc", options: "i" } },
-                                            then: "ISC",
+                                            if: { $regexMatch: { input: "$resolvedBoardName", regex: "icse", options: "i" } },
+                                            then: "ICSE",
                                             else: {
                                                 $cond: {
-                                                    if: { $regexMatch: { input: "$resolvedBoardName", regex: "wbbse|madhyamik", options: "i" } },
-                                                    then: "Madhyamik",
+                                                    if: { $regexMatch: { input: "$resolvedBoardName", regex: "isc", options: "i" } },
+                                                    then: "ISC",
                                                     else: {
                                                         $cond: {
-                                                            if: { $regexMatch: { input: "$resolvedBoardName", regex: "wbchse|hs", options: "i" } },
-                                                            then: "HS",
+                                                            if: { $regexMatch: { input: "$resolvedBoardName", regex: "wbbse|madhyamik", options: "i" } },
+                                                            then: "Madhyamik",
                                                             else: {
                                                                 $cond: {
-                                                                    if: { $regexMatch: { input: "$resolvedBoardName", regex: "cbse", options: "i" } },
-                                                                    then: "CBSE Department",
+                                                                    if: { $regexMatch: { input: "$resolvedBoardName", regex: "wbchse|hs", options: "i" } },
+                                                                    then: "HS",
                                                                     else: {
                                                                         $cond: {
-                                                                            if: { $regexMatch: { input: "$resolvedBoardName", regex: "foundation", options: "i" } },
-                                                                            then: "Foundation",
+                                                                            if: { $regexMatch: { input: "$resolvedBoardName", regex: "cbse", options: "i" } },
+                                                                            then: "CBSE Department",
                                                                             else: {
                                                                                 $cond: {
-                                                                                    if: { $regexMatch: { input: "$resolvedBoardName", regex: "all-india\\s*\\+\\s*fnd", options: "i" } },
-                                                                                    then: "All-India + FND",
+                                                                                    if: { $regexMatch: { input: "$resolvedBoardName", regex: "foundation", options: "i" } },
+                                                                                    then: "Foundation",
                                                                                     else: {
                                                                                         $cond: {
-                                                                                            if: { $regexMatch: { input: "$resolvedBoardName", regex: "all\\s*india", options: "i" } },
-                                                                                            then: "All India",
-                                                                                            else: "Unknown"
+                                                                                            if: { $regexMatch: { input: "$resolvedBoardName", regex: "all-india\\s*\\+\\s*fnd", options: "i" } },
+                                                                                            then: "All-India + FND",
+                                                                                            else: {
+                                                                                                $cond: {
+                                                                                                    if: { $regexMatch: { input: "$resolvedBoardName", regex: "all\\s*india", options: "i" } },
+                                                                                                    then: "All India",
+                                                                                                    else: "Unknown"
+                                                                                                }
+                                                                                            }
                                                                                         }
                                                                                     }
                                                                                 }
@@ -573,6 +607,27 @@ export const getAdmissionReport = async (req, res) => {
                                 }
                             }
                         }
+                    }
+                }
+            },
+            {
+                $match: {
+                    resolvedDeptName: {
+                        $nin: [
+                            "EXCLUDED",
+                            "Academic Department",
+                            "ACADEMIC DEPARTMENT",
+                            "Sales Department",
+                            "SALES DEPARTMENT",
+                            "Fort William",
+                            "FORT WILLIAM",
+                            "Unknown",
+                            "UNKNOWN",
+                            "Other",
+                            "OTHER",
+                            "",
+                            null
+                        ]
                     }
                 }
             },
@@ -597,7 +652,9 @@ export const getAdmissionReport = async (req, res) => {
                                 { $arrayElemAt: ["$studentDoc.studentsDetails.studentName", 0] },
                                 "—"
                             ]
-                        }
+                        },
+                        studentStatus: { $ifNull: ["$studentDoc.status", "Active"] },
+                        admissionStatus: { $ifNull: ["$admissionStatus", "$status", "ACTIVE"] }
                     },
                     count: { $sum: 1 },
                     downPaymentTotal: { $sum: { $ifNull: ["$downPayment", 0] } }
@@ -643,6 +700,8 @@ export const getAdmissionReport = async (req, res) => {
                     departmentName: "$_id.departmentName",
                     admissionNumber: "$_id.admissionNumber",
                     studentName: "$_id.studentName",
+                    studentStatus: "$_id.studentStatus",
+                    admissionStatus: "$_id.admissionStatus",
                     count: "$count",
                     downPayment: "$downPaymentTotal",
                     _id: 0

@@ -15,6 +15,20 @@ import {
 } from "recharts";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Departments that should be hidden from Admission and Course Report
+const EXCLUDED_DEPT_NAMES = [
+    "ACADEMIC DEPARTMENT",
+    "FORT WILLIAM",
+    "SALES DEPARTMENT",
+    "UNKNOWN",
+    "OTHER"
+];
+const isExcludedDept = (name) => {
+    if (!name) return true;
+    const upper = name.trim().toUpperCase();
+    return EXCLUDED_DEPT_NAMES.some(ex => upper === ex || upper.includes(ex));
+};
+
 // ─── Searchable Multi-Select ──────────────────────────────────────────────────
 const MultiSelect = ({ placeholder, options, selected, onToggle, onSelectAll, onClearAll, labelKey = "name", valueKey = "_id", isDarkMode }) => {
     const [open, setOpen] = useState(false);
@@ -363,21 +377,30 @@ const AdmissionCourseReport = () => {
             ];
 
             const detail = data.detailedTrend || [];
-            let mapped = detail.map(r => ({
-                examTagId:   r.examTagId   || "board",
-                examTagName: r.examTagName || "Board Course",
-                centreName:  r.centre      || "—",
-                courseId:    r.courseId    || null,
-                courseName:  r.courseName  || "—",
-                className:   r.className   || "—",
-                monthName:   r.monthName   || (r.month ? MONTHS[r.month - 1] : "—"),
-                date:        r.date        || "—",
-                count:       r.count       || 0,
-                downPayment: r.downPayment || 0,
-                departmentName: r.departmentName || "Unknown",
-                admissionNumber: r.admissionNumber || "—",
-                studentName: r.studentName || "—",
-            }));
+            let mapped = detail
+                .filter(r => 
+                    r.studentStatus !== "Deactivated" &&
+                    !["INACTIVE", "CANCELLED"].includes(r.admissionStatus) &&
+                    !["DEACTIVATED", "CANCELLED", "INACTIVE"].includes(r.status) &&
+                    !isExcludedDept(r.departmentName)
+                )
+                .map(r => ({
+                    examTagId:   r.examTagId   || "board",
+                    examTagName: r.examTagName || "Board Course",
+                    centreName:  r.centre      || "—",
+                    courseId:    r.courseId    || null,
+                    courseName:  r.courseName  || "—",
+                    className:   r.className   || "—",
+                    monthName:   r.monthName   || (r.month ? MONTHS[r.month - 1] : "—"),
+                    date:        r.date        || "—",
+                    count:       r.count       || 0,
+                    downPayment: r.downPayment || 0,
+                    departmentName: r.departmentName || "Unknown",
+                    admissionNumber: r.admissionNumber || "—",
+                    studentName: r.studentName || "—",
+                    studentStatus: r.studentStatus || "Active",
+                    admissionStatus: r.admissionStatus || "ACTIVE",
+                }));
 
             if (selCentres.length === 0) {
                 mapped = mapped.filter(r => {
@@ -527,8 +550,9 @@ const AdmissionCourseReport = () => {
     ];
 
     const normalizeDept = (rawDept) => {
-        if (!rawDept) return "OTHER";
+        if (!rawDept) return null;
         const d = rawDept.trim().toUpperCase();
+        if (isExcludedDept(d)) return null;
         if (DEPARTMENTS_LIST.includes(d)) return d;
         if (d.includes("ALL-INDIA + FND") || d.includes("ALL INDIA + FND")) return "ALL-INDIA + FND";
         if (d.includes("ALL INDIA")) return "ALL INDIA";
@@ -546,9 +570,10 @@ const AdmissionCourseReport = () => {
     const pivotData = {};
     
     rows.forEach(r => {
-        if (!pivotData[r.centreName]) pivotData[r.centreName] = {};
-        
+        if (isExcludedDept(r.departmentName)) return;
         const dept = normalizeDept(r.departmentName);
+        if (!dept || isExcludedDept(dept)) return;
+        if (!pivotData[r.centreName]) pivotData[r.centreName] = {};
         if (!pivotData[r.centreName][dept]) {
             pivotData[r.centreName][dept] = { count: 0, details: [] };
         }
@@ -560,11 +585,11 @@ const AdmissionCourseReport = () => {
         new Set(
             rows
                 .map(r => normalizeDept(r.departmentName))
-                .filter(d => d && !DEPARTMENTS_LIST.includes(d))
+                .filter(d => d && !DEPARTMENTS_LIST.includes(d) && !isExcludedDept(d))
         )
     ).sort();
 
-    const uniqueTags = [...DEPARTMENTS_LIST, ...dynamicExtraDepts];
+    const uniqueTags = [...DEPARTMENTS_LIST, ...dynamicExtraDepts].filter(d => d && !isExcludedDept(d));
 
     // Grand total for share %
     const grandTotal = rows.reduce((a, r) => a + (r.count || 0), 0);
@@ -674,7 +699,9 @@ const AdmissionCourseReport = () => {
 
     const deptsBreakdown = Object.values(
         rows.reduce((acc, r) => {
+            if (isExcludedDept(r.departmentName)) return acc;
             const normKey = normalizeDept(r.departmentName);
+            if (!normKey || isExcludedDept(normKey)) return acc;
             if (!acc[normKey]) acc[normKey] = { name: normKey, count: 0 };
             acc[normKey].count += r.count;
             return acc;

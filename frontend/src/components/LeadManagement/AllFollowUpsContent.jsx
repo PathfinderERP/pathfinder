@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from "react";
 import {
     FaExclamationTriangle, FaCalendarAlt, FaHistory, FaChartLine,
     FaStar, FaSearch, FaTimes, FaRedo, FaMoon, FaSun, FaChevronDown,
-    FaBuilding, FaUserTie
+    FaBuilding, FaUserTie, FaGlobe
 } from "react-icons/fa";
 import { CardSkeleton } from "../common/Skeleton";
 import { useTheme } from "../../context/ThemeContext";
@@ -95,13 +95,15 @@ const AllFollowUpsContent = () => {
     const [selectedLead, setSelectedLead] = useState(null);
     const [showFollowUpModal, setShowFollowUpModal] = useState(false);
 
-    // ── Active Centre & Agent Filter State ─────────────────────────────────────
+    // ── Zone, Active Centre & Agent Filter State ──────────────────────────────
+    const [zones, setZones] = useState([]);
+    const [selectedZones, setSelectedZones] = useState([]);
     const [centres, setCentres] = useState([]);
     const [telecallers, setTelecallers] = useState([]);
     const [selectedCentres, setSelectedCentres] = useState([]);
     const [selectedAgents, setSelectedAgents] = useState([]);
 
-    // ── Fetch Active Centres & Agents ──────────────────────────────────────────
+    // ── Fetch Zones, Active Centres & Agents ──────────────────────────────────
     useEffect(() => {
         const fetchCentresAndAgents = async () => {
             try {
@@ -110,7 +112,21 @@ const AllFollowUpsContent = () => {
                 const headers = { Authorization: `Bearer ${token}` };
                 const apiUrl = import.meta.env.VITE_API_URL;
 
-                // 1. Fetch Centres (only active centres)
+                // 1. Fetch Zones
+                try {
+                    const zRes = await fetch(`${apiUrl}/zone`, { headers });
+                    if (zRes.ok) {
+                        const zData = await zRes.json();
+                        const rawZones = zData.data || zData.zones || (Array.isArray(zData) ? zData : []);
+                        const activeZones = rawZones.filter(z => z.isActive !== false);
+                        activeZones.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+                        setZones(activeZones);
+                    }
+                } catch (zErr) {
+                    console.error("Error fetching zones for followups:", zErr);
+                }
+
+                // 2. Fetch Centres (only active centres)
                 let activeCentres = [];
                 const roleLower = (currentUser.role || "").toLowerCase().replace(/\s+/g, "");
                 if (['superadmin', 'super admin', 'digital'].includes(roleLower)) {
@@ -130,7 +146,7 @@ const AllFollowUpsContent = () => {
                 activeCentres.sort((a, b) => (a.centreName || "").localeCompare(b.centreName || ""));
                 setCentres(activeCentres);
 
-                // 2. Fetch Agents (active telecallers & lead handlers)
+                // 3. Fetch Agents (active telecallers & lead handlers)
                 const userRes = await fetch(`${apiUrl}/superAdmin/getAllUsers`, { headers });
                 if (userRes.ok) {
                     const data = await userRes.json();
@@ -180,12 +196,33 @@ const AllFollowUpsContent = () => {
         fetchCentresAndAgents();
     }, []);
 
+    const zoneOptions = useMemo(() => {
+        return zones.map(z => ({
+            value: z._id,
+            label: z.name || "Unnamed Zone"
+        }));
+    }, [zones]);
+
     const centreOptions = useMemo(() => {
-        return centres.map(c => ({
+        let availableCentres = centres;
+        if (selectedZones.length > 0) {
+            const selectedZoneIds = selectedZones.map(z => (z.value || z).toString());
+            const allowedCentreIds = new Set();
+            zones
+                .filter(z => selectedZoneIds.includes(z._id.toString()))
+                .forEach(z => {
+                    (z.centres || []).forEach(c => {
+                        const cid = (c._id || c).toString();
+                        allowedCentreIds.add(cid);
+                    });
+                });
+            availableCentres = centres.filter(c => allowedCentreIds.has(c._id.toString()));
+        }
+        return availableCentres.map(c => ({
             value: c._id,
             label: c.centreName || c.name || "Unnamed Centre"
         }));
-    }, [centres]);
+    }, [centres, selectedZones, zones]);
 
     const agentOptions = useMemo(() => {
         // If centres are selected, filter agents assigned to those centres
@@ -217,6 +254,12 @@ const AllFollowUpsContent = () => {
             if (fromDate) params.append("fromDate", fromDate);
             if (toDate) params.append("toDate", toDate);
 
+            // Zone filter
+            selectedZones.forEach(z => {
+                const val = typeof z === "object" && "value" in z ? z.value : z;
+                if (val) params.append("zone", val);
+            });
+
             // Active Centre filter
             selectedCentres.forEach(c => {
                 const val = typeof c === "object" && "value" in c ? c.value : c;
@@ -239,7 +282,7 @@ const AllFollowUpsContent = () => {
         } finally {
             setStatsLoading(false);
         }
-    }, [leadTypeFilter, fromDate, toDate, selectedCentres, selectedAgents]);
+    }, [leadTypeFilter, fromDate, toDate, selectedZones, selectedCentres, selectedAgents]);
 
     useEffect(() => { fetchFollowUpStats(); }, [fetchFollowUpStats]);
 
@@ -263,6 +306,7 @@ const AllFollowUpsContent = () => {
         setToDate("");
         setShowCustom(false);
         setLeadTypeFilter([]);
+        setSelectedZones([]);
         setSelectedCentres([]);
         setSelectedAgents([]);
     };
@@ -404,9 +448,35 @@ const AllFollowUpsContent = () => {
                     )}
                 </div>
 
-                {/* ── Active Centre & Agent Multi-Selection Filters ── */}
+                {/* ── Active Zone, Centre & Agent Multi-Selection Filters ── */}
                 <div className={`rounded-[2px] border p-4 transition-all ${isDarkMode ? "bg-[#0a0a0b] border-gray-800" : "bg-white border-gray-200 shadow-sm"}`}>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-end">
+                        {/* Zone Multi-Select */}
+                        <div className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                                <label className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    <FaGlobe className="text-emerald-400" size={11} />
+                                    Zone
+                                </label>
+                                {selectedZones.length > 0 && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setSelectedZones([])}
+                                        className="text-[9px] font-bold text-red-400 hover:underline cursor-pointer"
+                                    >
+                                        Clear ({selectedZones.length})
+                                    </button>
+                                )}
+                            </div>
+                            <CustomMultiSelect
+                                options={zoneOptions}
+                                value={selectedZones}
+                                onChange={(val) => setSelectedZones(val || [])}
+                                placeholder="ALL ZONES"
+                                theme={isDarkMode ? 'dark' : 'light'}
+                            />
+                        </div>
+
                         {/* Active Centre Multi-Select */}
                         <div className="space-y-1.5">
                             <div className="flex items-center justify-between">
@@ -461,9 +531,15 @@ const AllFollowUpsContent = () => {
 
                         {/* Active Filter Indicators */}
                         <div className="flex items-center gap-2 pb-0.5">
-                            {(selectedCentres.length > 0 || selectedAgents.length > 0) ? (
-                                <div className={`text-[9px] font-bold px-3 py-2 rounded-[2px] border flex items-center gap-2 ${isDarkMode ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" : "bg-cyan-50 text-cyan-700 border-cyan-200"}`}>
+                            {(selectedZones.length > 0 || selectedCentres.length > 0 || selectedAgents.length > 0) ? (
+                                <div className={`text-[9px] font-bold px-3 py-2 rounded-[2px] border flex flex-wrap items-center gap-2 ${isDarkMode ? "bg-cyan-500/10 text-cyan-400 border-cyan-500/20" : "bg-cyan-50 text-cyan-700 border-cyan-200"}`}>
                                     <span>FILTERED BY:</span>
+                                    {selectedZones.length > 0 && (
+                                        <span className="font-black text-emerald-400">
+                                            {selectedZones.length} ZONE{selectedZones.length > 1 ? 'S' : ''}
+                                        </span>
+                                    )}
+                                    {selectedZones.length > 0 && (selectedCentres.length > 0 || selectedAgents.length > 0) && <span>•</span>}
                                     {selectedCentres.length > 0 && (
                                         <span className="font-black">
                                             {selectedCentres.length} CENTRE{selectedCentres.length > 1 ? 'S' : ''}
@@ -471,14 +547,14 @@ const AllFollowUpsContent = () => {
                                     )}
                                     {selectedCentres.length > 0 && selectedAgents.length > 0 && <span>•</span>}
                                     {selectedAgents.length > 0 && (
-                                        <span className="font-black">
+                                        <span className="font-black text-purple-400">
                                             {selectedAgents.length} AGENT{selectedAgents.length > 1 ? 'S' : ''}
                                         </span>
                                     )}
                                 </div>
                             ) : (
                                 <span className={`text-[9px] font-bold uppercase tracking-widest italic ${isDarkMode ? "text-gray-600" : "text-gray-400"}`}>
-                                    Showing all centres &amp; agents
+                                    Showing all zones, centres &amp; agents
                                 </span>
                             )}
                         </div>

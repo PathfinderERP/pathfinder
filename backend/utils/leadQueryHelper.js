@@ -467,7 +467,7 @@ export const buildLeadQuery = async (queryParams, user) => {
     // zone
     let zoneQueryCentres = [];
     if (zone && (!Array.isArray(zone) || zone.length > 0)) {
-        const rawZones = Array.isArray(zone) ? zone : [zone];
+        const rawZones = Array.isArray(zone) ? zone : (typeof zone === 'string' && zone.includes(',') ? zone.split(',') : [zone]);
         const flatZones = rawZones.flatMap(v => Array.isArray(v) ? v : [v]).filter(Boolean);
         const normalizedZones = flatZones.map(v => (v && typeof v === 'object' && 'value' in v) ? v.value : v).filter(Boolean);
 
