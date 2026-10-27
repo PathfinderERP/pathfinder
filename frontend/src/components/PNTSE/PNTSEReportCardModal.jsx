@@ -1,12 +1,76 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { FaPrint, FaDownload, FaTimes, FaSpinner } from 'react-icons/fa';
 import jsPDF from 'jspdf';
 import { toPng } from 'html-to-image';
 import PNTSEReportCardTemplate from './PNTSEReportCardTemplate';
 
-const PNTSEReportCardModal = ({ student, onClose }) => {
+const PNTSEReportCardModal = ({
+    student,
+    onClose,
+    totalCentreStudents: propTotalCentre,
+    totalPfStudents: propTotalPf
+}) => {
     const reportRef = useRef(null);
     const [isDownloading, setIsDownloading] = useState(false);
+
+    const initialCentre = Number(
+        propTotalCentre ||
+        student?.totalCentreStudents ||
+        student?.result?.totalCentreStudents ||
+        0
+    );
+    const initialPf = Number(
+        propTotalPf ||
+        student?.totalPfStudents ||
+        student?.result?.totalPfStudents ||
+        0
+    );
+
+    const [counts, setCounts] = useState({
+        totalCentreStudents: initialCentre,
+        totalPfStudents: initialPf
+    });
+
+    useEffect(() => {
+        if (initialCentre > 0 && initialPf > 0) {
+            setCounts({
+                totalCentreStudents: initialCentre,
+                totalPfStudents: initialPf
+            });
+            return;
+        }
+
+        let isMounted = true;
+        const fetchExamStats = async () => {
+            try {
+                const classId = student?.class?._id || student?.class || student?.course;
+                const centreId = student?.centre?._id || student?.centre;
+                if (!classId) return;
+
+                const token = localStorage.getItem("token");
+                const url = new URL(`${import.meta.env.VITE_API_URL}/pntse/exam-class-stats`);
+                if (classId) url.searchParams.append("classId", classId);
+                if (centreId) url.searchParams.append("centreId", centreId);
+
+                const res = await fetch(url.toString(), {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (isMounted && data.success) {
+                    setCounts({
+                        totalCentreStudents: data.totalCentreStudents || initialCentre,
+                        totalPfStudents: data.totalPfStudents || initialPf
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to load exam counts in report card modal:", err);
+            }
+        };
+
+        fetchExamStats();
+        return () => { isMounted = false; };
+    }, [student, propTotalCentre, propTotalPf]);
 
     if (!student) return null;
 
@@ -122,6 +186,8 @@ const PNTSEReportCardModal = ({ student, onClose }) => {
                     <PNTSEReportCardTemplate
                         ref={reportRef}
                         student={student}
+                        totalCentreStudents={counts.totalCentreStudents}
+                        totalPfStudents={counts.totalPfStudents}
                     />
                 </div>
             </div>

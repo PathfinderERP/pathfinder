@@ -5,6 +5,7 @@ import Department from "../../models/Master_data/Department.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import Payment from "../../models/Payment/Payment.js";
+import CentreTarget from "../../models/Sales/CentreTarget.js";
 
 const standardMonths = [
     "April", "May", "June", "July", "August", "September",
@@ -271,12 +272,15 @@ export const getCentreComparisonAnalysis = async (req, res) => {
         ]);
 
         // 5. Fetch Revenue Payments for Current & Previous ranges
+        // Filter billId: /^PATH/i and status: ["PAID", "PARTIAL"] to align with target achievement calculation
         const paymentMatchCurrent = {
-            status: "PAID",
+            billId: { $regex: /^PATH/i },
+            status: { $in: ["PAID", "PARTIAL"] },
             ...buildDateOrQuery("paidDate", currentRanges)
         };
         const paymentMatchPrevious = {
-            status: "PAID",
+            billId: { $regex: /^PATH/i },
+            status: { $in: ["PAID", "PARTIAL"] },
             ...buildDateOrQuery("paidDate", previousRanges)
         };
 
@@ -299,6 +303,30 @@ export const getCentreComparisonAnalysis = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: "pntsestudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admPntse"
+                }
+            },
+            {
+                $lookup: {
+                    from: "pmostudents",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "admPmo"
+                }
+            },
+            {
+                $lookup: {
+                    from: "centreschemas",
+                    localField: "admPntse.centre",
+                    foreignField: "_id",
+                    as: "pntseCentreInfo"
+                }
+            },
+            {
                 $project: {
                     paidAmount: { $ifNull: ["$paidAmount", "$amount", 0] },
                     paidDate: 1,
@@ -308,6 +336,7 @@ export const getCentreComparisonAnalysis = async (req, res) => {
                                 input: {
                                     $ifNull: [
                                         "$centre",
+                                        { $arrayElemAt: ["$pntseCentreInfo.centreName", 0] },
                                         { $arrayElemAt: ["$admNormal.centre", 0] },
                                         { $arrayElemAt: ["$admBoard.centre", 0] },
                                         ""
@@ -319,7 +348,9 @@ export const getCentreComparisonAnalysis = async (req, res) => {
                     department: {
                         $ifNull: [
                             { $arrayElemAt: ["$admNormal.department", 0] },
-                            { $arrayElemAt: ["$admBoard.department", 0] }
+                            { $arrayElemAt: ["$admBoard.department", 0] },
+                            { $arrayElemAt: ["$admPntse.department", 0] },
+                            { $arrayElemAt: ["$admPmo.department", 0] }
                         ]
                     },
                     boardCourseName: {
@@ -329,10 +360,36 @@ export const getCentreComparisonAnalysis = async (req, res) => {
             }
         ];
 
-        const [currPayments, prevPayments] = await Promise.all([
+        // Fetch target records for previous financial year to align revenue with official CentreTarget achievement
+        let prevTargetRecordsPromise = Promise.resolve([]);
+        if (viewMode === "month") {
+            const targetMonthList = currentRanges.map(r => r.month).filter(Boolean);
+            if (targetMonthList.length > 0) {
+                prevTargetRecordsPromise = CentreTarget.find({
+                    financialYear: prevFinancialYear,
+                    month: { $in: targetMonthList }
+                }).populate("centre", "centreName").lean();
+            }
+        } else if (viewMode === "year") {
+            prevTargetRecordsPromise = CentreTarget.find({
+                financialYear: prevFinancialYear,
+                month: { $in: standardMonths }
+            }).populate("centre", "centreName").lean();
+        }
+
+        const [currPayments, prevPayments, prevTargetRecords] = await Promise.all([
             Payment.aggregate(paymentLookupPipeline(paymentMatchCurrent)),
-            Payment.aggregate(paymentLookupPipeline(paymentMatchPrevious))
+            Payment.aggregate(paymentLookupPipeline(paymentMatchPrevious)),
+            prevTargetRecordsPromise
         ]);
+
+        const prevTargetAchievedMap = {};
+        (prevTargetRecords || []).forEach(t => {
+            const cName = (t.centre?.centreName || "").toUpperCase().trim();
+            if (cName) {
+                prevTargetAchievedMap[cName] = (prevTargetAchievedMap[cName] || 0) + (t.achievedAmount || 0);
+            }
+        });
 
         // 6. Build Aggregated Centre Rows Structure
         const rowsMap = {};
@@ -402,6 +459,34 @@ export const getCentreComparisonAnalysis = async (req, res) => {
 
         processPayments(currPayments, true);
         processPayments(prevPayments, false);
+
+        // Align previous year revenue and departmental breakdown with official CentreTarget achievement
+        if (Object.keys(prevTargetAchievedMap).length > 0) {
+            Object.values(rowsMap).forEach(row => {
+                if (prevTargetAchievedMap[row.centre] !== undefined) {
+                    const targetAchieved = prevTargetAchievedMap[row.centre];
+                    const prevDeptSum = Object.values(row.deptRevenuePrevious).reduce((s, v) => s + v, 0);
+
+                    if (prevDeptSum > 0 && targetAchieved > 0) {
+                        const factor = targetAchieved / prevDeptSum;
+                        let runningSum = 0;
+                        const entries = Object.entries(row.deptRevenuePrevious);
+                        entries.forEach(([d, val], idx) => {
+                            if (idx === entries.length - 1) {
+                                row.deptRevenuePrevious[d] = Math.round(targetAchieved - runningSum);
+                            } else {
+                                const scaled = Math.round(val * factor);
+                                row.deptRevenuePrevious[d] = scaled;
+                                runningSum += scaled;
+                            }
+                        });
+                    } else if (targetAchieved > 0) {
+                        row.deptRevenuePrevious["Foundation"] = Math.round(targetAchieved);
+                    }
+                    row.revenuePrevious = Math.round(targetAchieved);
+                }
+            });
+        }
 
         // Compute Growth Percentages and round values
         const rows = Object.values(rowsMap).map(r => {

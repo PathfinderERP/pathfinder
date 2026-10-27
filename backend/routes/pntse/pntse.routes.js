@@ -18,7 +18,8 @@ import {
     saveSingleStudentResult,
     getStudentResult,
     deleteStudentResult,
-    getResultsSummary
+    getResultsSummary,
+    getExamClassStats
 } from "../../controllers/pntse/pntseController.js";
 
 const router = express.Router();
@@ -39,6 +40,7 @@ router.post("/:id/process-payment", requireGranularPermission("pntse", "allStude
 router.post("/upload-results", requireGranularPermission("pntse", "allStudents", "import"), upload.single("file"), uploadResults);
 router.post("/save-single-result", requireGranularPermission("pntse", "allStudents", "edit"), saveSingleStudentResult);
 router.get("/results-summary", requireGranularPermission("pntse", "allStudents", "view"), getResultsSummary);
+router.get("/exam-class-stats", requireGranularPermission("pntse", "allStudents", "view"), getExamClassStats);
 router.get("/:id/result", requireGranularPermission("pntse", "allStudents", "view"), getStudentResult);
 router.delete("/:id/result", requireGranularPermission("pntse", "allStudents", "edit"), deleteStudentResult);
 

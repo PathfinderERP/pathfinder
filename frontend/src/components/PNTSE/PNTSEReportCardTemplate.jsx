@@ -48,7 +48,11 @@ const getSubjectMaxMarks = (subjectName = '') => {
     return 25; // fallback
 };
 
-const PNTSEReportCardTemplate = forwardRef(({ student, totalCentreStudents = 150, totalPfStudents = 3000 }, ref) => {
+const PNTSEReportCardTemplate = forwardRef(({
+    student,
+    totalCentreStudents: propTotalCentre,
+    totalPfStudents: propTotalPf
+}, ref) => {
     if (!student) return null;
 
     const result = student.result || {};
@@ -87,6 +91,29 @@ const PNTSEReportCardTemplate = forwardRef(({ student, totalCentreStudents = 150
 
     const centreRank = result.centreRank || 18;
     const air = result.air || (centreRank ? centreRank * 15 : 284);
+
+    // Resolve dynamic counts of students who gave the exam (in centre for this class, and across Pathfinder for this class)
+    const dynamicCentre = Number(
+        propTotalCentre ||
+        student.totalCentreStudents ||
+        result.totalCentreStudents ||
+        0
+    );
+    const dynamicPf = Number(
+        propTotalPf ||
+        student.totalPfStudents ||
+        result.totalPfStudents ||
+        0
+    );
+
+    // Ensure total is at least as large as the student's rank
+    const totalCentreStudents = dynamicCentre > 0
+        ? Math.max(dynamicCentre, Number(centreRank) || 0)
+        : (Number(centreRank) || 1);
+
+    const totalPfStudents = dynamicPf > 0
+        ? Math.max(dynamicPf, Number(air) || 0)
+        : (Number(air) || 1);
 
     // Build subject list with individual max marks and ranks
     const processedSubjects = activeSubjects.map((sub, index) => {
@@ -240,7 +267,7 @@ const PNTSEReportCardTemplate = forwardRef(({ student, totalCentreStudents = 150
                             CENTRE CLASS RANK
                         </p>
                         <p className="text-[32px] font-black text-slate-900 leading-none mb-2">
-                            {centreRank} <span className="text-[20px] font-semibold text-slate-500">/ {totalCentreStudents}</span>
+                            {centreRank} <span className="text-[20px] font-semibold text-slate-500">/ {totalCentreStudents.toLocaleString()}</span>
                         </p>
                         <p className="text-[11.5px] font-medium text-slate-600">
                             {romanClass} at {centreName.replace(/\s*Centre/i, '')}
@@ -310,7 +337,7 @@ const PNTSEReportCardTemplate = forwardRef(({ student, totalCentreStudents = 150
                                             {sub.scorePercent}%
                                         </td>
                                         <td className="py-3.5 px-4 font-medium text-slate-700 text-center">
-                                            {sub.subjectCentreRank} / {totalCentreStudents}
+                                            {sub.subjectCentreRank} / {totalCentreStudents.toLocaleString()}
                                         </td>
                                         <td className="py-3.5 px-4 font-medium text-slate-700 text-center">
                                             {sub.subjectPfRank} / {totalPfStudents.toLocaleString()}

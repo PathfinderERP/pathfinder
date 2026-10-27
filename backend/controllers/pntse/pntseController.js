@@ -453,6 +453,8 @@ export const getPNTSEStudents = async (req, res) => {
                 .sort({ 'result.air': 1, 'result.centreRank': 1, createdAt: -1 })
                 .lean();
 
+            const stats = await getExamGivenStats();
+
             students.forEach(st => {
                 if (st.result) {
                     const marks = (st.result.totalMarks !== null && st.result.totalMarks !== undefined)
@@ -461,6 +463,13 @@ export const getPNTSEStudents = async (req, res) => {
                     if (marks !== null && !isNaN(marks)) {
                         st.result.percentage = Number(marks.toFixed(2));
                     }
+                }
+                const counts = stats.resolveCounts(st.centre, st.class || st.course);
+                st.totalCentreStudents = counts.totalCentreStudents;
+                st.totalPfStudents = counts.totalPfStudents;
+                if (st.result) {
+                    st.result.totalCentreStudents = counts.totalCentreStudents;
+                    st.result.totalPfStudents = counts.totalPfStudents;
                 }
             });
 
@@ -478,7 +487,9 @@ export const getPNTSEStudents = async (req, res) => {
 
         let enrichedStudents = await attachAdmissionStatus(students);
 
-        // Normalize percentage to be calculated out of 100 based on total marks
+        const stats = await getExamGivenStats();
+
+        // Normalize percentage and attach dynamic exam counts per class/centre
         enrichedStudents.forEach(st => {
             if (st.result) {
                 const marks = (st.result.totalMarks !== null && st.result.totalMarks !== undefined)
@@ -487,6 +498,13 @@ export const getPNTSEStudents = async (req, res) => {
                 if (marks !== null && !isNaN(marks)) {
                     st.result.percentage = Number(marks.toFixed(2));
                 }
+            }
+            const counts = stats.resolveCounts(st.centre, st.class || st.course);
+            st.totalCentreStudents = counts.totalCentreStudents;
+            st.totalPfStudents = counts.totalPfStudents;
+            if (st.result) {
+                st.result.totalCentreStudents = counts.totalCentreStudents;
+                st.result.totalPfStudents = counts.totalPfStudents;
             }
         });
 
@@ -1638,6 +1656,7 @@ export const uploadResults = async (req, res) => {
                 const batch = bulkOps.slice(i, i + batchSize);
                 await PNTSEStudent.bulkWrite(batch, { ordered: false });
             }
+            invalidateExamStatsCache();
         }
 
         return res.status(200).json({
@@ -1738,6 +1757,7 @@ export const saveSingleStudentResult = async (req, res) => {
         }
 
         await student.save();
+        invalidateExamStatsCache();
 
         const populatedStudent = await PNTSEStudent.findById(student._id)
             .populate('class')
@@ -1746,10 +1766,22 @@ export const saveSingleStudentResult = async (req, res) => {
             .populate('examTag')
             .populate('board');
 
+        const stats = await getExamGivenStats();
+        const counts = stats.resolveCounts(populatedStudent.centre, populatedStudent.class || populatedStudent.course);
+        const studentObj = populatedStudent.toObject ? populatedStudent.toObject() : { ...populatedStudent };
+        studentObj.totalCentreStudents = counts.totalCentreStudents;
+        studentObj.totalPfStudents = counts.totalPfStudents;
+        if (studentObj.result) {
+            studentObj.result.totalCentreStudents = counts.totalCentreStudents;
+            studentObj.result.totalPfStudents = counts.totalPfStudents;
+        }
+
         return res.status(200).json({
             success: true,
             message: "Student result saved successfully",
-            student: populatedStudent
+            student: studentObj,
+            totalCentreStudents: counts.totalCentreStudents,
+            totalPfStudents: counts.totalPfStudents
         });
     } catch (err) {
         console.error("Error in saveSingleStudentResult:", err);
@@ -1785,10 +1817,22 @@ export const getStudentResult = async (req, res) => {
             }
         }
 
+        const stats = await getExamGivenStats();
+        const counts = stats.resolveCounts(student.centre, student.class || student.course);
+        const studentObj = student.toObject ? student.toObject() : { ...student };
+        studentObj.totalCentreStudents = counts.totalCentreStudents;
+        studentObj.totalPfStudents = counts.totalPfStudents;
+        if (studentObj.result) {
+            studentObj.result.totalCentreStudents = counts.totalCentreStudents;
+            studentObj.result.totalPfStudents = counts.totalPfStudents;
+        }
+
         return res.status(200).json({
             success: true,
-            student,
-            result: student.result || null
+            student: studentObj,
+            result: studentObj.result || null,
+            totalCentreStudents: counts.totalCentreStudents,
+            totalPfStudents: counts.totalPfStudents
         });
     } catch (err) {
         console.error("Error in getStudentResult:", err);
@@ -1821,6 +1865,7 @@ export const deleteStudentResult = async (req, res) => {
         student.score = 0;
         student.rank = null;
         await student.save();
+        invalidateExamStatsCache();
 
         return res.status(200).json({
             success: true,
@@ -1881,6 +1926,183 @@ export const getResultsSummary = async (req, res) => {
     } catch (err) {
         console.error("Error in getResultsSummary:", err);
         return res.status(500).json({ message: "Failed to fetch results summary", error: err.message });
+    }
+};
+
+/**
+ * In-memory cache for exam statistics (total students given exam per class & centre-class)
+ */
+let examStatsCache = null;
+let examStatsCacheTime = 0;
+const STATS_CACHE_TTL_MS = 60 * 1000; // 60 seconds
+
+export const invalidateExamStatsCache = () => {
+    examStatsCache = null;
+    examStatsCacheTime = 0;
+};
+
+export const getExamGivenStats = async () => {
+    const now = Date.now();
+    if (examStatsCache && (now - examStatsCacheTime < STATS_CACHE_TTL_MS)) {
+        return examStatsCache;
+    }
+
+    const examFilter = {
+        $or: [
+            { "result.totalMarks": { $ne: null } },
+            { "result.air": { $ne: null } },
+            { "result.centreRank": { $ne: null } },
+            { "result.subjects.0": { $exists: true } },
+            { score: { $gt: 0 } },
+            { status: "Present" }
+        ]
+    };
+
+    const [byCentreAndClassRows, byClassRows, allClasses, allCentres] = await Promise.all([
+        PNTSEStudent.aggregate([
+            { $match: examFilter },
+            {
+                $group: {
+                    _id: { class: "$class", centre: "$centre" },
+                    count: { $sum: 1 }
+                }
+            }
+        ]),
+        PNTSEStudent.aggregate([
+            { $match: examFilter },
+            {
+                $group: {
+                    _id: "$class",
+                    count: { $sum: 1 }
+                }
+            }
+        ]),
+        Class.find({}).lean(),
+        CentreSchema.find({}).select('centreName enterCode').lean()
+    ]);
+
+    const classIdToName = {};
+    const classNameToId = {};
+    allClasses.forEach(c => {
+        const id = c._id.toString();
+        const rawName = String(c.name || '').trim();
+        classIdToName[id] = rawName;
+        classNameToId[rawName.toLowerCase()] = id;
+        classNameToId[`class ${rawName}`.toLowerCase()] = id;
+        const numMatch = rawName.match(/\d+/);
+        if (numMatch) {
+            const num = numMatch[0];
+            classNameToId[num] = id;
+            classNameToId[`class ${num}`] = id;
+            classNameToId[`pntse ${num}`] = id;
+            classNameToId[`pntse class ${num}`] = id;
+            const romanMap = { '5': 'v', '6': 'vi', '7': 'vii', '8': 'viii', '9': 'ix', '10': 'x' };
+            if (romanMap[num]) {
+                const rom = romanMap[num];
+                classNameToId[rom] = id;
+                classNameToId[`class ${rom}`] = id;
+            }
+        }
+    });
+
+    const centreIdToName = {};
+    const centreNameToId = {};
+    allCentres.forEach(c => {
+        const id = c._id.toString();
+        const rawName = String(c.centreName || '').trim();
+        centreIdToName[id] = rawName;
+        centreNameToId[rawName.toLowerCase()] = id;
+        centreNameToId[rawName.toLowerCase().replace(/\s*centre/i, '').trim()] = id;
+        const cleanNoHO = rawName.toLowerCase().replace(/h\.?o\.?/i, '').replace(/\s*centre/i, '').trim();
+        if (cleanNoHO) {
+            centreNameToId[cleanNoHO] = id;
+        }
+        if (c.enterCode) {
+            centreNameToId[String(c.enterCode).toLowerCase()] = id;
+        }
+    });
+
+    const byClass = {};
+    byClassRows.forEach(row => {
+        if (row._id) {
+            const idStr = row._id.toString();
+            byClass[idStr] = row.count;
+            const name = classIdToName[idStr];
+            if (name) {
+                byClass[name] = row.count;
+                byClass[name.toLowerCase()] = row.count;
+            }
+        }
+    });
+
+    const byCentreAndClass = {};
+    byCentreAndClassRows.forEach(row => {
+        if (row._id && row._id.centre && row._id.class) {
+            const cId = row._id.centre.toString();
+            const clId = row._id.class.toString();
+            byCentreAndClass[`${cId}_${clId}`] = row.count;
+        }
+    });
+
+    const resolveCounts = (centreRef, classRef) => {
+        let resolvedClassId = null;
+        if (classRef) {
+            const str = String(classRef?._id || (classRef?.name ? classRef.name : classRef)).trim();
+            if (str.match(/^[0-9a-fA-F]{24}$/)) {
+                resolvedClassId = str;
+            } else {
+                resolvedClassId = classNameToId[str.toLowerCase()] ||
+                    classNameToId[str.toLowerCase().replace(/pntse\s*/i, '').trim()] || null;
+            }
+        }
+
+        let resolvedCentreId = null;
+        if (centreRef) {
+            const str = String(centreRef?._id || (centreRef?.centreName ? centreRef.centreName : centreRef)).trim();
+            if (str.match(/^[0-9a-fA-F]{24}$/)) {
+                resolvedCentreId = str;
+            } else {
+                resolvedCentreId = centreNameToId[str.toLowerCase()] ||
+                    centreNameToId[str.toLowerCase().replace(/h\.?o\.?/i, '').replace(/\s*centre/i, '').trim()] || null;
+            }
+        }
+
+        const totalPf = resolvedClassId ? (byClass[resolvedClassId] || 0) : 0;
+        const totalCentre = (resolvedCentreId && resolvedClassId)
+            ? (byCentreAndClass[`${resolvedCentreId}_${resolvedClassId}`] || 0)
+            : 0;
+
+        return { totalCentreStudents: totalCentre, totalPfStudents: totalPf };
+    };
+
+    examStatsCache = {
+        byClass,
+        byCentreAndClass,
+        resolveCounts
+    };
+    examStatsCacheTime = now;
+    return examStatsCache;
+};
+
+/**
+ * Endpoint to get exam class stats dynamically
+ */
+export const getExamClassStats = async (req, res) => {
+    try {
+        const { classId, centreId, course } = req.query;
+        const stats = await getExamGivenStats();
+        const counts = stats.resolveCounts(centreId, classId || course);
+
+        return res.status(200).json({
+            success: true,
+            totalCentreStudents: counts.totalCentreStudents,
+            totalPfStudents: counts.totalPfStudents,
+            byClass: stats.byClass,
+            byCentreAndClass: stats.byCentreAndClass
+        });
+    } catch (err) {
+        console.error("Error in getExamClassStats:", err);
+        return res.status(500).json({ message: "Failed to fetch exam class stats", error: err.message });
     }
 };
 

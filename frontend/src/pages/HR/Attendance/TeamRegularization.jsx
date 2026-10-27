@@ -66,7 +66,8 @@ const TeamRegularization = () => {
                     status: reviewData.status,
                     reviewRemark: reviewData.remark,
                     fromTime: reviewData.fromTime,
-                    toTime: reviewData.toTime
+                    toTime: reviewData.toTime,
+                    attendanceMode: reviewData.attendanceMode
                 })
             });
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     FaTimes,
     FaTrophy,
@@ -31,6 +31,63 @@ const PNTSEStudentResultModal = ({
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [successMsg, setSuccessMsg] = useState('');
+
+    const initialCentreStudents = Number(
+        student.totalCentreStudents ||
+        student.result?.totalCentreStudents ||
+        0
+    );
+    const initialPfStudents = Number(
+        student.totalPfStudents ||
+        student.result?.totalPfStudents ||
+        0
+    );
+
+    const [classExamStats, setClassExamStats] = useState({
+        totalCentreStudents: initialCentreStudents,
+        totalPfStudents: initialPfStudents
+    });
+
+    useEffect(() => {
+        if (initialCentreStudents > 0 && initialPfStudents > 0) {
+            setClassExamStats({
+                totalCentreStudents: initialCentreStudents,
+                totalPfStudents: initialPfStudents
+            });
+            return;
+        }
+
+        let isMounted = true;
+        const fetchExamStats = async () => {
+            try {
+                const classId = student?.class?._id || student?.class || student?.course;
+                const centreId = student?.centre?._id || student?.centre;
+                if (!classId) return;
+
+                const token = localStorage.getItem("token");
+                const url = new URL(`${import.meta.env.VITE_API_URL}/pntse/exam-class-stats`);
+                if (classId) url.searchParams.append("classId", classId);
+                if (centreId) url.searchParams.append("centreId", centreId);
+
+                const res = await fetch(url.toString(), {
+                    headers: { Authorization: `Bearer ${token}` }
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                if (isMounted && data.success) {
+                    setClassExamStats({
+                        totalCentreStudents: data.totalCentreStudents || initialCentreStudents,
+                        totalPfStudents: data.totalPfStudents || initialPfStudents
+                    });
+                }
+            } catch (err) {
+                console.error("Failed to load exam stats in result modal:", err);
+            }
+        };
+
+        fetchExamStats();
+        return () => { isMounted = false; };
+    }, [student]);
 
     const currentResult = student.result || {};
     const hasResult = Boolean(
@@ -409,8 +466,15 @@ const PNTSEStudentResultModal = ({
                                     <div>
                                         <p className="text-3xl font-extrabold text-white print:text-black">
                                             {currentResult.air ? `#${currentResult.air}` : '—'}
+                                            {classExamStats.totalPfStudents > 0 && (
+                                                <span className="text-sm font-semibold text-gray-400 ml-1.5 print:text-gray-600">
+                                                    / {classExamStats.totalPfStudents.toLocaleString()}
+                                                </span>
+                                            )}
                                         </p>
-                                        <p className="text-[11px] text-gray-400 mt-1 print:text-gray-600">AIR Ranking</p>
+                                        <p className="text-[11px] text-gray-400 mt-1 print:text-gray-600">
+                                            {student.class?.name ? `Class ${student.class.name} across Pathfinder` : 'AIR Ranking across Pathfinder'}
+                                        </p>
                                     </div>
                                 </div>
 
@@ -425,8 +489,15 @@ const PNTSEStudentResultModal = ({
                                     <div>
                                         <p className="text-3xl font-extrabold text-white print:text-black">
                                             {currentResult.centreRank ? `#${currentResult.centreRank}` : '—'}
+                                            {classExamStats.totalCentreStudents > 0 && (
+                                                <span className="text-sm font-semibold text-gray-400 ml-1.5 print:text-gray-600">
+                                                    / {classExamStats.totalCentreStudents.toLocaleString()}
+                                                </span>
+                                            )}
                                         </p>
-                                        <p className="text-[11px] text-gray-400 mt-1 print:text-gray-600">In {student.centre?.centreName || 'Centre'}</p>
+                                        <p className="text-[11px] text-gray-400 mt-1 print:text-gray-600">
+                                            In {student.centre?.centreName || 'Centre'}
+                                        </p>
                                     </div>
                                 </div>
 
@@ -608,6 +679,8 @@ const PNTSEStudentResultModal = ({
             {showReportCardModal && (
                 <PNTSEReportCardModal
                     student={student}
+                    totalCentreStudents={classExamStats.totalCentreStudents}
+                    totalPfStudents={classExamStats.totalPfStudents}
                     onClose={() => setShowReportCardModal(false)}
                 />
             )}
