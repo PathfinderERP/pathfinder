@@ -14,6 +14,7 @@ const FEEDBACK_OPTIONS = [
     'Foundation class 8',
     'Foundation class 9',
     'Foundation class 10',
+    'Interested',
     'Not Interested',
     'No Response',
     'Call Back Later',
@@ -21,15 +22,16 @@ const FEEDBACK_OPTIONS = [
 ];
 
 const FEEDBACK_COLORS = {
-    'Foundation class 6':  { bg: 'bg-violet-500/20', text: 'text-violet-300', border: 'border-violet-500/40' },
-    'Foundation class 7':  { bg: 'bg-purple-500/20', text: 'text-purple-300', border: 'border-purple-500/40' },
-    'Foundation class 8':  { bg: 'bg-indigo-500/20', text: 'text-indigo-300', border: 'border-indigo-500/40' },
-    'Foundation class 9':  { bg: 'bg-blue-500/20',   text: 'text-blue-300',   border: 'border-blue-500/40' },
-    'Foundation class 10': { bg: 'bg-cyan-500/20',   text: 'text-cyan-300',   border: 'border-cyan-500/40' },
-    'Not Interested':      { bg: 'bg-rose-500/20',   text: 'text-rose-300',   border: 'border-rose-500/40' },
-    'No Response':         { bg: 'bg-amber-500/20',  text: 'text-amber-300',  border: 'border-amber-500/40' },
-    'Call Back Later':     { bg: 'bg-emerald-500/20',text: 'text-emerald-300',border: 'border-emerald-500/40' },
-    'Other':               { bg: 'bg-gray-700/60',   text: 'text-gray-300',   border: 'border-gray-600/60' },
+    'Foundation class 6': { bg: 'bg-violet-500/20', text: 'text-violet-300', border: 'border-violet-500/40' },
+    'Foundation class 7': { bg: 'bg-purple-500/20', text: 'text-purple-300', border: 'border-purple-500/40' },
+    'Foundation class 8': { bg: 'bg-indigo-500/20', text: 'text-indigo-300', border: 'border-indigo-500/40' },
+    'Foundation class 9': { bg: 'bg-blue-500/20', text: 'text-blue-300', border: 'border-blue-500/40' },
+    'Foundation class 10': { bg: 'bg-cyan-500/20', text: 'text-cyan-300', border: 'border-cyan-500/40' },
+    'Interested': { bg: 'bg-green-500/20', text: 'text-green-300', border: 'border-green-500/40' },
+    'Not Interested': { bg: 'bg-rose-500/20', text: 'text-rose-300', border: 'border-rose-500/40' },
+    'No Response': { bg: 'bg-amber-500/20', text: 'text-amber-300', border: 'border-amber-500/40' },
+    'Call Back Later': { bg: 'bg-emerald-500/20', text: 'text-emerald-300', border: 'border-emerald-500/40' },
+    'Other': { bg: 'bg-gray-700/60', text: 'text-gray-300', border: 'border-gray-600/60' },
 };
 
 const getHeaders = () => ({
@@ -211,11 +213,10 @@ const StudentFollowUpModal = ({ student, studentType, onClose }) => {
                                         <span className="text-[11px] text-indigo-400 font-mono">{student.rollNo}</span>
                                     </>
                                 )}
-                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ml-1 ${
-                                    studentType === 'PMO'
-                                        ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
-                                        : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
-                                }`}>{studentType}</span>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ml-1 ${studentType === 'PMO'
+                                    ? 'bg-purple-500/20 text-purple-300 border-purple-500/40'
+                                    : 'bg-indigo-500/20 text-indigo-300 border-indigo-500/40'
+                                    }`}>{studentType}</span>
                             </div>
                         </div>
                     </div>
