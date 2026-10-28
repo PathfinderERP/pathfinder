@@ -75,14 +75,74 @@ const PNTSEReportCardModal = ({
     if (!student) return null;
 
     const handlePrint = () => {
-        const printContent = reportRef.current;
-        if (!printContent) return;
-        const originalContents = document.body.innerHTML;
+        const element = reportRef.current;
+        if (!element) return;
 
-        document.body.innerHTML = printContent.innerHTML;
-        window.print();
-        document.body.innerHTML = originalContents;
-        window.location.reload(); // restore React event listeners after replacing body HTML
+        let iframe = document.getElementById('pntse-report-print-frame');
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id = 'pntse-report-print-frame';
+            iframe.style.position = 'fixed';
+            iframe.style.right = '0';
+            iframe.style.bottom = '0';
+            iframe.style.width = '0';
+            iframe.style.height = '0';
+            iframe.style.border = '0';
+            document.body.appendChild(iframe);
+        }
+
+        const styles = Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+            .map(el => el.outerHTML)
+            .join('\n');
+
+        const doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(`
+            <!DOCTYPE html>
+            <html>
+                <head>
+                    <title>Pathfinder National Talent Search Examination - ${student?.name || ''}</title>
+                    ${styles}
+                    <style>
+                        @page {
+                            size: A4 portrait;
+                            margin: 4mm 6mm;
+                        }
+                        * {
+                            -webkit-print-color-adjust: exact !important;
+                            print-color-adjust: exact !important;
+                            box-sizing: border-box;
+                        }
+                        html, body {
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            background: #ffffff !important;
+                            width: 100% !important;
+                            height: 100% !important;
+                            overflow: hidden !important;
+                        }
+                        .print-wrapper {
+                            width: 100% !important;
+                            max-width: 100% !important;
+                            margin: 0 auto !important;
+                            page-break-inside: avoid !important;
+                            break-inside: avoid !important;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="print-wrapper">
+                        ${element.outerHTML}
+                    </div>
+                </body>
+            </html>
+        `);
+        doc.close();
+
+        setTimeout(() => {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+        }, 300);
     };
 
     const handleDownloadPdf = async () => {

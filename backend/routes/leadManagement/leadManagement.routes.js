@@ -16,6 +16,7 @@ import { getLeadDashboardStats } from "../../controllers/leadManagement/getLeadD
 import { getFollowUpStats } from "../../controllers/leadManagement/getFollowUpStats.js";
 import { getLeadConversionReport } from "../../controllers/leadManagement/getLeadConversionReport.js";
 import { getAdmittedLeadDetails } from "../../controllers/leadManagement/getAdmittedLeadDetails.js";
+import { getLeadAnalysis } from "../../controllers/leadManagement/getLeadAnalysis.js";
 import { exportLeadsExcel } from "../../controllers/leadManagement/exportLeadsExcel.js";
 import { exportTelecallerLogs } from "../../controllers/leadManagement/exportTelecallerLogs.js";
 import { requireAuth, requireGranularPermission } from "../../middleware/permissionMiddleware.js";
@@ -56,6 +57,7 @@ router.get("/stats/dashboard/conversion-details", requireAuth, getConversionDeta
 router.get("/stats/today-followups", requireAuth, getFollowUpStats);
 router.get("/stats/conversion-report", requireAuth, getLeadConversionReport);
 router.get("/stats/conversion-report/admitted-leads", requireAuth, getAdmittedLeadDetails);
+router.get("/stats/lead-analysis", requireAuth, getLeadAnalysis);
 router.get("/export/excel", requireAuth, exportLeadsExcel);
 router.get("/export/telecaller-logs", requireAuth, exportTelecallerLogs);
 router.get("/export/admission-segregation", requireAuth, exportAdmissionSegregation);

@@ -566,6 +566,10 @@ export const PERMISSION_MODULES = {
             conversionReport: {
                 label: "Conversion Report",
                 operations: ["view"]
+            },
+            leadAnalysis: {
+                label: "Lead Analysis",
+                operations: ["view"]
             }
         }
     },

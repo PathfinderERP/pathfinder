@@ -177,6 +177,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
             permissionModule: "leadManagement",
             subItems: [
                 { name: "All Leads", path: "/lead-management", permissionSection: "leads" },
+                { name: "Lead Analysis", path: "/lead-management/lead-analysis", permissionSection: "leadAnalysis" },
                 { name: "All Follow Ups", path: "/lead-management/all-followups", permissionSection: "allFollowups" },
                 { name: "Conversion Report", path: "/lead-management/conversion-report", permissionSection: "conversionReport", restrictedToSuperAdmin: false },
                 { name: "Teacher Schedule", path: "/lead-management/teacher-schedule", permissionSection: "teacherSchedule" },
