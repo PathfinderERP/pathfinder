@@ -3,10 +3,11 @@ import {
     FaPhone, FaPhoneAlt, FaTimes, FaSearch, FaCalendarAlt, FaUser, FaBuilding,
     FaFilter, FaFileExcel, FaSync, FaChevronDown, FaCheck, FaClock,
     FaRegClock, FaGraduationCap, FaMapMarkerAlt, FaCommentDots,
-    FaChevronLeft, FaChevronRight, FaRegCalendarCheck, FaStickyNote
+    FaChevronLeft, FaChevronRight, FaRegCalendarCheck, FaStickyNote, FaHistory
 } from 'react-icons/fa';
 import * as XLSX from 'xlsx';
 import StudentFollowUpModal from '../common/StudentFollowUpModal';
+import PNTSEStudentHistoryModal from './PNTSEStudentHistoryModal';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
@@ -235,6 +236,29 @@ const PNTSEFollowUpsModal = ({ isOpen, onClose, dbCentres = [], dbZones = [], db
 
     // Call Modal child state
     const [callModalStudent, setCallModalStudent] = useState(null);
+
+    // Student Detailed History Modal state
+    const [historyStudent, setHistoryStudent] = useState(null);
+    const [historyZoneName, setHistoryZoneName] = useState('');
+
+    const handleOpenHistory = (fu) => {
+        const st = fu.student || {};
+        const studentTarget = st._id ? st : {
+            _id: fu.studentId,
+            name: fu.studentName || 'Unknown Student',
+            rollNo: fu.rollNo || '',
+            mobile: fu.mobile || '',
+            secondaryMobile: fu.secondaryMobile || '',
+            createdAt: fu.createdAt,
+            centre: fu.centre,
+            centreName: fu.centreName,
+            zoneName: fu.zoneName,
+            course: fu.course,
+            class: fu.className
+        };
+        setHistoryStudent(studentTarget);
+        setHistoryZoneName(fu.zoneName);
+    };
 
     const getHeaders = () => ({
         Authorization: `Bearer ${localStorage.getItem('token')}`,
@@ -764,28 +788,35 @@ const PNTSEFollowUpsModal = ({ isOpen, onClose, dbCentres = [], dbZones = [], db
                                         return (
                                             <tr
                                                 key={fu._id || idx}
-                                                className="hover:bg-gray-800/40 transition-colors duration-150"
+                                                onClick={() => handleOpenHistory(fu)}
+                                                className="hover:bg-purple-950/35 transition-all duration-150 cursor-pointer group border-b border-gray-800/40 hover:border-purple-500/20"
+                                                title="Click anywhere on this row to view complete student registration date & follow-up history"
                                             >
                                                 {/* Serial Number */}
-                                                <td className="px-4 py-3 text-center text-gray-500 font-mono text-[11px]">
+                                                <td className="px-4 py-3 text-center text-gray-500 font-mono text-[11px] group-hover:text-purple-400 transition-colors">
                                                     {sl}
                                                 </td>
 
                                                 {/* Student Name & Roll */}
                                                 <td className="px-5 py-3">
                                                     <div className="flex items-center gap-3">
-                                                        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm shadow-purple-500/20">
+                                                        <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-purple-500 to-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 shadow-sm shadow-purple-500/20 group-hover:scale-105 group-hover:shadow-purple-500/40 transition-all">
                                                             {(st.name || fu.studentName || 'S').charAt(0).toUpperCase()}
                                                         </div>
                                                         <div>
-                                                            <p className="font-semibold text-gray-100 text-xs">
-                                                                {st.name || fu.studentName || 'Unknown Student'}
-                                                            </p>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <p className="font-semibold text-gray-100 text-xs group-hover:text-purple-300 transition-colors">
+                                                                    {st.name || fu.studentName || 'Unknown Student'}
+                                                                </p>
+                                                                <span className="opacity-0 group-hover:opacity-100 text-[10px] text-purple-400 flex items-center gap-0.5 transition-opacity">
+                                                                    <FaHistory size={9} />
+                                                                </span>
+                                                            </div>
                                                             <div className="flex items-center gap-2 mt-0.5">
-                                                                <span className="font-mono text-[11px] text-cyan-400 font-semibold">
+                                                                <span className="font-mono text-[11px] text-cyan-400 font-semibold group-hover:text-cyan-300 transition-colors">
                                                                     {st.rollNo || fu.rollNo || '—'}
                                                                 </span>
-                                                                <span className="text-[11px] text-gray-400">
+                                                                <span className="text-[11px] text-gray-400 group-hover:text-gray-300 transition-colors">
                                                                     {st.mobile || fu.mobile || ''}
                                                                 </span>
                                                             </div>
@@ -884,25 +915,39 @@ const PNTSEFollowUpsModal = ({ isOpen, onClose, dbCentres = [], dbZones = [], db
                                                 </td>
 
                                                 {/* Action */}
-                                                <td className="px-4 py-3 text-center">
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => {
-                                                            // Student object to pass to StudentFollowUpModal
-                                                            const studentTarget = st._id ? st : {
-                                                                _id: fu.studentId,
-                                                                name: fu.studentName || 'Student',
-                                                                mobile: fu.mobile || '',
-                                                                rollNo: fu.rollNo || ''
-                                                            };
-                                                            setCallModalStudent(studentTarget);
-                                                        }}
-                                                        className="px-2.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1.5 mx-auto shadow shadow-purple-500/20 cursor-pointer"
-                                                        title="Log new call or view follow-up history"
-                                                    >
-                                                        <FaPhoneAlt size={10} />
-                                                        <span>Call</span>
-                                                    </button>
+                                                <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                                                    <div className="flex items-center justify-center gap-1.5">
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                handleOpenHistory(fu);
+                                                            }}
+                                                            className="px-2 py-1.5 bg-gray-800 hover:bg-purple-900/40 text-gray-300 hover:text-purple-200 border border-gray-700 hover:border-purple-500/40 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1 shadow-sm cursor-pointer"
+                                                            title="View student insertion date & full follow-up history"
+                                                        >
+                                                            <FaHistory size={10} className="text-purple-400" />
+                                                            <span>History</span>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                const studentTarget = st._id ? st : {
+                                                                    _id: fu.studentId,
+                                                                    name: fu.studentName || 'Student',
+                                                                    mobile: fu.mobile || '',
+                                                                    rollNo: fu.rollNo || ''
+                                                                };
+                                                                setCallModalStudent(studentTarget);
+                                                            }}
+                                                            className="px-2.5 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white rounded-lg text-xs font-semibold transition flex items-center justify-center gap-1 shadow shadow-purple-500/20 cursor-pointer"
+                                                            title="Log new call"
+                                                        >
+                                                            <FaPhoneAlt size={10} />
+                                                            <span>Call</span>
+                                                        </button>
+                                                    </div>
                                                 </td>
                                             </tr>
                                         );
@@ -986,6 +1031,17 @@ const PNTSEFollowUpsModal = ({ isOpen, onClose, dbCentres = [], dbZones = [], db
                         setCallModalStudent(null);
                         fetchFollowUps(); // Refresh follow-ups when modal closes
                     }}
+                />
+            )}
+
+            {/* Sub-modal: Student Detailed History Modal */}
+            {historyStudent && (
+                <PNTSEStudentHistoryModal
+                    isOpen={Boolean(historyStudent)}
+                    onClose={() => setHistoryStudent(null)}
+                    student={historyStudent}
+                    zoneName={historyZoneName}
+                    onFollowUpUpdated={fetchFollowUps}
                 />
             )}
         </div>
