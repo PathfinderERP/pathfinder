@@ -4,7 +4,7 @@ import { FaSearch, FaDownload, FaFileImport, FaFileExcel,
     FaGraduationCap, FaUsers, FaTrophy, FaChartLine, FaSortUp, FaSortDown,
     FaSpinner, FaTimes, FaCheckCircle, FaExclamationTriangle, FaTimesCircle, FaFileInvoice,
     FaEdit, FaTrash, FaEye, FaBookOpen, FaChalkboardTeacher, FaSchool, FaPlus, FaMoneyBillWave,
-    FaCalendarAlt, FaPhone, FaCheck, FaChevronDown, FaUserCheck, FaPoll, FaCloudUploadAlt
+    FaCalendarAlt, FaPhone, FaPhoneAlt, FaCheck, FaChevronDown, FaUserCheck, FaPoll, FaCloudUploadAlt
 } from 'react-icons/fa';
 import { hasPermission } from '../../config/permissions';
 import BillGenerator from '../Finance/BillGenerator';
@@ -14,6 +14,7 @@ import PNTSEStudentResultModal from './PNTSEStudentResultModal';
 import Pagination from '../common/Pagination';
 import BulkAdmitCardModal from '../common/BulkAdmitCardModal';
 import StudentFollowUpModal from '../common/StudentFollowUpModal';
+import PNTSEFollowUpsModal from './PNTSEFollowUpsModal';
 import * as XLSX from 'xlsx';
 
 const formatReportingTime = (timeStr) => {
@@ -663,6 +664,7 @@ const PNTSEAllStudentsContent = () => {
     // Follow-Up Modal State
     const [showFollowUpModal, setShowFollowUpModal] = useState(false);
     const [followUpStudent, setFollowUpStudent] = useState(null);
+    const [showFollowUpsModal, setShowFollowUpsModal] = useState(false);
 
     // Bulk Attendance State
     const [showBulkAttendanceModal, setShowBulkAttendanceModal] = useState(false);
@@ -1208,6 +1210,14 @@ const PNTSEAllStudentsContent = () => {
                     >
                         <FaTrophy className="text-amber-300 text-base" />
                         Upload Results
+                    </button>
+                    <button
+                        onClick={() => setShowFollowUpsModal(true)}
+                        className="flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white rounded-xl text-sm font-semibold transition-all duration-200 shadow-lg shadow-purple-500/25 cursor-pointer"
+                        title="View All PNTSE Follow Ups"
+                    >
+                        <FaPhoneAlt className="text-white text-xs" />
+                        Follow Ups
                     </button>
                 </div>
             </div>
@@ -1846,6 +1856,15 @@ const PNTSEAllStudentsContent = () => {
                     onClose={() => { setShowFollowUpModal(false); setFollowUpStudent(null); }}
                 />
             )}
+
+            {/* ==================== ALL PNTSE FOLLOW-UPS MODAL ==================== */}
+            <PNTSEFollowUpsModal
+                isOpen={showFollowUpsModal}
+                onClose={() => setShowFollowUpsModal(false)}
+                dbCentres={dbCentres}
+                dbZones={dbZones}
+                dbClasses={dbClasses}
+            />
 
             {/* ==================== PAY CHECKOUT MODAL ==================== */}
             {showPayModal && checkoutStudent && (

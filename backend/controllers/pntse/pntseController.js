@@ -12,6 +12,7 @@ import Student from "../../models/Students.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import attachAdmissionStatus from "../../utils/admissionStatusHelper.js";
+import StudentFollowUp from "../../models/StudentFollowUp.js";
 
 // Create PNTSE Student
 export const createPNTSEStudent = async (req, res) => {
@@ -520,6 +521,187 @@ export const getPNTSEStudents = async (req, res) => {
     } catch (err) {
         console.error(err);
         res.status(500).json({ message: "Server error", error: err.message });
+    }
+};
+
+// Get PNTSE Student Follow-Ups with comprehensive filtering
+export const getPNTSEFollowUps = async (req, res) => {
+    try {
+        const {
+            search,
+            centre,
+            zone,
+            feedback,
+            calledBy,
+            class: classId,
+            course,
+            startDate,
+            endDate,
+            dateType = "callDate"
+        } = req.query;
+
+        const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
+        let assignedCentres = null;
+        if (!isSuperAdmin) {
+            assignedCentres = (req.user.centres || []).map(c => (c._id || c).toString());
+            if (assignedCentres.length === 0 && req.user.primaryCentre) {
+                assignedCentres.push((req.user.primaryCentre._id || req.user.primaryCentre).toString());
+            }
+            if (assignedCentres.length === 0 && req.user.centre) {
+                assignedCentres.push((req.user.centre._id || req.user.centre).toString());
+            }
+        }
+
+        const query = { studentType: "PNTSE" };
+
+        const zoneIds = parseList(zone);
+        const centreIds = parseList(centre);
+
+        if (zoneIds.length > 0) {
+            const zones = await Zone.find({ _id: { $in: zoneIds } }).select("centres").lean();
+            let zoneCentres = [];
+            zones.forEach(z => {
+                (z.centres || []).forEach(c => {
+                    const cStr = (c._id || c).toString();
+                    if (!zoneCentres.includes(cStr)) zoneCentres.push(cStr);
+                });
+            });
+
+            if (centreIds.length > 0) {
+                let validCentres = centreIds.filter(c => zoneCentres.includes(c));
+                if (assignedCentres) {
+                    validCentres = validCentres.filter(c => assignedCentres.includes(c));
+                }
+                query.centre = { $in: validCentres };
+            } else {
+                let targetCentres = zoneCentres;
+                if (assignedCentres) {
+                    targetCentres = targetCentres.filter(c => assignedCentres.includes(c));
+                }
+                query.centre = { $in: targetCentres };
+            }
+        } else if (centreIds.length > 0) {
+            let validCentres = centreIds;
+            if (assignedCentres) {
+                validCentres = validCentres.filter(c => assignedCentres.includes(c));
+            }
+            query.centre = { $in: validCentres };
+        } else if (assignedCentres) {
+            query.centre = { $in: assignedCentres };
+        }
+
+        const feedbackList = parseList(feedback);
+        if (feedbackList.length > 0) {
+            query.feedback = { $in: feedbackList };
+        }
+
+        const callerList = parseList(calledBy);
+        if (callerList.length > 0) {
+            query.calledBy = { $in: callerList };
+        }
+
+        if (startDate || endDate) {
+            const targetField = dateType === "nextFollowUpDate" ? "nextFollowUpDate" : "callDate";
+            query[targetField] = {};
+            if (startDate) {
+                const s = new Date(startDate);
+                s.setHours(0, 0, 0, 0);
+                query[targetField].$gte = s;
+            }
+            if (endDate) {
+                const e = new Date(endDate);
+                e.setHours(23, 59, 59, 999);
+                query[targetField].$lte = e;
+            }
+        }
+
+        const followUps = await StudentFollowUp.find(query)
+            .populate("calledBy", "name email role phoneNumber")
+            .populate("centre", "centreName enterCode centreCode")
+            .sort({ callDate: -1, createdAt: -1 })
+            .lean();
+
+        if (followUps.length === 0) {
+            return res.status(200).json({ success: true, followUps: [] });
+        }
+
+        const studentIds = [...new Set(followUps.map(f => f.studentId?.toString()).filter(Boolean))];
+        const studentQuery = { _id: { $in: studentIds } };
+
+        const classIds = parseList(classId);
+        if (classIds.length > 0) studentQuery.class = { $in: classIds };
+
+        const courseList = parseList(course);
+        if (courseList.length > 0) studentQuery.course = { $in: courseList };
+
+        if (search) {
+            const searchRegex = new RegExp(search.trim(), "i");
+            studentQuery.$or = [
+                { name: searchRegex },
+                { mobile: searchRegex },
+                { secondaryMobile: searchRegex },
+                { rollNo: searchRegex },
+                { school: searchRegex },
+                { email: searchRegex }
+            ];
+        }
+
+        const students = await PNTSEStudent.find(studentQuery)
+            .populate("class", "name")
+            .populate("centre", "centreName enterCode centreCode")
+            .populate("board", "boardName boardCourse")
+            .populate("session", "sessionName")
+            .lean();
+
+        const studentMap = new Map();
+        students.forEach(s => studentMap.set(s._id.toString(), s));
+
+        const allZones = await Zone.find({}).select("name centres").lean();
+        const centreZoneMap = new Map();
+        allZones.forEach(z => {
+            (z.centres || []).forEach(c => {
+                centreZoneMap.set((c._id || c).toString(), z.name);
+            });
+        });
+
+        const enriched = [];
+        for (const fu of followUps) {
+            const student = studentMap.get(fu.studentId?.toString());
+            if ((search || classIds.length > 0 || courseList.length > 0) && !student) {
+                continue;
+            }
+
+            const centreId = (fu.centre?._id || fu.centre || student?.centre?._id || student?.centre)?.toString();
+            const zoneName = centreZoneMap.get(centreId) || "—";
+
+            enriched.push({
+                _id: fu._id,
+                studentId: fu.studentId,
+                studentType: fu.studentType,
+                callDate: fu.callDate,
+                nextFollowUpDate: fu.nextFollowUpDate,
+                feedback: fu.feedback,
+                notes: fu.notes || "",
+                callDuration: fu.callDuration,
+                createdAt: fu.createdAt,
+                calledBy: fu.calledBy || null,
+                callerName: fu.calledBy?.name || "—",
+                centre: fu.centre || student?.centre || null,
+                centreName: fu.centre?.centreName || student?.centre?.centreName || "—",
+                zoneName,
+                student: student || {
+                    _id: fu.studentId,
+                    name: "Unknown",
+                    rollNo: "—",
+                    mobile: "—"
+                }
+            });
+        }
+
+        return res.status(200).json({ success: true, followUps: enriched });
+    } catch (err) {
+        console.error("getPNTSEFollowUps error:", err);
+        return res.status(500).json({ success: false, message: "Server error", error: err.message });
     }
 };
 

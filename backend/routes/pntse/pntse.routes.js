@@ -19,7 +19,8 @@ import {
     getStudentResult,
     deleteStudentResult,
     getResultsSummary,
-    getExamClassStats
+    getExamClassStats,
+    getPNTSEFollowUps
 } from "../../controllers/pntse/pntseController.js";
 
 const router = express.Router();
@@ -27,6 +28,7 @@ const upload = multer({ storage: multer.memoryStorage() });
 
 router.post("/create", requireGranularPermission("pntse", "addStudent", "create"), createPNTSEStudent);
 router.get("/list", requireGranularPermission("pntse", "allStudents", "view"), getPNTSEStudents);
+router.get("/follow-ups", requireGranularPermission("pntse", "allStudents", "view"), getPNTSEFollowUps);
 router.get("/schools", requireGranularPermission("pntse", "allStudents", "view"), getPNTSESchools);
 router.get("/check-duplicate", requireGranularPermission("pntse", "allStudents", "view"), checkDuplicate);
 router.post("/check-duplicates-bulk", requireGranularPermission("pntse", "allStudents", "view"), checkDuplicatesBulk);
