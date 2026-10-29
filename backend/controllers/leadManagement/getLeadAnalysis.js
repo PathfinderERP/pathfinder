@@ -418,8 +418,7 @@ export const getLeadAnalysis = async (req, res) => {
                 leadsWithoutFollowUp++;
             }
 
-            const isWalkInSource = typeof lead.source === "string" && /^walk[- ]?in$/i.test(lead.source);
-            if (lead.isWalkIn || isWalkInSource) {
+            if (lead.isWalkIn) {
                 walkInCount++;
             }
 

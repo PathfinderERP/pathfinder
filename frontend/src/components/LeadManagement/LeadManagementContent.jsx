@@ -1047,7 +1047,7 @@ const LeadManagementContent = () => {
             }
         }
 
-        const isWalkIn = leadToProcess?.isAlreadyEnrolled || leadToProcess?.isWalkIn || leadToProcess?.source?.toLowerCase() === 'walk in';
+        const isWalkIn = leadToProcess?.isAlreadyEnrolled || leadToProcess?.isWalkIn;
         if (!isWalkIn) {
             setSelectedLead(leadToProcess);
             setShowWalkInRequiredModal(true);
@@ -2128,7 +2128,7 @@ const LeadManagementContent = () => {
                                                         <span className="text-[9px] font-black uppercase tracking-widest">Pending</span>
                                                         <span className={`ml-1 text-[8px] font-black px-1.5 py-0.5 rounded-full ${isDarkMode ? 'bg-yellow-500/20' : 'bg-yellow-100'}`} title={`${lead.followUps?.length || 0} previous follow-ups preserved`}>{lead.followUps?.length || 0}</span>
                                                     </div>
-                                                ) : lead.isWalkIn || lead.source?.toLowerCase() === 'walk in' ? (
+                                                ) : lead.isWalkIn ? (
                                                     <div className={`inline-flex items-center gap-2 px-2.5 py-1 rounded-[2px] border transition-all ${isDarkMode ? 'bg-cyan-500/10 border-cyan-500/20 text-cyan-400' : 'bg-cyan-50 border-cyan-100 text-cyan-600'}`}>
                                                         <FaWalking size={10} className="animate-pulse" />
                                                         <span className="text-[9px] font-black uppercase tracking-widest">Walk In</span>
@@ -2295,7 +2295,7 @@ const LeadManagementContent = () => {
                                                     >
                                                         {lead.isAlreadyEnrolled ? "Admit (Same ID)" : "Counselling"}
                                                     </button>
-                                                    {lead.isWalkIn || lead.source?.toLowerCase() === 'walk in' ? (
+                                                    {lead.isWalkIn ? (
                                                         <button
                                                             onClick={(e) => { e.stopPropagation(); handleTagWalkIn(lead._id); }}
                                                             className="bg-emerald-500 hover:bg-emerald-400 text-white px-3.5 py-1.5 rounded-[2px] text-[8px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 active:scale-95 transition-all whitespace-nowrap"

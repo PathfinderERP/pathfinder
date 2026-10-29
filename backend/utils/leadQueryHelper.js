@@ -667,12 +667,7 @@ export const buildLeadQuery = async (queryParams, user) => {
             });
         }
         if (statusVals.includes('walkin')) {
-            statusOr.push({
-                $or: [
-                    { isWalkIn: true },
-                    { source: { $regex: /^walk[- ]?in$/i } }
-                ]
-            });
+            statusOr.push({ isWalkIn: true });
         }
 
         if (statusOr.length > 0) {

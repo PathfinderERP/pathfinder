@@ -357,12 +357,12 @@ const LeadDetailsModal = ({ lead, onClose, onEdit, onDelete, onFollowUp, onCouns
                                     }
                                 }}
                                 className={`px-5 py-3 sm:py-2.5 justify-center rounded-[4px] transition-all flex items-center gap-2 text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95 ${
-                                    (lead.isWalkIn || lead.source?.toLowerCase() === 'walk in')
+                                    lead.isWalkIn
                                         ? "bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-500/20"
                                         : "bg-amber-600 hover:bg-amber-500 text-white shadow-amber-500/20"
                                 }`}
                             >
-                                <FaMapMarkerAlt size={12} /> {(lead.isWalkIn || lead.source?.toLowerCase() === 'walk in') ? "Walkined" : "Walk In"}
+                                <FaMapMarkerAlt size={12} /> {lead.isWalkIn ? "Walkined" : "Walk In"}
                             </button>
                             {/* <button
                                 onClick={handleCallNow}
