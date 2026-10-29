@@ -12,7 +12,7 @@ import Class from "../../models/Master_data/Class.js";
 import ExamTag from "../../models/Master_data/ExamTag.js";
 import { deleteCache } from "../../utils/redisCache.js";
 import { isGstExempt } from "../../utils/gstHelper.js";
-import { syncStudentCentre } from "../../services/admissionCentreSyncService.js";
+import { syncStudentCentre, resolveCanonicalCentreName } from "../../services/admissionCentreSyncService.js";
 
 // Helper to calculate next months due date
 const getNextMonthDate = (startDate, monthsToAdd) => {
@@ -1955,13 +1955,8 @@ export const bulkUpdateBoardAdmissions = async (req, res) => {
                 const admissionUpdates = {};
                 if (cleanUpdateData.academicSession !== undefined) admissionUpdates.academicSession = cleanUpdateData.academicSession;
                 if (cleanUpdateData.centre !== undefined) {
-                    const syncRes = await syncStudentCentre({
-                        studentId: record.studentId,
-                        admissionId: id,
-                        newCentre: cleanUpdateData.centre,
-                        modifiedBy: req.user?.name || "System"
-                    });
-                    admissionUpdates.centre = (syncRes && syncRes.canonicalCentre) ? syncRes.canonicalCentre : cleanUpdateData.centre;
+                    const canonical = await resolveCanonicalCentreName(cleanUpdateData.centre);
+                    admissionUpdates.centre = canonical || cleanUpdateData.centre;
                 }
                 if (cleanUpdateData.lastClass !== undefined) admissionUpdates.lastClass = cleanUpdateData.lastClass;
                 if (cleanUpdateData.department !== undefined) admissionUpdates.department = cleanUpdateData.department;
@@ -1969,35 +1964,6 @@ export const bulkUpdateBoardAdmissions = async (req, res) => {
                 if (cleanUpdateData.boardId !== undefined) admissionUpdates.boardId = cleanUpdateData.boardId;
                 if (cleanUpdateData.createdBy !== undefined) admissionUpdates.createdBy = cleanUpdateData.createdBy;
                 if (cleanUpdateData.examTag !== undefined) admissionUpdates.examTag = cleanUpdateData.examTag;
-
-                if (record.studentId) {
-                    const student = await Student.findById(record.studentId);
-                    if (student) {
-                        const studentUpdates = {};
-                        let studentModified = false;
-                        if (cleanUpdateData.department !== undefined) {
-                            studentUpdates.department = cleanUpdateData.department;
-                            studentModified = true;
-                        }
-                        if (cleanUpdateData.counselledBy !== undefined) {
-                            studentUpdates.counselledBy = cleanUpdateData.counselledBy;
-                            studentModified = true;
-                        }
-                        if (cleanUpdateData.lastClass !== undefined && student.examSchema?.[0]) {
-                            studentUpdates["examSchema.0.class"] = cleanUpdateData.lastClass;
-                            studentModified = true;
-                        }
-                        if (examTagName && student.sessionExamCourse?.[0]) {
-                            studentUpdates["sessionExamCourse.0.examTag"] = examTagName;
-                            studentModified = true;
-                        }
-                        if (studentModified) {
-                            studentUpdates.updatedBy = req.user?.name || "System";
-                            studentUpdates.updatedByUserId = req.user?._id;
-                            await Student.findByIdAndUpdate(record.studentId, { $set: studentUpdates });
-                        }
-                    }
-                }
 
                 if (Object.keys(admissionUpdates).length > 0) {
                     await BoardCourseAdmission.findByIdAndUpdate(id, { $set: admissionUpdates });

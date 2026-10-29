@@ -9,11 +9,62 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
     },
     studentName: {
         type: String,
-        required: false // Cached from Student model
+        required: false
     },
     mobileNum: {
         type: String,
-        required: false // Cached from Student model
+        required: false
+    },
+    studentEmail: {
+        type: String,
+        required: false
+    },
+    whatsappNumber: {
+        type: String,
+        required: false
+    },
+    dateOfBirth: {
+        type: String,
+        required: false
+    },
+    gender: {
+        type: String,
+        required: false
+    },
+    schoolName: {
+        type: String,
+        required: false
+    },
+    state: {
+        type: String,
+        required: false
+    },
+    address: {
+        type: String,
+        required: false
+    },
+    pincode: {
+        type: String,
+        required: false
+    },
+    guardians: [{
+        guardianName: { type: String },
+        qualification: { type: String },
+        guardianEmail: { type: String },
+        guardianMobile: { type: String },
+        occupation: { type: String },
+        annualIncome: { type: String },
+        organizationName: { type: String },
+        designation: { type: String },
+        officeAddress: { type: String }
+    }],
+    markAggregate: {
+        type: String,
+        required: false
+    },
+    scienceMathPercent: {
+        type: String,
+        required: false
     },
     boardId: {
         type: mongoose.Schema.Types.ObjectId,
@@ -199,17 +250,6 @@ const boardCourseAdmissionSchema = new mongoose.Schema({
         ref: "User"
     }
 }, { timestamps: true });
-
-// Pre-validate hook to clean up legacy or incorrect enum fields
-// boardCourseAdmissionSchema.pre('validate', function (next) {
-//     if (this.additionalThingsStatus === "" || this.additionalThingsStatus === "0") {
-//         this.additionalThingsStatus = "PENDING";
-//     }
-//     if (this.examFeeStatus === "" || this.examFeeStatus === "0") {
-//         this.examFeeStatus = "PENDING";
-//     }
-//     next();
-// });
 
 // Pre-save hook to ensure a unique sequence number is generated atomically across both admission types
 boardCourseAdmissionSchema.pre('save', async function () {

@@ -2,46 +2,47 @@ import React, { useState, useEffect } from 'react';
 import { FaTimes, FaSave, FaUser, FaPhoneAlt, FaSchool, FaBook, FaEdit } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
-const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, isDarkMode }) => {
+const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, isDarkMode, isBoardAdmission = false }) => {
+    const isBoard = isBoardAdmission || admission?.admissionType === 'BOARD' || !!admission?.boardId || !!admission?.selectedSubjects;
     const [formData, setFormData] = useState({
-        studentName: student.studentsDetails?.[0]?.studentName || '',
-        studentEmail: student.studentsDetails?.[0]?.studentEmail || '',
-        mobileNum: student.studentsDetails?.[0]?.mobileNum || '',
-        whatsappNumber: student.studentsDetails?.[0]?.whatsappNumber || '',
-        dateOfBirth: student.studentsDetails?.[0]?.dateOfBirth || '',
-        gender: student.studentsDetails?.[0]?.gender || '',
-        centre: student.studentsDetails?.[0]?.centre || '',
-        board: student.studentsDetails?.[0]?.board || '',
-        state: student.studentsDetails?.[0]?.state || '',
-        schoolName: student.studentsDetails?.[0]?.schoolName || '',
-        address: student.studentsDetails?.[0]?.address || '',
-        programme: student.studentsDetails?.[0]?.programme || '',
-        pincode: student.studentsDetails?.[0]?.pincode || '',
-        class: student.examSchema?.[0]?.class || '',
-        scienceMathPercent: student.examSchema?.[0]?.scienceMathPercent || student.examSchema?.[0]?.scienceMathParcent || '',
-        markAggregate: student.examSchema?.[0]?.markAggregate || student.examSchema?.[0]?.markAgregate || '',
-        examTag: student.sessionExamCourse?.[0]?.examTag || '',
-        targetExams: student.sessionExamCourse?.[0]?.targetExams || '',
-        session: student.sessionExamCourse?.[0]?.session || '',
-        uid: student.uid || student._id || '',
+        studentName: (isBoard && admission?.studentName) || student?.studentsDetails?.[0]?.studentName || admission?.studentName || '',
+        studentEmail: (isBoard && admission?.studentEmail) || student?.studentsDetails?.[0]?.studentEmail || admission?.studentEmail || '',
+        mobileNum: (isBoard && admission?.mobileNum) || student?.studentsDetails?.[0]?.mobileNum || admission?.mobileNum || '',
+        whatsappNumber: (isBoard && admission?.whatsappNumber) || student?.studentsDetails?.[0]?.whatsappNumber || '',
+        dateOfBirth: (isBoard && admission?.dateOfBirth) || student?.studentsDetails?.[0]?.dateOfBirth || '',
+        gender: (isBoard && admission?.gender) || student?.studentsDetails?.[0]?.gender || '',
+        centre: (isBoard && admission?.centre) || student?.studentsDetails?.[0]?.centre || admission?.centre || '',
+        board: admission?.boardId?.boardName || student?.studentsDetails?.[0]?.board || '',
+        state: (isBoard && admission?.state) || student?.studentsDetails?.[0]?.state || '',
+        schoolName: (isBoard && admission?.schoolName) || student?.studentsDetails?.[0]?.schoolName || student?.schoolName || '',
+        address: (isBoard && admission?.address) || student?.studentsDetails?.[0]?.address || '',
+        programme: (isBoard && admission?.programme) || student?.studentsDetails?.[0]?.programme || '',
+        pincode: (isBoard && admission?.pincode) || student?.studentsDetails?.[0]?.pincode || '',
+        class: (isBoard && admission?.lastClass) || student?.examSchema?.[0]?.class || '',
+        scienceMathPercent: (isBoard && admission?.scienceMathPercent) || student?.examSchema?.[0]?.scienceMathPercent || student?.examSchema?.[0]?.scienceMathParcent || '',
+        markAggregate: (isBoard && admission?.markAggregate) || student?.examSchema?.[0]?.markAggregate || student?.examSchema?.[0]?.markAgregate || '',
+        examTag: (isBoard && (admission?.examTag?._id || admission?.examTag)) || student?.sessionExamCourse?.[0]?.examTag || '',
+        targetExams: student?.sessionExamCourse?.[0]?.targetExams || '',
+        session: (isBoard && admission?.academicSession) || student?.sessionExamCourse?.[0]?.session || '',
+        uid: (isBoard && (admission?.admissionNumber || student?.uid || student?._id)) || student?.uid || student?._id || '',
         admissionNumber: admission?.admissionNumber || '',
-        guardianName: student.guardians?.[0]?.guardianName || '',
-        guardianEmail: student.guardians?.[0]?.guardianEmail || '',
-        guardianMobile: student.guardians?.[0]?.guardianMobile || '',
-        occupation: student.guardians?.[0]?.occupation || '',
-        annualIncome: student.guardians?.[0]?.annualIncome || '',
-        qualification: student.guardians?.[0]?.qualification || '',
-        course: student.course?._id || student.course || '',
-        batches: student.batches ? student.batches.map(b => b._id || b) : [],
-        department: student.department?._id || student.department || '',
+        guardianName: (isBoard && admission?.guardians?.[0]?.guardianName) || student?.guardians?.[0]?.guardianName || '',
+        guardianEmail: (isBoard && admission?.guardians?.[0]?.guardianEmail) || student?.guardians?.[0]?.guardianEmail || '',
+        guardianMobile: (isBoard && admission?.guardians?.[0]?.guardianMobile) || student?.guardians?.[0]?.guardianMobile || '',
+        occupation: (isBoard && admission?.guardians?.[0]?.occupation) || student?.guardians?.[0]?.occupation || '',
+        annualIncome: (isBoard && admission?.guardians?.[0]?.annualIncome) || student?.guardians?.[0]?.annualIncome || '',
+        qualification: (isBoard && admission?.guardians?.[0]?.qualification) || student?.guardians?.[0]?.qualification || '',
+        course: student?.course?._id || student?.course || '',
+        batches: student?.batches ? student.batches.map(b => b._id || b) : [],
+        department: (isBoard && (admission?.department?._id || admission?.department)) || student?.department?._id || student?.department || '',
         leadBy: (() => {
-            const lb = student.leadBy || admission?.leadBy;
+            const lb = student?.leadBy || admission?.leadBy;
             if (!lb) return '';
             if (typeof lb === 'object') return lb._id || lb.name || '';
             return lb;
         })(),
         counselledBy: (() => {
-            const cb = student.counselledByDetails || student.counselledBy;
+            const cb = student?.counselledByDetails || student?.counselledBy;
             if (!cb) return '';
             if (typeof cb === 'object') return cb._id || cb.name || '';
             return cb;
@@ -346,54 +347,114 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                 section: student.section || [],
             };
 
-            const response = await fetch(`${apiUrl}/normalAdmin/updateStudent/${student._id}`, {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    Authorization: `Bearer ${token}`,
-                },
-                body: JSON.stringify(updatePayload),
-            });
+            if (isBoard && admission?._id) {
+                // BOARD COURSE ADMISSION EDIT:
+                // Kept strictly separate from normal enrolled students.
+                // Do NOT call updateStudent (which would mutate normal enrolled student details).
+                const boardPayload = {
+                    studentName: formData.studentName?.trim() || null,
+                    studentEmail: formData.studentEmail?.trim() || null,
+                    mobileNum: formData.mobileNum?.trim() || null,
+                    whatsappNumber: formData.whatsappNumber?.trim() || null,
+                    dateOfBirth: formData.dateOfBirth || null,
+                    gender: formData.gender || null,
+                    centre: formData.centre || null,
+                    board: formData.board || null,
+                    state: formData.state?.trim() || null,
+                    schoolName: formData.schoolName?.trim() || null,
+                    address: formData.address?.trim() || null,
+                    programme: formData.programme || null,
+                    pincode: formData.pincode?.trim() || null,
+                    class: formData.class || null,
+                    markAggregate: formData.markAggregate || null,
+                    scienceMathPercent: formData.scienceMathPercent || null,
+                    academicSession: formData.session || null,
+                    department: formData.department || null,
+                    examTag: formData.examTag || null,
+                    createdBy: formData.createdBy || null,
+                    guardians: [{
+                        guardianName: formData.guardianName?.trim() || null,
+                        guardianEmail: formData.guardianEmail?.trim() || null,
+                        guardianMobile: formData.guardianMobile?.trim() || null,
+                        occupation: formData.occupation?.trim() || null,
+                        annualIncome: formData.annualIncome?.trim() || null,
+                        qualification: formData.qualification?.trim() || null
+                    }],
+                    admissionNumber: formData.admissionNumber?.trim()?.toUpperCase() || null
+                };
 
-            const data = await response.json();
-
-            if (response.ok) {
-                toast.success('Student updated successfully!');
-                success = true;
-
-                if (admission?._id) {
-                    try {
-                        const admissionUpdates = {
-                            centre: formData.centre,
-                            academicSession: formData.session,
-                            createdBy: formData.createdBy || null,
-                            department: formData.department || null
-                        };
-                        if (formData.admissionNumber !== (admission.admissionNumber || '')) {
-                            admissionUpdates.admissionNumber = formData.admissionNumber;
-                        }
-
-                        const admissionResponse = await fetch(
-                            `${apiUrl}/admission/${admission._id}`,
-                            {
-                                method: 'PUT',
-                                headers: {
-                                    'Content-Type': 'application/json',
-                                    'Authorization': `Bearer ${token}`
-                                },
-                                body: JSON.stringify(admissionUpdates)
-                            }
-                        );
-                        if (!admissionResponse.ok) {
-                            const errData = await admissionResponse.json();
-                            toast.error(errData.message || 'Failed to update admission system data');
-                        }
-                    } catch (admissionErr) {
-                        console.error('Error updating admission system data:', admissionErr);
+                const admissionResponse = await fetch(
+                    `${apiUrl}/admission/${admission._id}`,
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`
+                        },
+                        body: JSON.stringify(boardPayload)
                     }
+                );
+
+                const data = await admissionResponse.json();
+                if (admissionResponse.ok) {
+                    toast.success('Board course student updated successfully!');
+                    success = true;
+                    if (onClose) onClose();
+                } else {
+                    toast.error(data.message || 'Failed to update board course student');
                 }
             } else {
-                toast.error(data.message || 'Failed to update student');
+                // NORMAL ADMISSION / STUDENT PROFILE EDIT
+                const response = await fetch(`${apiUrl}/normalAdmin/updateStudent/${student._id}`, {
+                    method: 'PUT',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        Authorization: `Bearer ${token}`,
+                    },
+                    body: JSON.stringify(updatePayload),
+                });
+
+                const data = await response.json();
+
+                if (response.ok) {
+                    toast.success('Student updated successfully!');
+                    success = true;
+
+                    if (admission?._id) {
+                        try {
+                            const admissionUpdates = {
+                                centre: formData.centre,
+                                academicSession: formData.session,
+                                createdBy: formData.createdBy || null,
+                                department: formData.department || null
+                            };
+                            if (formData.admissionNumber !== (admission.admissionNumber || '')) {
+                                admissionUpdates.admissionNumber = formData.admissionNumber;
+                            }
+
+                            const admissionResponse = await fetch(
+                                `${apiUrl}/admission/${admission._id}`,
+                                {
+                                    method: 'PUT',
+                                    headers: {
+                                        'Content-Type': 'application/json',
+                                        'Authorization': `Bearer ${token}`
+                                    },
+                                    body: JSON.stringify(admissionUpdates)
+                                }
+                            );
+                            if (!admissionResponse.ok) {
+                                const errData = await admissionResponse.json();
+                                toast.error(errData.message || 'Failed to update admission system data');
+                            }
+                        } catch (admissionErr) {
+                            console.error('Error updating admission system data:', admissionErr);
+                        }
+                    }
+                    if (onClose) onClose();
+                } else {
+                    toast.error(data.message || 'Failed to update student');
+                }
             }
         } catch (error) {
             console.error('Error updating student:', error);
@@ -980,7 +1041,7 @@ const EditStudentModal = ({ student, admission, onClose, onUpdate, onSuccess, is
                     </div>
                 </form>
             </div>
-            <style jsx>{`
+            <style>{`
                 .custom-scrollbar::-webkit-scrollbar { width: 4px; }
                 .custom-scrollbar::-webkit-scrollbar-track { background: ${isDarkMode ? '#0f1215' : 'transparent'}; }
                 .custom-scrollbar::-webkit-scrollbar-thumb { background: ${isDarkMode ? '#1f2937' : '#d1d5db'}; border-radius: 4px; }

@@ -2468,6 +2468,7 @@ const BoardAdmissionsContent = () => {
                     onClose={() => { setShowEditModal(false); setSelectedStudent(null); setSelectedAdmission(null); }}
                     onUpdate={handleUpdateSuccess}
                     isDarkMode={isDarkMode}
+                    isBoardAdmission={true}
                 />
             )}
 

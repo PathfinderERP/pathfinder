@@ -546,7 +546,8 @@ const EnrolledStudentsContent = () => {
         const studentsArray = Object.values(studentMap).map(item => {
             // Sort admissions by date (newest first)
             item.admissions.sort((a, b) => new Date(b.admissionDate) - new Date(a.admissionDate));
-            item.latestAdmission = item.admissions[0];
+            const normalAdmissions = item.admissions.filter(a => a.admissionType === 'NORMAL');
+            item.latestAdmission = normalAdmissions[0] || item.admissions[0];
             item.totalCourses = item.admissions.length;
             item.latestServiceCall = item.latestAdmission?.latestServiceCall || item.student?.latestServiceCall || null;
             item.nextFollowUpDate = item.latestAdmission?.nextFollowUpDate || item.student?.nextFollowUpDate || null;
