@@ -2118,6 +2118,28 @@ let examStatsCache = null;
 let examStatsCacheTime = 0;
 const STATS_CACHE_TTL_MS = 60 * 1000; // 60 seconds
 
+export const STATIC_AIR_TOTAL_BY_CLASS = {
+    5: 5723,
+    6: 8283,
+    7: 7689,
+    8: 8203,
+    9: 7908,
+    10: 6632
+};
+
+export const extractClassNumber = (val) => {
+    if (!val) return null;
+    const str = String(val).toLowerCase();
+    if (/10|\bx\b/i.test(str)) return 10;
+    if (/9|\bix\b/i.test(str)) return 9;
+    if (/8|\bviii\b/i.test(str)) return 8;
+    if (/7|\bvii\b/i.test(str)) return 7;
+    if (/6|\bvi\b/i.test(str)) return 6;
+    if (/5|\bv\b/i.test(str)) return 5;
+    const m = str.match(/\d+/);
+    return m ? parseInt(m[0], 10) : null;
+};
+
 export const invalidateExamStatsCache = () => {
     examStatsCache = null;
     examStatsCacheTime = 0;
@@ -2228,13 +2250,16 @@ export const getExamGivenStats = async () => {
 
     const resolveCounts = (centreRef, classRef) => {
         let resolvedClassId = null;
+        let classNameCandidate = '';
         if (classRef) {
             const str = String(classRef?._id || (classRef?.name ? classRef.name : classRef)).trim();
             if (str.match(/^[0-9a-fA-F]{24}$/)) {
                 resolvedClassId = str;
+                classNameCandidate = classIdToName[str] || '';
             } else {
                 resolvedClassId = classNameToId[str.toLowerCase()] ||
                     classNameToId[str.toLowerCase().replace(/pntse\s*/i, '').trim()] || null;
+                classNameCandidate = str;
             }
         }
 
@@ -2249,7 +2274,17 @@ export const getExamGivenStats = async () => {
             }
         }
 
-        const totalPf = resolvedClassId ? (byClass[resolvedClassId] || 0) : 0;
+        const classNum = extractClassNumber(classNameCandidate) ||
+            (resolvedClassId && classIdToName[resolvedClassId] ? extractClassNumber(classIdToName[resolvedClassId]) : null) ||
+            extractClassNumber(classRef?.name) ||
+            extractClassNumber(classRef);
+
+        const staticPf = classNum ? STATIC_AIR_TOTAL_BY_CLASS[classNum] : null;
+
+        const totalPf = (staticPf !== null && staticPf !== undefined)
+            ? staticPf
+            : (resolvedClassId ? (byClass[resolvedClassId] || 0) : 0);
+
         const totalCentre = (resolvedCentreId && resolvedClassId)
             ? (byCentreAndClass[`${resolvedCentreId}_${resolvedClassId}`] || 0)
             : 0;

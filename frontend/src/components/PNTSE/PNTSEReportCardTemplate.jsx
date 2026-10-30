@@ -16,10 +16,19 @@ const formatRomanClass = (className) => {
     return str.startsWith('Class') ? str : `Class ${str}`;
 };
 
+export const STATIC_AIR_TOTAL_BY_CLASS = {
+    5: 5723,
+    6: 8283,
+    7: 7689,
+    8: 8203,
+    9: 7908,
+    10: 6632
+};
+
 /**
  * Extract integer class number (5, 6, 7, 8, 9, 10)
  */
-const getClassNumber = (className = '') => {
+export const getClassNumber = (className = '') => {
     if (!className) return 8;
     const str = String(className).toLowerCase();
     if (/10|\bx\b/i.test(str)) return 10;
@@ -131,9 +140,12 @@ const PNTSEReportCardTemplate = forwardRef(({
         ? Math.max(dynamicCentre, Number(centreRank) || 0)
         : (Number(centreRank) || 1);
 
-    const totalPfStudents = dynamicPf > 0
-        ? Math.max(dynamicPf, Number(air) || 0)
-        : (Number(air) || 1);
+    const staticAirTotal = STATIC_AIR_TOTAL_BY_CLASS[classNum];
+
+    // All India Rank (AIR) total count is static for Class 5-10, else dynamic
+    const totalPfStudents = (staticAirTotal !== undefined && staticAirTotal !== null)
+        ? staticAirTotal
+        : (dynamicPf > 0 ? Math.max(dynamicPf, Number(air) || 0) : (Number(air) || 1));
 
     // Build subject list with individual max marks and ranks
     const processedSubjects = activeSubjects.map((sub, index) => {

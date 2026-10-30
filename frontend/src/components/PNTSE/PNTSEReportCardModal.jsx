@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { FaPrint, FaDownload, FaTimes, FaSpinner } from 'react-icons/fa';
 import jsPDF from 'jspdf';
 import { toPng } from 'html-to-image';
-import PNTSEReportCardTemplate from './PNTSEReportCardTemplate';
+import PNTSEReportCardTemplate, { STATIC_AIR_TOTAL_BY_CLASS, getClassNumber } from './PNTSEReportCardTemplate';
 
 const PNTSEReportCardModal = ({
     student,
@@ -19,12 +19,16 @@ const PNTSEReportCardModal = ({
         student?.result?.totalCentreStudents ||
         0
     );
-    const initialPf = Number(
-        propTotalPf ||
-        student?.totalPfStudents ||
-        student?.result?.totalPfStudents ||
-        0
-    );
+    const modalClassNum = getClassNumber(student?.class?.name || student?.course || student?.class);
+    const modalStaticAirTotal = STATIC_AIR_TOTAL_BY_CLASS[modalClassNum];
+    const initialPf = (modalStaticAirTotal !== undefined && modalStaticAirTotal !== null)
+        ? modalStaticAirTotal
+        : Number(
+            propTotalPf ||
+            student?.totalPfStudents ||
+            student?.result?.totalPfStudents ||
+            0
+        );
 
     const [counts, setCounts] = useState({
         totalCentreStudents: initialCentre,
@@ -60,7 +64,9 @@ const PNTSEReportCardModal = ({
                 if (isMounted && data.success) {
                     setCounts({
                         totalCentreStudents: data.totalCentreStudents || initialCentre,
-                        totalPfStudents: data.totalPfStudents || initialPf
+                        totalPfStudents: (modalStaticAirTotal !== undefined && modalStaticAirTotal !== null)
+                            ? modalStaticAirTotal
+                            : (data.totalPfStudents || initialPf)
                     });
                 }
             } catch (err) {

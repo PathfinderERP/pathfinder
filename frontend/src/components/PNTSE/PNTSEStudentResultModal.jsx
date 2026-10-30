@@ -17,6 +17,7 @@ import {
     FaGraduationCap
 } from 'react-icons/fa';
 import PNTSEReportCardModal from './PNTSEReportCardModal';
+import { STATIC_AIR_TOTAL_BY_CLASS, getClassNumber } from './PNTSEReportCardTemplate';
 
 const PNTSEStudentResultModal = ({
     student,
@@ -37,11 +38,15 @@ const PNTSEStudentResultModal = ({
         student.result?.totalCentreStudents ||
         0
     );
-    const initialPfStudents = Number(
-        student.totalPfStudents ||
-        student.result?.totalPfStudents ||
-        0
-    );
+    const resultClassNum = getClassNumber(student?.class?.name || student?.course || student?.class);
+    const resultStaticAirTotal = STATIC_AIR_TOTAL_BY_CLASS[resultClassNum];
+    const initialPfStudents = (resultStaticAirTotal !== undefined && resultStaticAirTotal !== null)
+        ? resultStaticAirTotal
+        : Number(
+            student.totalPfStudents ||
+            student.result?.totalPfStudents ||
+            0
+        );
 
     const [classExamStats, setClassExamStats] = useState({
         totalCentreStudents: initialCentreStudents,
@@ -77,7 +82,9 @@ const PNTSEStudentResultModal = ({
                 if (isMounted && data.success) {
                     setClassExamStats({
                         totalCentreStudents: data.totalCentreStudents || initialCentreStudents,
-                        totalPfStudents: data.totalPfStudents || initialPfStudents
+                        totalPfStudents: (resultStaticAirTotal !== undefined && resultStaticAirTotal !== null)
+                            ? resultStaticAirTotal
+                            : (data.totalPfStudents || initialPfStudents)
                     });
                 }
             } catch (err) {
