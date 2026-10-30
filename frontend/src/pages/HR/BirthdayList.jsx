@@ -1,8 +1,14 @@
-
 import React, { useEffect, useState } from "react";
 import axios from "axios";
-import { FaChevronLeft, FaChevronRight, FaBirthdayCake, FaGift, FaCalendarAlt, FaBuilding, FaUserTie, FaMapMarkerAlt, FaSearch, FaFilter } from "react-icons/fa";
-import { format, isSameDay, isSameWeek, isSameMonth, addYears, getYear, setYear, isPast, getMonth, isToday, getDate } from "date-fns";
+import {
+    FaChevronLeft, FaChevronRight, FaBirthdayCake, FaGift,
+    FaCalendarAlt, FaBuilding, FaUserTie, FaMapMarkerAlt,
+    FaSearch, FaFilter, FaTimes
+} from "react-icons/fa";
+import {
+    format, isSameDay, isSameWeek, isSameMonth,
+    addYears, getYear, setYear, isPast, getMonth, isToday, getDate
+} from "date-fns";
 import Layout from "../../components/Layout";
 
 const BirthdayList = () => {
@@ -20,6 +26,11 @@ const BirthdayList = () => {
     const [filterDept, setFilterDept] = useState("");
     const [filterCentre, setFilterCentre] = useState("");
     const [filterDesig, setFilterDesig] = useState("");
+
+    // Date Range Filters
+    const [dateRangeType, setDateRangeType] = useState("custom"); // "custom", "all", "today", "this-week", "this-month", "next-month", or "month-X"
+    const [startDate, setStartDate] = useState(""); // YYYY-MM-DD
+    const [endDate, setEndDate] = useState("");     // YYYY-MM-DD
     const [filterMonth, setFilterMonth] = useState("");
 
     useEffect(() => {
@@ -68,6 +79,140 @@ const BirthdayList = () => {
         return nextBday;
     };
 
+    // Helper to safely parse YYYY-MM-DD strings
+    const parseDateParts = (dateStr) => {
+        if (!dateStr) return null;
+        const [y, m, d] = String(dateStr).split("-").map(Number);
+        if (!y || !m || !d) return null;
+        return { year: y, month: m - 1, day: d };
+    };
+
+    // Check if birthday falls in custom date range
+    const isBirthdayInRange = (dobDate, startDateStr, endDateStr) => {
+        if (!dobDate || isNaN(dobDate.getTime())) return false;
+        if (!startDateStr && !endDateStr) return true;
+
+        const dobMonth = dobDate.getMonth();
+        const dobDay = dobDate.getDate();
+
+        const startParts = parseDateParts(startDateStr);
+        const endParts = parseDateParts(endDateStr);
+
+        let start = startParts ? new Date(startParts.year, startParts.month, startParts.day, 0, 0, 0, 0) : null;
+        let end = endParts ? new Date(endParts.year, endParts.month, endParts.day, 23, 59, 59, 999) : null;
+
+        // Auto-correct if start is after end
+        if (start && end && start > end) {
+            const temp = start;
+            start = new Date(endParts.year, endParts.month, endParts.day, 0, 0, 0, 0);
+            end = new Date(startParts.year, startParts.month, startParts.day, 23, 59, 59, 999);
+        }
+
+        if (start && end) {
+            const sYear = start.getFullYear();
+            const eYear = end.getFullYear();
+            for (let y = sYear; y <= eYear; y++) {
+                const bday = new Date(y, dobMonth, dobDay, 12, 0, 0);
+                if (bday >= start && bday <= end) return true;
+            }
+            return false;
+        }
+
+        if (start && !end) {
+            const y = start.getFullYear();
+            const bday1 = new Date(y, dobMonth, dobDay, 12, 0, 0);
+            const bday2 = new Date(y + 1, dobMonth, dobDay, 12, 0, 0);
+            return bday1 >= start || bday2 >= start;
+        }
+
+        if (!start && end) {
+            const y = end.getFullYear();
+            const bday1 = new Date(y, dobMonth, dobDay, 12, 0, 0);
+            const bday0 = new Date(y - 1, dobMonth, dobDay, 12, 0, 0);
+            return bday1 <= end || bday0 <= end;
+        }
+
+        return true;
+    };
+
+    // Calculate birthday occurrence date for sorting in custom range
+    const getBdayOccurrenceInRange = (dobDate, sDateStr, eDateStr) => {
+        const dobMonth = dobDate.getMonth();
+        const dobDay = dobDate.getDate();
+        if (sDateStr) {
+            const sParts = parseDateParts(sDateStr);
+            const eParts = parseDateParts(eDateStr);
+            const sYear = sParts.year;
+            const eYear = eParts ? eParts.year : sYear;
+            const startBoundary = new Date(sParts.year, sParts.month, sParts.day, 0, 0, 0, 0);
+            const endBoundary = eParts ? new Date(eParts.year, eParts.month, eParts.day, 23, 59, 59, 999) : null;
+
+            for (let y = sYear; y <= eYear + 1; y++) {
+                const cand = new Date(y, dobMonth, dobDay, 12, 0, 0);
+                if (cand >= startBoundary && (!endBoundary || cand <= endBoundary)) {
+                    return cand;
+                }
+            }
+        }
+        return getNextBirthday(dobDate);
+    };
+
+    const handleRangeTypeChange = (val) => {
+        setDateRangeType(val);
+        setFilterCategory("All");
+        const today = new Date();
+
+        if (val === "all") {
+            setStartDate("");
+            setEndDate("");
+            setFilterMonth("");
+        } else if (val === "custom") {
+            setFilterMonth("");
+        } else if (val === "today") {
+            const todayStr = format(today, "yyyy-MM-dd");
+            setStartDate(todayStr);
+            setEndDate(todayStr);
+            setFilterMonth("");
+        } else if (val === "this-week") {
+            const startOfWeek = new Date(today);
+            const day = startOfWeek.getDay();
+            const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // Monday
+            startOfWeek.setDate(diff);
+            const endOfWeek = new Date(startOfWeek);
+            endOfWeek.setDate(startOfWeek.getDate() + 6);
+            setStartDate(format(startOfWeek, "yyyy-MM-dd"));
+            setEndDate(format(endOfWeek, "yyyy-MM-dd"));
+            setFilterMonth("");
+        } else if (val === "this-month") {
+            const startMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            const endMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+            setStartDate(format(startMonth, "yyyy-MM-dd"));
+            setEndDate(format(endMonth, "yyyy-MM-dd"));
+            setFilterMonth("");
+        } else if (val === "next-month") {
+            const startNext = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+            const endNext = new Date(today.getFullYear(), today.getMonth() + 2, 0);
+            setStartDate(format(startNext, "yyyy-MM-dd"));
+            setEndDate(format(endNext, "yyyy-MM-dd"));
+            setFilterMonth("");
+        } else if (val.startsWith("month-")) {
+            const monthIdx = parseInt(val.replace("month-", ""), 10);
+            setFilterMonth(monthIdx.toString());
+            const startM = new Date(today.getFullYear(), monthIdx, 1);
+            const endM = new Date(today.getFullYear(), monthIdx + 1, 0);
+            setStartDate(format(startM, "yyyy-MM-dd"));
+            setEndDate(format(endM, "yyyy-MM-dd"));
+        }
+    };
+
+    const handleClearDateRange = () => {
+        setStartDate("");
+        setEndDate("");
+        setFilterMonth("");
+        setDateRangeType("custom");
+        setFilterCategory("All");
+    };
+
     const processBirthdays = () => {
         const today = new Date();
         const currentMonth = getMonth(today);
@@ -87,8 +232,15 @@ const BirthdayList = () => {
             // Validate the date is actually valid
             if (isNaN(dobDate.getTime())) return false;
 
-            const monthMatch = filterMonth === "" || getMonth(dobDate) === parseInt(filterMonth);
-            return searchMatch && deptMatch && desigMatch && centreMatch && monthMatch;
+            // Date Range & Month filtering
+            let dateMatch = true;
+            if (startDate || endDate) {
+                dateMatch = isBirthdayInRange(dobDate, startDate, endDate);
+            } else if (filterMonth !== "") {
+                dateMatch = getMonth(dobDate) === parseInt(filterMonth);
+            }
+
+            return searchMatch && deptMatch && desigMatch && centreMatch && dateMatch;
         });
 
         const list = {
@@ -102,27 +254,30 @@ const BirthdayList = () => {
         filteredRefs.forEach(emp => {
             const dob = new Date(emp.dateOfBirth);
             const nextBdayStrict = getNextBirthday(emp.dateOfBirth);
+            const targetBday = (startDate || endDate)
+                ? getBdayOccurrenceInRange(dob, startDate, endDate)
+                : nextBdayStrict;
+
             const isMonthMatch = getMonth(dob) === currentMonth;
-            const isTodayMatch = getDate(dob) === getDate(today) && getMonth(dob) === currentMonth;
+            const isTodayMatch = getDate(dob) === getDate(today) && isMonthMatch;
             const currentYearBday = setYear(dob, getYear(today));
             const isWeekMatch = isSameWeek(currentYearBday, today, { weekStartsOn: 1 });
 
-            if (isTodayMatch) list.today.push({ ...emp, nextBirthday: nextBdayStrict });
-            if (isWeekMatch) list.thisWeek.push({ ...emp, nextBirthday: currentYearBday });
-            if (isMonthMatch) list.thisMonth.push({ ...emp, nextBirthday: currentYearBday });
-            list.upcoming.push({ ...emp, nextBirthday: nextBdayStrict });
+            if (isTodayMatch) list.today.push({ ...emp, nextBirthday: nextBdayStrict, targetBirthday: targetBday });
+            if (isWeekMatch) list.thisWeek.push({ ...emp, nextBirthday: currentYearBday, targetBirthday: targetBday });
+            if (isMonthMatch) list.thisMonth.push({ ...emp, nextBirthday: currentYearBday, targetBirthday: targetBday });
+            list.upcoming.push({ ...emp, nextBirthday: nextBdayStrict, targetBirthday: targetBday });
         });
-
-        const sortFn = (a, b) => {
-            const dayA = getDate(new Date(a.dateOfBirth));
-            const dayB = getDate(new Date(b.dateOfBirth));
-            return dayA - dayB;
-        };
 
         list.today.sort((a, b) => a.name.localeCompare(b.name));
         list.thisWeek.sort((a, b) => getDate(new Date(a.dateOfBirth)) - getDate(new Date(b.dateOfBirth)));
         list.thisMonth.sort((a, b) => getDate(new Date(a.dateOfBirth)) - getDate(new Date(b.dateOfBirth)));
-        list.upcoming.sort((a, b) => a.nextBirthday - b.nextBirthday);
+
+        if (startDate || endDate) {
+            list.upcoming.sort((a, b) => a.targetBirthday - b.targetBirthday || a.name.localeCompare(b.name));
+        } else {
+            list.upcoming.sort((a, b) => a.nextBirthday - b.nextBirthday);
+        }
 
         return list;
     };
@@ -147,8 +302,7 @@ const BirthdayList = () => {
     // Reset page when filters change
     useEffect(() => {
         setCurrentPage(1);
-    }, [filterCategory, searchTerm, filterDept, filterCentre, filterDesig, filterMonth]);
-
+    }, [filterCategory, searchTerm, filterDept, filterCentre, filterDesig, filterMonth, startDate, endDate, dateRangeType]);
 
     const renderCard = (emp) => {
         const dob = new Date(emp.dateOfBirth);
@@ -157,24 +311,21 @@ const BirthdayList = () => {
         const isBdayToday = getDate(dob) === getDate(today) && isBdayMonth;
         const currentYearBday = setYear(dob, getYear(today));
         const isBdayWeek = isSameWeek(currentYearBday, today, { weekStartsOn: 1 });
-        const isSpecial = isBdayMonth || isBdayWeek;
+        const isSpecial = isBdayToday || isBdayMonth || isBdayWeek;
 
         const borderColor = isBdayToday ? "border-pink-500 shadow-[0_0_30px_rgba(236,72,153,0.6)]" :
-            isSpecial ? "border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.5)]" : "border-gray-800"; // Less border for normal
+            isSpecial ? "border-purple-500 shadow-[0_0_20px_rgba(168,85,247,0.5)]" : "border-gray-800";
 
         const containerClass = isSpecial ? "transform hover:scale-105 z-10" : "hover:scale-105";
 
         return (
             <div key={emp._id} className={`bg-gray-800 rounded-3xl shadow-xl overflow-hidden flex flex-col h-[400px] border-2 ${borderColor} transition-all duration-300 ${containerClass} group relative`}>
-
                 {/* Animation Overlays for Special */}
                 {isSpecial && (
-                    <>
-                        <div className="absolute inset-0 pointer-events-none z-20">
-                            <div className="absolute top-4 right-4 text-3xl animate-bounce drop-shadow-md">🎈</div>
-                            <div className="absolute top-1/2 left-4 text-2xl animate-spin-slow drop-shadow-md">✨</div>
-                        </div>
-                    </>
+                    <div className="absolute inset-0 pointer-events-none z-20">
+                        <div className="absolute top-4 right-4 text-3xl animate-bounce drop-shadow-md">🎈</div>
+                        <div className="absolute top-1/2 left-4 text-2xl animate-spin-slow drop-shadow-md">✨</div>
+                    </div>
                 )}
 
                 {/* --- IMAGE SECTION (80%) --- */}
@@ -189,7 +340,7 @@ const BirthdayList = () => {
                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     />
 
-                    {/* Gradient Overlay for Text Readability at bottom of image if needed, or just specific badge */}
+                    {/* Gradient Overlay for Text Readability */}
                     <div className="absolute bottom-0 left-0 w-full h-1/3 bg-gradient-to-t from-gray-900 via-transparent to-transparent opacity-80"></div>
 
                     {/* Badge: Today/Date */}
@@ -227,6 +378,8 @@ const BirthdayList = () => {
         "July", "August", "September", "October", "November", "December"
     ];
 
+    const hasActiveDateFilter = !!(startDate || endDate || filterMonth !== "");
+
     return (
         <Layout activePage="HR & Manpower">
             <div className="p-6 bg-gray-950 min-h-screen text-gray-100 font-sans selection:bg-pink-500/30">
@@ -245,7 +398,7 @@ const BirthdayList = () => {
                         </h1>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 flex-wrap">
                         {[
                             { label: "Today", val: "Today", count: birthdayData.today.length, col: "bg-pink-600 hover:bg-pink-500" },
                             { label: "This Week", val: "This Week", count: birthdayData.thisWeek.length, col: "bg-purple-600 hover:bg-purple-500" },
@@ -266,7 +419,8 @@ const BirthdayList = () => {
 
                 {/* Filters */}
                 <div className="bg-gray-900/50 backdrop-blur-xl p-4 rounded-2xl border border-gray-800 mb-8 flex flex-wrap gap-4 items-center shadow-lg">
-                    <div className="relative flex-grow max-w-md">
+                    {/* Search Input */}
+                    <div className="relative flex-grow max-w-md min-w-[240px]">
                         <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400" />
                         <input
                             type="text"
@@ -277,7 +431,8 @@ const BirthdayList = () => {
                         />
                     </div>
 
-                    <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar flex-grow">
+                    {/* Master Data Dropdowns & Custom Date Range Filter */}
+                    <div className="flex gap-2 overflow-x-auto pb-1 custom-scrollbar flex-grow items-center flex-wrap">
                         {[
                             { val: filterDept, set: setFilterDept, opts: departments, key: "departmentName", label: "Department" },
                             { val: filterCentre, set: setFilterCentre, opts: centres, key: "centreName", label: "Centre" },
@@ -287,22 +442,102 @@ const BirthdayList = () => {
                                 key={i}
                                 value={f.val}
                                 onChange={(e) => f.set(e.target.value)}
-                                className="bg-gray-950 border border-gray-800 text-gray-300 py-3 px-4 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none min-w-[140px] appearance-none cursor-pointer"
+                                className="bg-gray-950 border border-gray-800 text-gray-300 py-3 px-4 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none min-w-[140px] appearance-none cursor-pointer font-medium"
                             >
                                 <option value="">All {f.label}s</option>
                                 {f.opts.map(o => <option key={o._id} value={o._id}>{o[f.key]}</option>)}
                             </select>
                         ))}
+
+                        {/* Date Range Type Dropdown */}
                         <select
-                            value={filterMonth}
-                            onChange={(e) => setFilterMonth(e.target.value)}
-                            className="bg-gray-950 border border-gray-800 text-gray-300 py-3 px-4 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none min-w-[140px] appearance-none cursor-pointer"
+                            value={dateRangeType}
+                            onChange={(e) => handleRangeTypeChange(e.target.value)}
+                            className={`bg-gray-950 border ${hasActiveDateFilter ? 'border-pink-500 ring-1 ring-pink-500/50 text-white' : 'border-gray-800 text-gray-300'} py-3 px-4 rounded-xl focus:ring-2 focus:ring-pink-500 outline-none min-w-[160px] appearance-none cursor-pointer font-medium transition-all`}
                         >
-                            <option value="">By Month</option>
-                            {months.map((m, i) => <option key={i} value={i}>{m}</option>)}
+                            <option value="custom">Custom Date Range</option>
+                            <option value="all">All Dates</option>
+                            <option value="today">Today</option>
+                            <option value="this-week">This Week</option>
+                            <option value="this-month">This Month</option>
+                            <option value="next-month">Next Month</option>
+                            <optgroup label="By Month">
+                                {months.map((m, i) => (
+                                    <option key={i} value={`month-${i}`}>{m}</option>
+                                ))}
+                            </optgroup>
                         </select>
+
+                        {/* Custom Date Inputs (From / To) */}
+                        {dateRangeType === "custom" && (
+                            <div className="flex items-center gap-2 bg-gray-950 border border-gray-800 rounded-xl px-3 py-2 focus-within:ring-2 focus-within:ring-pink-500 transition-all flex-shrink-0 animate-fadeIn">
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-pink-500">From</span>
+                                    <input
+                                        type="date"
+                                        value={startDate}
+                                        onChange={(e) => {
+                                            setStartDate(e.target.value);
+                                            setFilterCategory("All");
+                                        }}
+                                        className="bg-transparent text-gray-200 text-xs font-semibold outline-none cursor-pointer [color-scheme:dark]"
+                                        title="From Date"
+                                    />
+                                </div>
+                                <span className="text-gray-600 font-bold">-</span>
+                                <div className="flex items-center gap-1.5">
+                                    <span className="text-[10px] font-black uppercase tracking-wider text-pink-500">To</span>
+                                    <input
+                                        type="date"
+                                        value={endDate}
+                                        onChange={(e) => {
+                                            setEndDate(e.target.value);
+                                            setFilterCategory("All");
+                                        }}
+                                        className="bg-transparent text-gray-200 text-xs font-semibold outline-none cursor-pointer [color-scheme:dark]"
+                                        title="To Date"
+                                    />
+                                </div>
+                                {(startDate || endDate) && (
+                                    <button
+                                        onClick={handleClearDateRange}
+                                        className="p-1 rounded-md text-gray-400 hover:text-pink-400 hover:bg-gray-800 transition-colors ml-1"
+                                        title="Clear Date Range"
+                                    >
+                                        <FaTimes size={11} />
+                                    </button>
+                                )}
+                            </div>
+                        )}
                     </div>
                 </div>
+
+                {/* Active Filter Info Banner */}
+                {hasActiveDateFilter && (
+                    <div className="flex items-center justify-between gap-2 mb-6 px-4 py-2.5 bg-pink-500/10 border border-pink-500/20 rounded-xl text-xs text-pink-300 w-full animate-fadeIn">
+                        <div className="flex items-center gap-2">
+                            <FaCalendarAlt className="text-pink-400" />
+                            <span>
+                                {startDate && endDate
+                                    ? `Showing birthdays from ${format(new Date(startDate + "T00:00:00"), "d MMM yyyy")} to ${format(new Date(endDate + "T00:00:00"), "d MMM yyyy")}`
+                                    : startDate
+                                        ? `Showing birthdays from ${format(new Date(startDate + "T00:00:00"), "d MMM yyyy")} onwards`
+                                        : endDate
+                                            ? `Showing birthdays up to ${format(new Date(endDate + "T00:00:00"), "d MMM yyyy")}`
+                                            : filterMonth !== ""
+                                                ? `Showing birthdays in ${months[parseInt(filterMonth)]}`
+                                                : "Custom Date Filter Active"}
+                                : <strong className="text-white ml-1 font-bold">{totalRecords} celebration{totalRecords === 1 ? "" : "s"} found</strong>
+                            </span>
+                        </div>
+                        <button
+                            onClick={handleClearDateRange}
+                            className="flex items-center gap-1 text-[11px] font-bold text-pink-400 hover:text-white px-2.5 py-1 rounded-lg bg-pink-500/20 hover:bg-pink-500/40 transition-all"
+                        >
+                            <FaTimes size={10} /> Clear Date Range
+                        </button>
+                    </div>
+                )}
 
                 {loading ? (
                     <div className="flex justify-center py-32"><div className="animate-spin rounded-full h-12 w-12 border-4 border-pink-500 border-t-transparent"></div></div>
@@ -313,6 +548,14 @@ const BirthdayList = () => {
                                 <div className="text-center py-32 opacity-50">
                                     <FaBirthdayCake className="text-6xl mx-auto mb-4" />
                                     <p className="text-xl font-medium">No celebrations found.</p>
+                                    {hasActiveDateFilter && (
+                                        <button
+                                            onClick={handleClearDateRange}
+                                            className="mt-4 px-4 py-2 bg-pink-600/30 hover:bg-pink-600/50 text-pink-300 rounded-xl text-xs font-bold transition-all"
+                                        >
+                                            Reset Date Range
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-8">
