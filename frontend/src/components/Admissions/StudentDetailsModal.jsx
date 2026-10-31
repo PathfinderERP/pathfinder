@@ -3,7 +3,7 @@ import { FaTimes, FaUser, FaEnvelope, FaPhone, FaSchool, FaBook, FaMapMarkerAlt,
 import { toast } from 'react-toastify';
 import LeadJourneyModal from '../LeadManagement/LeadJourneyModal';
 
-const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) => {
+const StudentDetailsModal = ({ student, admission = null, onClose, onEdit, canEdit, isDarkMode }) => {
     const [showJourneyModal, setShowJourneyModal] = useState(false);
     const [isServiceCallOpen, setIsServiceCallOpen] = useState(false);
     const [serviceCallForm, setServiceCallForm] = useState({
@@ -18,9 +18,30 @@ const StudentDetailsModal = ({ student, onClose, onEdit, canEdit, isDarkMode }) 
 
     if (!student) return null;
 
-    const details = student.studentsDetails?.[0] || {};
+    const baseDetails = student.studentsDetails?.[0] || {};
+    const details = {
+        ...baseDetails,
+        ...(admission ? {
+            studentName: admission.studentName || baseDetails.studentName,
+            mobileNum: admission.mobileNum || baseDetails.mobileNum,
+            studentEmail: admission.studentEmail || baseDetails.studentEmail,
+            whatsappNumber: admission.whatsappNumber || baseDetails.whatsappNumber,
+            dateOfBirth: admission.dateOfBirth || baseDetails.dateOfBirth,
+            gender: admission.gender || baseDetails.gender,
+            centre: admission.centre || baseDetails.centre,
+            board: admission.boardId?.boardName || baseDetails.board,
+            state: admission.state || baseDetails.state,
+            schoolName: admission.schoolName || baseDetails.schoolName,
+            address: admission.address || baseDetails.address,
+            programme: admission.programme || baseDetails.programme,
+            pincode: admission.pincode || baseDetails.pincode,
+            class: admission.lastClass || baseDetails.class,
+            enrollmentNo: admission.admissionNumber || baseDetails.enrollmentNo,
+            admissionNo: admission.admissionNumber || baseDetails.admissionNo
+        } : {})
+    };
     const exam = student.examSchema?.[0] || {};
-    const guardian = student.guardians?.[0] || {};
+    const guardian = (admission?.guardians?.[0]) || student.guardians?.[0] || {};
     const sessionExam = student.sessionExamCourse?.[0] || {};
     const registrationDate = student.createdAt ? new Date(student.createdAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : "N/A";
 

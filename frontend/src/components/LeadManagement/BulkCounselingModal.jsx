@@ -43,7 +43,7 @@ const BulkCounselingModal = ({
             setSelectedStudents(matched);
 
             // Check if all selected leads are already walk-in
-            const allWalkIn = matched.length > 0 && matched.every(l => l.isWalkIn || l.source?.toLowerCase() === 'walk in');
+            const allWalkIn = matched.length > 0 && matched.every(l => l.isWalkIn);
             setWalkInDone(allWalkIn);
             setSelectedCourseType(null);
         }
@@ -52,7 +52,7 @@ const BulkCounselingModal = ({
     if (!isOpen) return null;
 
     const displayCount = isAllFilteredSelected ? totalLeads : selectedLeadIds.length;
-    const pendingWalkInCount = selectedStudents.filter(l => !l.isWalkIn && l.source?.toLowerCase() !== 'walk in').length;
+    const pendingWalkInCount = selectedStudents.filter(l => !l.isWalkIn).length;
 
     // Handle marking selected leads as Walk-In
     const handleMarkWalkIn = async () => {
@@ -79,8 +79,7 @@ const BulkCounselingModal = ({
                 // Update local state to reflect walk-in status
                 setSelectedStudents(prev => prev.map(s => ({
                     ...s,
-                    isWalkIn: true,
-                    source: "Walk In"
+                    isWalkIn: true
                 })));
                 setWalkInDone(true);
             } else {
@@ -207,7 +206,7 @@ const BulkCounselingModal = ({
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                             {selectedStudents.map((student) => {
-                                const isWalkIn = student.isWalkIn || student.source?.toLowerCase() === 'walk in';
+                                const isWalkIn = student.isWalkIn;
                                 const centreName = student.centre?.centreName || (typeof student.centre === 'string' ? student.centre : "Main");
                                 const courseName = student.course?.courseName || student.courseText || "Regular Course";
                                 const className = student.className?.name || (typeof student.className === 'string' ? student.className : "");

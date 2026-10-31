@@ -403,12 +403,7 @@ export const getFollowUpStats = async (req, res) => {
                                 ...leadOwnerMatch,
                                 $and: [
                                     ...(leadOwnerMatch.$and || []),
-                                    {
-                                        $or: [
-                                            { isWalkIn: true },
-                                            { source: { $regex: /^walk[- ]?in$/i } }
-                                        ]
-                                    }
+                                    { isWalkIn: true }
                                 ]
                             }
                         },

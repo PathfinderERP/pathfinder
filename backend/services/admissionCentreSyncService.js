@@ -65,28 +65,35 @@ export const syncStudentCentre = async ({
         const canonicalCentre = await resolveCanonicalCentreName(newCentre);
         if (!canonicalCentre) return { success: false, message: "Invalid centre provided" };
 
-        // 1. Resolve studentId if not provided
+        // 1. Resolve studentId and determine admission type if admissionId provided
         let resolvedStudentId = studentId;
-        if (!resolvedStudentId && admissionId) {
+        let isBoardAdmission = false;
+        let isNormalAdmission = false;
+
+        if (admissionId) {
             const normalAdm = await Admission.findById(admissionId).select("student");
             if (normalAdm && normalAdm.student) {
-                resolvedStudentId = normalAdm.student;
+                isNormalAdmission = true;
+                if (!resolvedStudentId) resolvedStudentId = normalAdm.student;
             } else {
                 const boardAdm = await BoardCourseAdmission.findById(admissionId).select("studentId");
                 if (boardAdm && boardAdm.studentId) {
-                    resolvedStudentId = boardAdm.studentId;
+                    isBoardAdmission = true;
+                    if (!resolvedStudentId) resolvedStudentId = boardAdm.studentId;
                 }
             }
         }
 
-        // 2. Discover all admission IDs for this student (both normal and board)
-        const admissionQuery = resolvedStudentId
+        // 2. Discover admission IDs based on module separation
+        // If updating a board admission, touch ONLY BoardCourseAdmission.
+        // If updating a normal admission or general student, touch normal Admission & Student profile.
+        const admissionQuery = isBoardAdmission ? null : (resolvedStudentId
             ? { student: resolvedStudentId }
-            : (admissionId ? { _id: admissionId } : null);
+            : (admissionId ? { _id: admissionId } : null));
 
-        const boardAdmissionQuery = resolvedStudentId
+        const boardAdmissionQuery = isNormalAdmission ? null : (resolvedStudentId
             ? { studentId: resolvedStudentId }
-            : (admissionId ? { _id: admissionId } : null);
+            : (admissionId ? { _id: admissionId } : null));
 
         const [normalAdmissions, boardAdmissions] = await Promise.all([
             admissionQuery ? Admission.find(admissionQuery).select("_id centre") : [],
@@ -102,7 +109,7 @@ export const syncStudentCentre = async ({
             allAdmissionIds.push(new mongoose.Types.ObjectId(admissionId));
         }
 
-        // 3. Update normal Admission documents
+        // 3. Update normal Admission documents (only for normal admissions)
         if (admissionQuery) {
             await Admission.updateMany(
                 admissionQuery,
@@ -110,7 +117,7 @@ export const syncStudentCentre = async ({
             );
         }
 
-        // 4. Update BoardCourseAdmission documents
+        // 4. Update BoardCourseAdmission documents (only for board admissions)
         if (boardAdmissionQuery) {
             await BoardCourseAdmission.updateMany(
                 boardAdmissionQuery,
@@ -118,8 +125,8 @@ export const syncStudentCentre = async ({
             );
         }
 
-        // 5. Update Student profile if studentId resolved
-        if (resolvedStudentId) {
+        // 5. Update Student profile if normal admission and resolvedStudentId
+        if (resolvedStudentId && !isBoardAdmission) {
             await Student.updateOne(
                 { _id: resolvedStudentId },
                 {
@@ -131,25 +138,15 @@ export const syncStudentCentre = async ({
                 }
             );
 
-            // Synchronize LeadManagement & BoardCourseCounselling if existing
+            // Synchronize LeadManagement if existing
             try {
                 const LeadManagement = (await import("../models/LeadManagement.js")).default;
                 await LeadManagement.updateMany(
                     { studentId: resolvedStudentId },
                     { $set: { centre: canonicalCentre } }
                 );
-            } catch (e) {
-                // non-critical
-            }
-
-            try {
-                const BoardCourseCounselling = (await import("../models/Admission/BoardCourseCounselling.js")).default;
-                await BoardCourseCounselling.updateMany(
-                    { studentId: resolvedStudentId },
-                    { $set: { centre: canonicalCentre } }
-                );
-            } catch (e) {
-                // non-critical
+            } catch (leadErr) {
+                console.error("Error syncing LeadManagement centre in syncStudentCentre:", leadErr);
             }
         }
 

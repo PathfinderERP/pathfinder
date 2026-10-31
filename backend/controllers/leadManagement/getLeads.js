@@ -99,19 +99,14 @@ export const getLeads = async (req, res) => {
         remainingQuery.$and = remainingAnd;
         const remainingCount = await LeadManagement.countDocuments(remainingQuery);
 
-        // Compute walk-in count based on statsQuery to avoid followUpStatus restriction
+        // Compute walk-in count based on statsQuery to avoid followUpStatus restriction (count whatever walk-in button has been clicked)
         const walkInQuery = { ...statsQuery };
         const walkInAnd = walkInQuery.$and ? [...walkInQuery.$and] : [];
         if (walkInQuery.$or) {
             walkInAnd.push({ $or: walkInQuery.$or });
             delete walkInQuery.$or;
         }
-        walkInAnd.push({
-            $or: [
-                { isWalkIn: true },
-                { source: { $regex: /^walk[- ]?in$/i } }
-            ]
-        });
+        walkInAnd.push({ isWalkIn: true });
         walkInQuery.$and = walkInAnd;
         const walkInCount = await LeadManagement.countDocuments(walkInQuery);
 

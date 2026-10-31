@@ -38,7 +38,6 @@ export const bulkTagWalkIn = async (req, res) => {
             {
                 $set: {
                     isWalkIn: true,
-                    source: "Walk In",
                     walkInDate: now,
                     walkInBy: walkInBy
                 }
@@ -88,7 +87,7 @@ export const bulkConvertToCounseling = async (req, res) => {
         }
 
         // Enforce Walk-In check: without clicking Walk-In, conversion is prohibited
-        const notWalkInLeads = leads.filter(lead => !lead.isWalkIn && lead.source?.toLowerCase() !== 'walk in');
+        const notWalkInLeads = leads.filter(lead => !lead.isWalkIn);
         if (notWalkInLeads.length > 0) {
             return res.status(400).json({
                 message: "All selected students must be marked as Walk-In first before converting to counselling.",
@@ -143,7 +142,7 @@ export const bulkConvertToCounseling = async (req, res) => {
                             centre: centreName,
                             board: boardName,
                             schoolName: lead.schoolName || "",
-                            source: "Walk In",
+                            source: lead.source || "Walk In",
                             programme: lead.programme || "CRP",
                             guardians: [{
                                 guardianName: lead.fatherName || lead.guardianName || "Parent / Guardian",
@@ -243,7 +242,7 @@ export const bulkConvertToCounseling = async (req, res) => {
                             centre: centreName,
                             board: lead.board?.boardCourse || lead.board?.boardName || defaultBoard?.boardCourse || "CBSE",
                             schoolName: lead.schoolName || "",
-                            source: "Walk In",
+                            source: lead.source || "Walk In",
                             programme: lead.programme || "CRP"
                         }],
                         isEnrolled: false,

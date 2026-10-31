@@ -40,9 +40,9 @@ export const updateLead = async (req, res) => {
             updateData.assignedAt = new Date();
         }
 
-        // If source is being updated, set isWalkIn flag
-        if (updateData.source !== undefined) {
-            updateData.isWalkIn = updateData.source && /^walk[- ]?in$/i.test(updateData.source) ? true : false;
+        // Source should not change isWalkIn flag; only update isWalkIn if explicitly provided
+        if (updateData.isWalkIn !== undefined) {
+            updateData.isWalkIn = Boolean(updateData.isWalkIn);
         }
 
         const updatedLead = await LeadManagement.findByIdAndUpdate(
@@ -76,16 +76,12 @@ export const tagWalkIn = async (req, res) => {
         }
 
         if (lead.isWalkIn) {
-            // Unmark as walk-in
+            // Unmark as walk-in (preserve original lead.source)
             lead.isWalkIn = false;
             lead.walkInBy = undefined;
-            if (lead.source === "Walk In") {
-                lead.source = undefined;
-            }
         } else {
-            // Mark as walk-in
+            // Mark as walk-in (preserve original lead.source)
             lead.isWalkIn = true;
-            lead.source = "Walk In";
             if (!lead.walkInDate) {
                 lead.walkInDate = new Date();
             }
@@ -188,4 +184,3 @@ export const addLeadQuery = async (req, res) => {
         res.status(500).json({ message: "Server error", error: err.message });
     }
 };
-
