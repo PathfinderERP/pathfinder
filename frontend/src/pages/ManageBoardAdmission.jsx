@@ -1157,21 +1157,71 @@ const ManageBoardAdmission = () => {
 
                                 <div className="relative space-y-4 pl-4 before:absolute before:inset-0 before:ml-[34px] before:w-[2px] before:bg-gray-800 before:z-0">
                                     {admission.installments.map((inst, index) => {
-                                        const matchingPaidPayment = allAdmissionPayments.find(p => (p.installmentNumber === inst.monthNumber || p.installmentNumber === (inst.monthNumber - 1)) && (p.status === 'PAID' || p.status === 'COMPLETED'));
-                                        const matchingPendingCheque = allAdmissionPayments.find(p => (p.installmentNumber === inst.monthNumber || p.installmentNumber === (inst.monthNumber - 1)) && p.status === 'PENDING_CLEARANCE');
+                                        // Regular installment payments only (exclude standalone exam & additional fees)
+                                        const isExtraFeePayment = (p) => {
+                                            const rem = (p.remarks || '').toLowerCase();
+                                            const course = (p.boardCourseName || '').toLowerCase();
+                                            return rem.includes("exam") || course.includes("examination") || rem.includes("additional");
+                                        };
+
+                                        const regularPayments = (allAdmissionPayments || []).filter(p => !isExtraFeePayment(p));
+
+                                        // Match payments for this installment:
+                                        // Only consider a payment valid if it has an actual positive paid amount
+                                        const matchingPaidPayment = regularPayments.find(p =>
+                                            p.installmentNumber === (inst.monthNumber - 1) &&
+                                            (p.status === 'PAID' || p.status === 'COMPLETED') &&
+                                            (Number(p.paidAmount || p.totalAmount || 0) > 0)
+                                        );
+
+                                        const matchingPendingCheque = regularPayments.find(p =>
+                                            p.installmentNumber === (inst.monthNumber - 1) &&
+                                            p.status === 'PENDING_CLEARANCE'
+                                        );
+
                                         const isChequePending = Boolean(matchingPendingCheque || inst.status === "PENDING_CLEARANCE");
-                                        const hasOnlyRejectedCheque = allAdmissionPayments.some(p => (p.installmentNumber === inst.monthNumber || p.installmentNumber === (inst.monthNumber - 1)) && p.status === 'REJECTED') && !matchingPaidPayment && !isChequePending;
-                                        const isPaid = !isChequePending && !hasOnlyRejectedCheque && (inst.status === "PAID" || Boolean(matchingPaidPayment));
+                                        const hasOnlyRejectedCheque = regularPayments.some(p =>
+                                            p.installmentNumber === (inst.monthNumber - 1) &&
+                                            p.status === 'REJECTED'
+                                        ) && !matchingPaidPayment && !isChequePending;
+
+                                        // Displayed paid amount: sum from transactions / inst.paidAmount or matched bill
+                                        const actualPaid = inst.paidAmount || (matchingPaidPayment ? Number(matchingPaidPayment.paidAmount || matchingPaidPayment.totalAmount || 0) : 0);
+                                        const displayPaid = hasOnlyRejectedCheque ? 0 : (isChequePending ? (matchingPendingCheque?.paidAmount || inst.paidAmount) : actualPaid);
+
+                                        // An installment is paid if:
+                                        // 1. inst.status is PAID and (actualPaid > 0.5 or 100% waiver zero due)
+                                        // 2. OR matchingPaidPayment exists with actual paid amount >= payableAmount - 0.5
+                                        const isZeroDue = (inst.payableAmount <= 0.5 && (inst.standardAmount || 0) > 0 && (inst.waiverAmount || 0) >= (inst.standardAmount || 0));
+                                        const isPaid = !isChequePending && !hasOnlyRejectedCheque && (
+                                            (inst.status === "PAID" && (actualPaid > 0.5 || isZeroDue)) ||
+                                            (Boolean(matchingPaidPayment) && (actualPaid >= (inst.payableAmount || 0) - 0.5 || isZeroDue))
+                                        );
+
                                         const isCurrent = effectiveFromMonth?._id === inst._id;
                                         const prevInst = admission.installments[index - 1];
-                                        const prevMatchingPaid = prevInst && allAdmissionPayments.find(p => (p.installmentNumber === prevInst.monthNumber || p.installmentNumber === (prevInst.monthNumber - 1)) && (p.status === 'PAID' || p.status === 'COMPLETED'));
-                                        const prevMatchingPending = prevInst && allAdmissionPayments.find(p => (p.installmentNumber === prevInst.monthNumber || p.installmentNumber === (prevInst.monthNumber - 1)) && p.status === 'PENDING_CLEARANCE');
+                                        const prevMatchingPaid = prevInst && regularPayments.find(p =>
+                                            p.installmentNumber === (prevInst.monthNumber - 1) &&
+                                            (p.status === 'PAID' || p.status === 'COMPLETED') &&
+                                            (Number(p.paidAmount || p.totalAmount || 0) > 0)
+                                        );
+                                        const prevMatchingPending = prevInst && regularPayments.find(p =>
+                                            p.installmentNumber === (prevInst.monthNumber - 1) &&
+                                            p.status === 'PENDING_CLEARANCE'
+                                        );
                                         const prevChequePending = Boolean(prevMatchingPending || prevInst?.status === "PENDING_CLEARANCE");
-                                        const prevHasOnlyRejected = prevInst && allAdmissionPayments.some(p => (p.installmentNumber === prevInst.monthNumber || p.installmentNumber === (prevInst.monthNumber - 1)) && p.status === 'REJECTED') && !prevMatchingPaid && !prevChequePending;
-                                        const prevPaid = !prevChequePending && !prevHasOnlyRejected && (prevInst?.status === "PAID" || Boolean(prevMatchingPaid));
+                                        const prevHasOnlyRejected = prevInst && regularPayments.some(p =>
+                                            p.installmentNumber === (prevInst.monthNumber - 1) &&
+                                            p.status === 'REJECTED'
+                                        ) && !prevMatchingPaid && !prevChequePending;
+                                        const prevActualPaid = prevInst ? (prevInst.paidAmount || (prevMatchingPaid ? Number(prevMatchingPaid.paidAmount || prevMatchingPaid.totalAmount || 0) : 0)) : 0;
+                                        const prevZeroDue = prevInst ? (prevInst.payableAmount <= 0.5 && (prevInst.standardAmount || 0) > 0 && (prevInst.waiverAmount || 0) >= (prevInst.standardAmount || 0)) : false;
+                                        const prevPaid = !prevChequePending && !prevHasOnlyRejected && (
+                                            (prevInst?.status === "PAID" && (prevActualPaid > 0.5 || prevZeroDue)) ||
+                                            (Boolean(prevMatchingPaid) && (prevActualPaid >= (prevInst?.payableAmount || 0) - 0.5 || prevZeroDue))
+                                        );
                                         const prevCleared = index === 0 || prevPaid || prevChequePending;
                                         const isNextToPay = !isPaid && !isChequePending && prevCleared;
-                                        const displayPaid = hasOnlyRejectedCheque ? 0 : (isChequePending ? (matchingPendingCheque?.paidAmount || inst.paidAmount) : inst.paidAmount);
 
                                         return (
                                             <div
@@ -1343,8 +1393,13 @@ const ManageBoardAdmission = () => {
                                                                     toast.warning("Please pay previous installments first.");
                                                                     return;
                                                                 }
+                                                                const dueAmount = Math.max(0, inst.payableAmount - displayPaid);
+                                                                if (dueAmount <= 0) {
+                                                                    toast.info("This installment has no pending balance.");
+                                                                    return;
+                                                                }
                                                                 setPaymentModal({ show: true, installment: inst });
-                                                                setPaymentForm({ ...paymentForm, amount: inst.payableAmount - displayPaid });
+                                                                setPaymentForm({ ...paymentForm, amount: dueAmount });
                                                             }}
                                                             disabled={!isNextToPay || isDeactivated}
                                                             className={`px-6 py-2.5 rounded-lg font-black text-[11px] uppercase transition-all shadow-lg ${isNextToPay && !isDeactivated

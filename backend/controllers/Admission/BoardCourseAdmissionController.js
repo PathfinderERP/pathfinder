@@ -416,40 +416,15 @@ export const createBoardAdmission = async (req, res) => {
                 inst.adjustmentAmount = 0;
                 // Month 1 payable includes tuition + Admission Fee (Exam fee is separate)
                 inst.payableAmount = Math.max(0, netMonthly + Number(admissionFee));
-                inst.status = "PAID"; // Locked at admission
-
-                // Balance: What was paid minus what was owed (Tuition + Admission)
-                runningBalance += (inst.paidAmount - inst.payableAmount);
+                inst.status = inst.paidAmount >= inst.payableAmount - 0.5 ? "PAID" : (inst.paidAmount > 0.5 ? "PARTIAL" : "PENDING");
                 installments.push(inst);
                 continue;
             }
 
-            // Months 2+ Logic: Apply adjustment only to the NEXT one
-            if (!adjustmentApplied && Math.abs(runningBalance) > 0.5) {
-                inst.adjustmentAmount = -runningBalance;
-                adjustmentApplied = true;
-            } else {
-                inst.adjustmentAmount = 0;
-            }
-
-            const fullPayable = netMonthly + inst.adjustmentAmount;
-            inst.payableAmount = Math.max(0, fullPayable);
-
-            // Update status: Any payment > 0 "closes" the month visually and pushes balance forward
-            if (inst.paidAmount > 0.5 || (inst.payableAmount <= 0.5 && inst.standardAmount > 0)) {
-                inst.status = "PAID";
-            } else {
-                inst.status = "PENDING";
-            }
-
-            // Carry forward balance ONLY if payment was made
-            if (inst.paidAmount > 0.5) {
-                runningBalance += (inst.paidAmount - netMonthly);
-                // If we pay this month, the adjustment we applied is now "consumed" or "refined"
-                // So we can allow the new balance to apply to the next month
-                adjustmentApplied = false;
-            }
-
+            // Months 2+ Logic: Each month has its clean net monthly payable amount
+            inst.adjustmentAmount = 0;
+            inst.payableAmount = Math.max(0, netMonthly);
+            inst.status = "PENDING";
             installments.push(inst);
         }
 
@@ -986,21 +961,49 @@ export const getBoardAdmissionById = async (req, res) => {
         const rejectedTxIds = new Set(allPayments.filter(p => p.status === "REJECTED" || p.status === "CANCELLED").map(p => p.transactionId).filter(Boolean));
 
         let needsSave = false;
-        if (rejectedTxIds.size > 0 && admission.installments?.length > 0) {
+        if (admission.installments && admission.installments.length > 0) {
             admission.installments.forEach(inst => {
-                const initialTxCount = (inst.paymentTransactions || []).length;
-                inst.paymentTransactions = (inst.paymentTransactions || []).filter(t => !rejectedTxIds.has(t.transactionId));
-                if (inst.paymentTransactions.length !== initialTxCount) {
-                    needsSave = true;
+                if (rejectedTxIds.size > 0) {
+                    const initialTxCount = (inst.paymentTransactions || []).length;
+                    inst.paymentTransactions = (inst.paymentTransactions || []).filter(t => !rejectedTxIds.has(t.transactionId));
+                    if (inst.paymentTransactions.length !== initialTxCount) {
+                        needsSave = true;
+                    }
                 }
-                const correctPaid = (inst.paymentTransactions || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+                const txSum = (inst.paymentTransactions || []).reduce((sum, t) => sum + (Number(t.amount) || 0), 0);
+                const matchingPayment = allPayments.find(p =>
+                    p.installmentNumber === (inst.monthNumber - 1) &&
+                    (p.status === "PAID" || p.status === "COMPLETED") &&
+                    Number(p.paidAmount || p.totalAmount || 0) > 0 &&
+                    !((p.remarks || '').toLowerCase().includes('exam') || (p.boardCourseName || '').toLowerCase().includes('examination'))
+                );
+                const correctPaid = txSum > 0
+                    ? txSum
+                    : (matchingPayment ? Number(matchingPayment.paidAmount || matchingPayment.totalAmount || 0) : (inst.paidAmount || 0));
+
                 if (Math.abs((inst.paidAmount || 0) - correctPaid) > 0.01) {
                     inst.paidAmount = correctPaid;
                     needsSave = true;
                 }
-                const targetStatus = (inst.paidAmount >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0)
+                const netMonthly = (inst.standardAmount || 0) - (inst.waiverAmount || 0);
+                const extraFees = inst.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
+                const correctPayable = Math.max(0, netMonthly + extraFees);
+
+                if (Math.abs((inst.payableAmount || 0) - correctPayable) > 0.01) {
+                    inst.payableAmount = correctPayable;
+                    needsSave = true;
+                }
+                if (Math.abs(inst.adjustmentAmount || 0) > 0.01) {
+                    inst.adjustmentAmount = 0;
+                    needsSave = true;
+                }
+
+                const targetStatus = (inst.paidAmount >= inst.payableAmount - 0.5 && inst.payableAmount > 0)
                     ? "PAID"
-                    : (inst.paidAmount > 0.5 ? "PARTIAL" : "PENDING");
+                    : (inst.payableAmount <= 0.5 && (inst.standardAmount || 0) > 0 && (inst.waiverAmount || 0) >= (inst.standardAmount || 0)
+                        ? "PAID"
+                        : (inst.paidAmount > 0.5 ? "PARTIAL" : "PENDING"));
+
                 if (inst.status !== targetStatus) {
                     inst.status = targetStatus;
                     needsSave = true;
@@ -1008,36 +1011,6 @@ export const getBoardAdmissionById = async (req, res) => {
             });
 
             if (needsSave) {
-                let runningBalance = 0;
-                let adjustmentApplied = false;
-                for (let i = 0; i < admission.installments.length; i++) {
-                    const current = admission.installments[i];
-                    const netMonthly = (current.standardAmount || 0) - (current.waiverAmount || 0);
-                    const extraFees = current.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
-
-                    if (current.monthNumber > 1 && !adjustmentApplied && Math.abs(runningBalance) > 0.5) {
-                        current.adjustmentAmount = -runningBalance;
-                        adjustmentApplied = true;
-                    } else if (current.monthNumber > 1) {
-                        current.adjustmentAmount = 0;
-                    }
-
-                    current.payableAmount = Math.max(0, netMonthly + extraFees + (current.adjustmentAmount || 0));
-
-                    if (current.paidAmount >= current.payableAmount - 0.5 && current.payableAmount > 0) {
-                        current.status = "PAID";
-                    } else if (current.paidAmount > 0.5) {
-                        current.status = "PARTIAL";
-                    } else {
-                        current.status = "PENDING";
-                    }
-
-                    if (current.paidAmount > 0.5) {
-                        runningBalance += (current.paidAmount - (netMonthly + extraFees));
-                        adjustmentApplied = false;
-                    }
-                }
-
                 admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0) + (admission.additionalThingsPaid || 0);
                 if (admission.totalExpectedAmount && admission.totalPaidAmount < admission.totalExpectedAmount - 0.5) {
                     admission.status = "ACTIVE";
@@ -1119,34 +1092,19 @@ export const updateBoardSubjects = async (req, res) => {
 
             const currentNetMonthly = (inst.monthNumber >= startMonth ? newTotalSubjectMonthlyFee : inst.standardAmount) - inst.waiverAmount;
 
-            // Apply running balance adjustment only to the FIRST unpaid/partial month
-            if (inst.monthNumber === 1) {
-                inst.adjustmentAmount = 0;
-            } else {
-                if (!adjustmentApplied && Math.abs(runningBalance) > 0.5) {
-                    inst.adjustmentAmount = -runningBalance;
-                    adjustmentApplied = true;
-                } else {
-                    inst.adjustmentAmount = 0;
-                }
-            }
-
-            // Month 1 includes admissionFee
+            inst.adjustmentAmount = 0;
             const extraFees = inst.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
-            const fullPayable = currentNetMonthly + extraFees + inst.adjustmentAmount;
-            inst.payableAmount = Math.max(0, fullPayable);
+            inst.payableAmount = Math.max(0, currentNetMonthly + extraFees);
 
             // Update status based on payment vs new calculation
-            if (inst.paidAmount > 0.5 || (inst.payableAmount <= 0.5 && inst.standardAmount > 0)) {
+            if (inst.paidAmount >= inst.payableAmount - 0.5 && inst.payableAmount > 0) {
                 inst.status = "PAID";
+            } else if (inst.payableAmount <= 0.5 && (inst.standardAmount || 0) > 0 && (inst.waiverAmount || 0) >= (inst.standardAmount || 0)) {
+                inst.status = "PAID";
+            } else if (inst.paidAmount > 0.5) {
+                inst.status = "PARTIAL";
             } else {
                 inst.status = "PENDING";
-            }
-
-            // Carry forward balance only if month was already paid or handled
-            if (inst.paidAmount > 0.5) {
-                runningBalance += (inst.paidAmount - (currentNetMonthly + extraFees));
-                adjustmentApplied = false; // Reset to allow next month to take the refined balance
             }
         }
 
@@ -1356,6 +1314,11 @@ export const collectBoardInstallment = async (req, res) => {
             return res.status(404).json({ message: "Installment not found" });
         }
 
+        const totalPaidTodayCheck = Number(amount || 0) + Number(paidExamFee || 0) + Number(paidAdditionalThings || 0);
+        if (isNaN(totalPaidTodayCheck) || totalPaidTodayCheck <= 0) {
+            return res.status(400).json({ message: "Total payment amount must be greater than 0" });
+        }
+
         inst.paidAmount += Number(amount);
         inst.paymentTransactions.push({
             amount: Number(amount),
@@ -1372,7 +1335,11 @@ export const collectBoardInstallment = async (req, res) => {
 
         if (paymentMethod === "CHEQUE") {
             inst.status = "PENDING"; // Or we could add PENDING_CLEARANCE to the enum if needed
-        } else if (inst.paidAmount > 0.5 || inst.payableAmount <= 0.5) {
+        } else if (inst.paidAmount >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0) {
+            inst.status = "PAID";
+        } else if (inst.paidAmount > 0.5) {
+            inst.status = "PARTIAL";
+        } else if ((inst.payableAmount || 0) <= 0.5 && (inst.standardAmount || 0) > 0 && (inst.adjustmentAmount || 0) < 0) {
             inst.status = "PAID";
         } else {
             inst.status = "PENDING";
@@ -1398,63 +1365,27 @@ export const collectBoardInstallment = async (req, res) => {
             }
         }
 
-        // --- CASCADE ADJUSTMENTS TO FUTURE MONTHS ---
-        let runningBalance = 0;
-        let adjustmentApplied = false;
-
+        // --- UPDATE ALL INSTALLMENT PAYABLE AMOUNTS & STATUSES ---
         for (let i = 0; i < admission.installments.length; i++) {
             const current = admission.installments[i];
             const netMonthly = (current.standardAmount || 0) - (current.waiverAmount || 0);
-
-            if (current.monthNumber === 1) {
-                current.adjustmentAmount = 0;
-            } else {
-                // Apply the running balance to the FIRST installment that needs it (unpaid or partially paid)
-                if (!adjustmentApplied && Math.abs(runningBalance) > 0.5) {
-                    current.adjustmentAmount = -runningBalance;
-                    adjustmentApplied = true;
-                } else {
-                    current.adjustmentAmount = 0;
-                }
-            }
-
-            // 2. Calculate what SHOULD be payable
             const extraFees = current.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
-            const fullPayable = netMonthly + extraFees + current.adjustmentAmount;
-            current.payableAmount = Math.max(0, fullPayable);
 
-            // 3. Update status
+            current.adjustmentAmount = 0;
+            current.payableAmount = Math.max(0, netMonthly + extraFees);
+
+            // Update status
             if (current.monthNumber === inst.monthNumber && paymentMethod === "CHEQUE") {
                 current.status = "PENDING";
-            } else if (current.paidAmount > 0.5 || (current.payableAmount <= 0.5 && (current.standardAmount || 0) > 0)) {
+            } else if (current.paidAmount >= (current.payableAmount || 0) - 0.5 && (current.payableAmount || 0) > 0) {
                 current.status = "PAID";
+            } else if (current.payableAmount <= 0.5 && (current.standardAmount || 0) > 0 && (current.waiverAmount || 0) >= (current.standardAmount || 0)) {
+                current.status = "PAID";
+            } else if (current.paidAmount > 0.5) {
+                current.status = "PARTIAL";
             } else {
                 current.status = "PENDING";
             }
-
-            // Carry forward balance if this month has a payment
-            if (current.paidAmount > 0.5) {
-                runningBalance += (current.paidAmount - (netMonthly + extraFees));
-                adjustmentApplied = false; // Allow next month to take the refined balance
-            }
-        }
-
-        // --- NEW LOIC: Create extra installment if underpaid on the LAST month ---
-        if (Math.abs(runningBalance) > 1 && runningBalance < 0) {
-            const lastInst = admission.installments[admission.installments.length - 1];
-            admission.installments.push({
-                monthNumber: (lastInst?.monthNumber || 0) + 1,
-                dueDate: lastInst ? getNextMonthDate(lastInst.dueDate, 1) : getNextMonthDate(admission.billingStartDate, admission.installments.length),
-                standardAmount: 0,
-                subjects: [],
-                waiverAmount: 0,
-                adjustmentAmount: -runningBalance,
-                payableAmount: -runningBalance,
-                paidAmount: 0,
-                status: "PENDING",
-                paymentTransactions: []
-            });
-            admission.totalDurationMonths = (admission.totalDurationMonths || 0) + 1;
         }
 
         // Recalculate total paid from all installments + Exam Fees + Additional Things

@@ -1307,34 +1307,22 @@ export const rejectCheque = async (req, res) => {
             }
 
             // Re-trigger cascade if needed (handled by the controller logic usually)
-            // For now, we manually recalculate the chain for board admissions to be safe
-            let runningBalance = 0;
-            let adjustmentApplied = false;
             for (let i = 0; i < admission.installments.length; i++) {
                 const current = admission.installments[i];
                 const netMonthly = (current.standardAmount || 0) - (current.waiverAmount || 0);
                 const extraFees = current.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
 
-                if (current.monthNumber > 1 && !adjustmentApplied && Math.abs(runningBalance) > 0.5) {
-                    current.adjustmentAmount = -runningBalance;
-                    adjustmentApplied = true;
-                } else if (current.monthNumber > 1) {
-                    current.adjustmentAmount = 0;
-                }
-
-                current.payableAmount = Math.max(0, netMonthly + extraFees + (current.adjustmentAmount || 0));
+                current.adjustmentAmount = 0;
+                current.payableAmount = Math.max(0, netMonthly + extraFees);
 
                 if (current.paidAmount >= current.payableAmount - 0.5 && current.payableAmount > 0) {
+                    current.status = "PAID";
+                } else if (current.payableAmount <= 0.5 && (current.standardAmount || 0) > 0 && (current.waiverAmount || 0) >= (current.standardAmount || 0)) {
                     current.status = "PAID";
                 } else if (current.paidAmount > 0.5) {
                     current.status = "PARTIAL";
                 } else {
                     current.status = "PENDING";
-                }
-
-                if (current.paidAmount > 0.5) {
-                    runningBalance += (current.paidAmount - (netMonthly + extraFees));
-                    adjustmentApplied = false;
                 }
             }
         } else {
@@ -1731,34 +1719,23 @@ export const cancelCheque = async (req, res) => {
 
             admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0);
 
-            // Recalculate cascade
-            let runningBalance = 0;
-            let adjustmentApplied = false;
+            // Recalculate installments
             for (let i = 0; i < admission.installments.length; i++) {
                 const current = admission.installments[i];
                 const netMonthly = (current.standardAmount || 0) - (current.waiverAmount || 0);
                 const extraFees = current.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
 
-                if (current.monthNumber > 1 && !adjustmentApplied && Math.abs(runningBalance) > 0.5) {
-                    current.adjustmentAmount = -runningBalance;
-                    adjustmentApplied = true;
-                } else if (current.monthNumber > 1) {
-                    current.adjustmentAmount = 0;
-                }
-
-                current.payableAmount = Math.max(0, netMonthly + extraFees + (current.adjustmentAmount || 0));
+                current.adjustmentAmount = 0;
+                current.payableAmount = Math.max(0, netMonthly + extraFees);
 
                 if (current.paidAmount >= current.payableAmount - 0.5 && current.payableAmount > 0) {
+                    current.status = "PAID";
+                } else if (current.payableAmount <= 0.5 && (current.standardAmount || 0) > 0 && (current.waiverAmount || 0) >= (current.standardAmount || 0)) {
                     current.status = "PAID";
                 } else if (current.paidAmount > 0.5) {
                     current.status = "PARTIAL";
                 } else {
                     current.status = "PENDING";
-                }
-
-                if (current.paidAmount > 0.5) {
-                    runningBalance += (current.paidAmount - (netMonthly + extraFees));
-                    adjustmentApplied = false;
                 }
             }
         } else {
