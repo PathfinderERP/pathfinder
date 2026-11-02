@@ -1185,17 +1185,32 @@ const ManageBoardAdmission = () => {
                                             p.status === 'REJECTED'
                                         ) && !matchingPaidPayment && !isChequePending;
 
+                                        // Cumulative checks to support overpayments/adjustments carry-forward:
+                                        const cumPayableUpToNow = admission.installments.slice(0, index + 1).reduce((sum, item) => sum + (item.payableAmount || 0), 0);
+                                        const cumPaidUpToNow = admission.installments.slice(0, index + 1).reduce((sum, item) => {
+                                            const matchP = regularPayments.find(p =>
+                                                p.installmentNumber === (item.monthNumber - 1) &&
+                                                (p.status === 'PAID' || p.status === 'COMPLETED') &&
+                                                (Number(p.paidAmount || p.totalAmount || 0) > 0)
+                                            );
+                                            const pAmt = item.paidAmount || (matchP ? Number(matchP.paidAmount || matchP.totalAmount || 0) : 0);
+                                            return sum + pAmt;
+                                        }, 0);
+                                        const isCumulativelyCleared = (cumPaidUpToNow >= cumPayableUpToNow - 0.5) && (cumPayableUpToNow > 0);
+
                                         // Displayed paid amount: sum from transactions / inst.paidAmount or matched bill
                                         const actualPaid = inst.paidAmount || (matchingPaidPayment ? Number(matchingPaidPayment.paidAmount || matchingPaidPayment.totalAmount || 0) : 0);
-                                        const displayPaid = hasOnlyRejectedCheque ? 0 : (isChequePending ? (matchingPendingCheque?.paidAmount || inst.paidAmount) : actualPaid);
+                                        const displayPaid = hasOnlyRejectedCheque ? 0 : (isChequePending ? (matchingPendingCheque?.paidAmount || inst.paidAmount) : (isCumulativelyCleared && actualPaid < inst.payableAmount ? inst.payableAmount : actualPaid));
 
                                         // An installment is paid if:
                                         // 1. inst.status is PAID and (actualPaid > 0.5 or 100% waiver zero due)
                                         // 2. OR matchingPaidPayment exists with actual paid amount >= payableAmount - 0.5
+                                        // 3. OR cumulative payments up to this installment cover cumulative payable (excess carry-forward)
                                         const isZeroDue = (inst.payableAmount <= 0.5 && (inst.standardAmount || 0) > 0 && (inst.waiverAmount || 0) >= (inst.standardAmount || 0));
                                         const isPaid = !isChequePending && !hasOnlyRejectedCheque && (
                                             (inst.status === "PAID" && (actualPaid > 0.5 || isZeroDue)) ||
-                                            (Boolean(matchingPaidPayment) && (actualPaid >= (inst.payableAmount || 0) - 0.5 || isZeroDue))
+                                            (Boolean(matchingPaidPayment) && (actualPaid >= (inst.payableAmount || 0) - 0.5 || isZeroDue)) ||
+                                            (isCumulativelyCleared && (actualPaid > 0.5 || Boolean(matchingPaidPayment)))
                                         );
 
                                         const isCurrent = effectiveFromMonth?._id === inst._id;
@@ -1216,9 +1231,22 @@ const ManageBoardAdmission = () => {
                                         ) && !prevMatchingPaid && !prevChequePending;
                                         const prevActualPaid = prevInst ? (prevInst.paidAmount || (prevMatchingPaid ? Number(prevMatchingPaid.paidAmount || prevMatchingPaid.totalAmount || 0) : 0)) : 0;
                                         const prevZeroDue = prevInst ? (prevInst.payableAmount <= 0.5 && (prevInst.standardAmount || 0) > 0 && (prevInst.waiverAmount || 0) >= (prevInst.standardAmount || 0)) : false;
+
+                                        const prevCumPayable = prevInst ? admission.installments.slice(0, index).reduce((sum, item) => sum + (item.payableAmount || 0), 0) : 0;
+                                        const prevCumPaid = prevInst ? admission.installments.slice(0, index).reduce((sum, item) => {
+                                            const matchP = regularPayments.find(p =>
+                                                p.installmentNumber === (item.monthNumber - 1) &&
+                                                (p.status === 'PAID' || p.status === 'COMPLETED') &&
+                                                (Number(p.paidAmount || p.totalAmount || 0) > 0)
+                                            );
+                                            return sum + (item.paidAmount || (matchP ? Number(matchP.paidAmount || matchP.totalAmount || 0) : 0));
+                                        }, 0) : 0;
+                                        const prevCumCleared = prevInst && (prevCumPaid >= prevCumPayable - 0.5) && (prevCumPayable > 0);
+
                                         const prevPaid = !prevChequePending && !prevHasOnlyRejected && (
                                             (prevInst?.status === "PAID" && (prevActualPaid > 0.5 || prevZeroDue)) ||
-                                            (Boolean(prevMatchingPaid) && (prevActualPaid >= (prevInst?.payableAmount || 0) - 0.5 || prevZeroDue))
+                                            (Boolean(prevMatchingPaid) && (prevActualPaid >= (prevInst?.payableAmount || 0) - 0.5 || prevZeroDue)) ||
+                                            (prevCumCleared && (prevActualPaid > 0.5 || Boolean(prevMatchingPaid)))
                                         );
                                         const prevCleared = index === 0 || prevPaid || prevChequePending;
                                         const isNextToPay = !isPaid && !isChequePending && prevCleared;
