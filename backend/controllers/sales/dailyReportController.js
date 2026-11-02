@@ -30,12 +30,16 @@ const cleanStr = (s) => (s || "").toString().trim().toLowerCase().replace(/[^a-z
  */
 export const getDailyCentreReport = async (req, res) => {
     try {
-        const { date, centreId } = req.query;
+        const { date, startDate, endDate, fromDate, toDate, centreId } = req.query;
 
-        // 1. Resolve Target Date in IST
-        const targetDateStr = (date && date.trim()) ? date.trim() : getTodayISTStr();
-        const startOfDay = new Date(`${targetDateStr}T00:00:00+05:30`);
-        const endOfDay = new Date(`${targetDateStr}T23:59:59.999+05:30`);
+        // 1. Resolve Target Date / Date Range in IST
+        const todayIST = getTodayISTStr();
+        const effectiveStart = (startDate || fromDate || date || todayIST).trim();
+        const effectiveEnd = (endDate || toDate || date || effectiveStart).trim();
+
+        const startOfRange = new Date(`${effectiveStart}T00:00:00+05:30`);
+        const endOfRange = new Date(`${effectiveEnd}T23:59:59.999+05:30`);
+        const dateLabel = effectiveStart === effectiveEnd ? effectiveStart : `${effectiveStart} to ${effectiveEnd}`;
 
         // 2. Fetch Active Master Centres
         const centreQuery = {
@@ -63,7 +67,7 @@ export const getDailyCentreReport = async (req, res) => {
         if (!activeCentres || activeCentres.length === 0) {
             return res.status(200).json({
                 success: true,
-                date: targetDateStr,
+                date: dateLabel, startDate: effectiveStart, endDate: effectiveEnd, isRange: effectiveStart !== effectiveEnd,
                 summary: {
                     totalCentres: 0,
                     totalCalls: 0,
@@ -189,7 +193,7 @@ export const getDailyCentreReport = async (req, res) => {
                 { $unwind: "$followUps" },
                 {
                     $match: {
-                        "followUps.date": { $gte: startOfDay, $lte: endOfDay }
+                        "followUps.date": { $gte: startOfRange, $lte: endOfRange }
                     }
                 },
                 {
@@ -204,7 +208,7 @@ export const getDailyCentreReport = async (req, res) => {
             StudentFollowUp.aggregate([
                 {
                     $match: {
-                        callDate: { $gte: startOfDay, $lte: endOfDay }
+                        callDate: { $gte: startOfRange, $lte: endOfRange }
                     }
                 },
                 {
@@ -218,8 +222,8 @@ export const getDailyCentreReport = async (req, res) => {
             // c) StudentServiceCall for date
             StudentServiceCall.find({
                 $or: [
-                    { createdAt: { $gte: startOfDay, $lte: endOfDay } },
-                    { callDate: targetDateStr }
+                    { createdAt: { $gte: startOfRange, $lte: endOfRange } },
+                    { callDate: { $gte: effectiveStart, $lte: effectiveEnd } }
                 ]
             }).select("centreId centreName").lean(),
 
@@ -230,27 +234,27 @@ export const getDailyCentreReport = async (req, res) => {
                     { source: { $regex: /walk[- ]?in/i } }
                 ],
                 $or: [
-                    { walkInDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { createdAt: { $gte: startOfDay, $lte: endOfDay } }
+                    { walkInDate: { $gte: startOfRange, $lte: endOfRange } },
+                    { createdAt: { $gte: startOfRange, $lte: endOfRange } }
                 ]
             }).select("centre walkInDate createdAt").lean(),
 
             // e1) Board Course Counselling for date
             BoardCourseCounselling.find({
-                counselledDate: { $gte: startOfDay, $lte: endOfDay }
+                counselledDate: { $gte: startOfRange, $lte: endOfRange }
             }).select("centre counselledDate").lean(),
 
             // e2) Lead Counselling for date
             LeadManagement.find({
                 isCounseled: true,
-                updatedAt: { $gte: startOfDay, $lte: endOfDay }
+                updatedAt: { $gte: startOfRange, $lte: endOfRange }
             }).select("centre updatedAt").lean(),
 
             // f) Marketing Planner activities for date
             MarketingPlanner.find({
                 $or: [
-                    { date: targetDateStr },
-                    { createdAt: { $gte: startOfDay, $lte: endOfDay } }
+                    { date: { $gte: effectiveStart, $lte: effectiveEnd } },
+                    { createdAt: { $gte: startOfRange, $lte: endOfRange } }
                 ]
             })
                 .populate("user", "name email phone role centres primaryCentre")
@@ -261,8 +265,8 @@ export const getDailyCentreReport = async (req, res) => {
             // g1) Normal Admissions for date
             Admission.find({
                 $or: [
-                    { admissionDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { createdAt: { $gte: startOfDay, $lte: endOfDay } }
+                    { admissionDate: { $gte: startOfRange, $lte: endOfRange } },
+                    { createdAt: { $gte: startOfRange, $lte: endOfRange } }
                 ]
             })
                 .populate("course", "courseName name")
@@ -272,8 +276,8 @@ export const getDailyCentreReport = async (req, res) => {
             // g2) Board Course Admissions for date
             BoardCourseAdmission.find({
                 $or: [
-                    { admissionDate: { $gte: startOfDay, $lte: endOfDay } },
-                    { createdAt: { $gte: startOfDay, $lte: endOfDay } }
+                    { admissionDate: { $gte: startOfRange, $lte: endOfRange } },
+                    { createdAt: { $gte: startOfRange, $lte: endOfRange } }
                 ]
             })
                 .populate("boardId", "boardName name")
@@ -362,7 +366,7 @@ export const getDailyCentreReport = async (req, res) => {
                     $match: {
                         billId: { $exists: true, $nin: [null, "", "-"] },
                         status: { $in: ["PAID", "PARTIAL", "COMPLETED"] },
-                        effectiveDate: { $gte: startOfDay, $lte: endOfDay }
+                        effectiveDate: { $gte: startOfRange, $lte: endOfRange }
                     }
                 },
                 {
@@ -571,7 +575,7 @@ export const getDailyCentreReport = async (req, res) => {
 
         return res.status(200).json({
             success: true,
-            date: targetDateStr,
+            date: dateLabel, startDate: effectiveStart, endDate: effectiveEnd, isRange: effectiveStart !== effectiveEnd,
             summary,
             centres: centresResult
         });

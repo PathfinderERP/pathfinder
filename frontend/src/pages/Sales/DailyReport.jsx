@@ -59,13 +59,77 @@ const formatDateDisplay = (dateStr) => {
     }
 };
 
+
+const getDateRangeLimits = (range, customStart, customEnd) => {
+    const today = new Date();
+    const formatDate = (d) => {
+        const year = d.getFullYear();
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${year}-${month}-${day}`;
+    };
+
+    let start, end;
+    switch (range) {
+        case "Today":
+            start = formatDate(today);
+            end = formatDate(today);
+            break;
+        case "Yesterday": {
+            const yesterday = new Date(today);
+            yesterday.setDate(today.getDate() - 1);
+            start = formatDate(yesterday);
+            end = formatDate(yesterday);
+            break;
+        }
+        case "Last 7 Days": {
+            const sevenDaysAgo = new Date(today);
+            sevenDaysAgo.setDate(today.getDate() - 6);
+            start = formatDate(sevenDaysAgo);
+            end = formatDate(today);
+            break;
+        }
+        case "This Month": {
+            const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+            start = formatDate(startOfMonth);
+            end = formatDate(today);
+            break;
+        }
+        case "Last Month": {
+            const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+            const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
+            start = formatDate(startOfLastMonth);
+            end = formatDate(endOfLastMonth);
+            break;
+        }
+        case "This Year": {
+            const startOfYear = new Date(today.getFullYear(), 0, 1);
+            start = formatDate(startOfYear);
+            end = formatDate(today);
+            break;
+        }
+        case "Custom Range":
+            start = customStart || formatDate(today);
+            end = customEnd || formatDate(today);
+            break;
+        default:
+            start = formatDate(today);
+            end = formatDate(today);
+            break;
+    }
+    return { start, end };
+};
+
 const DailyReport = () => {
     const { theme } = useTheme();
     const isDark = theme === "dark";
     const apiUrl = import.meta.env.VITE_API_URL || "";
 
     // State
-    const [selectedDate, setSelectedDate] = useState(getTodayIST());
+    // Date & Range State (Default: Today)
+    const [dateRangeOption, setDateRangeOption] = useState("Today");
+    const [customStartDate, setCustomStartDate] = useState(getTodayIST());
+    const [customEndDate, setCustomEndDate] = useState(getTodayIST());
     const [selectedCentreFilter, setSelectedCentreFilter] = useState("all");
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(false);
@@ -78,14 +142,44 @@ const DailyReport = () => {
     const [marketingModalCentre, setMarketingModalCentre] = useState(null);
     const [coursesModalCentre, setCoursesModalCentre] = useState(null);
 
+    // Active Range computation
+    const activeRange = useMemo(() => {
+        if (dateRangeOption === "Custom Range") {
+            return {
+                start: customStartDate || getTodayIST(),
+                end: customEndDate || customStartDate || getTodayIST()
+            };
+        }
+        return getDateRangeLimits(dateRangeOption, customStartDate, customEndDate);
+    }, [dateRangeOption, customStartDate, customEndDate]);
+
+    // Human-friendly date display label
+    const dateDisplayLabel = useMemo(() => {
+        const { start, end } = activeRange;
+        if (start === end) {
+            if (start === getTodayIST()) return `Today (${formatDateDisplay(start)})`;
+            const yesterday = new Date();
+            yesterday.setDate(yesterday.getDate() - 1);
+            const yStr = yesterday.toISOString().split("T")[0];
+            if (start === yStr) return `Yesterday (${formatDateDisplay(start)})`;
+            return formatDateDisplay(start);
+        }
+        return `${formatDateDisplay(start)} — ${formatDateDisplay(end)}`;
+    }, [activeRange]);
+
     // Fetch Report Data
     const fetchReport = useCallback(async () => {
         setLoading(true);
         try {
             const token = localStorage.getItem("token");
+            const { start, end } = activeRange;
             const params = new URLSearchParams({
-                date: selectedDate
+                startDate: start,
+                endDate: end
             });
+            if (start === end) {
+                params.append("date", start);
+            }
             if (selectedCentreFilter && selectedCentreFilter !== "all") {
                 params.append("centreId", selectedCentreFilter);
             }
@@ -110,29 +204,78 @@ const DailyReport = () => {
         } finally {
             setLoading(false);
         }
-    }, [apiUrl, selectedDate, selectedCentreFilter]);
+    }, [apiUrl, activeRange, selectedCentreFilter]);
 
     useEffect(() => {
         fetchReport();
     }, [fetchReport]);
 
+    // Date Range Dropdown Change
+    const handleDateRangeChange = (val) => {
+        setDateRangeOption(val);
+        if (val !== "Custom Range") {
+            const { start, end } = getDateRangeLimits(val);
+            setCustomStartDate(start);
+            setCustomEndDate(end);
+        }
+    };
+
     // Date Navigation helpers
     const handlePrevDay = () => {
-        const [y, m, d] = selectedDate.split("-").map(Number);
+        const currentBase = activeRange.start;
+        const [y, m, d] = currentBase.split("-").map(Number);
         const dt = new Date(y, m - 1, d - 1);
-        const newDate = dt.toISOString().split("T")[0];
-        setSelectedDate(newDate);
+        const newDateStr = dt.toISOString().split("T")[0];
+        const todayStr = getTodayIST();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+        if (newDateStr === todayStr) {
+            setDateRangeOption("Today");
+            setCustomStartDate(todayStr);
+            setCustomEndDate(todayStr);
+        } else if (newDateStr === yesterdayStr) {
+            setDateRangeOption("Yesterday");
+            setCustomStartDate(yesterdayStr);
+            setCustomEndDate(yesterdayStr);
+        } else {
+            setDateRangeOption("Custom Range");
+            setCustomStartDate(newDateStr);
+            setCustomEndDate(newDateStr);
+        }
     };
 
     const handleNextDay = () => {
-        const [y, m, d] = selectedDate.split("-").map(Number);
+        const currentBase = activeRange.end;
+        const [y, m, d] = currentBase.split("-").map(Number);
         const dt = new Date(y, m - 1, d + 1);
-        const newDate = dt.toISOString().split("T")[0];
-        setSelectedDate(newDate);
+        const newDateStr = dt.toISOString().split("T")[0];
+        const todayStr = getTodayIST();
+        const yesterday = new Date();
+        yesterday.setDate(yesterday.getDate() - 1);
+        const yesterdayStr = yesterday.toISOString().split("T")[0];
+
+        if (newDateStr === todayStr) {
+            setDateRangeOption("Today");
+            setCustomStartDate(todayStr);
+            setCustomEndDate(todayStr);
+        } else if (newDateStr === yesterdayStr) {
+            setDateRangeOption("Yesterday");
+            setCustomStartDate(yesterdayStr);
+            setCustomEndDate(yesterdayStr);
+        } else {
+            setDateRangeOption("Custom Range");
+            setCustomStartDate(newDateStr);
+            setCustomEndDate(newDateStr);
+        }
     };
 
     const handleResetToday = () => {
-        setSelectedDate(getTodayIST());
+        setDateRangeOption("Today");
+        const todayStr = getTodayIST();
+        setCustomStartDate(todayStr);
+        setCustomEndDate(todayStr);
     };
 
     // Filtered Centres list
@@ -262,8 +405,13 @@ const DailyReport = () => {
                 reportData.summary.totalCollectionWithGst || reportData.summary.totalCollection
             ];
 
+            const { start, end } = activeRange;
+            const isRange = start !== end;
+            const dateLabel = isRange ? `${start} to ${end}` : start;
+            const fileSuffix = isRange ? `${start}_to_${end}` : start;
+
             const wsSummary = XLSX.utils.aoa_to_sheet([
-                [`Daily Centre Consolidated Report (Excl. GST Base) - ${selectedDate}`],
+                [`Daily Centre Consolidated Report (Excl. GST Base) - ${dateLabel}`],
                 [`Generated on: ${new Date().toLocaleString("en-IN")}`],
                 [],
                 summaryHeaders,
@@ -326,7 +474,7 @@ const DailyReport = () => {
 
             if (marketingRows.length > 0) {
                 const wsMarketing = XLSX.utils.aoa_to_sheet([
-                    [`Marketing Activities Breakdown - ${selectedDate}`],
+                    [`Marketing Activities Breakdown - ${dateLabel}`],
                     [],
                     marketingHeaders,
                     ...marketingRows
@@ -352,7 +500,7 @@ const DailyReport = () => {
             const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
             saveAs(
                 new Blob([buf], { type: "application/octet-stream" }),
-                `Daily_Sales_Consolidated_Report_${selectedDate}.xlsx`
+                `Daily_Sales_Consolidated_Report_${fileSuffix}.xlsx`
             );
             toast.success("Excel report exported successfully!");
         } catch (error) {
@@ -396,50 +544,104 @@ const DailyReport = () => {
                         </div>
                     </div>
 
-                    {/* Date Stepper & Actions */}
+                    {/* Date Range Dropdown & Controls */}
                     <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-                        {/* Day Stepper */}
-                        <div className={`flex items-center rounded-xl border p-1 shadow-sm ${
+                        {/* Dropdown Date Range Filter */}
+                        <div className={`relative flex items-center rounded-xl border px-3 py-1.5 shadow-sm ${
                             isDark ? "bg-slate-800/80 border-slate-700" : "bg-white border-slate-300"
                         }`}>
-                            <button
-                                onClick={handlePrevDay}
-                                title="Previous Day"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"
-                                }`}
-                            >
-                                <FaChevronLeft className="text-xs" />
-                            </button>
-
-                            <div className="flex items-center gap-2 px-2">
-                                <FaCalendarAlt className="text-cyan-500 text-xs" />
-                                <input
-                                    type="date"
-                                    value={selectedDate}
-                                    onChange={(e) => setSelectedDate(e.target.value)}
-                                    className={`bg-transparent text-xs font-semibold focus:outline-none cursor-pointer ${
+                            <FaCalendarAlt className="text-cyan-500 text-xs mr-2 flex-shrink-0" />
+                            <div className="flex flex-col">
+                                <label className="text-[8px] font-black uppercase tracking-wider text-cyan-500 leading-none mb-0.5">
+                                    Date Range
+                                </label>
+                                <select
+                                    value={dateRangeOption}
+                                    onChange={(e) => handleDateRangeChange(e.target.value)}
+                                    className={`bg-transparent text-xs font-bold focus:outline-none cursor-pointer pr-4 ${
                                         isDark ? "text-slate-100" : "text-slate-800"
                                     }`}
-                                />
+                                >
+                                    <option value="Today" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>Today</option>
+                                    <option value="Yesterday" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>Yesterday</option>
+                                    <option value="Last 7 Days" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>Last 7 Days</option>
+                                    <option value="This Month" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>This Month</option>
+                                    <option value="Last Month" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>Last Month</option>
+                                    <option value="This Year" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>This Year</option>
+                                    <option value="Custom Range" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>Custom Range</option>
+                                </select>
                             </div>
-
-                            <button
-                                onClick={handleNextDay}
-                                title="Next Day"
-                                className={`p-2 rounded-lg transition-colors ${
-                                    isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"
-                                }`}
-                            >
-                                <FaChevronRight className="text-xs" />
-                            </button>
                         </div>
+
+                        {/* Custom Range Date Pickers */}
+                        {dateRangeOption === "Custom Range" && (
+                            <div className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 shadow-sm ${
+                                isDark ? "bg-slate-800/80 border-slate-700" : "bg-white border-slate-300"
+                            }`}>
+                                <div className="flex flex-col">
+                                    <label className="text-[8px] font-black uppercase tracking-wider text-slate-400 leading-none mb-0.5">
+                                        From
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={customStartDate}
+                                        onChange={(e) => setCustomStartDate(e.target.value)}
+                                        className={`bg-transparent text-xs font-semibold focus:outline-none cursor-pointer ${
+                                            isDark ? "text-slate-100" : "text-slate-800"
+                                        }`}
+                                    />
+                                </div>
+                                <span className={`text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>to</span>
+                                <div className="flex flex-col">
+                                    <label className="text-[8px] font-black uppercase tracking-wider text-slate-400 leading-none mb-0.5">
+                                        To
+                                    </label>
+                                    <input
+                                        type="date"
+                                        value={customEndDate}
+                                        onChange={(e) => setCustomEndDate(e.target.value)}
+                                        className={`bg-transparent text-xs font-semibold focus:outline-none cursor-pointer ${
+                                            isDark ? "text-slate-100" : "text-slate-800"
+                                        }`}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Day Stepper (Single Day Navigation) */}
+                        {(dateRangeOption === "Today" || dateRangeOption === "Yesterday" || (dateRangeOption === "Custom Range" && customStartDate === customEndDate)) && (
+                            <div className={`flex items-center rounded-xl border p-1 shadow-sm ${
+                                isDark ? "bg-slate-800/80 border-slate-700" : "bg-white border-slate-300"
+                            }`}>
+                                <button
+                                    onClick={handlePrevDay}
+                                    title="Previous Day"
+                                    className={`p-2 rounded-lg transition-colors ${
+                                        isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"
+                                    }`}
+                                >
+                                    <FaChevronLeft className="text-xs" />
+                                </button>
+                                <span className={`text-[11px] font-bold px-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                                    {activeRange.start === getTodayIST() ? "Today" : activeRange.start}
+                                </span>
+                                <button
+                                    onClick={handleNextDay}
+                                    title="Next Day"
+                                    className={`p-2 rounded-lg transition-colors ${
+                                        isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"
+                                    }`}
+                                >
+                                    <FaChevronRight className="text-xs" />
+                                </button>
+                            </div>
+                        )}
 
                         {/* Quick Today Button */}
                         <button
                             onClick={handleResetToday}
                             className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
-                                selectedDate === getTodayIST()
+                                dateRangeOption === "Today" && activeRange.start === getTodayIST()
                                     ? isDark
                                         ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400"
                                         : "bg-cyan-50 border-cyan-200 text-cyan-700"
@@ -477,16 +679,23 @@ const DailyReport = () => {
                 </div>
 
                 {/* Date Highlight Badge & Search */}
-                <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-2">
                         <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-cyan-400" : "text-cyan-600"}`}>
-                            Report Date:
+                            Report Period:
                         </span>
                         <span className={`text-sm font-black px-3 py-1 rounded-full border shadow-sm ${
                             isDark ? "bg-cyan-950/40 border-cyan-500/30 text-cyan-300" : "bg-cyan-50 border-cyan-200 text-cyan-800"
                         }`}>
-                            {formatDateDisplay(selectedDate)}
+                            {dateDisplayLabel}
                         </span>
+                        {dateRangeOption !== "Custom Range" && dateRangeOption !== "Today" && (
+                            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
+                                isDark ? "bg-slate-800 text-slate-400 border border-slate-700" : "bg-slate-200 text-slate-700 border border-slate-300"
+                            }`}>
+                                {dateRangeOption}
+                            </span>
+                        )}
                     </div>
 
                     {/* Centre filter & Search */}
@@ -687,7 +896,7 @@ const DailyReport = () => {
                                             <div className="flex flex-col items-center justify-center gap-3">
                                                 <div className="w-8 h-8 border-3 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
                                                 <span className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                                                    Compiling centre data for {selectedDate}...
+                                                    Compiling centre data for {dateDisplayLabel}...
                                                 </span>
                                             </div>
                                         </td>
@@ -1062,9 +1271,7 @@ const DailyReport = () => {
                                         <h4 className="font-black text-xs uppercase tracking-tight">
                                             {hoveredAdmission.centre.centreName}
                                         </h4>
-                                        <span className={`text-[10px] block ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                                            Course-wise Breakdown
-                                        </span>
+                                        <span className={`text-[10px] block ${isDark ? "text-slate-400" : "text-slate-500"}`}>Enrolled Courses</span>
                                     </div>
                                 </div>
 
@@ -1075,37 +1282,23 @@ const DailyReport = () => {
                                 </span>
                             </div>
 
-                            {/* Course List with Count & Progress */}
-                            <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
-                                {Object.entries(hoveredAdmission.centre.coursesBreakdown || {}).map(([cName, count], idx) => {
-                                    const totalAdm = hoveredAdmission.centre.admissionsCount || 1;
-                                    const pct = Math.round((count / totalAdm) * 100);
-
-                                    return (
-                                        <div key={idx} className="space-y-1">
-                                            <div className="flex items-center justify-between text-xs">
-                                                <span className="font-semibold truncate max-w-[200px]" title={cName}>
-                                                    {cName}
-                                                </span>
-                                                <span className={`font-black ml-2 px-1.5 py-0.2 rounded text-[11px] ${
-                                                    isDark ? "bg-slate-800 text-cyan-300" : "bg-slate-100 text-cyan-800"
-                                                }`}>
-                                                    {count} ({pct}%)
-                                                </span>
-                                            </div>
-
-                                            {/* Progress bar */}
-                                            <div className={`w-full h-1.5 rounded-full overflow-hidden ${
-                                                isDark ? "bg-slate-800" : "bg-slate-200"
-                                            }`}>
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-300"
-                                                    style={{ width: `${pct}%` }}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
+                            {/* Course List: Simple Course Names Only */}
+                            <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                                {Object.keys(hoveredAdmission.centre.coursesBreakdown || {}).map((cName, idx) => (
+                                    <div
+                                        key={idx}
+                                        className={`flex items-start gap-2 py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-colors ${
+                                            isDark
+                                                ? "bg-slate-800/60 hover:bg-slate-800/90 text-slate-200"
+                                                : "bg-slate-100 hover:bg-slate-200/70 text-slate-800"
+                                        }`}
+                                    >
+                                        <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-1.5 flex-shrink-0" />
+                                        <span className="leading-snug break-words">
+                                            {cName}
+                                        </span>
+                                    </div>
+                                ))}
                             </div>
 
                             {/* Card Footer hint */}
@@ -1114,7 +1307,7 @@ const DailyReport = () => {
                             }`}>
                                 <span className="flex items-center gap-1">
                                     <FaInfoCircle className="text-[9px] text-cyan-400" />
-                                    <span>Date: {selectedDate}</span>
+                                    <span>Period: {dateDisplayLabel}</span>
                                 </span>
                                 <span className="font-semibold text-cyan-400">Click to view modal</span>
                             </div>
@@ -1141,7 +1334,7 @@ const DailyReport = () => {
                                             Marketing Activities - {marketingModalCentre.centreName}
                                         </h3>
                                         <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                                            Activities conducted on {formatDateDisplay(selectedDate)}
+                                            Activities conducted for {dateDisplayLabel}
                                         </p>
                                     </div>
                                 </div>
@@ -1159,7 +1352,7 @@ const DailyReport = () => {
                             <div className="p-5 overflow-y-auto space-y-3.5">
                                 {marketingModalCentre.marketingActivities.length === 0 ? (
                                     <div className="text-center py-10 text-slate-500 text-xs">
-                                        No marketing activities recorded for this centre on {selectedDate}.
+                                        No marketing activities recorded for this centre in this period.
                                     </div>
                                 ) : (
                                     marketingModalCentre.marketingActivities.map((act, index) => (
@@ -1272,7 +1465,7 @@ const DailyReport = () => {
                                             Course Breakdown - {coursesModalCentre.centreName}
                                         </h3>
                                         <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
-                                            Total {coursesModalCentre.admissionsCount} admissions on {formatDateDisplay(selectedDate)}
+                                            Total {coursesModalCentre.admissionsCount} admissions for {dateDisplayLabel}
                                         </p>
                                     </div>
                                 </div>
@@ -1286,37 +1479,25 @@ const DailyReport = () => {
                                 </button>
                             </div>
 
-                            <div className="p-5 space-y-2.5 max-h-[60vh] overflow-y-auto">
-                                {Object.entries(coursesModalCentre.coursesBreakdown || {}).map(([cName, count], idx) => {
-                                    const totalAdm = coursesModalCentre.admissionsCount || 1;
-                                    const pct = Math.round((count / totalAdm) * 100);
-
-                                    return (
-                                        <div
-                                            key={idx}
-                                            className={`p-3 rounded-xl border space-y-1.5 ${
-                                                isDark ? "bg-slate-950/50 border-slate-800" : "bg-slate-50 border-slate-200"
-                                            }`}
-                                        >
-                                            <div className="flex items-center justify-between">
-                                                <span className="font-bold text-xs">{cName}</span>
-                                                <span className={`px-2.5 py-1 rounded-full text-xs font-black ${
-                                                    isDark ? "bg-cyan-500/20 text-cyan-300" : "bg-cyan-100 text-cyan-800"
-                                                }`}>
-                                                    {count} {count === 1 ? "student" : "students"} ({pct}%)
-                                                </span>
-                                            </div>
-                                            <div className={`w-full h-1.5 rounded-full overflow-hidden ${
-                                                isDark ? "bg-slate-800" : "bg-slate-200"
-                                            }`}>
-                                                <div
-                                                    className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full"
-                                                    style={{ width: `${pct}%` }}
-                                                />
-                                            </div>
+                            <div className="p-5 space-y-2 max-h-[60vh] overflow-y-auto">
+                                {Object.entries(coursesModalCentre.coursesBreakdown || {}).map(([cName, count], idx) => (
+                                    <div
+                                        key={idx}
+                                        className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${
+                                            isDark ? "bg-slate-950/50 border-slate-800" : "bg-slate-50 border-slate-200"
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-2.5">
+                                            <span className="w-2 h-2 rounded-full bg-cyan-400 flex-shrink-0" />
+                                            <span className="font-bold text-xs">{cName}</span>
                                         </div>
-                                    );
-                                })}
+                                        <span className={`px-2.5 py-1 rounded-full text-xs font-black flex-shrink-0 ${
+                                            isDark ? "bg-cyan-500/20 text-cyan-300" : "bg-cyan-100 text-cyan-800"
+                                        }`}>
+                                            {count} {count === 1 ? "student" : "students"}
+                                        </span>
+                                    </div>
+                                ))}
                             </div>
 
                             <div className={`p-4 border-t flex justify-end ${
