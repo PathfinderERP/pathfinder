@@ -77,31 +77,59 @@ export const exportAdmissionSegregation = async (req, res) => {
         const fmtDate = (d) => d ? new Date(d).toLocaleDateString('en-GB') : "N/A";
         const fmtDateTime = (d) => d ? `${new Date(d).toLocaleDateString('en-GB')} ${new Date(d).toLocaleTimeString('en-GB')}` : "N/A";
 
-        const buildRow = (lead, index, entryMode) => ({
-            "Sl No.": index + 1,
-            "Entry Mode": entryMode,
-            "Name": lead.name || "N/A",
-            "Email": lead.email || "N/A",
-            "Phone": lead.phoneNumber || "N/A",
-            "Second Phone": lead.secondPhoneNumber || "N/A",
-            "School": lead.schoolName || "N/A",
-            "Class": lead.className?.name || "N/A",
-            "Board": lead.board?.boardName || lead.board?.boardCourse || "N/A",
-            "Centre": lead.centre?.centreName || "N/A",
-            "Course": lead.course?.courseName || lead.courseText || "N/A",
-            "Lead Type": lead.leadType || "N/A",
-            "Source": lead.source || "N/A",
-            "Telecaller": lead.leadResponsibility || "N/A",
-            "Marketing By": lead.marketingBy || "N/A",
-            "Last Feedback": lead.followUps?.length > 0
-                ? lead.followUps[lead.followUps.length - 1].feedback : "Not Contacted",
-            "Last Remarks": lead.followUps?.length > 0
-                ? lead.followUps[lead.followUps.length - 1].remarks || "N/A" : "N/A",
-            "Last Follow-up": fmtDate(lead.lastFollowUpDate),
-            "Next Follow-up": fmtDate(lead.nextFollowUpDate),
-            "Assigned At": fmtDateTime(lead.assignedAt || lead.createdAt),
-            "Created At": fmtDate(lead.createdAt),
-        });
+        const buildRow = (lead, index, entryMode) => {
+            const followUps = Array.isArray(lead.followUps) ? lead.followUps : [];
+            const totalCalls = followUps.length;
+            const lastFollowUp = totalCalls > 0 ? followUps[totalCalls - 1] : null;
+
+            const allRemarksText = totalCalls > 0
+                ? followUps
+                    .map((fu, i) => {
+                        const dtStr = fmtDate(fu.date);
+                        const byStr = fu.updatedBy ? ` - ${fu.updatedBy}` : '';
+                        const remStr = fu.remarks && fu.remarks.trim() ? fu.remarks.trim() : (fu.feedback ? `[${fu.feedback}]` : 'No remarks');
+                        return `Call ${i + 1}${dtStr !== 'N/A' ? ` (${dtStr}${byStr})` : ''}: ${remStr}`;
+                    })
+                    .join('\n')
+                : (lead.remarks || "N/A");
+
+            const allFeedbackText = totalCalls > 0
+                ? followUps
+                    .map((fu, i) => {
+                        const dtStr = fmtDate(fu.date);
+                        const byStr = fu.updatedBy ? ` (${fu.updatedBy})` : '';
+                        return `Call ${i + 1}${dtStr !== 'N/A' ? ` [${dtStr}]` : ''}: ${fu.feedback || 'N/A'}${byStr}`;
+                    })
+                    .join('\n')
+                : "Not Contacted";
+
+            return {
+                "Sl No.": index + 1,
+                "Entry Mode": entryMode,
+                "Name": lead.name || "N/A",
+                "Email": lead.email || "N/A",
+                "Phone": lead.phoneNumber || "N/A",
+                "Second Phone": lead.secondPhoneNumber || "N/A",
+                "School": lead.schoolName || "N/A",
+                "Class": lead.className?.name || "N/A",
+                "Board": lead.board?.boardName || lead.board?.boardCourse || "N/A",
+                "Centre": lead.centre?.centreName || "N/A",
+                "Course": lead.course?.courseName || lead.courseText || "N/A",
+                "Lead Type": lead.leadType || "N/A",
+                "Source": lead.source || "N/A",
+                "Telecaller": lead.leadResponsibility || "N/A",
+                "Marketing By": lead.marketingBy || "N/A",
+                "Total Calls": totalCalls,
+                "Last Feedback": lastFollowUp ? (lastFollowUp.feedback || "N/A") : "Not Contacted",
+                "Last Remarks": lastFollowUp ? (lastFollowUp.remarks || "N/A") : (lead.remarks || "N/A"),
+                "All Remarks (Call History)": allRemarksText,
+                "All Feedback History": allFeedbackText,
+                "Last Follow-up": fmtDate(lead.lastFollowUpDate),
+                "Next Follow-up": fmtDate(lead.nextFollowUpDate),
+                "Assigned At": fmtDateTime(lead.assignedAt || lead.createdAt),
+                "Created At": fmtDate(lead.createdAt),
+            };
+        };
 
         // ─── Sheet 1: Count Summary ───────────────────────────────────────────
         const summaryData = [
