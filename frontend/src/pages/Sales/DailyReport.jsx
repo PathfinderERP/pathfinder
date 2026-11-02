@@ -18,7 +18,11 @@ import {
     FaTimes,
     FaExternalLinkAlt,
     FaInfoCircle,
-    FaPercentage
+    FaPercentage,
+    FaUser,
+    FaCheckCircle,
+    FaClock,
+    FaBookOpen
 } from "react-icons/fa";
 import { GiSchoolBag } from "react-icons/gi";
 import * as XLSX from "xlsx";
@@ -141,6 +145,15 @@ const DailyReport = () => {
     // Modals
     const [marketingModalCentre, setMarketingModalCentre] = useState(null);
     const [coursesModalCentre, setCoursesModalCentre] = useState(null);
+    const [walkInModalCentre, setWalkInModalCentre] = useState(null);
+    const [walkInModalOpen, setWalkInModalOpen] = useState(false);
+    const [walkInSearch, setWalkInSearch] = useState("");
+
+    const handleOpenWalkInsModal = (centreObj = null) => {
+        setWalkInModalCentre(centreObj);
+        setWalkInSearch("");
+        setWalkInModalOpen(true);
+    };
 
     // Active Range computation
     const activeRange = useMemo(() => {
@@ -300,6 +313,8 @@ const DailyReport = () => {
             totalFollowUps: 0,
             totalWalkIns: 0,
             totalCounselling: 0,
+            totalCounsellingNormal: 0,
+            totalCounsellingBoard: 0,
             totalMarketingActivities: 0,
             totalSchoolsVisited: 0,
             totalAdmissions: 0,
@@ -320,6 +335,8 @@ const DailyReport = () => {
             acc.totalFollowUps += c.followUpsCount || 0;
             acc.totalWalkIns += c.walkInCount || 0;
             acc.totalCounselling += c.counsellingCount || 0;
+            acc.totalCounsellingNormal += c.counsellingNormalCount || 0;
+            acc.totalCounsellingBoard += c.counsellingBoardCount || 0;
             acc.totalMarketingActivities += c.marketingCount || 0;
             acc.totalSchoolsVisited += c.schoolsCount || 0;
             acc.totalAdmissions += c.admissionsCount || 0;
@@ -335,6 +352,39 @@ const DailyReport = () => {
             totalCentres: filteredCentres.length
         });
     }, [filteredCentres, reportData]);
+
+    // Walk-In leads displayed inside Walk-In details modal
+    const walkInModalLeads = useMemo(() => {
+        if (!walkInModalOpen || !reportData?.centres) return [];
+        let list = [];
+        if (walkInModalCentre) {
+            list = (walkInModalCentre.walkIns || []).map(l => ({
+                ...l,
+                centreName: walkInModalCentre.centreName
+            }));
+        } else {
+            filteredCentres.forEach(c => {
+                (c.walkIns || []).forEach(l => {
+                    list.push({
+                        ...l,
+                        centreName: c.centreName
+                    });
+                });
+            });
+        }
+
+        if (!walkInSearch.trim()) return list;
+        const q = walkInSearch.toLowerCase().trim();
+        return list.filter(l =>
+            (l.name || "").toLowerCase().includes(q) ||
+            (l.phoneNumber || "").toLowerCase().includes(q) ||
+            (l.centreName || "").toLowerCase().includes(q) ||
+            (l.taggedBy || "").toLowerCase().includes(q) ||
+            (l.source || "").toLowerCase().includes(q) ||
+            (l.courseName || "").toLowerCase().includes(q) ||
+            (l.className || "").toLowerCase().includes(q)
+        );
+    }, [walkInModalOpen, walkInModalCentre, reportData, filteredCentres, walkInSearch]);
 
     // Excel Export (includes both Excl. GST and Incl. GST)
     const handleExportExcel = () => {
@@ -740,9 +790,15 @@ const DailyReport = () => {
                     </div>
 
                     {/* Walk-Ins */}
-                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${
-                        isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
-                    }`}>
+                    <div
+                        onClick={() => handleOpenWalkInsModal(null)}
+                        className={`p-4 rounded-xl border shadow-sm relative overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${
+                            isDark
+                                ? "bg-slate-900/70 border-slate-800 hover:border-amber-500/40"
+                                : "bg-white border-slate-200 hover:border-amber-400"
+                        }`}
+                        title="Click to view all walk-in leads"
+                    >
                         <div className="flex items-center justify-between mb-2">
                             <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                 Walk-Ins
@@ -754,8 +810,9 @@ const DailyReport = () => {
                         <div className="text-xl md:text-2xl font-black text-amber-500">
                             {filteredSummary.totalWalkIns}
                         </div>
-                        <div className={`text-[10px] mt-1 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                            Direct centre visits
+                        <div className={`text-[10px] mt-1 flex items-center justify-between ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                            <span>Direct centre visits</span>
+                            <span className="text-[9px] text-amber-400 font-semibold underline underline-offset-1">View leads →</span>
                         </div>
                     </div>
 
@@ -774,8 +831,8 @@ const DailyReport = () => {
                         <div className="text-xl md:text-2xl font-black text-purple-500">
                             {filteredSummary.totalCounselling}
                         </div>
-                        <div className={`text-[10px] mt-1 ${isDark ? "text-slate-500" : "text-slate-400"}`}>
-                            Completed sessions
+                        <div className={`text-[10px] mt-1 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                            Normal: {filteredSummary.totalCounsellingNormal ?? filteredCentres.reduce((s, c) => s + (c.counsellingNormalCount || 0), 0)} | Board: {filteredSummary.totalCounsellingBoard ?? filteredCentres.reduce((s, c) => s + (c.counsellingBoardCount || 0), 0)}
                         </div>
                     </div>
 
@@ -966,16 +1023,27 @@ const DailyReport = () => {
 
                                                 {/* Walk-ins */}
                                                 <td className="py-3.5 px-3 text-center">
-                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs ${
-                                                        c.walkInCount > 0
-                                                            ? isDark
-                                                                ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
-                                                                : "bg-amber-50 text-amber-700 border border-amber-200"
-                                                            : isDark ? "text-slate-600" : "text-slate-400"
-                                                    }`}>
-                                                        <FaWalking className="text-[10px]" />
-                                                        {c.walkInCount}
-                                                    </span>
+                                                    {c.walkInCount > 0 ? (
+                                                        <button
+                                                            onClick={() => handleOpenWalkInsModal(c)}
+                                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-sm ${
+                                                                isDark
+                                                                    ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25"
+                                                                    : "bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100"
+                                                            }`}
+                                                            title="Click to view centre walk-in leads"
+                                                        >
+                                                            <FaWalking className="text-[10px]" />
+                                                            {c.walkInCount}
+                                                        </button>
+                                                    ) : (
+                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs ${
+                                                            isDark ? "text-slate-600" : "text-slate-400"
+                                                        }`}>
+                                                            <FaWalking className="text-[10px]" />
+                                                            0
+                                                        </span>
+                                                    )}
                                                 </td>
 
                                                 {/* Counselling */}
@@ -1505,6 +1573,167 @@ const DailyReport = () => {
                             }`}>
                                 <button
                                     onClick={() => setCoursesModalCentre(null)}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                                        isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"
+                                    }`}
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 7. Walk-In Details Modal */}
+                {walkInModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                        <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${
+                            isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
+                        }`}>
+                            {/* Modal Header */}
+                            <div className={`p-5 border-b flex items-center justify-between gap-4 ${
+                                isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                            }`}>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                                        <FaWalking className="text-lg" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black">
+                                            {walkInModalCentre ? `Walk-In Leads — ${walkInModalCentre.centreName}` : "Walk-In Leads — All Centres"}
+                                        </h3>
+                                        <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                            Showing {walkInModalLeads.length} direct walk-in and button-tagged leads for {dateDisplayLabel}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                    <div className={`relative flex items-center rounded-xl border px-3 py-1.5 ${
+                                        isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-300"
+                                    }`}>
+                                        <FaSearch className={`text-xs mr-2 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search leads..."
+                                            value={walkInSearch}
+                                            onChange={(e) => setWalkInSearch(e.target.value)}
+                                            className={`bg-transparent text-xs focus:outline-none w-32 sm:w-44 ${
+                                                isDark ? "text-slate-100 placeholder-slate-500" : "text-slate-800 placeholder-slate-400"
+                                            }`}
+                                        />
+                                    </div>
+
+                                    <button
+                                        onClick={() => {
+                                            setWalkInModalOpen(false);
+                                            setWalkInModalCentre(null);
+                                        }}
+                                        className={`p-2 rounded-xl transition-colors cursor-pointer ${
+                                            isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200 text-slate-600"
+                                        }`}
+                                    >
+                                        <FaTimes />
+                                    </button>
+                                </div>
+                            </div>
+
+                            {/* Modal Body */}
+                            <div className="p-5 overflow-y-auto space-y-3">
+                                {walkInModalLeads.length === 0 ? (
+                                    <div className="text-center py-12 text-slate-500 text-xs">
+                                        No walk-in leads found for this selection.
+                                    </div>
+                                ) : (
+                                    walkInModalLeads.map((lead, idx) => (
+                                        <div
+                                            key={lead._id || idx}
+                                            className={`p-3.5 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all ${
+                                                isDark ? "bg-slate-950/40 border-slate-800 hover:border-slate-700" : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                                            }`}
+                                        >
+                                            <div className="space-y-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="font-black text-sm text-cyan-400">
+                                                        {lead.name}
+                                                    </span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
+                                                        lead.isWalkIn
+                                                            ? isDark
+                                                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                                                : "bg-amber-50 text-amber-800 border border-amber-300"
+                                                            : isDark
+                                                                ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                                                                : "bg-blue-50 text-blue-800 border border-blue-200"
+                                                    }`}>
+                                                        {lead.isWalkIn ? "Walked In (Button Tagged)" : (lead.source || "Walk In")}
+                                                    </span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
+                                                        isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-700"
+                                                    }`}>
+                                                        {lead.centreName}
+                                                    </span>
+                                                </div>
+
+                                                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                                                    <span className="flex items-center gap-1">
+                                                        <FaPhoneAlt className="text-[10px]" />
+                                                        {lead.phoneNumber}
+                                                    </span>
+                                                    <span>•</span>
+                                                    <span>Class: <strong className={isDark ? "text-slate-200" : "text-slate-700"}>{lead.className}</strong></span>
+                                                    <span>•</span>
+                                                    <span>Course: <strong className={isDark ? "text-slate-200" : "text-slate-700"}>{lead.courseName}</strong></span>
+                                                </div>
+
+                                                {lead.remarks && (
+                                                    <p className={`text-xs italic mt-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>
+                                                        Remarks: {lead.remarks}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            <div className="flex flex-wrap md:flex-col md:items-end gap-1.5 text-xs flex-shrink-0">
+                                                <div className="flex items-center gap-1.5">
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                                                        lead.isCounseled
+                                                            ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                                                            : isDark ? "bg-slate-800 text-slate-500" : "bg-slate-200 text-slate-500"
+                                                    }`}>
+                                                        {lead.isCounseled ? "Counselled" : "Not Counselled"}
+                                                    </span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
+                                                        lead.isAdmitted
+                                                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                                            : isDark ? "bg-slate-800 text-slate-500" : "bg-slate-200 text-slate-500"
+                                                    }`}>
+                                                        {lead.isAdmitted ? "Admitted" : "Pending Admission"}
+                                                    </span>
+                                                </div>
+                                                <span className={`text-[11px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                                                    Tagged by: <strong>{lead.taggedBy}</strong>
+                                                </span>
+                                                <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>
+                                                    {lead.walkInDate ? new Date(lead.walkInDate).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", dateStyle: "short", timeStyle: "short" }) : "-"}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className={`p-4 border-t flex items-center justify-between ${
+                                isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                            }`}>
+                                <span className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                    Total: {walkInModalLeads.length} leads
+                                </span>
+                                <button
+                                    onClick={() => {
+                                        setWalkInModalOpen(false);
+                                        setWalkInModalCentre(null);
+                                    }}
                                     className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                                         isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"
                                     }`}

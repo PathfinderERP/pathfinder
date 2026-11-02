@@ -7,6 +7,8 @@ import MarketingPlanner from "../../models/MarketingPlanner.js";
 import Admission from "../../models/Admission/Admission.js";
 import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js";
 import Payment from "../../models/Payment/Payment.js";
+import User from "../../models/User.js";
+import SchoolForTask from "../../models/Master_data/SchoolForTask.js";
 import mongoose from "mongoose";
 
 /**
@@ -74,6 +76,8 @@ export const getDailyCentreReport = async (req, res) => {
                     totalFollowUps: 0,
                     totalWalkIns: 0,
                     totalCounselling: 0,
+                    totalCounsellingNormal: 0,
+                    totalCounsellingBoard: 0,
                     totalMarketingActivities: 0,
                     totalSchoolsVisited: 0,
                     totalAdmissions: 0,
@@ -103,7 +107,12 @@ export const getDailyCentreReport = async (req, res) => {
                 callsCount: 0,
                 followUpsCount: 0,
                 walkInCount: 0,
+                walkIns: [],
                 counsellingCount: 0,
+                counsellingNormalCount: 0,
+                counsellingBoardCount: 0,
+                _normalCounsSet: new Set(),
+                _boardCounsSet: new Set(),
                 marketingActivities: [],
                 marketingCount: 0,
                 schoolsCount: 0,
@@ -229,26 +238,30 @@ export const getDailyCentreReport = async (req, res) => {
 
             // d) Walk-Ins from LeadManagement for date
             LeadManagement.find({
+                centre: { $in: targetCentreIds },
                 $or: [
-                    { isWalkIn: true },
-                    { source: { $regex: /walk[- ]?in/i } }
-                ],
-                $or: [
-                    { walkInDate: { $gte: startOfRange, $lte: endOfRange } },
-                    { createdAt: { $gte: startOfRange, $lte: endOfRange } }
+                    { isWalkIn: true, walkInDate: { $gte: startOfRange, $lte: endOfRange } },
+                    { source: { $regex: /^walk[- ]?in$/i }, createdAt: { $gte: startOfRange, $lte: endOfRange } }
                 ]
-            }).select("centre walkInDate createdAt").lean(),
+            })
+                .populate("walkInBy", "name email role")
+                .populate("createdBy", "name email role")
+                .populate("className", "name")
+                .populate("course", "courseName name")
+                .select("centre name phoneNumber secondPhoneNumber source isWalkIn walkInDate createdAt walkInBy createdBy className targetClass course courseText remarks leadType isCounseled isAdmitted status")
+                .lean(),
 
             // e1) Board Course Counselling for date
             BoardCourseCounselling.find({
                 counselledDate: { $gte: startOfRange, $lte: endOfRange }
-            }).select("centre counselledDate").lean(),
+            }).select("studentId centre counselledDate").lean(),
 
             // e2) Lead Counselling for date
             LeadManagement.find({
+                centre: { $in: targetCentreIds },
                 isCounseled: true,
                 updatedAt: { $gte: startOfRange, $lte: endOfRange }
-            }).select("centre updatedAt").lean(),
+            }).select("_id centre updatedAt").lean(),
 
             // f) Marketing Planner activities for date
             MarketingPlanner.find({
@@ -270,7 +283,7 @@ export const getDailyCentreReport = async (req, res) => {
                 ]
             })
                 .populate("course", "courseName name")
-                .select("centre course courseText admissionDate createdAt downPayment totalPaidAmount")
+                .select("centre student course courseText admissionDate createdAt downPayment totalPaidAmount")
                 .lean(),
 
             // g2) Board Course Admissions for date
@@ -281,7 +294,7 @@ export const getDailyCentreReport = async (req, res) => {
                 ]
             })
                 .populate("boardId", "boardName name")
-                .select("centre boardId boardCourseName admissionDate createdAt downPayment admissionFee totalPaidAmount")
+                .select("centre studentId boardId boardCourseName admissionDate createdAt downPayment admissionFee totalPaidAmount")
                 .lean(),
 
             // h) Payments / Collections for date
@@ -412,25 +425,41 @@ export const getDailyCentreReport = async (req, res) => {
         });
 
         // --- d) Walk-Ins ---
-        (walkInLeads || []).forEach(item => {
-            const cObj = resolveToCanonical(item.centre);
+        (walkInLeads || []).forEach(lead => {
+            const cObj = resolveToCanonical(lead.centre);
             if (cObj) {
                 cObj.walkInCount += 1;
+                cObj.walkIns.push({
+                    _id: lead._id,
+                    name: lead.name || "Anonymous",
+                    phoneNumber: lead.phoneNumber || lead.secondPhoneNumber || "-",
+                    className: lead.className?.name || lead.targetClass || "-",
+                    courseName: lead.course?.courseName || lead.courseText || "-",
+                    source: lead.source || (lead.isWalkIn ? "Walk-In" : "-"),
+                    isWalkIn: Boolean(lead.isWalkIn),
+                    walkInDate: lead.walkInDate || lead.createdAt,
+                    taggedBy: lead.walkInBy?.name || lead.createdBy?.name || "Staff",
+                    leadType: lead.isWalkIn ? "Walk-In (Tagged)" : (lead.leadType || "WALK_IN"),
+                    status: lead.status || "-",
+                    isCounseled: Boolean(lead.isCounseled),
+                    isAdmitted: Boolean(lead.isAdmitted),
+                    remarks: lead.remarks || ""
+                });
             }
         });
 
-        // --- e) Counselling ---
-        (boardCounsellings || []).forEach(item => {
-            const cObj = resolveToCanonical(item.centre);
-            if (cObj) {
-                cObj.counsellingCount += 1;
-            }
-        });
-
+        // --- e) Counselling (Leads & Board Records) ---
         (leadCounsellings || []).forEach(item => {
             const cObj = resolveToCanonical(item.centre);
-            if (cObj) {
-                cObj.counsellingCount += 1;
+            if (cObj && item._id) {
+                cObj._normalCounsSet.add(item._id.toString());
+            }
+        });
+
+        (boardCounsellings || []).forEach(item => {
+            const cObj = resolveToCanonical(item.centre);
+            if (cObj && (item.studentId || item._id)) {
+                cObj._boardCounsSet.add((item.studentId || item._id).toString());
             }
         });
 
@@ -484,6 +513,11 @@ export const getDailyCentreReport = async (req, res) => {
             const cObj = resolveToCanonical(adm.centre);
             if (cObj) {
                 cObj.admissionsCount += 1;
+                if (adm.student) {
+                    cObj._normalCounsSet.add(adm.student.toString());
+                } else if (adm._id) {
+                    cObj._normalCounsSet.add(adm._id.toString());
+                }
                 const cNameRaw = adm.course?.courseName || adm.course?.name || adm.courseText || "General Course";
                 const courseName = cNameRaw.trim().toUpperCase();
                 cObj.coursesBreakdown[courseName] = (cObj.coursesBreakdown[courseName] || 0) + 1;
@@ -494,10 +528,24 @@ export const getDailyCentreReport = async (req, res) => {
             const cObj = resolveToCanonical(adm.centre);
             if (cObj) {
                 cObj.admissionsCount += 1;
+                if (adm.studentId) {
+                    cObj._boardCounsSet.add(adm.studentId.toString());
+                } else if (adm._id) {
+                    cObj._boardCounsSet.add(adm._id.toString());
+                }
                 const cNameRaw = adm.boardCourseName || adm.boardId?.boardName || adm.boardId?.name || "Board Course";
                 const courseName = cNameRaw.trim().toUpperCase();
                 cObj.coursesBreakdown[courseName] = (cObj.coursesBreakdown[courseName] || 0) + 1;
             }
+        });
+
+        // Finalize counselling counts per canonical centre
+        canonicalCentreData.forEach(cObj => {
+            cObj.counsellingNormalCount = cObj._normalCounsSet ? cObj._normalCounsSet.size : 0;
+            cObj.counsellingBoardCount = cObj._boardCounsSet ? cObj._boardCounsSet.size : 0;
+            cObj.counsellingCount = cObj.counsellingNormalCount + cObj.counsellingBoardCount;
+            delete cObj._normalCounsSet;
+            delete cObj._boardCounsSet;
         });
 
         // --- h) Payments / Collections (Fresh vs EMI - Without GST Base) ---
@@ -528,6 +576,8 @@ export const getDailyCentreReport = async (req, res) => {
             totalFollowUps: 0,
             totalWalkIns: 0,
             totalCounselling: 0,
+            totalCounsellingNormal: 0,
+            totalCounsellingBoard: 0,
             totalMarketingActivities: 0,
             totalSchoolsVisited: 0,
             totalAdmissions: 0,
@@ -552,6 +602,8 @@ export const getDailyCentreReport = async (req, res) => {
             summary.totalFollowUps += c.followUpsCount;
             summary.totalWalkIns += c.walkInCount;
             summary.totalCounselling += c.counsellingCount;
+            summary.totalCounsellingNormal += c.counsellingNormalCount || 0;
+            summary.totalCounsellingBoard += c.counsellingBoardCount || 0;
             summary.totalMarketingActivities += c.marketingCount;
             summary.totalSchoolsVisited += c.schoolsCount;
             summary.totalAdmissions += c.admissionsCount;

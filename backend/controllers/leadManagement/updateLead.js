@@ -78,13 +78,12 @@ export const tagWalkIn = async (req, res) => {
         if (lead.isWalkIn) {
             // Unmark as walk-in (preserve original lead.source)
             lead.isWalkIn = false;
+            lead.walkInDate = undefined;
             lead.walkInBy = undefined;
         } else {
             // Mark as walk-in (preserve original lead.source)
             lead.isWalkIn = true;
-            if (!lead.walkInDate) {
-                lead.walkInDate = new Date();
-            }
+            lead.walkInDate = new Date();
             lead.walkInBy = req.user.id || req.user._id;
         }
 
