@@ -21,6 +21,7 @@ import DiscountReport from "./pages/Sales/DiscountReport";
 import DiscountComparison from "./pages/Sales/DiscountComparison";
 import TransactionReport from "./pages/Sales/TransactionReport";
 import DailyCollection from "./pages/Sales/DailyCollection";
+import DailyReport from "./pages/Sales/DailyReport";
 import AdmissionCourseReport from "./pages/Sales/AdmissionCourseReport";
 import BoardReport from "./pages/Sales/BoardReport";
 import QuarterlyTargetReport from "./pages/Sales/QuarterlyTargetReport";
@@ -284,6 +285,7 @@ function App() {
         <Route path="/sales/discount-comparison" element={<ProtectedRoute><DiscountComparison /></ProtectedRoute>} />
         <Route path="/sales/transaction-report" element={<ProtectedRoute><TransactionReport /></ProtectedRoute>} />
         <Route path="/sales/daily-collection" element={<ProtectedRoute><DailyCollection /></ProtectedRoute>} />
+        <Route path="/sales/daily-report" element={<ProtectedRoute><DailyReport /></ProtectedRoute>} />
         <Route path="/sales/admission-course-report" element={<ProtectedRoute><AdmissionCourseReport /></ProtectedRoute>} />
         <Route path="/sales/board-report" element={<ProtectedRoute><BoardReport /></ProtectedRoute>} />
         <Route path="/sales/average-admission-fee" element={<ProtectedRoute><AverageAdmissionFee /></ProtectedRoute>} />

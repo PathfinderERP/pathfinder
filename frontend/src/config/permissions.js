@@ -49,6 +49,10 @@ export const PERMISSION_MODULES = {
                 label: "Revenue Comparison Analysis",
                 operations: ["create", "edit", "delete"]
             },
+            dailyReport: {
+                label: "Daily Report",
+                operations: ["create", "edit", "delete"]
+            },
             deactivatedAnalysis: {
                 label: "Deactivated Analysis",
                 operations: ["create", "edit", "delete"]
@@ -98,6 +102,10 @@ export const PERMISSION_MODULES = {
             boardCourseAdmission: {
                 label: "Board Course Admission",
                 operations: ["create", "edit", "delete", "addInstallments"]
+            },
+            booksExternal: {
+                label: "Books External",
+                operations: ["view", "create", "edit"]
             }
         }
     },

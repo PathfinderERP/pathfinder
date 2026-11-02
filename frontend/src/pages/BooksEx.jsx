@@ -20,11 +20,13 @@ import {
     FaBuilding, 
     FaDownload,
     FaReceipt,
-    FaCalendarCheck
+    FaCalendarCheck,
+    FaEye
 } from "react-icons/fa";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import BillGenerator from "../components/Finance/BillGenerator";
+import usePermission from "../hooks/usePermission";
 
 const fmt = (num) => {
     if (num === undefined || num === null || isNaN(num)) return "0.00";
@@ -36,6 +38,11 @@ const BooksEx = () => {
     const isDarkMode = isDarkFromCtx !== undefined ? isDarkFromCtx : theme === "dark";
     const apiUrl = import.meta.env.VITE_API_URL;
     const user = useMemo(() => JSON.parse(localStorage.getItem("user") || "{}"), []);
+    const canCreate = usePermission('admissions', 'booksExternal', 'create');
+    const canEdit = usePermission('admissions', 'booksExternal', 'edit');
+    const rawRole = (user?.role || '').toLowerCase().replace(/\s+/g, '');
+    const isSuper = rawRole === 'superadmin' || rawRole === 'admin' || rawRole === 'ceo';
+    const canBuy = isSuper || canCreate || canEdit;
 
     // Master Data States
     const [courses, setCourses] = useState([]);
@@ -247,6 +254,10 @@ const BooksEx = () => {
     // Submit Purchase Form
     const handleBuyBookSubmit = async (e) => {
         e.preventDefault();
+        if (!canBuy) {
+            toast.error("You have view-only access to Books External.");
+            return;
+        }
 
         if (!form.studentName.trim()) {
             toast.error("Student Name is required.");
@@ -538,13 +549,22 @@ const BooksEx = () => {
                             <span className="hidden sm:inline">Refresh</span>
                         </button>
 
-                        <button
-                            onClick={() => setIsBuyModalOpen(true)}
-                            className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider rounded-lg shadow-lg shadow-purple-600/30 flex items-center gap-2 active:scale-95 transition-all"
-                        >
-                            <FaPlus size={12} />
-                            <span>Buy Book for External</span>
-                        </button>
+                        {canBuy ? (
+                            <button
+                                onClick={() => setIsBuyModalOpen(true)}
+                                className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-black text-xs uppercase tracking-wider rounded-lg shadow-lg shadow-purple-600/30 flex items-center gap-2 active:scale-95 transition-all"
+                            >
+                                <FaPlus size={12} />
+                                <span>Buy Book for External</span>
+                            </button>
+                        ) : (
+                            <span className={`px-3 py-1.5 rounded-lg border text-xs font-bold flex items-center gap-1.5 ${
+                                isDarkMode ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-amber-50 text-amber-700 border-amber-200'
+                            }`}>
+                                <FaEye size={12} />
+                                <span>View Only Access</span>
+                            </span>
+                        )}
                     </div>
                 </div>
 
@@ -869,7 +889,7 @@ const BooksEx = () => {
                 </div>
 
                 {/* ── Buy Book for External Modal ── */}
-                {isBuyModalOpen && (
+                {isBuyModalOpen && canBuy && (
                     <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-3 sm:p-4 backdrop-blur-sm animate-fadeIn">
                         <div className={`relative w-full max-w-2xl max-h-[92vh] overflow-y-auto rounded-xl border shadow-2xl ${
                             isDarkMode ? 'bg-[#181b1e] border-purple-900/40 text-white' : 'bg-white border-gray-200 text-gray-900'

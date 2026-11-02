@@ -232,7 +232,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 {
                     name: "Books External",
                     icon: <FaBook />,
-                    path: "/books-ex"
+                    path: "/books-ex",
+                    permissionSection: "booksExternal"
                 },
             ]
         },
@@ -332,6 +333,7 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "Discount Comparison Analysis", path: "/sales/discount-comparison", permissionSection: "discountReport" },
                 //{ name: "Transaction Report", path: "/sales/transaction-report", permissionSection: "transactionReport" },
                 { name: "Daily Collection", path: "/sales/daily-collection", permissionSection: "transactionReport" },
+                { name: "Daily Report", path: "/sales/daily-report", permissionSection: "dailyReport" },
             ]
         },
         {

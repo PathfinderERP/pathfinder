@@ -29,6 +29,7 @@ import { getAverageAdmissionFee } from "../../controllers/sales/averageAdmission
 import { getManpowerTargets, saveManpowerTarget } from "../../controllers/sales/manpowerTargetController.js";
 import { getDeactivatedAnalysis, getDeactivatedStudentsList } from "../../controllers/sales/deactivatedAnalysisController.js";
 import { getCentreComparisonAnalysis } from "../../controllers/sales/centreComparisonAnalysisController.js";
+import { getDailyCentreReport } from "../../controllers/sales/dailyReportController.js";
 
 
 const router = express.Router();
@@ -54,6 +55,7 @@ router.get("/course-report", requireAuth, getCourseReport);
 router.get("/discount-report", requireAuth, getDiscountReport);
 router.get("/transaction-report", requireAuth, getTransactionReport);
 router.get("/daily-collection", requireAuth, getDailyCollectionReport);
+router.get("/daily-report", requireAuth, getDailyCentreReport);
 router.post("/daily-collection/target", requireAuth, saveDailyTarget);
 router.post("/daily-collection/target/bulk", requireAuth, saveBulkDailyTargets);
 router.get("/board-report", requireAuth, getBoardReport);
