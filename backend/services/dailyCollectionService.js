@@ -93,8 +93,8 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
                             if: { $eq: ["$paymentMethod", "CHEQUE"] },
                             then: {
                                 $ifNull: [
-                                    { $toDate: "$paidDate" },
-                                    { $toDate: "$clearedOrRejectedDate" }
+                                    { $toDate: "$clearedOrRejectedDate" },
+                                    { $toDate: "$paidDate" }
                                 ]
                             },
                             else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
@@ -397,8 +397,8 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                         if: { $eq: ["$paymentMethod", "CHEQUE"] },
                         then: {
                             $ifNull: [
-                                { $toDate: "$paidDate" },
-                                { $toDate: "$clearedOrRejectedDate" }
+                                { $toDate: "$clearedOrRejectedDate" },
+                                { $toDate: "$paidDate" }
                             ]
                         },
                         else: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
@@ -607,7 +607,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 mrDate: {
                     $cond: {
                         if: { $eq: ["$paymentMethod", "CHEQUE"] },
-                        then: { $ifNull: ["$paidDate", "$clearedOrRejectedDate"] },
+                        then: { $ifNull: ["$clearedOrRejectedDate", "$paidDate"] },
                         else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
                     }
                 },
@@ -621,7 +621,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 effectiveDate: {
                     $cond: {
                         if: { $eq: ["$paymentMethod", "CHEQUE"] },
-                        then: { $ifNull: ["$paidDate", "$clearedOrRejectedDate"] },
+                        then: { $ifNull: ["$clearedOrRejectedDate", "$paidDate"] },
                         else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
                     }
                 },

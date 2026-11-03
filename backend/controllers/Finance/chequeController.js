@@ -593,16 +593,20 @@ export const clearCheque = async (req, res) => {
 
         // 1. Update Payment record
         payment.status = "PAID";
-        // Set paidDate to the actual clearance time so it sorts correctly in Daily Collection.
-        // clearedOrRejectedDate stays as midnight IST of the cleared date for date attribution.
-        // For paidDate: if clearing for today, use current time. For past dates, use 23:30 IST
-        // so it appears at the end of that day's list (not at the very bottom due to midnight UTC).
         const clearedDateIST = new Date(clearedDate + "T00:00:00+05:30");
         const nowIST = new Date();
+        const todayISTStr = nowIST.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        const clearedDateStr = typeof clearedDate === "string" ? (clearedDate.includes("T") ? clearedDate.split("T")[0] : clearedDate) : clearedDate;
 
-        // MR Date (paidDate) is ALWAYS current date (the date bill is generated after clearance)
-        payment.paidDate = nowIST;
-        // Clearance date is set to the cleared date
+        let newPaidDate;
+        if (clearedDateStr === todayISTStr) {
+            newPaidDate = nowIST;
+        } else {
+            // Keep paidDate aligned with the entered clearance date (12:00 PM IST)
+            newPaidDate = new Date(clearedDateStr + "T12:00:00+05:30");
+        }
+
+        payment.paidDate = newPaidDate;
         payment.clearedOrRejectedDate = clearedDateIST;
         payment.processedBy = req.user?.id || req.user?._id;
 
@@ -768,10 +772,11 @@ export const updateChequeClearanceDate = async (req, res) => {
         if (clearedDateStr === todayISTStr) {
             newPaidDate = nowIST;
         } else {
-            newPaidDate = new Date(clearedDate + "T23:30:00+05:30");
+            newPaidDate = new Date(clearedDateStr + "T12:00:00+05:30");
         }
 
         payment.clearedOrRejectedDate = clearedDateIST;
+        payment.paidDate = newPaidDate;
         await payment.save();
 
         // 2. Update Admission installment paidDate if applicable

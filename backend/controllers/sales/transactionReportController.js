@@ -323,8 +323,8 @@ export const getTransactionReport = async (req, res) => {
                             if: { $eq: ["$paymentMethod", "CHEQUE"] },
                             then: {
                                 $ifNull: [
-                                    { $toDate: "$paidDate" },
-                                    { $toDate: "$clearedOrRejectedDate" }
+                                    { $toDate: "$clearedOrRejectedDate" },
+                                    { $toDate: "$paidDate" }
                                 ]
                             },
                             else: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
@@ -498,8 +498,8 @@ export const getTransactionReport = async (req, res) => {
                             if: { $eq: ["$paymentMethod", "CHEQUE"] },
                             then: {
                                 $ifNull: [
-                                    { $toDate: "$paidDate" },
-                                    { $toDate: "$clearedOrRejectedDate" }
+                                    { $toDate: "$clearedOrRejectedDate" },
+                                    { $toDate: "$paidDate" }
                                 ]
                             },
                             else: {
@@ -518,8 +518,8 @@ export const getTransactionReport = async (req, res) => {
                                     if: { $eq: ["$paymentMethod", "CHEQUE"] },
                                     then: {
                                         $ifNull: [
-                                            { $toDate: "$paidDate" },
-                                            { $toDate: "$clearedOrRejectedDate" }
+                                            { $toDate: "$clearedOrRejectedDate" },
+                                            { $toDate: "$paidDate" }
                                         ]
                                     },
                                     else: {
@@ -802,8 +802,8 @@ export const getTransactionReport = async (req, res) => {
                             if: { $eq: ["$paymentMethod", "CHEQUE"] },
                             then: {
                                 $ifNull: [
-                                    { $toDate: "$paidDate" },
-                                    { $toDate: "$clearedOrRejectedDate" }
+                                    { $toDate: "$clearedOrRejectedDate" },
+                                    { $toDate: "$paidDate" }
                                 ]
                             },
                             else: { $ifNull: [{ $toDate: "$paidDate" }, { $toDate: "$receivedDate" }, "$createdAt"] }
@@ -1042,8 +1042,8 @@ export const getTransactionReport = async (req, res) => {
                             if: { $eq: ["$paymentMethod", "CHEQUE"] },
                             then: {
                                 $ifNull: [
-                                    { $toDate: "$paidDate" },
-                                    { $toDate: "$clearedOrRejectedDate" }
+                                    { $toDate: "$clearedOrRejectedDate" },
+                                    { $toDate: "$paidDate" }
                                 ]
                             },
                             else: {
