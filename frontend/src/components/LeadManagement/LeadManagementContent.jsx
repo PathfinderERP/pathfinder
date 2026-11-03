@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { FaCalendarAlt, FaDownload, FaFileUpload, FaFileExcel, FaPlus, FaFilter, FaSearch, FaChevronLeft, FaChevronRight, FaChevronDown, FaMoon, FaSun, FaHistory, FaChartLine, FaTrash, FaRedo, FaPhoneAlt, FaEnvelope, FaEdit, FaStar, FaExclamationTriangle, FaCheckCircle, FaUserGraduate, FaGraduationCap, FaTimes, FaWalking, FaLayerGroup, FaQuestionCircle } from "react-icons/fa";
 import { toast } from "react-toastify";
 import { useNavigate } from "react-router-dom";
@@ -170,6 +170,22 @@ const LeadManagementContent = () => {
     const [schoolsList, setSchoolsList] = useState([]);
     const [uploaders, setUploaders] = useState([]);
     const [campaigns, setCampaigns] = useState([]);
+
+    const filteredCentres = useMemo(() => {
+        if (!filters.zone || filters.zone.length === 0) return allowedCentres;
+        const selectedZoneIds = filters.zone.map(z => (z && typeof z === 'object' && 'value' in z ? z.value : z).toString());
+        const allowedCentreIds = new Set();
+        zones
+            .filter(z => selectedZoneIds.includes(z._id?.toString()))
+            .forEach(z => {
+                (z.centres || []).forEach(c => {
+                    const id = (c?._id || c)?.toString();
+                    if (id) allowedCentreIds.add(id);
+                });
+            });
+        if (allowedCentreIds.size === 0) return allowedCentres;
+        return allowedCentres.filter(c => allowedCentreIds.has((c._id || c)?.toString()));
+    }, [allowedCentres, filters.zone, zones]);
 
     const fetchLeadStats = useCallback(async () => {
         try {
@@ -358,8 +374,9 @@ const LeadManagementContent = () => {
             const responseData = await userResponse.json();
             const currentUser = responseData.user;
 
-            // If superAdmin, fetch all centres
-            if (currentUser.role === 'superAdmin') {
+            // If superAdmin or full-access role (digital, admin), fetch all centres
+            const isAllCentresRole = ['superadmin', 'super admin', 'digital', 'admin'].includes((currentUser?.role || '').toLowerCase().replace(/[\s\-_]+/g, ''));
+            if (isAllCentresRole) {
                 const response = await fetch(`${apiUrl}/centre`, {
                     headers: { Authorization: `Bearer ${token}` }
                 });
@@ -1509,7 +1526,7 @@ const LeadManagementContent = () => {
                                 theme={isDarkMode ? 'dark' : 'light'}
                             />
                         </div>
-                        {user?.role === 'superAdmin' && (
+                        {(Boolean(zones?.length > 0) || ['superadmin', 'super admin', 'admin', 'digital', 'marketing', 'zonalmanager', 'centerincharge', 'centreincharge', 'areamanager', 'coordinator', 'hod', 'intern'].includes(user?.role?.toLowerCase()?.replace(/[\s\-_]+/g, ''))) && (
                             <div className="space-y-2">
                                 <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Zone</label>
                                 <CustomMultiSelect
@@ -1524,7 +1541,7 @@ const LeadManagementContent = () => {
                         <div className="space-y-2">
                             <label className={`text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Centre</label>
                             <CustomMultiSelect
-                                options={allowedCentres.map(c => ({ value: c._id, label: c.centreName }))}
+                                options={filteredCentres.map(c => ({ value: c._id, label: c.centreName }))}
                                 value={filters.centre}
                                 onChange={(selected) => handleFilterChange('centre', selected)}
                                 placeholder="Select Centre"
