@@ -186,10 +186,52 @@ const DailyReport = () => {
     const [walkInModalOpen, setWalkInModalOpen] = useState(false);
     const [walkInSearch, setWalkInSearch] = useState("");
 
+    // Counselling Modal
+    const [counsellingModalOpen, setCounsellingModalOpen] = useState(false);
+    const [counsellingModalCentre, setCounsellingModalCentre] = useState(null);
+    const [counsellingSearch, setCounsellingSearch] = useState("");
+
+    // Admissions Modal
+    const [admissionsModalOpen, setAdmissionsModalOpen] = useState(false);
+    const [admissionsModalCentre, setAdmissionsModalCentre] = useState(null);
+    const [admissionsSearch, setAdmissionsSearch] = useState("");
+
+    // Collections Modal
+    const [collectionsModalOpen, setCollectionsModalOpen] = useState(false);
+    const [collectionsModalCentre, setCollectionsModalCentre] = useState(null);
+    const [collectionsSearch, setCollectionsSearch] = useState("");
+
+    // Marketing All Modal (all centres)
+    const [marketingAllModalOpen, setMarketingAllModalOpen] = useState(false);
+    const [marketingAllSearch, setMarketingAllSearch] = useState("");
+
     const handleOpenWalkInsModal = (centreObj = null) => {
         setWalkInModalCentre(centreObj);
         setWalkInSearch("");
         setWalkInModalOpen(true);
+    };
+
+    const handleOpenCounsellingModal = (centreObj = null) => {
+        setCounsellingModalCentre(centreObj);
+        setCounsellingSearch("");
+        setCounsellingModalOpen(true);
+    };
+
+    const handleOpenAdmissionsModal = (centreObj = null) => {
+        setAdmissionsModalCentre(centreObj);
+        setAdmissionsSearch("");
+        setAdmissionsModalOpen(true);
+    };
+
+    const handleOpenCollectionsModal = (centreObj = null) => {
+        setCollectionsModalCentre(centreObj);
+        setCollectionsSearch("");
+        setCollectionsModalOpen(true);
+    };
+
+    const handleOpenMarketingModal = () => {
+        setMarketingAllSearch("");
+        setMarketingAllModalOpen(true);
     };
 
     // Active Range computation
@@ -529,6 +571,106 @@ const DailyReport = () => {
             (l.className || "").toLowerCase().includes(q)
         );
     }, [walkInModalOpen, walkInModalCentre, reportData, filteredCentres, walkInSearch]);
+
+    // Counselling modal list
+    const counsellingModalLeads = useMemo(() => {
+        if (!counsellingModalOpen || !reportData?.centres) return [];
+        let list = [];
+        if (counsellingModalCentre) {
+            list = (counsellingModalCentre.counsellingDetails || []).map(l => ({
+                ...l,
+                centreName: counsellingModalCentre.centreName
+            }));
+        } else {
+            filteredCentres.forEach(c => {
+                (c.counsellingDetails || []).forEach(l => {
+                    list.push({ ...l, centreName: c.centreName });
+                });
+            });
+        }
+        if (!counsellingSearch.trim()) return list;
+        const q = counsellingSearch.toLowerCase().trim();
+        return list.filter(l =>
+            (l.studentName || "").toLowerCase().includes(q) ||
+            (l.phoneNumber || "").toLowerCase().includes(q) ||
+            (l.centreName || "").toLowerCase().includes(q) ||
+            (l.courseName || "").toLowerCase().includes(q) ||
+            (l.status || "").toLowerCase().includes(q)
+        );
+    }, [counsellingModalOpen, counsellingModalCentre, reportData, filteredCentres, counsellingSearch]);
+
+    // Admissions modal list
+    const admissionsModalList = useMemo(() => {
+        if (!admissionsModalOpen || !reportData?.centres) return [];
+        let list = [];
+        if (admissionsModalCentre) {
+            list = (admissionsModalCentre.admissionsDetails || []).map(l => ({
+                ...l,
+                centreName: admissionsModalCentre.centreName
+            }));
+        } else {
+            filteredCentres.forEach(c => {
+                (c.admissionsDetails || []).forEach(l => {
+                    list.push({ ...l, centreName: c.centreName });
+                });
+            });
+        }
+        if (!admissionsSearch.trim()) return list;
+        const q = admissionsSearch.toLowerCase().trim();
+        return list.filter(l =>
+            (l.studentName || "").toLowerCase().includes(q) ||
+            (l.phoneNumber || "").toLowerCase().includes(q) ||
+            (l.centreName || "").toLowerCase().includes(q) ||
+            (l.courseName || "").toLowerCase().includes(q) ||
+            (l.admissionNumber || "").toLowerCase().includes(q)
+        );
+    }, [admissionsModalOpen, admissionsModalCentre, reportData, filteredCentres, admissionsSearch]);
+
+    // Collections modal list
+    const collectionsModalList = useMemo(() => {
+        if (!collectionsModalOpen || !reportData?.centres) return [];
+        let list = [];
+        if (collectionsModalCentre) {
+            list = (collectionsModalCentre.paymentsDetails || []).map(l => ({
+                ...l,
+                centreName: collectionsModalCentre.centreName
+            }));
+        } else {
+            filteredCentres.forEach(c => {
+                (c.paymentsDetails || []).forEach(l => {
+                    list.push({ ...l, centreName: c.centreName });
+                });
+            });
+        }
+        if (!collectionsSearch.trim()) return list;
+        const q = collectionsSearch.toLowerCase().trim();
+        return list.filter(l =>
+            (l.studentName || "").toLowerCase().includes(q) ||
+            (l.centreName || "").toLowerCase().includes(q) ||
+            (l.courseName || "").toLowerCase().includes(q) ||
+            (l.paymentMethod || "").toLowerCase().includes(q) ||
+            (l.type || "").toLowerCase().includes(q)
+        );
+    }, [collectionsModalOpen, collectionsModalCentre, reportData, filteredCentres, collectionsSearch]);
+
+    // Marketing All modal list
+    const marketingAllModalActivities = useMemo(() => {
+        if (!marketingAllModalOpen || !reportData?.centres) return [];
+        let list = [];
+        filteredCentres.forEach(c => {
+            (c.marketingActivities || []).forEach(act => {
+                list.push({ ...act, centreName: c.centreName });
+            });
+        });
+        if (!marketingAllSearch.trim()) return list;
+        const q = marketingAllSearch.toLowerCase().trim();
+        return list.filter(a =>
+            (a.institution || "").toLowerCase().includes(q) ||
+            (a.centreName || "").toLowerCase().includes(q) ||
+            (a.activityType || "").toLowerCase().includes(q) ||
+            (a.marketerName || "").toLowerCase().includes(q)
+        );
+    }, [marketingAllModalOpen, reportData, filteredCentres, marketingAllSearch]);
 
     // Excel Export (includes both Excl. GST and Incl. GST)
     const handleExportExcel = () => {
@@ -995,8 +1137,14 @@ const DailyReport = () => {
                 {/* 3. Top KPI Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
                     {/* Total Calls */}
-                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
-                        }`}>
+                    <div
+                        onClick={() => handleOpenWalkInsModal(null)}
+                        className={`p-4 rounded-xl border shadow-sm relative overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${isDark
+                            ? "bg-slate-900/70 border-slate-800 hover:border-emerald-500/40"
+                            : "bg-white border-slate-200 hover:border-emerald-400"
+                            }`}
+                        title="Click to view all walk-in leads"
+                    >
                         <div className="flex items-center justify-between mb-2">
                             <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                 Calls &amp; Follow-ups
@@ -1040,8 +1188,14 @@ const DailyReport = () => {
                     </div>
 
                     {/* Counselling */}
-                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
-                        }`}>
+                    <div
+                        onClick={() => handleOpenCounsellingModal(null)}
+                        className={`p-4 rounded-xl border shadow-sm relative overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${isDark
+                            ? "bg-slate-900/70 border-slate-800 hover:border-purple-500/40"
+                            : "bg-white border-slate-200 hover:border-purple-400"
+                            }`}
+                        title="Click to view all counselling sessions"
+                    >
                         <div className="flex items-center justify-between mb-2">
                             <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                 Counselling
@@ -1059,8 +1213,14 @@ const DailyReport = () => {
                     </div>
 
                     {/* Marketing Visits */}
-                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
-                        }`}>
+                    <div
+                        onClick={() => handleOpenMarketingModal()}
+                        className={`p-4 rounded-xl border shadow-sm relative overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${isDark
+                            ? "bg-slate-900/70 border-slate-800 hover:border-pink-500/40"
+                            : "bg-white border-slate-200 hover:border-pink-400"
+                            }`}
+                        title="Click to view all marketing activities"
+                    >
                         <div className="flex items-center justify-between mb-2">
                             <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                 Marketing Visits
@@ -1078,8 +1238,14 @@ const DailyReport = () => {
                     </div>
 
                     {/* Admissions */}
-                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
-                        }`}>
+                    <div
+                        onClick={() => handleOpenAdmissionsModal(null)}
+                        className={`p-4 rounded-xl border shadow-sm relative overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${isDark
+                            ? "bg-slate-900/70 border-slate-800 hover:border-cyan-500/40"
+                            : "bg-white border-slate-200 hover:border-cyan-400"
+                            }`}
+                        title="Click to view all admissions"
+                    >
                         <div className="flex items-center justify-between mb-2">
                             <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                 Admissions
@@ -1097,10 +1263,14 @@ const DailyReport = () => {
                     </div>
 
                     {/* Total Collection (Without GST as primary!) */}
-                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${isDark
-                        ? "bg-gradient-to-br from-blue-950/60 to-indigo-950/50 border-blue-800/50"
-                        : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
-                        }`}>
+                    <div
+                        onClick={() => handleOpenCollectionsModal(null)}
+                        className={`p-4 rounded-xl border shadow-sm relative overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${isDark
+                            ? "bg-gradient-to-br from-blue-950/60 to-indigo-950/50 border-blue-800/50 hover:border-blue-600/60"
+                            : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200 hover:border-blue-400"
+                            }`}
+                        title="Click to view all payment collections"
+                    >
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-1">
                                 <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-blue-300" : "text-blue-700"}`}>
@@ -1258,15 +1428,25 @@ const DailyReport = () => {
 
                                                 {/* Counselling */}
                                                 <td className="py-3.5 px-3 text-center">
-                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs ${c.counsellingCount > 0
-                                                        ? isDark
-                                                            ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                                                            : "bg-purple-50 text-purple-700 border border-purple-200"
-                                                        : isDark ? "text-slate-600" : "text-slate-400"
-                                                        }`}>
-                                                        <FaHandsHelping className="text-[10px]" />
-                                                        {c.counsellingCount}
-                                                    </span>
+                                                    {c.counsellingCount > 0 ? (
+                                                        <button
+                                                            onClick={() => handleOpenCounsellingModal(c)}
+                                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-sm ${isDark
+                                                                ? "bg-purple-500/10 text-purple-400 border border-purple-500/20 hover:bg-purple-500/20"
+                                                                : "bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100"
+                                                                }`}
+                                                            title="Click to view counselling sessions"
+                                                        >
+                                                            <FaHandsHelping className="text-[10px]" />
+                                                            {c.counsellingCount}
+                                                        </button>
+                                                    ) : (
+                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs ${isDark ? "text-slate-600" : "text-slate-400"
+                                                            }`}>
+                                                            <FaHandsHelping className="text-[10px]" />
+                                                            0
+                                                        </span>
+                                                    )}
                                                 </td>
 
                                                 {/* Marketing (Schools & Purpose) */}
@@ -1331,11 +1511,18 @@ const DailyReport = () => {
                                                     {hasAdmissions ? (
                                                         <div className="space-y-1.5 cursor-pointer">
                                                             <div className="flex items-center gap-2">
-                                                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold shadow-sm transition-all hover:scale-105 ${isDark ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "bg-cyan-50 text-cyan-700 border border-cyan-200"
-                                                                    }`}>
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleOpenAdmissionsModal(c);
+                                                                    }}
+                                                                    className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold shadow-sm transition-all hover:scale-105 cursor-pointer active:scale-95 ${isDark ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30" : "bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-100"
+                                                                        }`}
+                                                                    title="Click to view centre admissions details"
+                                                                >
                                                                     <FaGraduationCap className="text-xs" />
                                                                     {c.admissionsCount} {c.admissionsCount === 1 ? "Admission" : "Admissions"}
-                                                                </span>
+                                                                </button>
 
                                                                 <button
                                                                     onClick={(e) => {
@@ -1422,14 +1609,18 @@ const DailyReport = () => {
                                                 {/* Total Collection (Without GST) */}
                                                 <td className="py-3.5 px-4 text-right whitespace-nowrap">
                                                     <div>
-                                                        <span className={`text-[13px] font-black px-2.5 py-1 rounded-lg inline-block ${c.totalCollection > 0
-                                                            ? isDark
-                                                                ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
-                                                                : "bg-blue-50 text-blue-800 border border-blue-200"
-                                                            : isDark ? "text-slate-600" : "text-slate-400"
-                                                            }`}>
+                                                        <button
+                                                            onClick={() => handleOpenCollectionsModal(c)}
+                                                            className={`text-[13px] font-black px-2.5 py-1 rounded-lg inline-block cursor-pointer transition-all hover:scale-105 active:scale-95 ${c.totalCollection > 0
+                                                                ? isDark
+                                                                    ? "bg-blue-500/15 text-blue-300 border border-blue-500/30 hover:bg-blue-500/25"
+                                                                    : "bg-blue-50 text-blue-800 border border-blue-200 hover:bg-blue-100"
+                                                                : isDark ? "text-slate-600" : "text-slate-400"
+                                                                }`}
+                                                            title="Click to view centre collection details"
+                                                        >
                                                             {formatCurrency(c.totalCollection)}
-                                                        </span>
+                                                        </button>
                                                         {c.totalCollectionWithGst > 0 && (
                                                             <span className={`block text-[9px] font-bold mt-0.5 opacity-70 ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                                                                 Incl. GST: {formatCurrency(c.totalCollectionWithGst)}
@@ -1456,17 +1647,41 @@ const DailyReport = () => {
                                         <td className="py-4 px-3 text-center text-emerald-500">
                                             {filteredSummary.totalCalls}
                                         </td>
-                                        <td className="py-4 px-3 text-center text-amber-500">
-                                            {filteredSummary.totalWalkIns}
+                                        <td className="py-4 px-3 text-center">
+                                            <button
+                                                onClick={() => handleOpenWalkInsModal(null)}
+                                                className="text-amber-500 font-bold hover:underline cursor-pointer"
+                                                title="View all walk-in leads"
+                                            >
+                                                {filteredSummary.totalWalkIns}
+                                            </button>
                                         </td>
-                                        <td className="py-4 px-3 text-center text-purple-500">
-                                            {filteredSummary.totalCounselling}
+                                        <td className="py-4 px-3 text-center">
+                                            <button
+                                                onClick={() => handleOpenCounsellingModal(null)}
+                                                className="text-purple-500 font-bold hover:underline cursor-pointer"
+                                                title="View all counselling sessions"
+                                            >
+                                                {filteredSummary.totalCounselling}
+                                            </button>
                                         </td>
                                         <td className="py-4 px-4 text-pink-500">
-                                            {filteredSummary.totalMarketingActivities} Visits ({filteredSummary.totalSchoolsVisited} Schools)
+                                            <button
+                                                onClick={() => handleOpenMarketingModal()}
+                                                className="text-pink-500 font-bold hover:underline cursor-pointer text-left"
+                                                title="View all marketing activities"
+                                            >
+                                                {filteredSummary.totalMarketingActivities} Visits ({filteredSummary.totalSchoolsVisited} Schools)
+                                            </button>
                                         </td>
                                         <td className="py-4 px-4 text-cyan-500">
-                                            {filteredSummary.totalAdmissions} Admissions
+                                            <button
+                                                onClick={() => handleOpenAdmissionsModal(null)}
+                                                className="text-cyan-500 font-bold hover:underline cursor-pointer text-left"
+                                                title="View all admissions"
+                                            >
+                                                {filteredSummary.totalAdmissions} Admissions
+                                            </button>
                                         </td>
                                         <td className="py-4 px-3 text-right">
                                             <span className="text-emerald-500 block">
@@ -1489,9 +1704,13 @@ const DailyReport = () => {
                                             )}
                                         </td>
                                         <td className="py-4 px-4 text-right">
-                                            <span className="text-blue-400 text-sm block font-black">
+                                            <button
+                                                onClick={() => handleOpenCollectionsModal(null)}
+                                                className="text-blue-400 text-sm block font-black hover:underline cursor-pointer ml-auto"
+                                                title="View all collection payments"
+                                            >
                                                 {formatCurrency(filteredSummary.totalCollection)}
-                                            </span>
+                                            </button>
                                             {filteredSummary.totalCollectionWithGst > 0 && (
                                                 <span className={`text-[9px] block font-normal lowercase ${isDark ? "text-slate-300" : "text-slate-600"}`}>
                                                     incl: {formatCurrency(filteredSummary.totalCollectionWithGst)}
@@ -1760,7 +1979,346 @@ const DailyReport = () => {
                     </div>
                 )}
 
-                {/* 7. Walk-In Details Modal */}
+                {/* 7. Counselling Details Modal */}
+                {counsellingModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                        <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
+                            {/* Modal Header */}
+                            <div className={`p-5 border-b flex items-center justify-between gap-4 ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-400 flex items-center justify-center">
+                                        <FaHandsHelping className="text-lg" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black">
+                                            {counsellingModalCentre ? `Counselling — ${counsellingModalCentre.centreName}` : "Counselling — All Centres"}
+                                        </h3>
+                                        <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                            Showing {counsellingModalLeads.length} counselling session(s) for {dateDisplayLabel}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className={`relative flex items-center rounded-xl border px-3 py-1.5 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-300"}`}>
+                                        <FaSearch className={`text-xs mr-2 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            value={counsellingSearch}
+                                            onChange={(e) => setCounsellingSearch(e.target.value)}
+                                            className={`bg-transparent text-xs focus:outline-none w-32 sm:w-44 ${isDark ? "text-slate-100 placeholder-slate-500" : "text-slate-800 placeholder-slate-400"}`}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => { setCounsellingModalOpen(false); setCounsellingModalCentre(null); }}
+                                        className={`p-2 rounded-xl transition-colors cursor-pointer ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200 text-slate-600"}`}
+                                    >
+                                        <FaTimes />
+                                    </button>
+                                </div>
+                            </div>
+                            {/* Modal Body */}
+                            <div className="p-5 overflow-y-auto space-y-3">
+                                {counsellingModalLeads.length === 0 ? (
+                                    <div className="text-center py-12 text-slate-500 text-xs">No counselling sessions found for this selection.</div>
+                                ) : (
+                                    counsellingModalLeads.map((item, idx) => (
+                                        <div key={item._id || idx} className={`p-3.5 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all ${isDark ? "bg-slate-950/40 border-slate-800 hover:border-slate-700" : "bg-slate-50 border-slate-200 hover:border-slate-300"}`}>
+                                            <div className="space-y-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="font-black text-sm text-purple-400">{item.studentName || "—"}</span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-700"}`}>{item.centreName}</span>
+                                                    {item.type && (
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${item.type === "Board" ? "bg-blue-500/20 text-blue-400" : "bg-purple-500/20 text-purple-400"}`}>{item.type}</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                                                    {item.phoneNumber && (
+                                                        <span className="flex items-center gap-1"><FaPhoneAlt className="text-[10px]" />{item.phoneNumber}</span>
+                                                    )}
+                                                    {item.courseName && <span>Course: <strong className={isDark ? "text-slate-200" : "text-slate-700"}>{item.courseName}</strong></span>}
+                                                    {item.className && <span>Class: <strong className={isDark ? "text-slate-200" : "text-slate-700"}>{item.className}</strong></span>}
+                                                </div>
+                                                {item.remarks && <p className={`text-xs italic mt-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>Remarks: {item.remarks}</p>}
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1.5 text-xs flex-shrink-0">
+                                                {item.status && (
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${item.status === "Admitted" ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30" : "bg-amber-500/20 text-amber-400 border border-amber-500/30"}`}>
+                                                        {item.status}
+                                                    </span>
+                                                )}
+                                                {item.date && <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>{new Date(item.date).toLocaleDateString("en-IN")}</span>}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            {/* Modal Footer */}
+                            <div className={`p-4 border-t flex items-center justify-between ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                <span className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Total: {counsellingModalLeads.length} sessions</span>
+                                <button
+                                    onClick={() => { setCounsellingModalOpen(false); setCounsellingModalCentre(null); }}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"}`}
+                                >Close</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 8. Admissions Details Modal */}
+                {admissionsModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                        <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
+                            {/* Modal Header */}
+                            <div className={`p-5 border-b flex items-center justify-between gap-4 ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
+                                        <FaGraduationCap className="text-lg" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black">
+                                            {admissionsModalCentre ? `Admissions — ${admissionsModalCentre.centreName}` : "Admissions — All Centres"}
+                                        </h3>
+                                        <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                            Showing {admissionsModalList.length} admission(s) for {dateDisplayLabel}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className={`relative flex items-center rounded-xl border px-3 py-1.5 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-300"}`}>
+                                        <FaSearch className={`text-xs mr-2 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            value={admissionsSearch}
+                                            onChange={(e) => setAdmissionsSearch(e.target.value)}
+                                            className={`bg-transparent text-xs focus:outline-none w-32 sm:w-44 ${isDark ? "text-slate-100 placeholder-slate-500" : "text-slate-800 placeholder-slate-400"}`}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => { setAdmissionsModalOpen(false); setAdmissionsModalCentre(null); }}
+                                        className={`p-2 rounded-xl transition-colors cursor-pointer ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200 text-slate-600"}`}
+                                    >
+                                        <FaTimes />
+                                    </button>
+                                </div>
+                            </div>
+                            {/* Modal Body */}
+                            <div className="p-5 overflow-y-auto space-y-3">
+                                {admissionsModalList.length === 0 ? (
+                                    <div className="text-center py-12 text-slate-500 text-xs">No admissions found for this selection.</div>
+                                ) : (
+                                    admissionsModalList.map((item, idx) => (
+                                        <div key={item._id || idx} className={`p-3.5 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all ${isDark ? "bg-slate-950/40 border-slate-800 hover:border-slate-700" : "bg-slate-50 border-slate-200 hover:border-slate-300"}`}>
+                                            <div className="space-y-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="font-black text-sm text-cyan-400">{item.studentName || "—"}</span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-700"}`}>{item.centreName}</span>
+                                                    {item.type && (
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${item.type === "Board" ? "bg-blue-500/20 text-blue-400" : "bg-cyan-500/20 text-cyan-400"}`}>{item.type}</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                                                    {item.phoneNumber && <span className="flex items-center gap-1"><FaPhoneAlt className="text-[10px]" />{item.phoneNumber}</span>}
+                                                    {item.courseName && <span>Course: <strong className={isDark ? "text-slate-200" : "text-slate-700"}>{item.courseName}</strong></span>}
+                                                    {item.admissionNumber && <span>Adm#: <strong className={isDark ? "text-slate-200" : "text-slate-700"}>{item.admissionNumber}</strong></span>}
+                                                </div>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1.5 text-xs flex-shrink-0">
+                                                {item.totalPaid > 0 && (
+                                                    <span className={`text-sm font-black ${isDark ? "text-emerald-400" : "text-emerald-700"}`}>{formatCurrency(item.totalPaid)}</span>
+                                                )}
+                                                {item.downPayment > 0 && (
+                                                    <span className={`text-[10px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>Down: {formatCurrency(item.downPayment)}</span>
+                                                )}
+                                                {item.admissionDate && <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>{new Date(item.admissionDate).toLocaleDateString("en-IN")}</span>}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            {/* Modal Footer */}
+                            <div className={`p-4 border-t flex items-center justify-between ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                <span className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Total: {admissionsModalList.length} admissions</span>
+                                <button
+                                    onClick={() => { setAdmissionsModalOpen(false); setAdmissionsModalCentre(null); }}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"}`}
+                                >Close</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 9. Collections Details Modal */}
+                {collectionsModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                        <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
+                            {/* Modal Header */}
+                            <div className={`p-5 border-b flex items-center justify-between gap-4 ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-blue-500/20 text-blue-400 flex items-center justify-center">
+                                        <FaRupeeSign className="text-lg" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black">
+                                            {collectionsModalCentre ? `Collections — ${collectionsModalCentre.centreName}` : "Collections — All Centres"}
+                                        </h3>
+                                        <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                            Showing {collectionsModalList.length} payment(s) for {dateDisplayLabel}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className={`relative flex items-center rounded-xl border px-3 py-1.5 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-300"}`}>
+                                        <FaSearch className={`text-xs mr-2 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            value={collectionsSearch}
+                                            onChange={(e) => setCollectionsSearch(e.target.value)}
+                                            className={`bg-transparent text-xs focus:outline-none w-32 sm:w-44 ${isDark ? "text-slate-100 placeholder-slate-500" : "text-slate-800 placeholder-slate-400"}`}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => { setCollectionsModalOpen(false); setCollectionsModalCentre(null); }}
+                                        className={`p-2 rounded-xl transition-colors cursor-pointer ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200 text-slate-600"}`}
+                                    >
+                                        <FaTimes />
+                                    </button>
+                                </div>
+                            </div>
+                            {/* Modal Body */}
+                            <div className="p-5 overflow-y-auto space-y-3">
+                                {collectionsModalList.length === 0 ? (
+                                    <div className="text-center py-12 text-slate-500 text-xs">No payment records found for this selection.</div>
+                                ) : (
+                                    collectionsModalList.map((item, idx) => (
+                                        <div key={item._id || idx} className={`p-3.5 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all ${isDark ? "bg-slate-950/40 border-slate-800 hover:border-slate-700" : "bg-slate-50 border-slate-200 hover:border-slate-300"}`}>
+                                            <div className="space-y-1">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="font-black text-sm text-blue-400">{item.studentName || "—"}</span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-700"}`}>{item.centreName}</span>
+                                                    {item.type && (
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${item.type === "EMI" ? "bg-indigo-500/20 text-indigo-400" : "bg-emerald-500/20 text-emerald-400"}`}>{item.type}</span>
+                                                    )}
+                                                    {item.paymentMethod && (
+                                                        <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-600"}`}>{item.paymentMethod}</span>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-400">
+                                                    {item.courseName && <span>Course: <strong className={isDark ? "text-slate-200" : "text-slate-700"}>{item.courseName}</strong></span>}
+                                                    {item.billId && <span>Bill#: <strong className={isDark ? "text-slate-200" : "text-slate-700"}>{item.billId}</strong></span>}
+                                                    {item.installmentNumber > 0 && <span>EMI #{item.installmentNumber}</span>}
+                                                </div>
+                                                {item.remarks && <p className={`text-xs italic mt-1 ${isDark ? "text-slate-400" : "text-slate-600"}`}>Remarks: {item.remarks}</p>}
+                                            </div>
+                                            <div className="flex flex-col items-end gap-1.5 text-xs flex-shrink-0">
+                                                <span className={`text-sm font-black ${isDark ? "text-blue-300" : "text-blue-800"}`}>{formatCurrency(item.amountWithoutGst)}</span>
+                                                {item.amountWithGst > 0 && item.amountWithGst !== item.amountWithoutGst && (
+                                                    <span className={`text-[10px] ${isDark ? "text-slate-400" : "text-slate-500"}`}>Incl. GST: {formatCurrency(item.amountWithGst)}</span>
+                                                )}
+                                                {item.date && <span className={`text-[10px] ${isDark ? "text-slate-500" : "text-slate-400"}`}>{new Date(item.date).toLocaleDateString("en-IN")}</span>}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            {/* Modal Footer */}
+                            <div className={`p-4 border-t flex items-center justify-between ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                <span className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Total: {collectionsModalList.length} payments</span>
+                                <button
+                                    onClick={() => { setCollectionsModalOpen(false); setCollectionsModalCentre(null); }}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"}`}
+                                >Close</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 10. Marketing All Centres Modal */}
+                {marketingAllModalOpen && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
+                        <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"}`}>
+                            {/* Modal Header */}
+                            <div className={`p-5 border-b flex items-center justify-between gap-4 ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                <div className="flex items-center gap-3">
+                                    <div className="w-9 h-9 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center">
+                                        <GiSchoolBag className="text-lg" />
+                                    </div>
+                                    <div>
+                                        <h3 className="text-base font-black">Marketing Activities — All Centres</h3>
+                                        <p className={`text-xs ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                            Showing {marketingAllModalActivities.length} activities for {dateDisplayLabel}
+                                        </p>
+                                    </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <div className={`relative flex items-center rounded-xl border px-3 py-1.5 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-300"}`}>
+                                        <FaSearch className={`text-xs mr-2 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
+                                        <input
+                                            type="text"
+                                            placeholder="Search..."
+                                            value={marketingAllSearch}
+                                            onChange={(e) => setMarketingAllSearch(e.target.value)}
+                                            className={`bg-transparent text-xs focus:outline-none w-32 sm:w-44 ${isDark ? "text-slate-100 placeholder-slate-500" : "text-slate-800 placeholder-slate-400"}`}
+                                        />
+                                    </div>
+                                    <button
+                                        onClick={() => setMarketingAllModalOpen(false)}
+                                        className={`p-2 rounded-xl transition-colors cursor-pointer ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200 text-slate-600"}`}
+                                    >
+                                        <FaTimes />
+                                    </button>
+                                </div>
+                            </div>
+                            {/* Modal Body */}
+                            <div className="p-5 overflow-y-auto space-y-3.5">
+                                {marketingAllModalActivities.length === 0 ? (
+                                    <div className="text-center py-12 text-slate-500 text-xs">No marketing activities found for this selection.</div>
+                                ) : (
+                                    marketingAllModalActivities.map((act, index) => (
+                                        <div key={act._id || index} className={`p-4 rounded-xl border space-y-2.5 transition-all ${isDark ? "bg-slate-950/40 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                            <div className="flex flex-wrap items-center justify-between gap-2">
+                                                <div className="flex items-center gap-2">
+                                                    <span className="font-black text-sm text-cyan-400">{act.institution}</span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-700"}`}>{act.activityType}</span>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded font-semibold ${isDark ? "bg-pink-500/15 text-pink-400" : "bg-pink-50 text-pink-700"}`}>{act.centreName}</span>
+                                                </div>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${act.status === "Approved" ? "bg-emerald-500/20 text-emerald-400" : "bg-amber-500/20 text-amber-400"}`}>{act.status}</span>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                                <div>
+                                                    <span className={`text-[11px] font-bold uppercase block ${isDark ? "text-slate-500" : "text-slate-400"}`}>Activity Purpose</span>
+                                                    <p className="font-medium mt-0.5">{act.activityPurpose || "—"}</p>
+                                                </div>
+                                                <div>
+                                                    <span className={`text-[11px] font-bold uppercase block ${isDark ? "text-slate-500" : "text-slate-400"}`}>Executive / Marketer</span>
+                                                    <p className="font-medium mt-0.5">{act.marketerName || "—"}</p>
+                                                </div>
+                                                {act.remarks && (
+                                                    <div className="md:col-span-2">
+                                                        <span className={`text-[11px] font-bold uppercase block ${isDark ? "text-slate-500" : "text-slate-400"}`}>Remarks</span>
+                                                        <p className={`p-2.5 rounded-lg border mt-1 ${isDark ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-700"}`}>{act.remarks}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            {/* Modal Footer */}
+                            <div className={`p-4 border-t flex items-center justify-between ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"}`}>
+                                <span className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>Total: {marketingAllModalActivities.length} activities</span>
+                                <button
+                                    onClick={() => setMarketingAllModalOpen(false)}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"}`}
+                                >Close</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* 11. Walk-In Details Modal */}
                 {walkInModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
                         <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"

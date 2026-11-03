@@ -156,6 +156,8 @@ export const getDailyCentreReport = async (req, res) => {
                 followUpsCount: 0,
                 walkInCount: 0,
                 walkIns: [],
+                callsDetails: [],
+                counsellingDetails: [],
                 counsellingCount: 0,
                 counsellingNormalCount: 0,
                 counsellingBoardCount: 0,
@@ -165,6 +167,8 @@ export const getDailyCentreReport = async (req, res) => {
                 marketingCount: 0,
                 schoolsCount: 0,
                 admissionsCount: 0,
+                admissionsDetails: [],
+                paymentsDetails: [],
                 coursesBreakdown: {},
                 freshCollection: 0,
                 emiCollection: 0,
@@ -302,14 +306,22 @@ export const getDailyCentreReport = async (req, res) => {
             // e1) Board Course Counselling for date
             BoardCourseCounselling.find({
                 counselledDate: { $gte: startOfRange, $lte: endOfRange }
-            }).select("studentId centre counselledDate").lean(),
+            })
+                .populate("studentId", "studentsDetails studentName mobileNum")
+                .populate("boardId", "boardName name")
+                .select("studentId studentName mobileNum centre counselledDate boardId")
+                .lean(),
 
             // e2) Lead Counselling for date
             LeadManagement.find({
                 centre: { $in: targetCentreIds },
                 isCounseled: true,
                 updatedAt: { $gte: startOfRange, $lte: endOfRange }
-            }).select("_id centre updatedAt").lean(),
+            })
+                .populate("className", "name")
+                .populate("course", "courseName name")
+                .select("_id name phoneNumber centre updatedAt className course courseText remarks leadType status")
+                .lean(),
 
             // f) Marketing Planner activities for date
             MarketingPlanner.find({
@@ -331,7 +343,8 @@ export const getDailyCentreReport = async (req, res) => {
                 ]
             })
                 .populate("course", "courseName name")
-                .select("centre student course courseText admissionDate createdAt downPayment totalPaidAmount")
+                .populate("student", "studentsDetails")
+                .select("centre student course courseText admissionDate createdAt downPayment totalPaidAmount admissionNumber")
                 .lean(),
 
             // g2) Board Course Admissions for date
@@ -342,7 +355,8 @@ export const getDailyCentreReport = async (req, res) => {
                 ]
             })
                 .populate("boardId", "boardName name")
-                .select("centre studentId boardId boardCourseName admissionDate createdAt downPayment admissionFee totalPaidAmount")
+                .populate("studentId", "studentsDetails studentName mobileNum")
+                .select("centre studentId studentName mobileNum boardId boardCourseName admissionDate createdAt downPayment admissionFee totalPaidAmount admissionNumber")
                 .lean(),
 
             // h) Payments / Collections for date
@@ -439,7 +453,24 @@ export const getDailyCentreReport = async (req, res) => {
                         revenueBase: 1,
                         paymentMethod: 1,
                         remarks: 1,
-                        billId: 1
+                        billId: 1,
+                        effectiveDate: 1,
+                        transactionId: 1,
+                        studentName: {
+                            $ifNull: [
+                                "$admissionDetails.studentName",
+                                "$admissionDetails.name",
+                                "$admissionDetails.studentDetails.name",
+                                "-"
+                            ]
+                        },
+                        courseName: {
+                            $ifNull: [
+                                "$admissionDetails.boardCourseName",
+                                "$admissionDetails.courseText",
+                                "-"
+                            ]
+                        }
                     }
                 }
             ])
@@ -501,6 +532,17 @@ export const getDailyCentreReport = async (req, res) => {
             const cObj = resolveToCanonical(item.centre);
             if (cObj && item._id) {
                 cObj._normalCounsSet.add(item._id.toString());
+                cObj.counsellingDetails.push({
+                    _id: item._id,
+                    type: "Lead Counselling",
+                    studentName: item.name || "Lead Student",
+                    phoneNumber: item.phoneNumber || "-",
+                    className: item.className?.name || "-",
+                    courseName: item.course?.courseName || item.courseText || "-",
+                    date: item.updatedAt,
+                    status: item.status || "Counselled",
+                    remarks: item.remarks || ""
+                });
             }
         });
 
@@ -508,6 +550,19 @@ export const getDailyCentreReport = async (req, res) => {
             const cObj = resolveToCanonical(item.centre);
             if (cObj && (item.studentId || item._id)) {
                 cObj._boardCounsSet.add((item.studentId || item._id).toString());
+                const sName = item.studentName || item.studentId?.studentsDetails?.[0]?.studentName || item.studentId?.studentName || "Board Student";
+                const sPhone = item.mobileNum || item.studentId?.studentsDetails?.[0]?.mobileNum || "-";
+                cObj.counsellingDetails.push({
+                    _id: item._id,
+                    type: "Board Course Counselling",
+                    studentName: sName,
+                    phoneNumber: sPhone,
+                    className: "Board",
+                    courseName: item.boardId?.boardName || item.boardId?.name || "Board Course",
+                    date: item.counselledDate,
+                    status: "Counselled",
+                    remarks: ""
+                });
             }
         });
 
@@ -569,6 +624,19 @@ export const getDailyCentreReport = async (req, res) => {
                 const cNameRaw = adm.course?.courseName || adm.course?.name || adm.courseText || "General Course";
                 const courseName = cNameRaw.trim().toUpperCase();
                 cObj.coursesBreakdown[courseName] = (cObj.coursesBreakdown[courseName] || 0) + 1;
+
+                const sDetail = adm.student?.studentsDetails?.[0];
+                cObj.admissionsDetails.push({
+                    _id: adm._id,
+                    type: "Regular Admission",
+                    studentName: sDetail?.studentName || "Student",
+                    phoneNumber: sDetail?.mobileNum || sDetail?.whatsappNumber || "-",
+                    courseName,
+                    admissionDate: adm.admissionDate || adm.createdAt,
+                    downPayment: adm.downPayment || 0,
+                    totalPaid: adm.totalPaidAmount || 0,
+                    admissionNumber: adm.admissionNumber || "-"
+                });
             }
         });
 
@@ -584,6 +652,20 @@ export const getDailyCentreReport = async (req, res) => {
                 const cNameRaw = adm.boardCourseName || adm.boardId?.boardName || adm.boardId?.name || "Board Course";
                 const courseName = cNameRaw.trim().toUpperCase();
                 cObj.coursesBreakdown[courseName] = (cObj.coursesBreakdown[courseName] || 0) + 1;
+
+                const sName = adm.studentName || adm.studentId?.studentsDetails?.[0]?.studentName || adm.studentId?.studentName || "Student";
+                const sPhone = adm.mobileNum || adm.studentId?.studentsDetails?.[0]?.mobileNum || "-";
+                cObj.admissionsDetails.push({
+                    _id: adm._id,
+                    type: "Board Admission",
+                    studentName: sName,
+                    phoneNumber: sPhone,
+                    courseName,
+                    admissionDate: adm.admissionDate || adm.createdAt,
+                    downPayment: adm.downPayment || adm.admissionFee || 0,
+                    totalPaid: adm.totalPaidAmount || 0,
+                    admissionNumber: adm.admissionNumber || "-"
+                });
             }
         });
 
@@ -603,7 +685,7 @@ export const getDailyCentreReport = async (req, res) => {
                 const amtWithoutGst = Number(pay.revenueBase) || 0;
                 const amtWithGst = Number(pay.paidAmount) || 0;
                 const instNum = Number(pay.installmentNumber);
-                const isFresh = instNum === 0 || (instNum === 1 && /down\s*payment|admission|initial/i.test(pay.remarks || ""));
+                const isFresh = instNum === 0 || (instNum === 1 && /downs*payment|admission|initial/i.test(pay.remarks || ""));
 
                 if (isFresh) {
                     cObj.freshCollection += amtWithoutGst;
@@ -614,6 +696,20 @@ export const getDailyCentreReport = async (req, res) => {
                 }
                 cObj.totalCollection += amtWithoutGst;
                 cObj.totalCollectionWithGst += amtWithGst;
+
+                cObj.paymentsDetails.push({
+                    _id: pay._id,
+                    billId: pay.billId || "-",
+                    installmentNumber: pay.installmentNumber,
+                    type: isFresh ? "Fresh Collection" : "EMI Collection",
+                    amountWithoutGst: Math.round(amtWithoutGst * 100) / 100,
+                    amountWithGst: Math.round(amtWithGst * 100) / 100,
+                    paymentMethod: pay.paymentMethod || "Other",
+                    remarks: pay.remarks || "-",
+                    date: pay.effectiveDate,
+                    studentName: pay.studentName || "-",
+                    courseName: pay.courseName || "-"
+                });
             }
         });
 
