@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
+﻿import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "../../components/Layout";
 import {
@@ -1500,11 +1500,11 @@ const EmployeesAttendance = () => {
                 if (activeCaution === 'Overtime') {
                     matchesCaution = s === "Overtime" || (hours > target + (5 / 60));
                 } else if (activeCaution === 'Early Leave') {
-                    matchesCaution = s === "Early Leave" || (hours > 4 && hours < target - 0.5);
+                    matchesCaution = s === "Early Leave" || (hours > 4 && hours < target - 1);
                 } else if (activeCaution === 'Half Day') {
                     matchesCaution = s === "Half Day" || (hours >= 4 && hours < target / 2);
                 } else if (activeCaution === 'Short Leave') {
-                    matchesCaution = (hours >= 8.5 && hours < target);
+                    matchesCaution = (hours >= (target - 1) && hours < (target - 0.25));
                 } else if (activeCaution === 'Forgot Checkout') {
                     // Check both status and missing checkout
                     matchesCaution = s === 'Forgot to Checkout' || (record.checkIn?.time && !record.checkOut?.time);
@@ -1876,8 +1876,8 @@ const EmployeesAttendance = () => {
                     <div className={`flex flex-wrap gap-4 px-6 py-3 border rounded-[2px] shadow-inner ${isDarkMode ? 'bg-[#131619] border-gray-800' : 'bg-white border-gray-200'}`}>
                         <LegendItem color="#ef4444" label="Absent (<4h)" isDarkMode={isDarkMode} />
                         <LegendItem color="#f97316" label="Half Day (<4.5h)" isDarkMode={isDarkMode} />
-                        <LegendItem color="#ec4899" label="Early Leave (up to 8.5h)" isDarkMode={isDarkMode} />
-                        <LegendItem color="#84cc16" label="Short Leave (8.5 - 9h)" isDarkMode={isDarkMode} />
+                        <LegendItem color="#ec4899" label="Early Leave (up to 8h)" isDarkMode={isDarkMode} />
+                        <LegendItem color="#84cc16" label="Short Leave (8 - 8.75h)" isDarkMode={isDarkMode} />
                         <LegendItem color="#10b981" label="Present (9h)" isDarkMode={isDarkMode} />
                         <LegendItem color="#6366f1" label="Overtime (>9h)" isDarkMode={isDarkMode} />
                         <LegendItem color="#94a3b8" label="Week Off (DAY OFF)" isDarkMode={isDarkMode} />
@@ -2194,9 +2194,9 @@ const EmployeesAttendance = () => {
                                                                 label = "Absent";
                                                             } else if (s === "Half Day" || (hours < 4.5 && att.checkOut)) {
                                                                 badgeClass = "bg-orange-500/10 text-orange-500 border border-orange-500/20";
-                                                            } else if (s === "Early Leave" || (hours < 8.5 && att.checkOut)) {
+                                                            } else if (s === "Early Leave" || (hours < 8 && att.checkOut)) {
                                                                 badgeClass = "bg-pink-500/10 text-pink-500 border border-pink-500/20";
-                                                            } else if (hours < 9 && att.checkOut) {
+                                                            } else if (hours >= (8 /* target-1 */) && hours < (8.75 /* target-0.25 */) && att.checkOut) {
                                                                 badgeClass = "bg-lime-500/10 text-lime-400 border border-lime-500/20";
                                                                 label = "Short Leave";
                                                             } else if (s === "Overtime" || (hours > 9.05 && att.checkOut)) {
@@ -2455,7 +2455,7 @@ const EmployeesAttendance = () => {
                                                                 label = isHoliday ? 'Present' : 'Absent';
                                                             } else if (s === 'Half Day' || (hours < (target / 2) && r.checkOut)) {
                                                                 badgeCls = 'bg-orange-500/10 text-orange-400'; label = 'Half Day';
-                                                            } else if (s === 'Early Leave' || (hours < (target - 0.5) && r.checkOut)) {
+                                                            } else if (s === 'Early Leave' || (hours < (target - 1) && r.checkOut)) {
                                                                 badgeCls = 'bg-pink-500/10 text-pink-400'; label = 'Early Leave';
                                                             } else if (hours < target && r.checkOut) {
                                                                 badgeCls = 'bg-lime-500/10 text-lime-400'; label = 'Short';
@@ -2570,9 +2570,9 @@ const EmployeesAttendance = () => {
                                                                 badgeClass = "bg-red-500/10 text-red-500 border border-red-500/20";
                                                             } else if (s === "Half Day" || (hours < 4.5 && record.checkOut)) {
                                                                 badgeClass = "bg-orange-500/10 text-orange-500 border border-orange-500/20";
-                                                            } else if (s === "Early Leave" || (hours < 8.5 && record.checkOut)) {
+                                                            } else if (s === "Early Leave" || (hours < 8 && record.checkOut)) {
                                                                 badgeClass = "bg-pink-500/10 text-pink-500 border border-pink-500/20";
-                                                            } else if (hours < 9 && record.checkOut) {
+                                                            } else if (hours >= (8 /* target-1 */) && hours < (8.75 /* target-0.25 */) && record.checkOut) {
                                                                 badgeClass = "bg-lime-500/10 text-lime-400 border border-lime-500/20";
                                                                 label = "Short Leave";
                                                             } else if (s === "Overtime" || ((hours > 9 + (5 / 60)) && record.checkOut)) {

@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+﻿import mongoose from "mongoose";
 import EmployeeAttendance from "../../models/Attendance/EmployeeAttendance.js";
 import LeaveRequest from "../../models/Attendance/LeaveRequest.js";
 import Employee from "../../models/HR/Employee.js";
@@ -30,10 +30,10 @@ export const determineAttendanceStatus = (workedHours, targetHours = 9) => {
     if (workedHours < (target / 2)) {
         return "Half Day";
     }
-    if (workedHours < (target - 0.5)) {
+    if (workedHours < (target - 1)) {
         return "Early Leave";
     }
-    if (workedHours < target) {
+    if (workedHours < (target - 0.25)) {
         return "Short Leave";
     }
     if (workedHours > (target + (5 / 60))) {
@@ -894,10 +894,10 @@ export const getAllAttendance = async (req, res) => {
                     const target = getTargetWorkingHours(emp?.workingHours);
                     
                     const matchesAnyStatus = statuses.some(st => {
-                        if (st === 'Short Leave') return (hours >= (target - 0.5) && hours < target);
+                        if (st === 'Short Leave') return (hours >= (target - 1) && hours < (target - 0.25));
                         if (st === 'Forgot Checkout') return (s === 'Forgot to Checkout' || (att.checkIn?.time && !att.checkOut?.time));
                         if (st === 'Overtime') return s === 'Overtime' || (hours > target + (5 / 60));
-                        if (st === 'Early Leave') return s === 'Early Leave' || (hours > 4 && hours < target - 0.5);
+                        if (st === 'Early Leave') return s === 'Early Leave' || (hours > 4 && hours < target - 1);
                         if (st === 'Half Day') return s === 'Half Day' || (hours >= 4 && hours < target / 2);
                         if (st === 'Absent') return s === 'Absent' || att.isAbsent;
                         return s === st;
@@ -1450,7 +1450,7 @@ export const getAttendanceDashboardStats = async (req, res) => {
             }).length,
             earlyLeave: attendances.filter(a => {
                 const target = getTargetWorkingHours(a.employeeId?.workingHours);
-                return a.status === 'Early Leave' || (a.workingHours > 4 && a.workingHours < target - 0.5);
+                return a.status === 'Early Leave' || (a.workingHours > 4 && a.workingHours < target - 1);
             }).length,
             halfDay: attendances.filter(a => {
                 const target = getTargetWorkingHours(a.employeeId?.workingHours);
@@ -1458,7 +1458,7 @@ export const getAttendanceDashboardStats = async (req, res) => {
             }).length,
             shortLeave: attendances.filter(a => {
                 const target = getTargetWorkingHours(a.employeeId?.workingHours);
-                return a.workingHours >= (target - 0.5) && a.workingHours < target;
+                return a.workingHours >= (target - 1) && a.workingHours < (target - 0.25);
             }).length,
             forgotCheckout: attendances.filter(a => {
                 return a.status === 'Forgot to Checkout' || (a.checkIn?.time && !a.checkOut?.time);
@@ -1541,7 +1541,7 @@ export const getAttendanceDashboardStats = async (req, res) => {
                 }).length,
                 earlyLeave: dailyAtts.filter(a => {
                     const target = getTargetWorkingHours(a.employeeId?.workingHours);
-                    return a.status === 'Early Leave' || (a.workingHours > 4 && a.workingHours < target - 0.5);
+                    return a.status === 'Early Leave' || (a.workingHours > 4 && a.workingHours < target - 1);
                 }).length,
                 halfDay: dailyAtts.filter(a => {
                     const target = getTargetWorkingHours(a.employeeId?.workingHours);
@@ -1549,7 +1549,7 @@ export const getAttendanceDashboardStats = async (req, res) => {
                 }).length,
                 shortLeave: dailyAtts.filter(a => {
                     const target = getTargetWorkingHours(a.employeeId?.workingHours);
-                    return a.workingHours >= (target - 0.5) && a.workingHours < target;
+                    return a.workingHours >= (target - 1) && a.workingHours < (target - 0.25);
                 }).length,
                 forgotCheckout: dailyAtts.filter(a => {
                     return a.status === 'Forgot to Checkout' || (a.checkIn?.time && !a.checkOut?.time);

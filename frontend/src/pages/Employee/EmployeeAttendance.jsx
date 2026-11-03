@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+﻿import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import Layout from "../../components/Layout";
 import {
@@ -149,8 +149,8 @@ const computeStatusFromHours = (status, hours, target = 9, hasApprovedReg = fals
     if (hours > 0) {
         if (hours < 4) return "Absent";
         if (hours < (targetNum / 2)) return "Half Day";
-        if (hours < (targetNum - 0.5)) return "Early Leave";
-        if (hours < targetNum) return "Short Leave";
+        if (hours < (targetNum - 1)) return "Early Leave";
+        if (hours < (targetNum - 0.25)) return "Short Leave";
         if (hours > (targetNum + (5 / 60))) return "Overtime";
         return "Present";
     }
@@ -550,10 +550,10 @@ const CalendarMonthCard = React.memo(({
                         } else if (s === "Half Day" || (hours >= 4 && hours < (target / 2))) {
                             colorClass = "bg-orange-500/20 text-orange-400 border border-orange-500/30";
                             dotColor = "bg-orange-500";
-                        } else if (s === "Early Leave" || (hours >= (target / 2) && hours < (target - 0.5))) {
+                        } else if (s === "Early Leave" || (hours >= (target / 2) && hours < (target - 1))) {
                             colorClass = "bg-pink-500/20 text-pink-400 border border-pink-500/30";
                             dotColor = "bg-pink-500";
-                        } else if (s === "Short Leave" || (hours >= (target - 0.5) && hours < target)) {
+                        } else if (s === "Short Leave" || (hours >= (target - 1) && hours < (target - 0.25))) {
                             colorClass = "bg-lime-500/20 text-lime-400 border border-lime-500/30";
                             dotColor = "bg-lime-500";
                         } else if (s === "Overtime" || hours > (target + (5 / 60))) {
@@ -1269,11 +1269,11 @@ const EmployeeAttendance = () => {
                                 </div>
                                 <div className="flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-2.5 h-2.5 bg-pink-500 rounded-[1px]" />
-                                    <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Early Leave (up to 8.5h)</span>
+                                    <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Early Leave (up to 8h)</span>
                                 </div>
                                 <div className="flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-2.5 h-2.5 bg-lime-500 rounded-[1px]" />
-                                    <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Short Leave (8.5 - 9h)</span>
+                                    <span className={`text-[8px] sm:text-[9px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-500' : 'text-gray-400'}`}>Short Leave (8 - 8.75h)</span>
                                 </div>
                                 <div className="flex items-center gap-1.5 sm:gap-2">
                                     <div className="w-2.5 h-2.5 bg-emerald-500 rounded-[1px]" />
