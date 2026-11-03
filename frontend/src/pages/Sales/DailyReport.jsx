@@ -12,6 +12,8 @@ import {
     FaSearch,
     FaSyncAlt,
     FaBuilding,
+    FaMapMarkerAlt,
+    FaFilter,
     FaWalking,
     FaChevronLeft,
     FaChevronRight,
@@ -25,6 +27,7 @@ import {
     FaBookOpen
 } from "react-icons/fa";
 import { GiSchoolBag } from "react-icons/gi";
+import CustomMultiSelect from "../../components/common/CustomMultiSelect";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
 
@@ -86,6 +89,28 @@ const getDateRangeLimits = (range, customStart, customEnd) => {
             end = formatDate(yesterday);
             break;
         }
+        case "This Week": {
+            const dayOfWeek = today.getDay(); // 0 is Sun, 1 is Mon
+            const diffToMon = (dayOfWeek + 6) % 7;
+            const monday = new Date(today);
+            monday.setDate(today.getDate() - diffToMon);
+            start = formatDate(monday);
+            end = formatDate(today);
+            break;
+        }
+        case "Previous Week": {
+            const dayOfWeek = today.getDay();
+            const diffToMon = (dayOfWeek + 6) % 7;
+            const thisMonday = new Date(today);
+            thisMonday.setDate(today.getDate() - diffToMon);
+            const prevMonday = new Date(thisMonday);
+            prevMonday.setDate(thisMonday.getDate() - 7);
+            const prevSunday = new Date(thisMonday);
+            prevSunday.setDate(thisMonday.getDate() - 1);
+            start = formatDate(prevMonday);
+            end = formatDate(prevSunday);
+            break;
+        }
         case "Last 7 Days": {
             const sevenDaysAgo = new Date(today);
             sevenDaysAgo.setDate(today.getDate() - 6);
@@ -99,6 +124,7 @@ const getDateRangeLimits = (range, customStart, customEnd) => {
             end = formatDate(today);
             break;
         }
+        case "Previous Month":
         case "Last Month": {
             const startOfLastMonth = new Date(today.getFullYear(), today.getMonth() - 1, 1);
             const endOfLastMonth = new Date(today.getFullYear(), today.getMonth(), 0);
@@ -112,7 +138,15 @@ const getDateRangeLimits = (range, customStart, customEnd) => {
             end = formatDate(today);
             break;
         }
+        case "Previous Year": {
+            const startOfLastYear = new Date(today.getFullYear() - 1, 0, 1);
+            const endOfLastYear = new Date(today.getFullYear() - 1, 11, 31);
+            start = formatDate(startOfLastYear);
+            end = formatDate(endOfLastYear);
+            break;
+        }
         case "Custom Range":
+        case "Custom":
             start = customStart || formatDate(today);
             end = customEnd || formatDate(today);
             break;
@@ -134,7 +168,10 @@ const DailyReport = () => {
     const [dateRangeOption, setDateRangeOption] = useState("Today");
     const [customStartDate, setCustomStartDate] = useState(getTodayIST());
     const [customEndDate, setCustomEndDate] = useState(getTodayIST());
-    const [selectedCentreFilter, setSelectedCentreFilter] = useState("all");
+    const [selectedZones, setSelectedZones] = useState([]);
+    const [selectedCentres, setSelectedCentres] = useState([]);
+    const [zonesList, setZonesList] = useState([]);
+    const [masterCentresList, setMasterCentresList] = useState([]);
     const [searchTerm, setSearchTerm] = useState("");
     const [loading, setLoading] = useState(false);
     const [reportData, setReportData] = useState(null);
@@ -181,6 +218,104 @@ const DailyReport = () => {
     }, [activeRange]);
 
     // Fetch Report Data
+    // Initial fetch for zones and master centres list
+    useEffect(() => {
+        const loadInitialFilters = async () => {
+            try {
+                const token = localStorage.getItem("token");
+                const headers = { Authorization: `Bearer ${token}` };
+                const zoneRes = await fetch(`${apiUrl}/zone`, { headers });
+                if (zoneRes.ok) {
+                    const zData = await zoneRes.json();
+                    const list = Array.isArray(zData) ? zData : (zData.zones || zData.data || []);
+                    if (list.length > 0) setZonesList(list);
+                }
+            } catch (e) {
+                console.error("Failed to preload zones:", e);
+            }
+        };
+        loadInitialFilters();
+    }, [apiUrl]);
+
+    // Zone options for CustomMultiSelect
+    const zoneOptions = useMemo(() => {
+        return zonesList.map(z => ({ value: String(z._id), label: z.name }));
+    }, [zonesList]);
+
+    // Centre options filtered by selected zones
+    const centreOptions = useMemo(() => {
+        const all = masterCentresList.length > 0
+            ? masterCentresList
+            : (reportData?.allCentres || reportData?.centres || []);
+
+        if (selectedZones.length === 0) {
+            return all.map(c => ({ value: String(c._id), label: c.centreName + (c.code ? ` (${c.code})` : "") }));
+        }
+        const selectedZoneIdSet = new Set(selectedZones);
+        const filteredCentresByZone = all.filter(c => {
+            return zonesList.some(z =>
+                selectedZoneIdSet.has(String(z._id)) &&
+                z.centres &&
+                z.centres.some(zc => String(zc._id || zc) === String(c._id))
+            );
+        });
+        return filteredCentresByZone.map(c => ({ value: String(c._id), label: c.centreName + (c.code ? ` (${c.code})` : "") }));
+    }, [masterCentresList, reportData, selectedZones, zonesList]);
+
+    // Selected Zone objects for CustomMultiSelect
+    const selectedZoneObjects = useMemo(() => {
+        return zoneOptions.filter(o => selectedZones.includes(o.value));
+    }, [zoneOptions, selectedZones]);
+
+    // Selected Centre objects for CustomMultiSelect
+    const selectedCentreObjects = useMemo(() => {
+        return centreOptions.filter(o => selectedCentres.includes(o.value));
+    }, [centreOptions, selectedCentres]);
+
+    // Handle Zone Change (multi-select)
+    const handleZonesChange = (selected) => {
+        const newZones = Array.isArray(selected) ? selected.map(s => (s && typeof s === 'object' && 'value' in s) ? s.value : s) : [];
+        setSelectedZones(newZones);
+        // Clear centres that don't belong to newly selected zones
+        if (newZones.length > 0 && selectedCentres.length > 0) {
+            const selectedZoneIdSet = new Set(newZones);
+            const all = masterCentresList.length > 0
+                ? masterCentresList
+                : (reportData?.allCentres || reportData?.centres || []);
+            const allowedCentreIds = new Set();
+            all.forEach(c => {
+                const inZone = zonesList.some(z =>
+                    selectedZoneIdSet.has(String(z._id)) &&
+                    z.centres &&
+                    z.centres.some(zc => String(zc._id || zc) === String(c._id))
+                );
+                if (inZone) allowedCentreIds.add(String(c._id));
+            });
+            setSelectedCentres(prev => prev.filter(id => allowedCentreIds.has(id)));
+        }
+    };
+
+    // Handle Centre Change (multi-select)
+    const handleCentresChange = (selected) => {
+        const newCentres = Array.isArray(selected) ? selected.map(s => (s && typeof s === 'object' && 'value' in s) ? s.value : s) : [];
+        setSelectedCentres(newCentres);
+    };
+
+    // Has active filters
+    const hasActiveFilters = selectedZones.length > 0 || selectedCentres.length > 0 || (searchTerm && searchTerm.trim() !== "") || dateRangeOption !== "Today";
+
+    // Reset All Filters
+    const handleResetAllFilters = () => {
+        setSelectedZones([]);
+        setSelectedCentres([]);
+        setSearchTerm("");
+        setDateRangeOption("Today");
+        const todayStr = getTodayIST();
+        setCustomStartDate(todayStr);
+        setCustomEndDate(todayStr);
+    };
+
+    // Fetch Report Data
     const fetchReport = useCallback(async () => {
         setLoading(true);
         try {
@@ -193,8 +328,11 @@ const DailyReport = () => {
             if (start === end) {
                 params.append("date", start);
             }
-            if (selectedCentreFilter && selectedCentreFilter !== "all") {
-                params.append("centreId", selectedCentreFilter);
+            if (selectedZones.length > 0) {
+                params.append("zoneIds", selectedZones.join(","));
+            }
+            if (selectedCentres.length > 0) {
+                params.append("centreIds", selectedCentres.join(","));
             }
 
             const res = await fetch(`${apiUrl}/sales/daily-report?${params.toString()}`, {
@@ -206,6 +344,12 @@ const DailyReport = () => {
             const data = await res.json();
             if (res.ok && data.success) {
                 setReportData(data);
+                if (data.zones && data.zones.length > 0) {
+                    setZonesList(data.zones);
+                }
+                if (data.allCentres && data.allCentres.length > 0) {
+                    setMasterCentresList(data.allCentres);
+                }
             } else {
                 toast.error(data.message || "Failed to fetch daily report");
                 setReportData(null);
@@ -217,7 +361,7 @@ const DailyReport = () => {
         } finally {
             setLoading(false);
         }
-    }, [apiUrl, activeRange, selectedCentreFilter]);
+    }, [apiUrl, activeRange, selectedZones, selectedCentres]);
 
     useEffect(() => {
         fetchReport();
@@ -561,16 +705,14 @@ const DailyReport = () => {
 
     return (
         <Layout>
-            <div className={`p-4 md:p-6 space-y-6 min-h-screen transition-colors ${
-                isDark ? "bg-[#0a0f1d] text-slate-100" : "bg-slate-50 text-slate-900"
-            }`}>
+            <div className={`p-4 md:p-6 space-y-6 min-h-screen transition-colors ${isDark ? "bg-[#0a0f1d] text-slate-100" : "bg-slate-50 text-slate-900"
+                }`}>
 
                 {/* 1. Header Banner */}
-                <div className={`p-5 rounded-2xl border flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-xl backdrop-blur-md ${
-                    isDark
-                        ? "bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-blue-950/40 border-slate-800"
-                        : "bg-gradient-to-r from-white via-blue-50/40 to-indigo-50/30 border-slate-200"
-                }`}>
+                <div className={`p-5 rounded-2xl border flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 shadow-xl backdrop-blur-md ${isDark
+                    ? "bg-gradient-to-r from-slate-900/90 via-slate-900/70 to-blue-950/40 border-slate-800"
+                    : "bg-gradient-to-r from-white via-blue-50/40 to-indigo-50/30 border-slate-200"
+                    }`}>
                     <div>
                         <div className="flex items-center gap-3">
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500 to-blue-600 flex items-center justify-center text-white shadow-lg shadow-cyan-500/25">
@@ -581,9 +723,8 @@ const DailyReport = () => {
                                     <h1 className="text-xl md:text-2xl font-black tracking-tight">
                                         Daily Consolidated Report
                                     </h1>
-                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${
-                                        isDark ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-amber-100 text-amber-800 border border-amber-300"
-                                    }`}>
+                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider ${isDark ? "bg-amber-500/20 text-amber-300 border border-amber-500/30" : "bg-amber-100 text-amber-800 border border-amber-300"
+                                        }`}>
                                         Collection Excl. GST
                                     </span>
                                 </div>
@@ -594,133 +735,23 @@ const DailyReport = () => {
                         </div>
                     </div>
 
-                    {/* Date Range Dropdown & Controls */}
-                    <div className="flex flex-wrap items-center gap-2.5 w-full lg:w-auto">
-                        {/* Dropdown Date Range Filter */}
-                        <div className={`relative flex items-center rounded-xl border px-3 py-1.5 shadow-sm ${
-                            isDark ? "bg-slate-800/80 border-slate-700" : "bg-white border-slate-300"
-                        }`}>
-                            <FaCalendarAlt className="text-cyan-500 text-xs mr-2 flex-shrink-0" />
-                            <div className="flex flex-col">
-                                <label className="text-[8px] font-black uppercase tracking-wider text-cyan-500 leading-none mb-0.5">
-                                    Date Range
-                                </label>
-                                <select
-                                    value={dateRangeOption}
-                                    onChange={(e) => handleDateRangeChange(e.target.value)}
-                                    className={`bg-transparent text-xs font-bold focus:outline-none cursor-pointer pr-4 ${
-                                        isDark ? "text-slate-100" : "text-slate-800"
-                                    }`}
-                                >
-                                    <option value="Today" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>Today</option>
-                                    <option value="Yesterday" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>Yesterday</option>
-                                    <option value="Last 7 Days" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>Last 7 Days</option>
-                                    <option value="This Month" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>This Month</option>
-                                    <option value="Last Month" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>Last Month</option>
-                                    <option value="This Year" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>This Year</option>
-                                    <option value="Custom Range" className={isDark ? "bg-slate-900 text-slate-100" : "bg-white text-slate-900"}>Custom Range</option>
-                                </select>
-                            </div>
-                        </div>
-
-                        {/* Custom Range Date Pickers */}
-                        {dateRangeOption === "Custom Range" && (
-                            <div className={`flex items-center gap-2 rounded-xl border px-3 py-1.5 shadow-sm ${
-                                isDark ? "bg-slate-800/80 border-slate-700" : "bg-white border-slate-300"
-                            }`}>
-                                <div className="flex flex-col">
-                                    <label className="text-[8px] font-black uppercase tracking-wider text-slate-400 leading-none mb-0.5">
-                                        From
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={customStartDate}
-                                        onChange={(e) => setCustomStartDate(e.target.value)}
-                                        className={`bg-transparent text-xs font-semibold focus:outline-none cursor-pointer ${
-                                            isDark ? "text-slate-100" : "text-slate-800"
-                                        }`}
-                                    />
-                                </div>
-                                <span className={`text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>to</span>
-                                <div className="flex flex-col">
-                                    <label className="text-[8px] font-black uppercase tracking-wider text-slate-400 leading-none mb-0.5">
-                                        To
-                                    </label>
-                                    <input
-                                        type="date"
-                                        value={customEndDate}
-                                        onChange={(e) => setCustomEndDate(e.target.value)}
-                                        className={`bg-transparent text-xs font-semibold focus:outline-none cursor-pointer ${
-                                            isDark ? "text-slate-100" : "text-slate-800"
-                                        }`}
-                                    />
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Day Stepper (Single Day Navigation) */}
-                        {(dateRangeOption === "Today" || dateRangeOption === "Yesterday" || (dateRangeOption === "Custom Range" && customStartDate === customEndDate)) && (
-                            <div className={`flex items-center rounded-xl border p-1 shadow-sm ${
-                                isDark ? "bg-slate-800/80 border-slate-700" : "bg-white border-slate-300"
-                            }`}>
-                                <button
-                                    onClick={handlePrevDay}
-                                    title="Previous Day"
-                                    className={`p-2 rounded-lg transition-colors ${
-                                        isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"
-                                    }`}
-                                >
-                                    <FaChevronLeft className="text-xs" />
-                                </button>
-                                <span className={`text-[11px] font-bold px-2 ${isDark ? "text-slate-300" : "text-slate-700"}`}>
-                                    {activeRange.start === getTodayIST() ? "Today" : activeRange.start}
-                                </span>
-                                <button
-                                    onClick={handleNextDay}
-                                    title="Next Day"
-                                    className={`p-2 rounded-lg transition-colors ${
-                                        isDark ? "hover:bg-slate-700 text-slate-300" : "hover:bg-slate-100 text-slate-600"
-                                    }`}
-                                >
-                                    <FaChevronRight className="text-xs" />
-                                </button>
-                            </div>
-                        )}
-
-                        {/* Quick Today Button */}
-                        <button
-                            onClick={handleResetToday}
-                            className={`px-3 py-2 rounded-xl text-xs font-bold transition-all border ${
-                                dateRangeOption === "Today" && activeRange.start === getTodayIST()
-                                    ? isDark
-                                        ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400"
-                                        : "bg-cyan-50 border-cyan-200 text-cyan-700"
-                                    : isDark
-                                        ? "bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700"
-                                        : "bg-white border-slate-300 text-slate-700 hover:bg-slate-50"
-                            }`}
-                        >
-                            Today
-                        </button>
-
-                        {/* Export to Excel Button */}
+                    {/* Quick Action Buttons (Export & Refresh) */}
+                    <div className="flex items-center gap-2.5">
                         <button
                             onClick={handleExportExcel}
-                            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all cursor-pointer active:scale-95"
+                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs font-bold shadow-lg shadow-emerald-600/20 transition-all cursor-pointer active:scale-95"
                         >
                             <FaDownload className="text-xs" />
                             <span>Export Excel</span>
                         </button>
 
-                        {/* Refresh Button */}
                         <button
                             onClick={fetchReport}
                             disabled={loading}
-                            className={`p-2.5 rounded-xl border transition-all ${
-                                isDark
-                                    ? "bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700"
-                                    : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
-                            }`}
+                            className={`p-2.5 rounded-xl border transition-all ${isDark
+                                ? "bg-slate-800/80 border-slate-700 text-slate-300 hover:bg-slate-700"
+                                : "bg-white border-slate-300 text-slate-600 hover:bg-slate-50"
+                                }`}
                             title="Refresh Data"
                         >
                             <FaSyncAlt className={`text-xs ${loading ? "animate-spin text-cyan-500" : ""}`} />
@@ -728,51 +759,244 @@ const DailyReport = () => {
                     </div>
                 </div>
 
-                {/* Date Highlight Badge & Search */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex flex-wrap items-center gap-2">
-                        <span className={`text-xs font-bold uppercase tracking-wider ${isDark ? "text-cyan-400" : "text-cyan-600"}`}>
-                            Report Period:
-                        </span>
-                        <span className={`text-sm font-black px-3 py-1 rounded-full border shadow-sm ${
-                            isDark ? "bg-cyan-950/40 border-cyan-500/30 text-cyan-300" : "bg-cyan-50 border-cyan-200 text-cyan-800"
-                        }`}>
-                            {dateDisplayLabel}
-                        </span>
-                        {dateRangeOption !== "Custom Range" && dateRangeOption !== "Today" && (
-                            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${
-                                isDark ? "bg-slate-800 text-slate-400 border border-slate-700" : "bg-slate-200 text-slate-700 border border-slate-300"
-                            }`}>
-                                {dateRangeOption}
-                            </span>
-                        )}
+                {/* 2. Comprehensive Filters Bar */}
+                <div className={`p-4 md:p-5 rounded-2xl border shadow-lg relative z-30 flex flex-col gap-4 ${isDark
+                    ? "bg-slate-900/90 border-slate-800"
+                    : "bg-white border-slate-200"
+                    }`}>
+                    {/* Top Controls Grid/Flex */}
+                    <div className="flex flex-wrap items-end gap-3 justify-between">
+                        <div className="flex flex-wrap items-end gap-3 flex-1">
+                            {/* Zone Filter */}
+                            <div className="w-full sm:w-[200px]">
+                                <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    Zone
+                                </label>
+                                <CustomMultiSelect
+                                    options={zoneOptions}
+                                    value={selectedZoneObjects}
+                                    onChange={handleZonesChange}
+                                    placeholder="All Zones"
+                                    isDarkMode={isDark}
+                                    isMulti={true}
+                                />
+                            </div>
+
+                            {/* Centre Filter */}
+                            <div className="w-full sm:w-[240px]">
+                                <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    Centre
+                                </label>
+                                <CustomMultiSelect
+                                    options={centreOptions}
+                                    value={selectedCentreObjects}
+                                    onChange={handleCentresChange}
+                                    placeholder="All Centres"
+                                    isDarkMode={isDark}
+                                    isMulti={true}
+                                />
+                            </div>
+
+                            {/* Date Range Dropdown Filter */}
+                            <div className="w-full sm:w-[170px]">
+                                <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    Date Range
+                                </label>
+                                <div className={`relative flex items-center rounded-lg border h-[38px] px-3 transition-colors ${isDark ? "bg-[#131619] border-gray-700 hover:border-cyan-500" : "bg-white border-gray-300 hover:border-cyan-500"}`}>
+                                    <FaCalendarAlt className="text-cyan-500 text-xs mr-2 flex-shrink-0" />
+                                    <select
+                                        value={dateRangeOption}
+                                        onChange={(e) => handleDateRangeChange(e.target.value)}
+                                        className={`bg-transparent text-xs font-semibold focus:outline-none cursor-pointer w-full pr-2 ${isDark ? "text-slate-100" : "text-slate-800"}`}
+                                    >
+                                        <option value="Today" className={isDark ? "bg-[#1a1f24] text-slate-100" : "bg-white text-slate-900"}>Today</option>
+                                        <option value="Yesterday" className={isDark ? "bg-[#1a1f24] text-slate-100" : "bg-white text-slate-900"}>Yesterday</option>
+                                        <option value="This Week" className={isDark ? "bg-[#1a1f24] text-slate-100" : "bg-white text-slate-900"}>This Week</option>
+                                        <option value="Previous Week" className={isDark ? "bg-[#1a1f24] text-slate-100" : "bg-white text-slate-900"}>Previous Week</option>
+                                        <option value="This Month" className={isDark ? "bg-[#1a1f24] text-slate-100" : "bg-white text-slate-900"}>This Month</option>
+                                        <option value="Previous Month" className={isDark ? "bg-[#1a1f24] text-slate-100" : "bg-white text-slate-900"}>Previous Month</option>
+                                        <option value="Last 7 Days" className={isDark ? "bg-[#1a1f24] text-slate-100" : "bg-white text-slate-900"}>Last 7 Days</option>
+                                        <option value="This Year" className={isDark ? "bg-[#1a1f24] text-slate-100" : "bg-white text-slate-900"}>This Year</option>
+                                        <option value="Previous Year" className={isDark ? "bg-[#1a1f24] text-slate-100" : "bg-white text-slate-900"}>Previous Year</option>
+                                        <option value="Custom Range" className={isDark ? "bg-[#1a1f24] text-slate-100" : "bg-white text-slate-900"}>Custom Range</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            {/* Custom Range Date Pickers */}
+                            {dateRangeOption === "Custom Range" && (
+                                <div className="space-y-1.5">
+                                    <label className={`block text-[9px] font-black uppercase tracking-widest ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                        Custom Period
+                                    </label>
+                                    <div className={`flex items-center gap-2 rounded-lg border h-[38px] px-3 ${isDark ? "bg-[#131619] border-gray-700" : "bg-white border-gray-300"}`}>
+                                        <input
+                                            type="date"
+                                            value={customStartDate}
+                                            onChange={(e) => setCustomStartDate(e.target.value)}
+                                            className={`bg-transparent text-xs font-semibold focus:outline-none cursor-pointer ${isDark ? "text-slate-100" : "text-slate-800"}`}
+                                        />
+                                        <span className={`text-xs ${isDark ? "text-slate-500" : "text-slate-400"}`}>to</span>
+                                        <input
+                                            type="date"
+                                            value={customEndDate}
+                                            onChange={(e) => setCustomEndDate(e.target.value)}
+                                            className={`bg-transparent text-xs font-semibold focus:outline-none cursor-pointer ${isDark ? "text-slate-100" : "text-slate-800"}`}
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Day Stepper (Single Day Navigation) */}
+                            {(dateRangeOption === "Today" || dateRangeOption === "Yesterday" || (dateRangeOption === "Custom Range" && customStartDate === customEndDate)) && (
+                                <div className="space-y-1.5">
+                                    <label className="block text-[9px] font-black uppercase tracking-widest text-transparent select-none">
+                                        Step
+                                    </label>
+                                    <div className={`flex items-center rounded-lg border h-[38px] px-1 shadow-sm ${isDark ? "bg-[#131619] border-gray-700" : "bg-white border-gray-300"}`}>
+                                        <button
+                                            onClick={handlePrevDay}
+                                            title="Previous Day"
+                                            className={`p-1.5 rounded transition-colors ${isDark ? "hover:bg-slate-800 text-slate-300" : "hover:bg-slate-100 text-slate-600"}`}
+                                        >
+                                            <FaChevronLeft className="text-xs" />
+                                        </button>
+                                        <span className={`text-xs font-bold px-2 whitespace-nowrap ${isDark ? "text-slate-300" : "text-slate-700"}`}>
+                                            {activeRange.start === getTodayIST() ? "Today" : activeRange.start}
+                                        </span>
+                                        <button
+                                            onClick={handleNextDay}
+                                            title="Next Day"
+                                            className={`p-1.5 rounded transition-colors ${isDark ? "hover:bg-slate-800 text-slate-300" : "hover:bg-slate-100 text-slate-600"}`}
+                                        >
+                                            <FaChevronRight className="text-xs" />
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Quick Today Button */}
+                            <div className="space-y-1.5">
+                                <label className="block text-[9px] font-black uppercase tracking-widest text-transparent select-none">
+                                    Today
+                                </label>
+                                <button
+                                    onClick={handleResetToday}
+                                    className={`h-[38px] px-3.5 rounded-lg text-xs font-bold transition-all border flex items-center justify-center ${dateRangeOption === "Today" && activeRange.start === getTodayIST()
+                                        ? isDark
+                                            ? "bg-cyan-500/20 border-cyan-500/40 text-cyan-400"
+                                            : "bg-cyan-50 border-cyan-200 text-cyan-700"
+                                        : isDark
+                                            ? "bg-[#131619] border-gray-700 text-slate-300 hover:bg-slate-800"
+                                            : "bg-white border-gray-300 text-slate-700 hover:bg-slate-50"
+                                        }`}
+                                >
+                                    Today
+                                </button>
+                            </div>
+
+                            {/* Reset Filters Button */}
+                            {hasActiveFilters && (
+                                <div className="space-y-1.5">
+                                    <label className="block text-[9px] font-black uppercase tracking-widest text-transparent select-none">
+                                        Reset
+                                    </label>
+                                    <button
+                                        onClick={handleResetAllFilters}
+                                        className={`h-[38px] flex items-center gap-1.5 px-3 rounded-lg text-xs font-bold transition-all border ${isDark
+                                            ? "bg-rose-500/10 border-rose-500/30 text-rose-400 hover:bg-rose-500/20"
+                                            : "bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100"
+                                            }`}
+                                        title="Reset All Filters"
+                                    >
+                                        <FaTimes className="text-xs" />
+                                        <span>Reset</span>
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Search Input */}
+                        <div className="w-full sm:w-auto">
+                            <label className={`block text-[9px] font-black uppercase tracking-widest mb-1.5 ${isDark ? 'text-gray-400' : 'text-gray-500'}`}>
+                                Search Centre
+                            </label>
+                            <div className={`relative flex items-center rounded-lg border h-[38px] px-3 shadow-sm w-full sm:w-56 ${isDark ? "bg-[#131619] border-gray-700 focus-within:border-cyan-500" : "bg-white border-gray-300 focus-within:border-cyan-500"}`}>
+                                <FaSearch className={`text-xs mr-2 flex-shrink-0 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
+                                <input
+                                    type="text"
+                                    placeholder="Search centre..."
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                    className={`bg-transparent text-xs focus:outline-none w-full ${isDark ? "text-slate-100 placeholder-slate-500" : "text-slate-800 placeholder-slate-400"}`}
+                                />
+                                {searchTerm && (
+                                    <button
+                                        onClick={() => setSearchTerm("")}
+                                        className="text-slate-400 hover:text-slate-200 ml-1 text-xs"
+                                    >
+                                        <FaTimes />
+                                    </button>
+                                )}
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Centre filter & Search */}
-                    <div className="flex items-center gap-3">
-                        <div className={`relative flex items-center rounded-xl border px-3 py-1.5 shadow-sm ${
-                            isDark ? "bg-slate-800/80 border-slate-700" : "bg-white border-slate-300"
-                        }`}>
-                            <FaSearch className={`text-xs mr-2 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
-                            <input
-                                type="text"
-                                placeholder="Filter centres..."
-                                value={searchTerm}
-                                onChange={(e) => setSearchTerm(e.target.value)}
-                                className={`bg-transparent text-xs focus:outline-none w-36 md:w-48 ${
-                                    isDark ? "text-slate-100 placeholder-slate-500" : "text-slate-800 placeholder-slate-400"
-                                }`}
-                            />
+                    {/* Active Filters & Report Period Bar */}
+                    <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-700/50">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className={`text-[11px] font-extrabold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                                Report Period:
+                            </span>
+                            <span className={`text-xs font-black px-3 py-1 rounded-full border shadow-sm ${isDark ? "bg-cyan-950/40 border-cyan-500/30 text-cyan-300" : "bg-cyan-50 border-cyan-200 text-cyan-800"}`}>
+                                {dateDisplayLabel}
+                            </span>
+                            {dateRangeOption !== "Custom Range" && dateRangeOption !== "Today" && (
+                                <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider ${isDark ? "bg-slate-800 text-slate-400 border border-slate-700" : "bg-slate-200 text-slate-700 border border-slate-300"}`}>
+                                    {dateRangeOption}
+                                </span>
+                            )}
+
+                            {/* Active Zone Pills */}
+                            {selectedZones.length > 0 && selectedZones.map(zId => {
+                                const z = zonesList.find(z => String(z._id) === zId);
+                                return z ? (
+                                    <span key={zId} className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                                        Zone: {z.name}
+                                        <button onClick={() => setSelectedZones(prev => prev.filter(id => id !== zId))} className="hover:text-white">
+                                            <FaTimes className="text-[9px]" />
+                                        </button>
+                                    </span>
+                                ) : null;
+                            })}
+
+                            {/* Active Centre Pills */}
+                            {selectedCentres.length > 0 && selectedCentres.map(cId => {
+                                const all = masterCentresList.length > 0 ? masterCentresList : (reportData?.allCentres || reportData?.centres || []);
+                                const c = all.find(c => String(c._id) === cId);
+                                return c ? (
+                                    <span key={cId} className="inline-flex items-center gap-1.5 text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                        {c.centreName}
+                                        <button onClick={() => setSelectedCentres(prev => prev.filter(id => id !== cId))} className="hover:text-white">
+                                            <FaTimes className="text-[9px]" />
+                                        </button>
+                                    </span>
+                                ) : null;
+                            })}
+                        </div>
+
+                        {/* Centre count badge */}
+                        <div className={`text-[11px] font-bold ${isDark ? "text-slate-400" : "text-slate-500"}`}>
+                            Showing <span className="text-cyan-400 font-extrabold">{filteredCentres.length}</span> centre{filteredCentres.length === 1 ? "" : "s"}
                         </div>
                     </div>
                 </div>
 
-                {/* 2. Top KPI Cards */}
+                {/* 3. Top KPI Cards */}
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3.5">
                     {/* Total Calls */}
-                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${
-                        isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
-                    }`}>
+                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
+                        }`}>
                         <div className="flex items-center justify-between mb-2">
                             <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                 Calls &amp; Follow-ups
@@ -792,11 +1016,10 @@ const DailyReport = () => {
                     {/* Walk-Ins */}
                     <div
                         onClick={() => handleOpenWalkInsModal(null)}
-                        className={`p-4 rounded-xl border shadow-sm relative overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${
-                            isDark
-                                ? "bg-slate-900/70 border-slate-800 hover:border-amber-500/40"
-                                : "bg-white border-slate-200 hover:border-amber-400"
-                        }`}
+                        className={`p-4 rounded-xl border shadow-sm relative overflow-hidden cursor-pointer transition-all hover:scale-[1.02] hover:shadow-md ${isDark
+                            ? "bg-slate-900/70 border-slate-800 hover:border-amber-500/40"
+                            : "bg-white border-slate-200 hover:border-amber-400"
+                            }`}
                         title="Click to view all walk-in leads"
                     >
                         <div className="flex items-center justify-between mb-2">
@@ -817,9 +1040,8 @@ const DailyReport = () => {
                     </div>
 
                     {/* Counselling */}
-                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${
-                        isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
-                    }`}>
+                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
+                        }`}>
                         <div className="flex items-center justify-between mb-2">
                             <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                 Counselling
@@ -837,9 +1059,8 @@ const DailyReport = () => {
                     </div>
 
                     {/* Marketing Visits */}
-                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${
-                        isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
-                    }`}>
+                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
+                        }`}>
                         <div className="flex items-center justify-between mb-2">
                             <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                 Marketing Visits
@@ -857,9 +1078,8 @@ const DailyReport = () => {
                     </div>
 
                     {/* Admissions */}
-                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${
-                        isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
-                    }`}>
+                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${isDark ? "bg-slate-900/70 border-slate-800" : "bg-white border-slate-200"
+                        }`}>
                         <div className="flex items-center justify-between mb-2">
                             <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                 Admissions
@@ -877,11 +1097,10 @@ const DailyReport = () => {
                     </div>
 
                     {/* Total Collection (Without GST as primary!) */}
-                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${
-                        isDark
-                            ? "bg-gradient-to-br from-blue-950/60 to-indigo-950/50 border-blue-800/50"
-                            : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
-                    }`}>
+                    <div className={`p-4 rounded-xl border shadow-sm relative overflow-hidden ${isDark
+                        ? "bg-gradient-to-br from-blue-950/60 to-indigo-950/50 border-blue-800/50"
+                        : "bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200"
+                        }`}>
                         <div className="flex items-center justify-between mb-2">
                             <div className="flex items-center gap-1">
                                 <span className={`text-[11px] font-bold uppercase tracking-wider ${isDark ? "text-blue-300" : "text-blue-700"}`}>
@@ -914,17 +1133,15 @@ const DailyReport = () => {
                 </div>
 
                 {/* 3. Centre-wise Consolidated Table */}
-                <div className={`rounded-2xl border shadow-xl overflow-hidden ${
-                    isDark ? "bg-slate-900/80 border-slate-800" : "bg-white border-slate-200"
-                }`}>
+                <div className={`rounded-2xl border shadow-xl overflow-hidden ${isDark ? "bg-slate-900/80 border-slate-800" : "bg-white border-slate-200"
+                    }`}>
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse text-xs">
                             <thead>
-                                <tr className={`border-b uppercase font-bold tracking-wider ${
-                                    isDark
-                                        ? "bg-slate-950/70 text-slate-400 border-slate-800"
-                                        : "bg-slate-100 text-slate-600 border-slate-200"
-                                }`}>
+                                <tr className={`border-b uppercase font-bold tracking-wider ${isDark
+                                    ? "bg-slate-950/70 text-slate-400 border-slate-800"
+                                    : "bg-slate-100 text-slate-600 border-slate-200"
+                                    }`}>
                                     <th className="py-3.5 px-4 w-12 text-center">#</th>
                                     <th className="py-3.5 px-4">Centre</th>
                                     <th className="py-3.5 px-3 text-center">Calls</th>
@@ -934,9 +1151,8 @@ const DailyReport = () => {
                                     <th className="py-3.5 px-4">
                                         <div className="flex items-center gap-1.5">
                                             <span>Admissions (Course Breakdown)</span>
-                                            <span className={`text-[9px] px-1.5 py-0.2 rounded font-normal normal-case ${
-                                                isDark ? "bg-cyan-500/20 text-cyan-300" : "bg-cyan-100 text-cyan-800"
-                                            }`}>
+                                            <span className={`text-[9px] px-1.5 py-0.2 rounded font-normal normal-case ${isDark ? "bg-cyan-500/20 text-cyan-300" : "bg-cyan-100 text-cyan-800"
+                                                }`}>
                                                 Hover for details
                                             </span>
                                         </div>
@@ -978,16 +1194,14 @@ const DailyReport = () => {
                                         return (
                                             <tr
                                                 key={c.centreId}
-                                                className={`transition-colors ${
-                                                    isDark
-                                                        ? "hover:bg-slate-800/40 border-slate-800/40"
-                                                        : "hover:bg-slate-50 border-slate-100"
-                                                }`}
+                                                className={`transition-colors ${isDark
+                                                    ? "hover:bg-slate-800/40 border-slate-800/40"
+                                                    : "hover:bg-slate-50 border-slate-100"
+                                                    }`}
                                             >
                                                 {/* Index */}
-                                                <td className={`py-3.5 px-4 text-center font-bold ${
-                                                    isDark ? "text-slate-500" : "text-slate-400"
-                                                }`}>
+                                                <td className={`py-3.5 px-4 text-center font-bold ${isDark ? "text-slate-500" : "text-slate-400"
+                                                    }`}>
                                                     {idx + 1}
                                                 </td>
 
@@ -998,9 +1212,8 @@ const DailyReport = () => {
                                                             {c.centreName}
                                                         </span>
                                                         {c.code && (
-                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${
-                                                                isDark ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-600"
-                                                            }`}>
+                                                            <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${isDark ? "bg-slate-800 text-slate-400" : "bg-slate-200 text-slate-600"
+                                                                }`}>
                                                                 {c.code}
                                                             </span>
                                                         )}
@@ -1009,13 +1222,12 @@ const DailyReport = () => {
 
                                                 {/* Calls */}
                                                 <td className="py-3.5 px-3 text-center">
-                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs ${
-                                                        c.callsCount > 0
-                                                            ? isDark
-                                                                ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
-                                                                : "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                                            : isDark ? "text-slate-600" : "text-slate-400"
-                                                    }`}>
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs ${c.callsCount > 0
+                                                        ? isDark
+                                                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                                                            : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                                                        : isDark ? "text-slate-600" : "text-slate-400"
+                                                        }`}>
                                                         <FaPhoneAlt className="text-[10px]" />
                                                         {c.callsCount}
                                                     </span>
@@ -1026,20 +1238,18 @@ const DailyReport = () => {
                                                     {c.walkInCount > 0 ? (
                                                         <button
                                                             onClick={() => handleOpenWalkInsModal(c)}
-                                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-sm ${
-                                                                isDark
-                                                                    ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25"
-                                                                    : "bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100"
-                                                            }`}
+                                                            className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs transition-all cursor-pointer hover:scale-105 active:scale-95 shadow-sm ${isDark
+                                                                ? "bg-amber-500/15 text-amber-400 border border-amber-500/30 hover:bg-amber-500/25"
+                                                                : "bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100"
+                                                                }`}
                                                             title="Click to view centre walk-in leads"
                                                         >
                                                             <FaWalking className="text-[10px]" />
                                                             {c.walkInCount}
                                                         </button>
                                                     ) : (
-                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs ${
-                                                            isDark ? "text-slate-600" : "text-slate-400"
-                                                        }`}>
+                                                        <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs ${isDark ? "text-slate-600" : "text-slate-400"
+                                                            }`}>
                                                             <FaWalking className="text-[10px]" />
                                                             0
                                                         </span>
@@ -1048,13 +1258,12 @@ const DailyReport = () => {
 
                                                 {/* Counselling */}
                                                 <td className="py-3.5 px-3 text-center">
-                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs ${
-                                                        c.counsellingCount > 0
-                                                            ? isDark
-                                                                ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
-                                                                : "bg-purple-50 text-purple-700 border border-purple-200"
-                                                            : isDark ? "text-slate-600" : "text-slate-400"
-                                                    }`}>
+                                                    <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg font-bold text-xs ${c.counsellingCount > 0
+                                                        ? isDark
+                                                            ? "bg-purple-500/10 text-purple-400 border border-purple-500/20"
+                                                            : "bg-purple-50 text-purple-700 border border-purple-200"
+                                                        : isDark ? "text-slate-600" : "text-slate-400"
+                                                        }`}>
                                                         <FaHandsHelping className="text-[10px]" />
                                                         {c.counsellingCount}
                                                     </span>
@@ -1065,18 +1274,16 @@ const DailyReport = () => {
                                                     {hasMarketing ? (
                                                         <div className="space-y-1.5">
                                                             <div className="flex items-center gap-2">
-                                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold ${
-                                                                    isDark ? "bg-pink-500/15 text-pink-400 border border-pink-500/30" : "bg-pink-50 text-pink-700 border border-pink-200"
-                                                                }`}>
+                                                                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-bold ${isDark ? "bg-pink-500/15 text-pink-400 border border-pink-500/30" : "bg-pink-50 text-pink-700 border border-pink-200"
+                                                                    }`}>
                                                                     <GiSchoolBag className="text-xs" />
                                                                     {c.marketingCount} {c.marketingCount === 1 ? "activity" : "activities"}
                                                                 </span>
 
                                                                 <button
                                                                     onClick={() => setMarketingModalCentre(c)}
-                                                                    className={`inline-flex items-center gap-1 text-[11px] font-semibold underline underline-offset-2 transition-colors cursor-pointer ${
-                                                                        isDark ? "text-cyan-400 hover:text-cyan-300" : "text-cyan-600 hover:text-cyan-800"
-                                                                    }`}
+                                                                    className={`inline-flex items-center gap-1 text-[11px] font-semibold underline underline-offset-2 transition-colors cursor-pointer ${isDark ? "text-cyan-400 hover:text-cyan-300" : "text-cyan-600 hover:text-cyan-800"
+                                                                        }`}
                                                                 >
                                                                     <span>Details</span>
                                                                     <FaExternalLinkAlt className="text-[9px]" />
@@ -1089,17 +1296,15 @@ const DailyReport = () => {
                                                                     <span
                                                                         key={i}
                                                                         title={`${act.institution} - ${act.activityType} (${act.outcome})`}
-                                                                        className={`text-[10px] px-1.5 py-0.5 rounded truncate max-w-[140px] ${
-                                                                            isDark ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-700"
-                                                                        }`}
+                                                                        className={`text-[10px] px-1.5 py-0.5 rounded truncate max-w-[140px] ${isDark ? "bg-slate-800 text-slate-300" : "bg-slate-100 text-slate-700"
+                                                                            }`}
                                                                     >
                                                                         {act.institution}
                                                                     </span>
                                                                 ))}
                                                                 {c.marketingActivities.length > 2 && (
-                                                                    <span className={`text-[10px] px-1 rounded ${
-                                                                        isDark ? "text-slate-500" : "text-slate-400"
-                                                                    }`}>
+                                                                    <span className={`text-[10px] px-1 rounded ${isDark ? "text-slate-500" : "text-slate-400"
+                                                                        }`}>
                                                                         +{c.marketingActivities.length - 2} more
                                                                     </span>
                                                                 )}
@@ -1126,9 +1331,8 @@ const DailyReport = () => {
                                                     {hasAdmissions ? (
                                                         <div className="space-y-1.5 cursor-pointer">
                                                             <div className="flex items-center gap-2">
-                                                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold shadow-sm transition-all hover:scale-105 ${
-                                                                    isDark ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "bg-cyan-50 text-cyan-700 border border-cyan-200"
-                                                                }`}>
+                                                                <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-lg text-[11px] font-bold shadow-sm transition-all hover:scale-105 ${isDark ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/40" : "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                                                                    }`}>
                                                                     <FaGraduationCap className="text-xs" />
                                                                     {c.admissionsCount} {c.admissionsCount === 1 ? "Admission" : "Admissions"}
                                                                 </span>
@@ -1138,9 +1342,8 @@ const DailyReport = () => {
                                                                         e.stopPropagation();
                                                                         setCoursesModalCentre(c);
                                                                     }}
-                                                                    className={`inline-flex items-center gap-1 text-[11px] font-semibold underline underline-offset-2 transition-colors cursor-pointer ${
-                                                                        isDark ? "text-cyan-400 hover:text-cyan-300" : "text-cyan-600 hover:text-cyan-800"
-                                                                    }`}
+                                                                    className={`inline-flex items-center gap-1 text-[11px] font-semibold underline underline-offset-2 transition-colors cursor-pointer ${isDark ? "text-cyan-400 hover:text-cyan-300" : "text-cyan-600 hover:text-cyan-800"
+                                                                        }`}
                                                                 >
                                                                     <span>All Courses</span>
                                                                 </button>
@@ -1152,16 +1355,14 @@ const DailyReport = () => {
                                                                     <span
                                                                         key={i}
                                                                         title={`${cName}: ${count} student(s)`}
-                                                                        className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border flex items-center gap-1 transition-all hover:border-cyan-400 ${
-                                                                            isDark
-                                                                                ? "bg-slate-800/90 border-slate-700 text-slate-200 hover:bg-slate-750"
-                                                                                : "bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200"
-                                                                        }`}
+                                                                        className={`text-[10px] px-2 py-0.5 rounded-full font-semibold border flex items-center gap-1 transition-all hover:border-cyan-400 ${isDark
+                                                                            ? "bg-slate-800/90 border-slate-700 text-slate-200 hover:bg-slate-750"
+                                                                            : "bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200"
+                                                                            }`}
                                                                     >
                                                                         <span className="truncate max-w-[120px]">{cName}</span>
-                                                                        <span className={`px-1 py-0.2 rounded-full text-[9px] font-black ${
-                                                                            isDark ? "bg-cyan-500/30 text-cyan-300" : "bg-cyan-100 text-cyan-800"
-                                                                        }`}>
+                                                                        <span className={`px-1 py-0.2 rounded-full text-[9px] font-black ${isDark ? "bg-cyan-500/30 text-cyan-300" : "bg-cyan-100 text-cyan-800"
+                                                                            }`}>
                                                                             {count}
                                                                         </span>
                                                                     </span>
@@ -1169,9 +1370,8 @@ const DailyReport = () => {
                                                                 {coursesList.length > 3 && (
                                                                     <span
                                                                         title={`Click or hover to view all ${coursesList.length} courses`}
-                                                                        className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${
-                                                                            isDark ? "bg-cyan-950/60 text-cyan-400 border border-cyan-800" : "bg-cyan-50 text-cyan-700 border border-cyan-200"
-                                                                        }`}
+                                                                        className={`text-[10px] px-1.5 py-0.5 rounded font-bold ${isDark ? "bg-cyan-950/60 text-cyan-400 border border-cyan-800" : "bg-cyan-50 text-cyan-700 border border-cyan-200"
+                                                                            }`}
                                                                     >
                                                                         +{coursesList.length - 3} more
                                                                     </span>
@@ -1188,11 +1388,10 @@ const DailyReport = () => {
                                                 {/* Fresh Collection (Without GST) */}
                                                 <td className="py-3.5 px-3 text-right whitespace-nowrap">
                                                     <div>
-                                                        <span className={`font-bold text-xs ${
-                                                            c.freshCollection > 0
-                                                                ? isDark ? "text-emerald-400" : "text-emerald-700"
-                                                                : isDark ? "text-slate-600" : "text-slate-400"
-                                                        }`}>
+                                                        <span className={`font-bold text-xs ${c.freshCollection > 0
+                                                            ? isDark ? "text-emerald-400" : "text-emerald-700"
+                                                            : isDark ? "text-slate-600" : "text-slate-400"
+                                                            }`}>
                                                             {formatCurrency(c.freshCollection)}
                                                         </span>
                                                         {c.freshCollectionWithGst > 0 && (
@@ -1206,11 +1405,10 @@ const DailyReport = () => {
                                                 {/* EMI Collection (Without GST) */}
                                                 <td className="py-3.5 px-3 text-right whitespace-nowrap">
                                                     <div>
-                                                        <span className={`font-bold text-xs ${
-                                                            c.emiCollection > 0
-                                                                ? isDark ? "text-indigo-400" : "text-indigo-700"
-                                                                : isDark ? "text-slate-600" : "text-slate-400"
-                                                        }`}>
+                                                        <span className={`font-bold text-xs ${c.emiCollection > 0
+                                                            ? isDark ? "text-indigo-400" : "text-indigo-700"
+                                                            : isDark ? "text-slate-600" : "text-slate-400"
+                                                            }`}>
                                                             {formatCurrency(c.emiCollection)}
                                                         </span>
                                                         {c.emiCollectionWithGst > 0 && (
@@ -1224,13 +1422,12 @@ const DailyReport = () => {
                                                 {/* Total Collection (Without GST) */}
                                                 <td className="py-3.5 px-4 text-right whitespace-nowrap">
                                                     <div>
-                                                        <span className={`text-[13px] font-black px-2.5 py-1 rounded-lg inline-block ${
-                                                            c.totalCollection > 0
-                                                                ? isDark
-                                                                    ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
-                                                                    : "bg-blue-50 text-blue-800 border border-blue-200"
-                                                                : isDark ? "text-slate-600" : "text-slate-400"
-                                                        }`}>
+                                                        <span className={`text-[13px] font-black px-2.5 py-1 rounded-lg inline-block ${c.totalCollection > 0
+                                                            ? isDark
+                                                                ? "bg-blue-500/15 text-blue-300 border border-blue-500/30"
+                                                                : "bg-blue-50 text-blue-800 border border-blue-200"
+                                                            : isDark ? "text-slate-600" : "text-slate-400"
+                                                            }`}>
                                                             {formatCurrency(c.totalCollection)}
                                                         </span>
                                                         {c.totalCollectionWithGst > 0 && (
@@ -1249,11 +1446,10 @@ const DailyReport = () => {
                             {/* Consolidated Table Footer */}
                             {!loading && filteredCentres.length > 0 && (
                                 <tfoot>
-                                    <tr className={`border-t-2 font-black uppercase tracking-wider text-xs ${
-                                        isDark
-                                            ? "bg-slate-950/90 text-slate-200 border-slate-700"
-                                            : "bg-slate-200 text-slate-900 border-slate-300"
-                                    }`}>
+                                    <tr className={`border-t-2 font-black uppercase tracking-wider text-xs ${isDark
+                                        ? "bg-slate-950/90 text-slate-200 border-slate-700"
+                                        : "bg-slate-200 text-slate-900 border-slate-300"
+                                        }`}>
                                         <td colSpan={2} className="py-4 px-4 text-left font-black">
                                             Total ({filteredSummary.totalCentres} Centres)
                                         </td>
@@ -1324,11 +1520,10 @@ const DailyReport = () => {
                             transform: hoveredAdmission.rect.top > 260 ? "translateY(-100%)" : "translateY(0)"
                         }}
                     >
-                        <div className={`w-80 p-4 rounded-2xl border shadow-2xl backdrop-blur-xl ${
-                            isDark
-                                ? "bg-slate-900/95 border-cyan-500/40 text-slate-100 shadow-cyan-950/50"
-                                : "bg-white/95 border-cyan-300 text-slate-900 shadow-xl"
-                        }`}>
+                        <div className={`w-80 p-4 rounded-2xl border shadow-2xl backdrop-blur-xl ${isDark
+                            ? "bg-slate-900/95 border-cyan-500/40 text-slate-100 shadow-cyan-950/50"
+                            : "bg-white/95 border-cyan-300 text-slate-900 shadow-xl"
+                            }`}>
                             {/* Card Header */}
                             <div className="flex items-center justify-between border-b pb-2.5 mb-2.5 border-slate-700/50">
                                 <div className="flex items-center gap-2">
@@ -1343,9 +1538,8 @@ const DailyReport = () => {
                                     </div>
                                 </div>
 
-                                <span className={`px-2.5 py-1 rounded-full text-[11px] font-black ${
-                                    isDark ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "bg-cyan-100 text-cyan-800"
-                                }`}>
+                                <span className={`px-2.5 py-1 rounded-full text-[11px] font-black ${isDark ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30" : "bg-cyan-100 text-cyan-800"
+                                    }`}>
                                     {hoveredAdmission.centre.admissionsCount} {hoveredAdmission.centre.admissionsCount === 1 ? "Admission" : "Admissions"}
                                 </span>
                             </div>
@@ -1355,11 +1549,10 @@ const DailyReport = () => {
                                 {Object.keys(hoveredAdmission.centre.coursesBreakdown || {}).map((cName, idx) => (
                                     <div
                                         key={idx}
-                                        className={`flex items-start gap-2 py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-colors ${
-                                            isDark
-                                                ? "bg-slate-800/60 hover:bg-slate-800/90 text-slate-200"
-                                                : "bg-slate-100 hover:bg-slate-200/70 text-slate-800"
-                                        }`}
+                                        className={`flex items-start gap-2 py-1.5 px-2.5 rounded-lg text-xs font-semibold transition-colors ${isDark
+                                            ? "bg-slate-800/60 hover:bg-slate-800/90 text-slate-200"
+                                            : "bg-slate-100 hover:bg-slate-200/70 text-slate-800"
+                                            }`}
                                     >
                                         <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 mt-1.5 flex-shrink-0" />
                                         <span className="leading-snug break-words">
@@ -1370,9 +1563,8 @@ const DailyReport = () => {
                             </div>
 
                             {/* Card Footer hint */}
-                            <div className={`mt-2.5 pt-2 border-t text-[10px] flex items-center justify-between ${
-                                isDark ? "border-slate-800 text-slate-400" : "border-slate-200 text-slate-500"
-                            }`}>
+                            <div className={`mt-2.5 pt-2 border-t text-[10px] flex items-center justify-between ${isDark ? "border-slate-800 text-slate-400" : "border-slate-200 text-slate-500"
+                                }`}>
                                 <span className="flex items-center gap-1">
                                     <FaInfoCircle className="text-[9px] text-cyan-400" />
                                     <span>Period: {dateDisplayLabel}</span>
@@ -1386,13 +1578,11 @@ const DailyReport = () => {
                 {/* 5. Marketing Details Modal */}
                 {marketingModalCentre && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-                        <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${
-                            isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
-                        }`}>
-                            {/* Modal Header */}
-                            <div className={`p-5 border-b flex items-center justify-between ${
-                                isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                        <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
                             }`}>
+                            {/* Modal Header */}
+                            <div className={`p-5 border-b flex items-center justify-between ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                                }`}>
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-xl bg-pink-500/20 text-pink-400 flex items-center justify-center">
                                         <GiSchoolBag className="text-lg" />
@@ -1408,9 +1598,8 @@ const DailyReport = () => {
                                 </div>
                                 <button
                                     onClick={() => setMarketingModalCentre(null)}
-                                    className={`p-2 rounded-xl transition-colors cursor-pointer ${
-                                        isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200 text-slate-600"
-                                    }`}
+                                    className={`p-2 rounded-xl transition-colors cursor-pointer ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200 text-slate-600"
+                                        }`}
                                 >
                                     <FaTimes />
                                 </button>
@@ -1426,27 +1615,24 @@ const DailyReport = () => {
                                     marketingModalCentre.marketingActivities.map((act, index) => (
                                         <div
                                             key={act._id || index}
-                                            className={`p-4 rounded-xl border space-y-2.5 transition-all ${
-                                                isDark ? "bg-slate-950/40 border-slate-800" : "bg-slate-50 border-slate-200"
-                                            }`}
+                                            className={`p-4 rounded-xl border space-y-2.5 transition-all ${isDark ? "bg-slate-950/40 border-slate-800" : "bg-slate-50 border-slate-200"
+                                                }`}
                                         >
                                             <div className="flex flex-wrap items-center justify-between gap-2">
                                                 <div className="flex items-center gap-2">
                                                     <span className="font-black text-sm text-cyan-400">
                                                         {act.institution}
                                                     </span>
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                                                        isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-700"
-                                                    }`}>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-700"
+                                                        }`}>
                                                         {act.activityType}
                                                     </span>
                                                 </div>
 
-                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${
-                                                    act.status === "Approved"
-                                                        ? "bg-emerald-500/20 text-emerald-400"
-                                                        : "bg-amber-500/20 text-amber-400"
-                                                }`}>
+                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${act.status === "Approved"
+                                                    ? "bg-emerald-500/20 text-emerald-400"
+                                                    : "bg-amber-500/20 text-amber-400"
+                                                    }`}>
                                                     {act.status}
                                                 </span>
                                             </div>
@@ -1470,9 +1656,8 @@ const DailyReport = () => {
                                                     <span className={`text-[11px] font-bold uppercase block ${isDark ? "text-slate-500" : "text-slate-400"}`}>
                                                         Remarks
                                                     </span>
-                                                    <p className={`p-2.5 rounded-lg border mt-1 ${
-                                                        isDark ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-700"
-                                                    }`}>
+                                                    <p className={`p-2.5 rounded-lg border mt-1 ${isDark ? "bg-slate-900 border-slate-800 text-slate-300" : "bg-white border-slate-200 text-slate-700"
+                                                        }`}>
                                                         {act.remarks || "No remarks logged."}
                                                     </p>
                                                 </div>
@@ -1499,14 +1684,12 @@ const DailyReport = () => {
                             </div>
 
                             {/* Modal Footer */}
-                            <div className={`p-4 border-t flex justify-end ${
-                                isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
-                            }`}>
+                            <div className={`p-4 border-t flex justify-end ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                                }`}>
                                 <button
                                     onClick={() => setMarketingModalCentre(null)}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                                        isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"
-                                    }`}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"
+                                        }`}
                                 >
                                     Close
                                 </button>
@@ -1518,12 +1701,10 @@ const DailyReport = () => {
                 {/* 6. Course Breakdown Modal */}
                 {coursesModalCentre && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-                        <div className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden ${
-                            isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
-                        }`}>
-                            <div className={`p-5 border-b flex items-center justify-between ${
-                                isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                        <div className={`w-full max-w-lg rounded-2xl border shadow-2xl overflow-hidden ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
                             }`}>
+                            <div className={`p-5 border-b flex items-center justify-between ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                                }`}>
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-xl bg-cyan-500/20 text-cyan-400 flex items-center justify-center">
                                         <FaGraduationCap className="text-lg" />
@@ -1539,9 +1720,8 @@ const DailyReport = () => {
                                 </div>
                                 <button
                                     onClick={() => setCoursesModalCentre(null)}
-                                    className={`p-2 rounded-xl transition-colors cursor-pointer ${
-                                        isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200 text-slate-600"
-                                    }`}
+                                    className={`p-2 rounded-xl transition-colors cursor-pointer ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200 text-slate-600"
+                                        }`}
                                 >
                                     <FaTimes />
                                 </button>
@@ -1551,31 +1731,27 @@ const DailyReport = () => {
                                 {Object.entries(coursesModalCentre.coursesBreakdown || {}).map(([cName, count], idx) => (
                                     <div
                                         key={idx}
-                                        className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${
-                                            isDark ? "bg-slate-950/50 border-slate-800" : "bg-slate-50 border-slate-200"
-                                        }`}
+                                        className={`p-3 rounded-xl border flex items-center justify-between gap-3 ${isDark ? "bg-slate-950/50 border-slate-800" : "bg-slate-50 border-slate-200"
+                                            }`}
                                     >
                                         <div className="flex items-center gap-2.5">
                                             <span className="w-2 h-2 rounded-full bg-cyan-400 flex-shrink-0" />
                                             <span className="font-bold text-xs">{cName}</span>
                                         </div>
-                                        <span className={`px-2.5 py-1 rounded-full text-xs font-black flex-shrink-0 ${
-                                            isDark ? "bg-cyan-500/20 text-cyan-300" : "bg-cyan-100 text-cyan-800"
-                                        }`}>
+                                        <span className={`px-2.5 py-1 rounded-full text-xs font-black flex-shrink-0 ${isDark ? "bg-cyan-500/20 text-cyan-300" : "bg-cyan-100 text-cyan-800"
+                                            }`}>
                                             {count} {count === 1 ? "student" : "students"}
                                         </span>
                                     </div>
                                 ))}
                             </div>
 
-                            <div className={`p-4 border-t flex justify-end ${
-                                isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
-                            }`}>
+                            <div className={`p-4 border-t flex justify-end ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                                }`}>
                                 <button
                                     onClick={() => setCoursesModalCentre(null)}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                                        isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"
-                                    }`}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"
+                                        }`}
                                 >
                                     Close
                                 </button>
@@ -1587,13 +1763,11 @@ const DailyReport = () => {
                 {/* 7. Walk-In Details Modal */}
                 {walkInModalOpen && (
                     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm animate-fade-in">
-                        <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${
-                            isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
-                        }`}>
-                            {/* Modal Header */}
-                            <div className={`p-5 border-b flex items-center justify-between gap-4 ${
-                                isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                        <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${isDark ? "bg-slate-900 border-slate-800 text-slate-100" : "bg-white border-slate-200 text-slate-900"
                             }`}>
+                            {/* Modal Header */}
+                            <div className={`p-5 border-b flex items-center justify-between gap-4 ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                                }`}>
                                 <div className="flex items-center gap-3">
                                     <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center">
                                         <FaWalking className="text-lg" />
@@ -1609,18 +1783,16 @@ const DailyReport = () => {
                                 </div>
 
                                 <div className="flex items-center gap-2">
-                                    <div className={`relative flex items-center rounded-xl border px-3 py-1.5 ${
-                                        isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-300"
-                                    }`}>
+                                    <div className={`relative flex items-center rounded-xl border px-3 py-1.5 ${isDark ? "bg-slate-800 border-slate-700" : "bg-white border-slate-300"
+                                        }`}>
                                         <FaSearch className={`text-xs mr-2 ${isDark ? "text-slate-500" : "text-slate-400"}`} />
                                         <input
                                             type="text"
                                             placeholder="Search leads..."
                                             value={walkInSearch}
                                             onChange={(e) => setWalkInSearch(e.target.value)}
-                                            className={`bg-transparent text-xs focus:outline-none w-32 sm:w-44 ${
-                                                isDark ? "text-slate-100 placeholder-slate-500" : "text-slate-800 placeholder-slate-400"
-                                            }`}
+                                            className={`bg-transparent text-xs focus:outline-none w-32 sm:w-44 ${isDark ? "text-slate-100 placeholder-slate-500" : "text-slate-800 placeholder-slate-400"
+                                                }`}
                                         />
                                     </div>
 
@@ -1629,9 +1801,8 @@ const DailyReport = () => {
                                             setWalkInModalOpen(false);
                                             setWalkInModalCentre(null);
                                         }}
-                                        className={`p-2 rounded-xl transition-colors cursor-pointer ${
-                                            isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200 text-slate-600"
-                                        }`}
+                                        className={`p-2 rounded-xl transition-colors cursor-pointer ${isDark ? "hover:bg-slate-800 text-slate-400 hover:text-slate-200" : "hover:bg-slate-200 text-slate-600"
+                                            }`}
                                     >
                                         <FaTimes />
                                     </button>
@@ -1648,29 +1819,26 @@ const DailyReport = () => {
                                     walkInModalLeads.map((lead, idx) => (
                                         <div
                                             key={lead._id || idx}
-                                            className={`p-3.5 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all ${
-                                                isDark ? "bg-slate-950/40 border-slate-800 hover:border-slate-700" : "bg-slate-50 border-slate-200 hover:border-slate-300"
-                                            }`}
+                                            className={`p-3.5 rounded-xl border flex flex-col md:flex-row md:items-center justify-between gap-3 transition-all ${isDark ? "bg-slate-950/40 border-slate-800 hover:border-slate-700" : "bg-slate-50 border-slate-200 hover:border-slate-300"
+                                                }`}
                                         >
                                             <div className="space-y-1">
                                                 <div className="flex flex-wrap items-center gap-2">
                                                     <span className="font-black text-sm text-cyan-400">
                                                         {lead.name}
                                                     </span>
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${
-                                                        lead.isWalkIn
-                                                            ? isDark
-                                                                ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
-                                                                : "bg-amber-50 text-amber-800 border border-amber-300"
-                                                            : isDark
-                                                                ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
-                                                                : "bg-blue-50 text-blue-800 border border-blue-200"
-                                                    }`}>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase ${lead.isWalkIn
+                                                        ? isDark
+                                                            ? "bg-amber-500/20 text-amber-300 border border-amber-500/30"
+                                                            : "bg-amber-50 text-amber-800 border border-amber-300"
+                                                        : isDark
+                                                            ? "bg-blue-500/20 text-blue-300 border border-blue-500/30"
+                                                            : "bg-blue-50 text-blue-800 border border-blue-200"
+                                                        }`}>
                                                         {lead.isWalkIn ? "Walked In (Button Tagged)" : (lead.source || "Walk In")}
                                                     </span>
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                                                        isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-700"
-                                                    }`}>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${isDark ? "bg-slate-800 text-slate-300" : "bg-slate-200 text-slate-700"
+                                                        }`}>
                                                         {lead.centreName}
                                                     </span>
                                                 </div>
@@ -1695,18 +1863,16 @@ const DailyReport = () => {
 
                                             <div className="flex flex-wrap md:flex-col md:items-end gap-1.5 text-xs flex-shrink-0">
                                                 <div className="flex items-center gap-1.5">
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                                                        lead.isCounseled
-                                                            ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
-                                                            : isDark ? "bg-slate-800 text-slate-500" : "bg-slate-200 text-slate-500"
-                                                    }`}>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${lead.isCounseled
+                                                        ? "bg-purple-500/20 text-purple-400 border border-purple-500/30"
+                                                        : isDark ? "bg-slate-800 text-slate-500" : "bg-slate-200 text-slate-500"
+                                                        }`}>
                                                         {lead.isCounseled ? "Counselled" : "Not Counselled"}
                                                     </span>
-                                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${
-                                                        lead.isAdmitted
-                                                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                                                            : isDark ? "bg-slate-800 text-slate-500" : "bg-slate-200 text-slate-500"
-                                                    }`}>
+                                                    <span className={`text-[10px] px-2 py-0.5 rounded font-bold ${lead.isAdmitted
+                                                        ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                                                        : isDark ? "bg-slate-800 text-slate-500" : "bg-slate-200 text-slate-500"
+                                                        }`}>
                                                         {lead.isAdmitted ? "Admitted" : "Pending Admission"}
                                                     </span>
                                                 </div>
@@ -1723,9 +1889,8 @@ const DailyReport = () => {
                             </div>
 
                             {/* Modal Footer */}
-                            <div className={`p-4 border-t flex items-center justify-between ${
-                                isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
-                            }`}>
+                            <div className={`p-4 border-t flex items-center justify-between ${isDark ? "bg-slate-950/60 border-slate-800" : "bg-slate-50 border-slate-200"
+                                }`}>
                                 <span className={`text-xs font-semibold ${isDark ? "text-slate-400" : "text-slate-500"}`}>
                                     Total: {walkInModalLeads.length} leads
                                 </span>
@@ -1734,9 +1899,8 @@ const DailyReport = () => {
                                         setWalkInModalOpen(false);
                                         setWalkInModalCentre(null);
                                     }}
-                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                                        isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"
-                                    }`}
+                                    className={`px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${isDark ? "bg-slate-800 hover:bg-slate-700 text-slate-200" : "bg-slate-200 hover:bg-slate-300 text-slate-800"
+                                        }`}
                                 >
                                     Close
                                 </button>

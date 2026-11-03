@@ -39,6 +39,7 @@ export const determineAttendanceStatus = (workedHours, targetHours = 9) => {
     if (workedHours > (target + (5 / 60))) {
         return "Overtime";
     }
+
     return "Present";
 };
 
@@ -85,7 +86,7 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
 export const markAttendance = async (req, res) => {
     try {
         const { latitude, longitude, type } = req.body; // type: 'checkIn' or 'checkOut'
-        
+
         if (!latitude || !longitude) {
             return res.status(400).json({ message: "Location coordinates are required to mark attendance" });
         }
@@ -103,7 +104,7 @@ export const markAttendance = async (req, res) => {
 
         // Collect all potential centres (User Management + Employee Schema)
         let allCentres = [];
-        
+
         if (userRole === 'superAdmin') {
             // SuperAdmins can check-in from ANY centre in the system
             allCentres = await Centre.find({});
@@ -279,7 +280,7 @@ export const markAttendance = async (req, res) => {
 
             // TRACK EARLY CHECKOUTS (≥ 2 hours early)
             const isEarlyByTwoHours = (targetHours - workedHours) >= 2;
-            
+
             if (isEarlyByTwoHours) {
                 // Count previous early checkouts this week
                 const startOfMarkWeek = startOfWeek(today, { weekStartsOn: 1 });
@@ -311,7 +312,7 @@ export const markAttendance = async (req, res) => {
 
             if (finalStatus === "Present") {
                 if (isEarlyByTwoHours) {
-                    finalStatus = "Present"; 
+                    finalStatus = "Present";
                 } else {
                     finalStatus = determineAttendanceStatus(workedHours, targetHours);
                 }
@@ -327,7 +328,7 @@ export const markAttendance = async (req, res) => {
 
             attendance.workingHours = parseFloat(workedHours.toFixed(2));
             attendance.status = finalStatus;
-            
+
             // Add warning to attendance object (temporary, not saved in DB unless you want to)
             attendance._earlyCheckoutWarning = earlyCheckoutWarning;
         }
@@ -512,7 +513,7 @@ export const getMyAttendance = async (req, res) => {
         const endOfMarkWeek = endOfWeek(today, { weekStartsOn: 1 });
         const targetHours = getTargetWorkingHours(employee.workingHours);
 
-        const thisWeekRecords = finalAttendances.filter(rec => 
+        const thisWeekRecords = finalAttendances.filter(rec =>
             rec.date >= startOfMarkWeek && rec.date <= today && rec.status !== "Week Off"
         );
 
@@ -892,7 +893,7 @@ export const getAllAttendance = async (req, res) => {
                     const hours = att.workingHours || 0;
                     const s = att.status;
                     const target = getTargetWorkingHours(emp?.workingHours);
-                    
+
                     const matchesAnyStatus = statuses.some(st => {
                         if (st === 'Short Leave') return (hours >= (target - 1) && hours < (target - 0.25));
                         if (st === 'Forgot Checkout') return (s === 'Forgot to Checkout' || (att.checkIn?.time && !att.checkOut?.time));
@@ -902,7 +903,7 @@ export const getAllAttendance = async (req, res) => {
                         if (st === 'Absent') return s === 'Absent' || att.isAbsent;
                         return s === st;
                     });
-                    
+
                     if (!matchesAnyStatus) matches = false;
                 }
 
@@ -923,8 +924,8 @@ export const getAllAttendance = async (req, res) => {
                 attObj.employeeId.profileImage = await getSignedFileUrl(att.employeeId.profileImage);
             }
             const attDateStr = format(new Date(att.date), "yyyy-MM-dd");
-            const reg = regularizations.find(r => 
-                r.employeeId.toString() === att.employeeId?._id?.toString() && 
+            const reg = regularizations.find(r =>
+                r.employeeId.toString() === att.employeeId?._id?.toString() &&
                 format(new Date(r.date), "yyyy-MM-dd") === attDateStr
             );
             if (reg) {
@@ -959,11 +960,11 @@ export const getAttendanceAnalysis = async (req, res) => {
             user: targetUserId,
             date: { $gte: yearStart, $lte: yearEnd }
         })
-        .populate("centreId", "centreName")
-        .populate("checkIn.centreId", "centreName")
-        .populate("checkOut.centreId", "centreName")
-        .populate("manuallyMarkedBy", "name")
-        .sort({ date: 1 });
+            .populate("centreId", "centreName")
+            .populate("checkIn.centreId", "centreName")
+            .populate("checkOut.centreId", "centreName")
+            .populate("manuallyMarkedBy", "name")
+            .sort({ date: 1 });
 
         // 1. Monthly Breakdown over the year
         const monthlyStats = Array.from({ length: 12 }, (_, i) => ({
@@ -1038,7 +1039,7 @@ export const getAttendanceAnalysis = async (req, res) => {
         const statusDistribution = { Present: 0, Late: 0, 'Half Day': 0, Absent: 0, 'Early Leave': 0, Overtime: 0, 'Week Off': 0, Holiday: 0 };
         const snapshotStr = format(referenceDate, 'yyyy-MM-dd');
         let todayRecord = null;
-        
+
         const daysInInterval = eachDayOfInterval({ start: periodStart, end: periodEnd });
         const dailyData = daysInInterval.map(day => {
             const dayStr = format(day, 'yyyy-MM-dd');
@@ -1876,19 +1877,19 @@ export const checkDateAttendance = async (req, res) => {
         if (!date) {
             return res.status(400).json({ message: "Date is required" });
         }
-        
+
         const userId = req.user.id;
         const queryDate = startOfDay(new Date(date));
-        
+
         // Find existing attendance
         const attendance = await EmployeeAttendance.findOne({
             user: userId,
             date: queryDate
         }).populate("centreId", "centreName");
-        
+
         // Find employee to get shift details
         const employee = await Employee.findOne({ user: userId });
-        
+
         let calculatedWorked = 0;
         if (attendance) {
             if (attendance.workingHours > 0) {
@@ -1898,9 +1899,9 @@ export const checkDateAttendance = async (req, res) => {
                 calculatedWorked = diffMs / (1000 * 60 * 60);
             }
         }
-        
+
         const targetHours = getShiftTargetHours(employee, req.user?.role, calculatedWorked);
-        
+
         if (attendance) {
             return res.status(200).json({
                 exists: true,
@@ -1911,7 +1912,7 @@ export const checkDateAttendance = async (req, res) => {
                 targetHours
             });
         }
-        
+
         return res.status(200).json({
             exists: false,
             workingHours: 0,

@@ -1,4 +1,4 @@
-import Centre from "../../models/Master_data/Centre.js";
+﻿import Centre from "../../models/Master_data/Centre.js";
 import LeadManagement from "../../models/LeadManagement.js";
 import StudentServiceCall from "../../models/StudentServiceCall.js";
 import StudentFollowUp from "../../models/StudentFollowUp.js";
@@ -9,6 +9,7 @@ import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js
 import Payment from "../../models/Payment/Payment.js";
 import User from "../../models/User.js";
 import SchoolForTask from "../../models/Master_data/SchoolForTask.js";
+import Zone from "../../models/Zone.js";
 import mongoose from "mongoose";
 
 /**
@@ -32,7 +33,25 @@ const cleanStr = (s) => (s || "").toString().trim().toLowerCase().replace(/[^a-z
  */
 export const getDailyCentreReport = async (req, res) => {
     try {
-        const { date, startDate, endDate, fromDate, toDate, centreId } = req.query;
+        const { date, startDate, endDate, fromDate, toDate, centreId, zoneId, centreIds, zoneIds } = req.query;
+
+        // Parse multiple or single centre IDs
+        const rawCentreIds = centreIds || centreId;
+        let parsedCentreIds = [];
+        if (Array.isArray(rawCentreIds)) {
+            parsedCentreIds = rawCentreIds.map(id => id.toString().trim()).filter(id => id && id !== "all" && mongoose.Types.ObjectId.isValid(id));
+        } else if (typeof rawCentreIds === "string" && rawCentreIds.trim() && rawCentreIds !== "all") {
+            parsedCentreIds = rawCentreIds.split(",").map(id => id.trim()).filter(id => id && id !== "all" && mongoose.Types.ObjectId.isValid(id));
+        }
+
+        // Parse multiple or single zone IDs
+        const rawZoneIds = zoneIds || zoneId;
+        let parsedZoneIds = [];
+        if (Array.isArray(rawZoneIds)) {
+            parsedZoneIds = rawZoneIds.map(id => id.toString().trim()).filter(id => id && id !== "all" && mongoose.Types.ObjectId.isValid(id));
+        } else if (typeof rawZoneIds === "string" && rawZoneIds.trim() && rawZoneIds !== "all") {
+            parsedZoneIds = rawZoneIds.split(",").map(id => id.trim()).filter(id => id && id !== "all" && mongoose.Types.ObjectId.isValid(id));
+        }
 
         // 1. Resolve Target Date / Date Range in IST
         const todayIST = getTodayISTStr();
@@ -53,12 +72,41 @@ export const getDailyCentreReport = async (req, res) => {
         const userRole = Array.isArray(rawRole) ? rawRole.join(" ") : String(rawRole);
         const isSuperAdmin = /super\s*admin|ceo|director/i.test(userRole);
 
-        if (!isSuperAdmin && req.user?.centres && req.user.centres.length > 0) {
-            centreQuery._id = { $in: req.user.centres };
+        // Resolve zone IDs to centre IDs
+        let zoneCentreIdStrs = [];
+        if (parsedZoneIds.length > 0) {
+            const zoneDocs = await Zone.find({ _id: { $in: parsedZoneIds } }).select("centres").lean();
+            zoneCentreIdStrs = zoneDocs.flatMap(z => (z.centres || [])).map(id => (id._id || id).toString());
         }
 
-        if (centreId && centreId !== "all" && mongoose.Types.ObjectId.isValid(centreId)) {
-            centreQuery._id = new mongoose.Types.ObjectId(centreId);
+        // Determine final allowed centre IDs
+        let allowedCentreIdStrs = null;
+
+        // A. Role restricted centres
+        if (!isSuperAdmin && req.user?.centres && req.user.centres.length > 0) {
+            allowedCentreIdStrs = req.user.centres.map(id => id.toString());
+        }
+
+        // B. Zone filtering
+        if (parsedZoneIds.length > 0) {
+            if (allowedCentreIdStrs) {
+                allowedCentreIdStrs = allowedCentreIdStrs.filter(id => zoneCentreIdStrs.includes(id));
+            } else {
+                allowedCentreIdStrs = zoneCentreIdStrs;
+            }
+        }
+
+        // C. Specific Centre filtering
+        if (parsedCentreIds.length > 0) {
+            if (allowedCentreIdStrs) {
+                allowedCentreIdStrs = allowedCentreIdStrs.filter(id => parsedCentreIds.includes(id));
+            } else {
+                allowedCentreIdStrs = parsedCentreIds;
+            }
+        }
+
+        if (allowedCentreIdStrs !== null) {
+            centreQuery._id = { $in: allowedCentreIdStrs.map(id => new mongoose.Types.ObjectId(id)) };
         }
 
         const activeCentres = await Centre.find(centreQuery)
@@ -625,11 +673,19 @@ export const getDailyCentreReport = async (req, res) => {
         summary.totalEmiCollectionWithGst = Math.round(summary.totalEmiCollectionWithGst * 100) / 100;
         summary.totalCollectionWithGst = Math.round(summary.totalCollectionWithGst * 100) / 100;
 
+        // Fetch all active zones and master centres for frontend filters
+        const [allZones, allMasterCentres] = await Promise.all([
+            Zone.find({ isActive: true }).select("_id name centres").sort({ name: 1 }).lean(),
+            Centre.find({ status: { $ne: "deactive" }, centreName: { $nin: [/phsps/i, /franchise/i, /rkm/i] } }).select("_id centreName code").sort({ centreName: 1 }).lean()
+        ]);
+
         return res.status(200).json({
             success: true,
             date: dateLabel, startDate: effectiveStart, endDate: effectiveEnd, isRange: effectiveStart !== effectiveEnd,
             summary,
-            centres: centresResult
+            centres: centresResult,
+            zones: allZones,
+            allCentres: allMasterCentres
         });
     } catch (error) {
         console.error("getDailyCentreReport error:", error);
