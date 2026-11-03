@@ -1207,11 +1207,15 @@ const ManageBoardAdmission = () => {
                                         // 2. OR matchingPaidPayment exists with actual paid amount >= payableAmount - 0.5
                                         // 3. OR cumulative payments up to this installment cover cumulative payable (excess carry-forward)
                                         const isZeroDue = (inst.payableAmount <= 0.5 && (inst.standardAmount || 0) > 0 && (inst.waiverAmount || 0) >= (inst.standardAmount || 0));
+                                        const dueAmount = Math.max(0, (inst.payableAmount || 0) - displayPaid);
                                         const isPaid = !isChequePending && !hasOnlyRejectedCheque && (
                                             (inst.status === "PAID" && (actualPaid > 0.5 || isZeroDue)) ||
                                             (Boolean(matchingPaidPayment) && (actualPaid >= (inst.payableAmount || 0) - 0.5 || isZeroDue)) ||
-                                            (isCumulativelyCleared && (actualPaid > 0.5 || Boolean(matchingPaidPayment)))
+                                            (isCumulativelyCleared && (actualPaid > 0.5 || Boolean(matchingPaidPayment))) ||
+                                            (dueAmount <= 0.5 && (displayPaid > 0 || actualPaid > 0))
                                         );
+                                        const isFullyPaid = isPaid;
+                                        const isPartialWithDue = !isFullyPaid && !isChequePending && (displayPaid > 0 || actualPaid > 0 || inst.paymentTransactions?.length > 0 || Boolean(matchingPaidPayment)) && dueAmount > 0.5;
 
                                         const isCurrent = effectiveFromMonth?._id === inst._id;
                                         const prevInst = admission.installments[index - 1];
@@ -1248,8 +1252,10 @@ const ManageBoardAdmission = () => {
                                             (Boolean(prevMatchingPaid) && (prevActualPaid >= (prevInst?.payableAmount || 0) - 0.5 || prevZeroDue)) ||
                                             (prevCumCleared && (prevActualPaid > 0.5 || Boolean(prevMatchingPaid)))
                                         );
-                                        const prevCleared = index === 0 || prevPaid || prevChequePending;
-                                        const isNextToPay = !isPaid && !isChequePending && prevCleared;
+                                        const prevHasPayment = Boolean(prevActualPaid > 0 || prevInst?.status === "PARTIAL" || prevMatchingPaid);
+                                        const prevCleared = index === 0 || prevPaid || prevHasPayment || prevChequePending;
+                                        const hasPayment = isFullyPaid || isPartialWithDue;
+                                        const isNextToPay = !isFullyPaid && !isPartialWithDue && !isChequePending && prevCleared;
 
                                         return (
                                             <div
@@ -1282,15 +1288,17 @@ const ManageBoardAdmission = () => {
                                                     }`}
                                             >
                                                 <div className="flex items-center gap-4">
-                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm ${isPaid
-                                                        ? 'bg-emerald-500 text-black'
-                                                        : isChequePending
-                                                            ? 'bg-amber-500 text-black'
-                                                            : isNextToPay
-                                                                ? 'bg-cyan-500 text-black'
-                                                                : (isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400')
+                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm ${isFullyPaid
+                                                        ? 'bg-emerald-500 text-black shadow-[0_0_12px_rgba(16,185,129,0.4)]'
+                                                        : isPartialWithDue
+                                                            ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50' : 'bg-amber-50 text-amber-600 border border-amber-300')
+                                                            : isChequePending
+                                                                ? 'bg-amber-500 text-black'
+                                                                : isNextToPay
+                                                                    ? 'bg-cyan-500 text-black shadow-[0_0_12px_rgba(6,182,212,0.4)]'
+                                                                    : (isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400')
                                                         }`}>
-                                                        {isPaid ? <FaCheck /> : isChequePending ? <FaFileInvoice /> : inst.monthNumber}
+                                                        {isFullyPaid ? <FaCheck /> : isChequePending ? <FaFileInvoice /> : inst.monthNumber}
                                                     </div>
                                                     <div>
                                                         <div className="flex items-center gap-2">
@@ -1331,7 +1339,7 @@ const ManageBoardAdmission = () => {
                                                                     </button>
                                                                 </div>
                                                             ) : (
-                                                                <p className={`text-sm font-black uppercase flex items-center gap-1.5 ${isPaid ? 'text-emerald-400' : isChequePending ? 'text-amber-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
+                                                                <p className={`text-sm font-black uppercase flex items-center gap-1.5 ${isFullyPaid ? 'text-emerald-400' : isPartialWithDue ? 'text-amber-400' : isChequePending ? 'text-amber-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
                                                                     {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
                                                                     {!isPaid && !isChequePending && !isDeactivated && (
                                                                         <button
@@ -1359,24 +1367,29 @@ const ManageBoardAdmission = () => {
 
                                                 <div className="flex items-center gap-6" onClick={(e) => e.stopPropagation()}>
                                                     <div className="text-right">
-                                                        <p className={`text-sm font-black tracking-widest ${isPaid ? 'text-emerald-500' : isChequePending ? 'text-amber-400' : 'text-gray-500'}`}>
-                                                            {isPaid ? "PAID" : isChequePending ? "PENDING CLEARANCE" : (hasOnlyRejectedCheque ? "PENDING" : inst.status)}
+                                                        <p className={`text-sm font-black tracking-widest ${isFullyPaid ? 'text-emerald-500' : isPartialWithDue ? 'text-amber-400' : isChequePending ? 'text-amber-400' : 'text-gray-500'}`}>
+                                                            {isFullyPaid ? "PAID" : isChequePending ? "PENDING CLEARANCE" : (hasOnlyRejectedCheque ? "PENDING" : inst.status)}
                                                         </p>
                                                         <p className={`text-[11px] font-bold ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Paid: ₹{displayPaid}</p>
+                                                        {isPartialWithDue && (
+                                                            <p className="text-[10px] font-bold text-amber-400/90">Due: ₹{Math.round(dueAmount)}</p>
+                                                        )}
                                                     </div>
                                                     <div className="w-[1px] h-10 bg-gray-700/50 mx-2"></div>
-                                                    {isPaid ? (
+                                                    {isFullyPaid ? (
                                                         <button
+                                                            type="button"
                                                             onClick={() => {
                                                                 const transformedInst = {
                                                                     ...inst,
                                                                     status: "PAID",
+                                                                    paidAmount: displayPaid || actualPaid,
                                                                     installmentNumber: inst.monthNumber,
                                                                     billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
                                                                     billId: matchingPaidPayment?.billId || inst.billId,
                                                                     _id: matchingPaidPayment?._id || inst._id,
-                                                                    paymentMethod: matchingPaidPayment?.paymentMethod || inst.paymentMethod,
-                                                                    transactionId: matchingPaidPayment?.transactionId || inst.transactionId,
+                                                                    paymentMethod: matchingPaidPayment?.paymentMethod || inst.paymentMethod || inst.paymentTransactions?.[0]?.paymentMethod,
+                                                                    transactionId: matchingPaidPayment?.transactionId || inst.transactionId || inst.paymentTransactions?.[0]?.transactionId,
                                                                     isReceivingSlip: false
                                                                 };
                                                                 setSelectedInstForBill(transformedInst);
@@ -1390,6 +1403,7 @@ const ManageBoardAdmission = () => {
                                                         </button>
                                                     ) : isChequePending ? (
                                                         <button
+                                                            type="button"
                                                             onClick={() => {
                                                                 const matchingCheque = matchingPendingCheque || allAdmissionPayments.find(p => (p.installmentNumber === inst.monthNumber || p.installmentNumber === (inst.monthNumber - 1)) && p.status === 'PENDING_CLEARANCE');
                                                                 if (matchingCheque) {
@@ -1414,14 +1428,57 @@ const ManageBoardAdmission = () => {
                                                             <FaFileInvoice className="text-amber-500 group-hover:text-black" />
                                                             RECEIVING SLIP
                                                         </button>
+                                                    ) : isPartialWithDue ? (
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    const transformedInst = {
+                                                                        ...inst,
+                                                                        status: "PAID",
+                                                                        paidAmount: displayPaid || actualPaid,
+                                                                        installmentNumber: inst.monthNumber,
+                                                                        billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
+                                                                        billId: matchingPaidPayment?.billId || inst.billId,
+                                                                        _id: matchingPaidPayment?._id || inst._id,
+                                                                        paymentMethod: matchingPaidPayment?.paymentMethod || inst.paymentMethod || inst.paymentTransactions?.[0]?.paymentMethod,
+                                                                        transactionId: matchingPaidPayment?.transactionId || inst.transactionId || inst.paymentTransactions?.[0]?.transactionId,
+                                                                        isReceivingSlip: false
+                                                                    };
+                                                                    setSelectedInstForBill(transformedInst);
+                                                                    setPreloadedBillData(null);
+                                                                    setShowBillGenerator(true);
+                                                                }}
+                                                                className="px-4 py-2 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[11px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-1.5 group"
+                                                                title="View Bill for collected payment"
+                                                            >
+                                                                <FaFileInvoice className="text-emerald-500 group-hover:text-black" />
+                                                                BILL
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setPaymentModal({ show: true, installment: inst });
+                                                                    setPaymentForm({ ...paymentForm, amount: dueAmount });
+                                                                }}
+                                                                disabled={isDeactivated}
+                                                                className={`px-3.5 py-2 rounded-lg font-black text-[10px] uppercase transition-all shadow-md flex items-center gap-1.5 ${!isDeactivated
+                                                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500 hover:text-black shadow-[0_2px_10px_rgba(245,158,11,0.2)]'
+                                                                    : 'bg-gray-700/50 text-gray-500 cursor-not-allowed border border-gray-800'
+                                                                    }`}
+                                                                title={`Pay remaining balance of ₹${Math.round(dueAmount)} for ${new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'short' })}`}
+                                                            >
+                                                                PAY DUE: ₹{Math.round(dueAmount)}
+                                                            </button>
+                                                        </div>
                                                     ) : (
                                                         <button
+                                                            type="button"
                                                             onClick={() => {
                                                                 if (!isNextToPay) {
                                                                     toast.warning("Please pay previous installments first.");
                                                                     return;
                                                                 }
-                                                                const dueAmount = Math.max(0, inst.payableAmount - displayPaid);
                                                                 if (dueAmount <= 0) {
                                                                     toast.info("This installment has no pending balance.");
                                                                     return;
@@ -1674,17 +1731,22 @@ const ManageBoardAdmission = () => {
                             ></div>
                             <div className="flex justify-between relative z-10 w-full">
                                 {admission.installments.map((inst, index) => {
-                                    const isPaid = inst.status === "PAID";
-                                    const isNextToPay = !isPaid && (index === 0 || admission.installments[index - 1].status === "PAID");
+                                    const dPaid = inst.paidAmount || 0;
+                                    const isFullPaid = inst.status === "PAID" || (dPaid >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0);
+                                    const isPartDue = !isFullPaid && dPaid > 0;
+                                    const prevHasPayment = index === 0 || (admission.installments[index - 1]?.paidAmount > 0) || admission.installments[index - 1]?.status === "PAID";
+                                    const isNext = !isFullPaid && !isPartDue && prevHasPayment;
                                     return (
                                         <div key={inst._id} className="flex flex-col items-center gap-3 relative group w-10">
-                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all duration-500 z-10 ${isPaid
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all duration-500 z-10 ${isFullPaid
                                                 ? 'bg-emerald-500 text-black shadow-[0_0_15px_rgba(16,185,129,0.5)] ring-4 ' + (isDarkMode ? 'ring-[#1a1f24]' : 'ring-white')
-                                                : isNextToPay
-                                                    ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)] ring-4 ' + (isDarkMode ? 'ring-[#1a1f24]' : 'ring-white') + ' scale-110'
-                                                    : isDarkMode ? 'bg-gray-800 text-gray-500 ring-4 ring-[#1a1f24]' : 'bg-white text-gray-400 border-2 border-gray-200 ring-4 ring-white'
+                                                : isPartDue
+                                                    ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 border-2 border-amber-500/50 ring-4 ring-[#1a1f24]' : 'bg-amber-50 text-amber-600 border-2 border-amber-300 ring-4 ring-white')
+                                                    : isNext
+                                                        ? 'bg-cyan-500 text-black shadow-[0_0_15px_rgba(6,182,212,0.5)] ring-4 ' + (isDarkMode ? 'ring-[#1a1f24]' : 'ring-white') + ' scale-110'
+                                                        : isDarkMode ? 'bg-gray-800 text-gray-500 ring-4 ring-[#1a1f24]' : 'bg-white text-gray-400 border-2 border-gray-200 ring-4 ring-white'
                                                 }`}>
-                                                {isPaid ? <FaCheck /> : inst.monthNumber}
+                                                {isFullPaid ? <FaCheck /> : inst.monthNumber}
                                             </div>
                                             <div className="absolute top-12 whitespace-nowrap text-center text-[10px] font-black uppercase text-gray-500">
                                                 {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'short' })}
