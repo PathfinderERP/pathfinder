@@ -142,6 +142,8 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                         admission: admission,
                         installment: {
                             ...selectedInstallment,
+                            _id: data.payment?._id || selectedInstallment._id,
+                            billId: data.payment?.billId,
                             paidAmount: paymentData.paidAmount,
                             paymentMethod: paymentData.paymentMethod,
                             receivedDate: paymentData.receivedDate,

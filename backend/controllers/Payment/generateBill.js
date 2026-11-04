@@ -229,16 +229,23 @@ export const generateBill = async (req, res) => {
             let existingPaymentRecord = null;
             if (queryPaymentId && mongoose.Types.ObjectId.isValid(queryPaymentId)) {
                 existingPaymentRecord = await Payment.findById(queryPaymentId);
-            } else if (queryBillId) {
+            } 
+            
+            if (!existingPaymentRecord && queryBillId) {
                 existingPaymentRecord = await Payment.findOne({ billId: queryBillId });
             }
 
             if (!existingPaymentRecord) {
-                existingPaymentRecord = await Payment.findOne({
+                const findQuery = {
                     admission: admissionId,
                     installmentNumber: paymentLookupNum,
                     status: { $nin: ["REJECTED", "CANCELLED"] }
-                }).sort({ createdAt: -1 });
+                };
+                if (isBoardType && billingMonth && installmentNum !== 0) {
+                    findQuery.billingMonth = billingMonth;
+                }
+                // Sort by createdAt: 1 so the ORIGINAL first bill is preserved and never replaced by accidental duplicates
+                existingPaymentRecord = await Payment.findOne(findQuery).sort({ createdAt: 1 });
             }
 
             if (!existingPaymentRecord && isBoardType && installmentNum !== 98 && installmentNum !== 99 && installmentNum !== 100) {
@@ -247,7 +254,7 @@ export const generateBill = async (req, res) => {
                     admission: admissionId,
                     installmentNumber: alternateNum,
                     status: { $nin: ["REJECTED", "CANCELLED"] }
-                }).sort({ createdAt: -1 });
+                }).sort({ createdAt: 1 });
                 
                 if (existingPaymentRecord) {
                     paymentLookupNum = alternateNum;
@@ -270,32 +277,34 @@ export const generateBill = async (req, res) => {
                 }
             }
 
-            // --- QUERY CONSTRUCTION ---
-            let query;
-            if (queryPaymentId && mongoose.Types.ObjectId.isValid(queryPaymentId)) {
-                query = { _id: queryPaymentId };
-            } else if (queryBillId) {
-                query = { billId: queryBillId };
+            // --- RESOLVE PAYMENT RECORD ---
+            let payment = null;
+            if (existingPaymentRecord) {
+                // If a payment record already exists, ALWAYS use it directly to guarantee the bill number never changes!
+                payment = await Payment.findById(existingPaymentRecord._id)
+                    .populate('bankAccount')
+                    .populate('recordedBy', 'name username');
             } else {
-                query = {
-                    admission: admissionId,
-                    installmentNumber: paymentLookupNum, // Use the matched index (0 or 1)
-                    status: { $nin: ["REJECTED", "CANCELLED"] }
-                };
+                let query;
+                if (queryBillId) {
+                    query = { billId: queryBillId };
+                } else {
+                    query = {
+                        admission: admissionId,
+                        installmentNumber: paymentLookupNum,
+                        status: { $nin: ["REJECTED", "CANCELLED"] }
+                    };
 
-                if (isBoardType) {
-                    if (installmentNum === 0 && !isBoardAdmission) {
-                        // Down payments
-                    } else if (billingMonth) {
+                    if (isBoardType && billingMonth && installmentNum !== 0) {
                         query.billingMonth = billingMonth;
                     }
                 }
-            }
 
-            let payment = await Payment.findOne(query)
-                .populate('bankAccount')
-                .populate('recordedBy', 'name username')
-                .sort({ createdAt: -1 });
+                payment = await Payment.findOne(query)
+                    .populate('bankAccount')
+                    .populate('recordedBy', 'name username')
+                    .sort({ createdAt: 1 });
+            }
 
             // Determine the actual total amount paid for this bill from source of truth
             // For installment 0 (standard), we trust admission.downPayment. 

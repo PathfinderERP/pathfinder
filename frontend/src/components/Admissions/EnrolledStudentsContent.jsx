@@ -2057,6 +2057,8 @@ const EnrolledStudentsContent = () => {
                         admission: data.admission || selectedAdmission,
                         installment: {
                             ...selectedInstallment,
+                            _id: data.payment?._id || selectedInstallment._id,
+                            billId: data.payment?.billId,
                             paidAmount: paymentData.paidAmount,
                             paymentMethod: "CHEQUE",
                             transactionId: paymentData.transactionId,
@@ -2075,6 +2077,8 @@ const EnrolledStudentsContent = () => {
                         admission: data.admission || selectedAdmission,
                         installment: {
                             ...selectedInstallment,
+                            _id: data.payment?._id || selectedInstallment._id,
+                            billId: data.payment?.billId,
                             paidAmount: paymentData.paidAmount,
                             paymentMethod: paymentData.paymentMethod,
                             receivedDate: paymentData.receivedDate,

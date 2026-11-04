@@ -382,7 +382,8 @@ export const updatePaymentInstallment = async (req, res) => {
 
         res.status(200).json({
             message: "Payment updated successfully",
-            admission: updatedAdmission
+            admission: updatedAdmission,
+            payment: payment
         });
     } catch (err) {
         console.error("updatePaymentInstallment Error:", err);
