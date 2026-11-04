@@ -1392,6 +1392,7 @@ export const collectBoardInstallment = async (req, res) => {
         admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0) + (admission.additionalThingsPaid || 0);
 
         // --- Create Payment Record for Billing ---
+        let paymentRecord = null;
         try {
             let centreObj = await Centre.findOne({ centreName: admission.centre });
             if (!centreObj) {
@@ -1420,7 +1421,7 @@ export const collectBoardInstallment = async (req, res) => {
                 billCourseName += ` + ${admission.additionalThingsName}`;
             }
 
-            const paymentRecord = new Payment({
+            paymentRecord = new Payment({
                 admission: admission._id,
                 installmentNumber: inst.monthNumber - 1,
                 amount: inst.payableAmount + (Number(paidExamFee) > 0 ? Number(paidExamFee) : 0) + (Number(paidAdditionalThings) > 0 ? Number(paidAdditionalThings) : 0),
@@ -1453,7 +1454,17 @@ export const collectBoardInstallment = async (req, res) => {
 
         await admission.save({ validateBeforeSave: false });
 
-        res.status(200).json({ message: "Payment collected", admission });
+        let populatedPayment = paymentRecord;
+        if (paymentRecord && paymentRecord._id) {
+            populatedPayment = await Payment.findById(paymentRecord._id).populate('recordedBy', 'name username').lean();
+        }
+
+        res.status(200).json({ 
+            message: "Payment collected", 
+            admission,
+            payment: populatedPayment,
+            billId: paymentRecord?.billId
+        });
 
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message }); console.error("COLLECT ERROR:", error)

@@ -77,8 +77,8 @@ const resolveBankAccountDetails = async (payment, admission, installmentNum, isB
 
 export const generateBill = async (req, res) => {
     const { admissionId, installmentNumber } = req.params;
-    const { billingMonth, billId: queryBillId } = req.query;
-    const lockKey = `${admissionId}:${installmentNumber}:${billingMonth || ''}`;
+    const { billingMonth, billId: queryBillId, paymentId: queryPaymentId } = req.query;
+    const lockKey = `${admissionId}:${installmentNumber}:${billingMonth || ''}:${queryBillId || ''}:${queryPaymentId || ''}`;
 
     if (activeGenerations.has(lockKey)) {
         console.log(`🌀 Request Collapsing: Awaiting active bill generation for ${lockKey}`);
@@ -226,11 +226,20 @@ export const generateBill = async (req, res) => {
                 paymentLookupNum = installmentNum - 1;
             }
 
-            let existingPaymentRecord = await Payment.findOne({
-                admission: admissionId,
-                installmentNumber: paymentLookupNum,
-                status: { $nin: ["REJECTED", "CANCELLED"] }
-            }).sort({ createdAt: -1 });
+            let existingPaymentRecord = null;
+            if (queryPaymentId && mongoose.Types.ObjectId.isValid(queryPaymentId)) {
+                existingPaymentRecord = await Payment.findById(queryPaymentId);
+            } else if (queryBillId) {
+                existingPaymentRecord = await Payment.findOne({ billId: queryBillId });
+            }
+
+            if (!existingPaymentRecord) {
+                existingPaymentRecord = await Payment.findOne({
+                    admission: admissionId,
+                    installmentNumber: paymentLookupNum,
+                    status: { $nin: ["REJECTED", "CANCELLED"] }
+                }).sort({ createdAt: -1 });
+            }
 
             if (!existingPaymentRecord && isBoardType && installmentNum !== 98 && installmentNum !== 99 && installmentNum !== 100) {
                 const alternateNum = paymentLookupNum === installmentNum - 1 ? installmentNum : installmentNum - 1;
@@ -263,7 +272,9 @@ export const generateBill = async (req, res) => {
 
             // --- QUERY CONSTRUCTION ---
             let query;
-            if (queryBillId) {
+            if (queryPaymentId && mongoose.Types.ObjectId.isValid(queryPaymentId)) {
+                query = { _id: queryPaymentId };
+            } else if (queryBillId) {
                 query = { billId: queryBillId };
             } else {
                 query = {
@@ -456,7 +467,7 @@ export const generateBill = async (req, res) => {
             // Prepare bill data
             const billData = {
                 billId: payment.billId,
-                billDate: payment.paidDate || new Date(),
+                billDate: payment.receivedDate || payment.paidDate || new Date(),
                 gstNumber: generateGSTNumber(),
                 createdBy: resolvedCreatorName || 'N/A',
                 centre: {

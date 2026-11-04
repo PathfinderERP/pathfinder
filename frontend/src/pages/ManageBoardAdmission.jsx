@@ -302,6 +302,41 @@ const ManageBoardAdmission = () => {
         }
     };
 
+    const handleOpenBill = (p, fallbackInst, billIndex = 1) => {
+        const isSlip = Boolean(
+            p.status === 'PENDING_CLEARANCE' ||
+            (p.isReceivingSlip && !p.billId && p.status !== 'PAID' && p.status !== 'COMPLETED' && p.status !== 'REJECTED')
+        );
+
+        const transformedInst = {
+            ...fallbackInst,
+            installmentNumber: fallbackInst.monthNumber,
+            billingMonth: p.billingMonth || (fallbackInst.dueDate ? new Date(fallbackInst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }) : ''),
+            billId: p.billId,
+            _id: p._id || fallbackInst._id,
+            paidAmount: Number(p.paidAmount || p.totalAmount || fallbackInst.paidAmount || 0),
+            amount: Number(p.amount || fallbackInst.payableAmount || 0),
+            paymentMethod: p.paymentMethod || fallbackInst.paymentMethod || fallbackInst.paymentTransactions?.[0]?.paymentMethod,
+            transactionId: p.transactionId || fallbackInst.transactionId || fallbackInst.paymentTransactions?.[0]?.transactionId,
+            bankName: p.bankName,
+            accountHolderName: p.accountHolderName,
+            chequeDate: p.chequeDate,
+            bankAccount: p.bankAccount,
+            recordedBy: p.recordedBy,
+            recordedByName: p.recordedBy?.name || p.recordedByName,
+            createdByName: p.recordedBy?.name || p.createdByName,
+            receivedDate: p.receivedDate || p.paidDate || p.createdAt,
+            paidDate: p.paidDate || p.receivedDate || p.createdAt,
+            isReceivingSlip: isSlip,
+            status: isSlip ? 'PENDING_CLEARANCE' : 'PAID',
+            billLabel: `BILL ${billIndex}`
+        };
+
+        setSelectedInstForBill(transformedInst);
+        setPreloadedBillData(null);
+        setShowBillGenerator(true);
+    };
+
     const handleCollectPayment = async (e) => {
         e.preventDefault();
         if (!validateChequeAccount(paymentForm.paymentMethod, paymentForm.bankAccount)) return;
@@ -331,6 +366,7 @@ const ManageBoardAdmission = () => {
             });
 
             if (response.ok) {
+                const data = await response.json();
                 const isCheque = paymentForm.paymentMethod === "CHEQUE";
                 toast.success(isCheque ? "Cheque recorded! Generating receiving slip..." : "Payment collected");
                 const inst = paymentModal.installment;
@@ -396,10 +432,12 @@ const ManageBoardAdmission = () => {
                         }
                     });
                     setShowBillGenerator(true);
+                } else if (data.payment) {
+                    handleOpenBill(data.payment, inst, 1);
                 }
             } else {
-                const data = await response.json();
-                toast.error(data.message || "Payment failed");
+                const errData = await response.json();
+                toast.error(errData.message || "Payment failed");
             }
         } catch {
             toast.error("Payment failed");
@@ -1166,18 +1204,31 @@ const ManageBoardAdmission = () => {
 
                                         const regularPayments = (allAdmissionPayments || []).filter(p => !isExtraFeePayment(p));
 
-                                        // Match payments for this installment:
-                                        // Only consider a payment valid if it has an actual positive paid amount
-                                        const matchingPaidPayment = regularPayments.find(p =>
-                                            p.installmentNumber === (inst.monthNumber - 1) &&
+                                        const instDueDate = new Date(inst.dueDate);
+                                        const instMonthStr = !isNaN(instDueDate.getTime())
+                                            ? instDueDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }).toLowerCase().trim()
+                                            : '';
+
+                                        // Match all payments for this installment by month name or installmentNumber
+                                        const matchingPayments = regularPayments.filter(p => {
+                                            const pMonthStr = (p.billingMonth || '').toLowerCase().trim();
+                                            if (pMonthStr && instMonthStr) {
+                                                return pMonthStr === instMonthStr;
+                                            }
+                                            return p.installmentNumber === (inst.monthNumber - 1) || p.installmentNumber === inst.monthNumber;
+                                        }).sort((a, b) => new Date(a.createdAt || a.receivedDate || a.paidDate || 0) - new Date(b.createdAt || b.receivedDate || b.paidDate || 0));
+
+                                        const matchingPaidPayments = matchingPayments.filter(p =>
                                             (p.status === 'PAID' || p.status === 'COMPLETED') &&
                                             (Number(p.paidAmount || p.totalAmount || 0) > 0)
                                         );
 
-                                        const matchingPendingCheque = regularPayments.find(p =>
-                                            p.installmentNumber === (inst.monthNumber - 1) &&
+                                        const matchingPendingCheques = matchingPayments.filter(p =>
                                             p.status === 'PENDING_CLEARANCE'
                                         );
+
+                                        const matchingPaidPayment = matchingPaidPayments[0];
+                                        const matchingPendingCheque = matchingPendingCheques[0];
 
                                         const isChequePending = Boolean(matchingPendingCheque || inst.status === "PENDING_CLEARANCE");
                                         const hasOnlyRejectedCheque = regularPayments.some(p =>
@@ -1376,85 +1427,66 @@ const ManageBoardAdmission = () => {
                                                         )}
                                                     </div>
                                                     <div className="w-[1px] h-10 bg-gray-700/50 mx-2"></div>
-                                                    {isFullyPaid ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const transformedInst = {
-                                                                    ...inst,
-                                                                    status: "PAID",
-                                                                    paidAmount: displayPaid || actualPaid,
-                                                                    installmentNumber: inst.monthNumber,
-                                                                    billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
-                                                                    billId: matchingPaidPayment?.billId || inst.billId,
-                                                                    _id: matchingPaidPayment?._id || inst._id,
-                                                                    paymentMethod: matchingPaidPayment?.paymentMethod || inst.paymentMethod || inst.paymentTransactions?.[0]?.paymentMethod,
-                                                                    transactionId: matchingPaidPayment?.transactionId || inst.transactionId || inst.paymentTransactions?.[0]?.transactionId,
-                                                                    isReceivingSlip: false
-                                                                };
-                                                                setSelectedInstForBill(transformedInst);
-                                                                setPreloadedBillData(null);
-                                                                setShowBillGenerator(true);
-                                                            }}
-                                                            className="px-5 py-2.5 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[11px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-2 group"
-                                                        >
-                                                            <FaFileInvoice className="text-emerald-500 group-hover:text-black" />
-                                                            BILL
-                                                        </button>
-                                                    ) : isChequePending ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                const matchingCheque = matchingPendingCheque || allAdmissionPayments.find(p => (p.installmentNumber === inst.monthNumber || p.installmentNumber === (inst.monthNumber - 1)) && p.status === 'PENDING_CLEARANCE');
-                                                                if (matchingCheque) {
-                                                                    setSelectedInstForBill({
-                                                                        ...matchingCheque,
-                                                                        isReceivingSlip: true
-                                                                    });
-                                                                } else {
-                                                                    setSelectedInstForBill({
-                                                                        ...inst,
-                                                                        installmentNumber: inst.monthNumber,
-                                                                        isReceivingSlip: true,
-                                                                        paymentMethod: "CHEQUE",
-                                                                        billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-                                                                    });
-                                                                }
-                                                                setPreloadedBillData(null);
-                                                                setShowBillGenerator(true);
-                                                            }}
-                                                            className="px-5 py-2.5 border border-amber-500/50 text-amber-500 rounded-lg font-black text-[11px] uppercase hover:bg-amber-500 hover:text-black transition-all flex items-center gap-2 group"
-                                                        >
-                                                            <FaFileInvoice className="text-amber-500 group-hover:text-black" />
-                                                            RECEIVING SLIP
-                                                        </button>
-                                                    ) : isPartialWithDue ? (
-                                                        <div className="flex items-center gap-2">
+                                                    <div className="flex items-center gap-2 flex-wrap justify-end">
+                                                        {/* Bills for all completed payments for this installment (BILL or BILL 1, BILL 2, etc.) */}
+                                                        {matchingPaidPayments.length > 0 && (
+                                                            matchingPaidPayments.map((p, pIdx) => {
+                                                                const billBtnLabel = matchingPaidPayments.length > 1 ? `BILL ${pIdx + 1}` : 'BILL';
+                                                                return (
+                                                                    <button
+                                                                        key={p.billId || p._id || pIdx}
+                                                                        type="button"
+                                                                        onClick={() => handleOpenBill(p, inst, pIdx + 1)}
+                                                                        className="px-3.5 py-2 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[11px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-1.5 group shadow-sm"
+                                                                        title={`View ${billBtnLabel}: ₹${p.paidAmount || p.totalAmount} (${p.billId || 'Bill'})`}
+                                                                    >
+                                                                        <FaFileInvoice className="text-emerald-500 group-hover:text-black" />
+                                                                        {billBtnLabel}
+                                                                    </button>
+                                                                );
+                                                            })
+                                                        )}
+
+                                                        {/* Cheque receiving slips if pending */}
+                                                        {matchingPendingCheques.map((cp, cpIdx) => (
+                                                            <button
+                                                                key={cp._id || cpIdx}
+                                                                type="button"
+                                                                onClick={() => handleOpenBill(cp, inst, cpIdx + 1)}
+                                                                className="px-3.5 py-2 border border-amber-500/50 text-amber-500 rounded-lg font-black text-[11px] uppercase hover:bg-amber-500 hover:text-black transition-all flex items-center gap-1.5 group shadow-sm"
+                                                                title="View Cheque Receiving Slip"
+                                                            >
+                                                                <FaFileInvoice className="text-amber-500 group-hover:text-black" />
+                                                                {matchingPendingCheques.length > 1 ? `SLIP ${cpIdx + 1}` : 'RECEIVING SLIP'}
+                                                            </button>
+                                                        ))}
+
+                                                        {/* Fallback for fully paid with 0 matched payment records (e.g. 100% waiver or adjustment carry) */}
+                                                        {isFullyPaid && matchingPaidPayments.length === 0 && !isChequePending && (
                                                             <button
                                                                 type="button"
-                                                                onClick={() => {
-                                                                    const transformedInst = {
-                                                                        ...inst,
-                                                                        status: "PAID",
-                                                                        paidAmount: displayPaid || actualPaid,
-                                                                        installmentNumber: inst.monthNumber,
-                                                                        billingMonth: new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }),
-                                                                        billId: matchingPaidPayment?.billId || inst.billId,
-                                                                        _id: matchingPaidPayment?._id || inst._id,
-                                                                        paymentMethod: matchingPaidPayment?.paymentMethod || inst.paymentMethod || inst.paymentTransactions?.[0]?.paymentMethod,
-                                                                        transactionId: matchingPaidPayment?.transactionId || inst.transactionId || inst.paymentTransactions?.[0]?.transactionId,
-                                                                        isReceivingSlip: false
-                                                                    };
-                                                                    setSelectedInstForBill(transformedInst);
-                                                                    setPreloadedBillData(null);
-                                                                    setShowBillGenerator(true);
-                                                                }}
-                                                                className="px-4 py-2 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[11px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-1.5 group"
-                                                                title="View Bill for collected payment"
+                                                                onClick={() => handleOpenBill(inst, inst, 1)}
+                                                                className="px-5 py-2.5 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[11px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-2 group"
                                                             >
                                                                 <FaFileInvoice className="text-emerald-500 group-hover:text-black" />
                                                                 BILL
                                                             </button>
+                                                        )}
+
+                                                        {/* Fallback for cheque pending with 0 matched records */}
+                                                        {!isFullyPaid && isChequePending && matchingPendingCheques.length === 0 && (
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => handleOpenBill(inst, inst, 1)}
+                                                                className="px-5 py-2.5 border border-amber-500/50 text-amber-500 rounded-lg font-black text-[11px] uppercase hover:bg-amber-500 hover:text-black transition-all flex items-center gap-2 group"
+                                                            >
+                                                                <FaFileInvoice className="text-amber-500 group-hover:text-black" />
+                                                                RECEIVING SLIP
+                                                            </button>
+                                                        )}
+
+                                                        {/* If partial with due, show PAY DUE button */}
+                                                        {isPartialWithDue && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => {
@@ -1470,8 +1502,10 @@ const ManageBoardAdmission = () => {
                                                             >
                                                                 PAY DUE: ₹{Math.round(dueAmount)}
                                                             </button>
-                                                        </div>
-                                                    ) : (
+                                                        )}
+
+                                                        {/* If pending with no payments yet */}
+                                                        {!isFullyPaid && !isPartialWithDue && !isChequePending && (
                                                         <button
                                                             type="button"
                                                             onClick={() => {
@@ -1495,9 +1529,10 @@ const ManageBoardAdmission = () => {
                                                             PAY NOW
                                                         </button>
                                                     )}
+                                                    </div>
                                                 </div>
                                             </div>
-                                        )
+                                        );
                                     })}
                                 </div>
 
