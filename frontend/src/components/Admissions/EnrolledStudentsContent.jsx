@@ -1997,6 +1997,7 @@ const EnrolledStudentsContent = () => {
 
     const handlePaymentSubmit = async (e) => {
         if (e && e.preventDefault) e.preventDefault();
+        if (processingPayment) return;
 
         if (!paymentData.paymentMethod) {
             toast.error("Please select a payment method.");

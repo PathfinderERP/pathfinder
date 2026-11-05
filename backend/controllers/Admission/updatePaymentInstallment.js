@@ -76,6 +76,12 @@ export const updatePaymentInstallment = async (req, res) => {
         const currentRemaining = Math.round(((admission.totalFees || 0) - (admission.totalPaidAmount || 0)) * 100) / 100;
         const paidAmountFloat = parseFloat(paidAmount) || 0;
 
+        if (isNaN(paidAmountFloat) || paidAmountFloat <= 0) {
+            return res.status(400).json({
+                message: "Payment amount must be greater than zero."
+            });
+        }
+
         if (paidAmountFloat > currentRemaining + 1) {
             return res.status(400).json({
                 message: `Payment rejected: ₹${paidAmountFloat.toLocaleString()} exceeds total course balance of ₹${currentRemaining.toLocaleString()}.`
@@ -89,6 +95,33 @@ export const updatePaymentInstallment = async (req, res) => {
 
         if (!installment) {
             return res.status(404).json({ message: "Installment not found" });
+        }
+
+        if (installment.status === "PAID" || installment.status === "COMPLETED") {
+            return res.status(400).json({
+                message: `Installment #${installmentNumber} is already marked as PAID.`
+            });
+        }
+
+        if (installment.amount <= 0) {
+            return res.status(400).json({
+                message: `Installment #${installmentNumber} has a zero payable balance and cannot be paid.`
+            });
+        }
+
+        // Prevent duplicate transaction recording across different installments
+        if (finalTransactionId && ["ONLINE", "UPI", "BANK_TRANSFER", "CARD", "RAZORPAY_POS"].includes(paymentMethod)) {
+            const duplicatePayment = await Payment.findOne({
+                admission: admissionId,
+                installmentNumber: { $ne: parseInt(installmentNumber) },
+                transactionId: finalTransactionId,
+                status: { $nin: ["REJECTED", "CANCELLED"] }
+            });
+            if (duplicatePayment) {
+                return res.status(400).json({
+                    message: `Transaction ID '${finalTransactionId}' has already been processed for Installment #${duplicatePayment.installmentNumber} (Bill: ${duplicatePayment.billId || 'N/A'}). Duplicate submission rejected.`
+                });
+            }
         }
 
         // Update installment
@@ -270,6 +303,7 @@ export const updatePaymentInstallment = async (req, res) => {
 
         // Create or update Payment record with bill details if status is PAID or PARTIAL (since we accepted money)
         // We log the payment for the amount that WAS paid.
+        let payment = null;
         if (installment.paidAmount > 0) {
             // Calculate tax amounts
             const exempt = isGstExempt({
@@ -292,7 +326,7 @@ export const updatePaymentInstallment = async (req, res) => {
             const centreCode = centreObj ? centreObj.enterCode : 'GEN';
 
             // Check if payment record already exists (exclude rejected/cancelled ones to ensure a new bill ID for new attempts)
-            let payment = await Payment.findOne({
+            payment = await Payment.findOne({
                 admission: admissionId,
                 installmentNumber: parseInt(installmentNumber),
                 status: { $nin: ["REJECTED", "CANCELLED"] }
@@ -383,7 +417,7 @@ export const updatePaymentInstallment = async (req, res) => {
         res.status(200).json({
             message: "Payment updated successfully",
             admission: updatedAdmission,
-            payment: payment
+            payment: payment || null
         });
     } catch (err) {
         console.error("updatePaymentInstallment Error:", err);
