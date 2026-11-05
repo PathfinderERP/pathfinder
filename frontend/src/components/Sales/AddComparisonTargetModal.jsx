@@ -7,81 +7,121 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
     const [loading, setLoading] = useState(false);
     const [formData, setFormData] = useState({
         centre: "",
-        financialYear: "2025-2026",
-        year: 2025,
+        financialYear: "2026-2027",
+        year: 2026,
         month: "April",
         targetAmount: "",
         achievedAmount: ""
     });
     const [selectedCentres, setSelectedCentres] = useState([]);
 
-    // Populate default financial year and year
-    useEffect(() => {
-        if (!target && sessions && sessions.length > 0) {
-            // Find "2025-2026" as default for comparison inputs
-            const defaultFY = "2025-2026";
-            const foundSession = sessions.find(s => s.sessionName === defaultFY);
-            
-            setFormData(prev => ({
-                ...prev,
-                financialYear: foundSession ? foundSession.sessionName : sessions[0].sessionName,
-                year: 2025 // Default start year for FY 2025-2026
-            }));
+    // Helper to extract values for a given financial year from the comparison target object
+    const getValuesForFY = (fy, targetObj) => {
+        if (!targetObj) return { targetAmount: "", achievedAmount: "", year: null };
+        if (fy === "2026-2027") {
+            return {
+                targetAmount: targetObj.target2627 !== undefined ? targetObj.target2627 : (targetObj.targetAmount !== undefined ? targetObj.targetAmount : ""),
+                achievedAmount: targetObj.achieved2627 !== undefined ? targetObj.achieved2627 : (targetObj.achievedAmount !== undefined ? targetObj.achievedAmount : ""),
+                year: targetObj.year2627 !== undefined ? targetObj.year2627 : null
+            };
+        } else if (fy === "2025-2026") {
+            return {
+                targetAmount: targetObj.target2526 !== undefined ? targetObj.target2526 : (targetObj.targetAmount !== undefined ? targetObj.targetAmount : ""),
+                achievedAmount: targetObj.achieved2526 !== undefined ? targetObj.achieved2526 : (targetObj.achievedAmount !== undefined ? targetObj.achievedAmount : ""),
+                year: targetObj.year2526 !== undefined ? targetObj.year2526 : null
+            };
+        } else {
+            return {
+                targetAmount: targetObj.targetAmount !== undefined ? targetObj.targetAmount : "",
+                achievedAmount: targetObj.achievedAmount !== undefined ? targetObj.achievedAmount : "",
+                year: targetObj.year !== undefined ? targetObj.year : null
+            };
         }
-    }, [sessions, target]);
+    };
 
-    // Populate edit data
+    // Calculate calendar year for FY and month
+    const calculateYear = (financialYear, month, fallbackYear) => {
+        if (financialYear && month) {
+            const parts = financialYear.split('-');
+            if (parts.length === 2) {
+                const startYear = parseInt(parts[0], 10);
+                const endYear = parseInt(parts[1], 10);
+                const firstHalfMonths = ["April", "May", "June", "July", "August", "September", "October", "November", "December"];
+                if (month === "YEARLY" || month === "Annual") return startYear;
+                if (month.includes(",")) {
+                    const firstMonth = month.split(',')[0].trim();
+                    return firstHalfMonths.includes(firstMonth) ? startYear : endYear;
+                }
+                return firstHalfMonths.includes(month) ? startYear : endYear;
+            }
+        }
+        return fallbackYear || new Date().getFullYear();
+    };
+
+    // Populate edit or create data
     useEffect(() => {
-        if (target) {
+        if (!target) {
+            const defaultFY = (sessions && sessions.find(s => s.sessionName === "2026-2027")) ? "2026-2027" : (sessions && sessions[0]?.sessionName) || "2026-2027";
+            const initialMonth = "April";
+            setFormData({
+                centre: "",
+                financialYear: defaultFY,
+                year: calculateYear(defaultFY, initialMonth, 2026),
+                month: initialMonth,
+                targetAmount: "",
+                achievedAmount: ""
+            });
+            setSelectedCentres([]);
+        } else {
+            const initialFY = target.initialFY || (target.targetId2627 ? "2026-2027" : (target.targetId2526 ? "2025-2026" : (target.financialYear || "2026-2027")));
+            const targetMonth = target.month || "April";
+            const fyVals = getValuesForFY(initialFY, target);
+            const computedYear = fyVals.year || calculateYear(initialFY, targetMonth, 2026);
+
             setFormData({
                 centre: target.centre?._id || target.centre,
-                financialYear: target.financialYear || target.financialYear2526 || "2025-2026",
-                year: target.year !== undefined ? target.year : (target.year2526 !== undefined ? target.year2526 : 2025),
-                month: target.month,
-                targetAmount: target.target2526 || target.targetAmount || 0,
-                achievedAmount: target.achieved2526 !== undefined ? target.achieved2526 : (target.achievedAmount || 0)
+                financialYear: initialFY,
+                year: computedYear,
+                month: targetMonth,
+                targetAmount: fyVals.targetAmount,
+                achievedAmount: fyVals.achievedAmount
             });
+
             const centreObj = target.centre || {};
             setSelectedCentres([{ value: centreObj._id || target.centre, label: centreObj.centreName || "Selected Centre" }]);
         }
-    }, [target]);
+    }, [target, sessions]);
+
+    const handleFinancialYearChange = (newFY) => {
+        const fyVals = getValuesForFY(newFY, target);
+        const computedYear = fyVals.year || calculateYear(newFY, formData.month, formData.year);
+        setFormData(prev => ({
+            ...prev,
+            financialYear: newFY,
+            year: computedYear,
+            targetAmount: fyVals.targetAmount,
+            achievedAmount: fyVals.achievedAmount
+        }));
+    };
 
     const handleCentreChange = (selectedOptions) => {
         const selected = selectedOptions || [];
         setSelectedCentres(selected);
         if (target) {
-            setFormData({ ...formData, centre: selected.length > 0 ? selected[0].value : "" });
+            setFormData(prev => ({ ...prev, centre: selected.length > 0 ? selected[0].value : "" }));
         } else {
-            setFormData({ ...formData, centre: selected.map(o => o.value) });
+            setFormData(prev => ({ ...prev, centre: selected.map(o => o.value) }));
         }
     };
 
-    // Auto-update calendar year when month or financial year changes
-    useEffect(() => {
-        if (formData.financialYear && formData.month) {
-            const parts = formData.financialYear.split('-');
-            if (parts.length === 2) {
-                const startYear = parseInt(parts[0], 10);
-                const endYear = parseInt(parts[1], 10);
-                const firstHalfMonths = ["April", "May", "June", "July", "August", "September", "October", "November", "December"];
-                
-                let computedYear = formData.year;
-                if (formData.month === "YEARLY" || formData.month === "Annual") {
-                    computedYear = startYear;
-                } else if (formData.month.includes(",")) {
-                    const firstMonth = formData.month.split(',')[0].trim();
-                    computedYear = firstHalfMonths.includes(firstMonth) ? startYear : endYear;
-                } else {
-                    computedYear = firstHalfMonths.includes(formData.month) ? startYear : endYear;
-                }
-                
-                setFormData(prev => ({
-                    ...prev,
-                    year: computedYear
-                }));
-            }
-        }
-    }, [formData.month, formData.financialYear]);
+    const handleMonthChange = (newMonth) => {
+        const computedYear = calculateYear(formData.financialYear, newMonth, formData.year);
+        setFormData(prev => ({
+            ...prev,
+            month: newMonth,
+            year: computedYear
+        }));
+    };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -90,16 +130,40 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
         try {
             const token = localStorage.getItem("token");
             const isEdit = !!target;
-            const targetId = target ? (target.targetId2526 || target._id) : null;
-            
-            const url = isEdit && targetId
-                ? `${import.meta.env.VITE_API_URL}/sales/centre-target/${targetId}`
-                : `${import.meta.env.VITE_API_URL}/sales/centre-target`;
 
-            const method = isEdit && targetId ? "PUT" : "POST";
+            // Determine targetId if this row already has a record for the selected FY
+            let targetId = null;
+            if (target) {
+                if (formData.financialYear === "2026-2027" && target.targetId2627) {
+                    targetId = target.targetId2627;
+                } else if (formData.financialYear === "2025-2026" && target.targetId2526) {
+                    targetId = target.targetId2526;
+                } else if (target._id && !target.targetId2526 && !target.targetId2627) {
+                    targetId = target._id;
+                }
+            }
+
+            const centreId = typeof formData.centre === 'string' ? formData.centre : (formData.centre?._id || selectedCentres[0]?.value);
+
+            let url = "";
+            let method = "POST";
+
+            if (targetId) {
+                // Direct update of existing target
+                url = `${import.meta.env.VITE_API_URL}/sales/centre-target/${targetId}`;
+                method = "PUT";
+            } else if (centreId && formData.month) {
+                // Upsert via virt_ endpoint (finds or creates for this centre, financialYear, month)
+                url = `${import.meta.env.VITE_API_URL}/sales/centre-target/virt_${centreId}`;
+                method = "PUT";
+            } else {
+                url = `${import.meta.env.VITE_API_URL}/sales/centre-target`;
+                method = "POST";
+            }
 
             const payload = {
                 ...formData,
+                centre: centreId,
                 targetAmount: Number(formData.targetAmount) || 0,
                 achievedAmount: Number(formData.achievedAmount) || 0
             };
@@ -116,13 +180,13 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
             const data = await response.json();
 
             if (response.ok) {
-                toast.success(isEdit ? "Comparison data updated" : "Comparison data created");
+                toast.success(isEdit ? "Target successfully updated" : "Target successfully created");
                 onSuccess();
             } else {
                 toast.error(data.message || "Operation failed");
             }
         } catch (error) {
-            console.error(error);
+            console.error("Save Target Error:", error);
             toast.error("Error saving comparison target");
         } finally {
             setLoading(false);
@@ -138,15 +202,53 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[60] p-4 backdrop-blur-sm">
             <div className="bg-[#1a1f24] w-full max-w-lg rounded-xl border border-cyan-500/30 shadow-[0_0_30px_rgba(6,182,212,0.15)] overflow-hidden">
                 <div className="bg-[#131619] px-6 py-4 border-b border-gray-800 flex justify-between items-center">
-                    <h3 className="text-xl font-bold text-white">
-                        {target ? "Edit Target & Achievement" : "Add Target & Achievement"}
-                    </h3>
+                    <div>
+                        <h3 className="text-xl font-bold text-white">
+                            {target ? `Edit Target: ${target.centre?.centreName || 'Centre'}` : "Add Target & Achievement"}
+                        </h3>
+                        {target && (
+                            <p className="text-xs text-cyan-400 font-medium mt-0.5">
+                                Month: {formData.month} | Active FY: {formData.financialYear}
+                            </p>
+                        )}
+                    </div>
                     <button onClick={onClose} className="text-gray-400 hover:text-white">
                         <FaTimes size={20} />
                     </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-6 space-y-4">
+                    {/* Quick Financial Year Switcher when editing */}
+                    {target && (
+                        <div className="space-y-1">
+                            <label className="block text-gray-400 text-xs font-semibold">Select Year to Edit:</label>
+                            <div className="flex items-center gap-2 p-1 bg-black/40 rounded-lg border border-gray-800">
+                                <button
+                                    type="button"
+                                    onClick={() => handleFinancialYearChange("2026-2027")}
+                                    className={`flex-1 py-2 px-3 rounded-md text-xs font-bold transition-all ${
+                                        formData.financialYear === "2026-2027"
+                                            ? "bg-yellow-500 text-black shadow-md font-black"
+                                            : "text-gray-400 hover:text-white"
+                                    }`}
+                                >
+                                    FY 2026-2027 {target.target2627 !== undefined ? `(₹${Number(target.target2627).toLocaleString()})` : ""}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleFinancialYearChange("2025-2026")}
+                                    className={`flex-1 py-2 px-3 rounded-md text-xs font-bold transition-all ${
+                                        formData.financialYear === "2025-2026"
+                                            ? "bg-blue-600 text-white shadow-md font-black"
+                                            : "text-gray-400 hover:text-white"
+                                    }`}
+                                >
+                                    FY 2025-2026 {target.target2526 !== undefined ? `(₹${Number(target.target2526).toLocaleString()})` : ""}
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
                     {/* Centre Selection */}
                     <div>
                         <label className="block text-gray-400 text-sm mb-1">Centre *</label>
@@ -168,7 +270,7 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
                             <label className="block text-gray-400 text-sm mb-1">Financial Year</label>
                             <select
                                 value={formData.financialYear}
-                                onChange={(e) => setFormData({ ...formData, financialYear: e.target.value })}
+                                onChange={(e) => handleFinancialYearChange(e.target.value)}
                                 className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
                             >
                                 {sessions && sessions.length > 0 ? (
@@ -191,7 +293,7 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
                             </select>
                         </div>
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Year</label>
+                            <label className="block text-gray-400 text-sm mb-1">Calendar Year</label>
                             <input
                                 type="number"
                                 required
@@ -209,14 +311,14 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
                             <select
                                 required
                                 value={formData.month}
-                                onChange={(e) => setFormData({ ...formData, month: e.target.value })}
+                                onChange={(e) => handleMonthChange(e.target.value)}
                                 className="w-full bg-[#131619] border border-gray-700 rounded-lg p-2.5 text-white focus:border-cyan-500 outline-none"
                             >
                                 {baseMonthNames.map(m => <option key={m} value={m}>{m}</option>)}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-gray-400 text-sm mb-1">Target Amount *</label>
+                            <label className="block text-gray-400 text-sm mb-1">Target Amount (₹) *</label>
                             <input
                                 type="number"
                                 required
@@ -230,7 +332,7 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
 
                     {/* Achievement Amount */}
                     <div>
-                        <label className="block text-gray-400 text-sm mb-1">Achievement Amount *</label>
+                        <label className="block text-gray-400 text-sm mb-1">Achievement Amount (₹) *</label>
                         <input
                             type="number"
                             required
@@ -245,7 +347,7 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
                     <button
                         type="submit"
                         disabled={loading}
-                        className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 mt-4"
+                        className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 mt-4 transition-colors"
                     >
                         {loading ? "Saving..." : <><FaSave /> Save Target</>}
                     </button>

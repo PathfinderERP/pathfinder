@@ -62,7 +62,15 @@ export const createCentreTarget = async (req, res) => {
             // Check if target already exists for this centre-month-year
             const existing = await CentreTarget.findOne({ centre: centreId, year: calculatedYear, month });
             if (existing) {
-                existingErrors.push(`Target already exists for centre ID: ${centreId}`);
+                existing.financialYear = financialYear;
+                existing.targetAmount = individualTargetAmount;
+                if (achievedAmount !== undefined) {
+                    existing.achievedAmount = Number(achievedAmount) || 0;
+                    existing.achievedAmountWithGST = Number(achievedAmount) || 0;
+                    existing.achievedAmountExclGST = (Number(achievedAmount) || 0) / 1.18;
+                }
+                await existing.save();
+                createdTargets.push(existing);
                 continue;
             }
 
@@ -539,20 +547,8 @@ export const updateCentreTarget = async (req, res) => {
             }
         }
 
-        if (target.groupId) {
-            // If updating targetAmount, divide it by group size
-            if (updateData.targetAmount) {
-                const groupCount = await CentreTarget.countDocuments({ groupId: target.groupId });
-                updateData.targetAmount = updateData.targetAmount / groupCount;
-            }
-            // Update all in group
-            await CentreTarget.updateMany({ groupId: target.groupId }, updateData);
-            const updatedTargets = await CentreTarget.find({ groupId: target.groupId });
-            return res.status(200).json({ message: "Group targets updated", targets: updatedTargets });
-        } else {
-            const updatedTarget = await CentreTarget.findByIdAndUpdate(id, updateData, { new: true });
-            res.status(200).json({ message: "Target updated", target: updatedTarget });
-        }
+        const updatedTarget = await CentreTarget.findByIdAndUpdate(id, updateData, { new: true });
+        res.status(200).json({ message: "Target updated", target: updatedTarget });
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message });
     }
@@ -570,13 +566,8 @@ export const deleteCentreTarget = async (req, res) => {
         const target = await CentreTarget.findById(id);
         if (!target) return res.status(404).json({ message: "Target not found" });
 
-        if (target.groupId) {
-            await CentreTarget.deleteMany({ groupId: target.groupId });
-            res.status(200).json({ message: "Group targets deleted" });
-        } else {
-            await CentreTarget.findByIdAndDelete(id);
-            res.status(200).json({ message: "Target deleted" });
-        }
+        await CentreTarget.findByIdAndDelete(id);
+        res.status(200).json({ message: "Target deleted" });
     } catch (error) {
         res.status(500).json({ message: "Server error", error: error.message });
     }

@@ -769,11 +769,13 @@ const ComparisonAnalysis = () => {
                                                     <td className={`px-6 py-4 font-black text-center border-l border-gray-800/40 ${targetDiff.startsWith('+') ? 'text-green-500' : targetDiff.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>{targetDiff}%</td>
                                                     <td className={`px-6 py-4 font-black text-center ${achievedDiff.startsWith('+') ? 'text-green-500' : achievedDiff.startsWith('-') ? 'text-red-500' : 'text-gray-400'}`}>{achievedDiff}%</td>
                                                     <td className="px-6 py-4 text-right">
-                                                        {row.targetId2526 ? (
-                                                            <button onClick={() => { setSelectedTarget(row); setShowAddModal(true); }} className="text-cyan-500 hover:text-cyan-400 transition-colors p-1" title="Edit FY 2025-2026 data"><FaEdit size={16} /></button>
-                                                        ) : (
-                                                            <span className="text-[10px] text-gray-600 font-bold uppercase select-none">No Record</span>
-                                                        )}
+                                                        <button
+                                                            onClick={() => { setSelectedTarget(row); setShowAddModal(true); }}
+                                                            className="text-cyan-500 hover:text-cyan-400 transition-colors p-1"
+                                                            title="Edit Target & Achievement"
+                                                        >
+                                                            <FaEdit size={16} />
+                                                        </button>
                                                     </td>
                                                 </tr>
                                             );
@@ -1052,7 +1054,9 @@ const ComparisonAnalysis = () => {
                         onClose={() => setShowAddModal(false)}
                         onSuccess={() => {
                             setShowAddModal(false);
-                            fetchComparisonData();
+                            if (viewMode === 'month') fetchComparisonData();
+                            else if (viewMode === 'year') fetchComparisonDataAllMonths();
+                            else fetchComparisonDataDayWise();
                         }}
                         centres={centres}
                         sessions={sessions}

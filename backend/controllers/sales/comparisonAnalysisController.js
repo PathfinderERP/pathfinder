@@ -83,7 +83,7 @@ export const getComparisonAnalysis = async (req, res) => {
             centre: { $in: centres.map(c => c._id) },
             financialYear: { $in: ["2025-2026", "2026-2027"] },
             month: { $in: targetMonths }
-        });
+        }).sort({ updatedAt: -1 });
 
         // 4. Construct response grid
         const data = [];
