@@ -4,6 +4,10 @@ import BoardCourseAdmission from "../../models/Admission/BoardCourseAdmission.js
 import BoardCourseCounselling from "../../models/Admission/BoardCourseCounselling.js";
 import LeadManagement from "../../models/LeadManagement.js";
 import Centre from "../../models/Master_data/Centre.js";
+import StudentFollowUp from "../../models/StudentFollowUp.js";
+import StudentServiceCall from "../../models/StudentServiceCall.js";
+import PNTSEStudent from "../../models/PNTSEStudent.js";
+import PMOStudent from "../../models/PMOStudent.js";
 import mongoose from "mongoose";
 
 export const getUserRankings = async (req, res) => {
@@ -62,6 +66,8 @@ export const getUserRankings = async (req, res) => {
             leadUploadsAgg,
             leadManualAgg,
             followUpsAgg,
+            studentFollowUpsAgg,
+            serviceCallsAgg,
             walkInAgg,
             walkInNameAgg
         ] = await Promise.all([
@@ -169,6 +175,42 @@ export const getUserRankings = async (req, res) => {
                 { $group: { _id: { $trim: { input: "$followUps.updatedBy" } }, count: { $sum: 1 } } }
             ]),
 
+            // 7b. PNTSE & PMO Follow-ups / Calling
+            StudentFollowUp.aggregate([
+                {
+                    $match: {
+                        $or: [
+                            { callDate: dateRange },
+                            { createdAt: dateRange }
+                        ],
+                        calledBy: { $in: userIds }
+                    }
+                },
+                { $group: { _id: "$calledBy", count: { $sum: 1 } } }
+            ]),
+
+            // 7c. Student Service Calls
+            StudentServiceCall.aggregate([
+                {
+                    $match: {
+                        $or: [
+                            { callDate: dateRange },
+                            { createdAt: dateRange }
+                        ],
+                        $or: [
+                            { user: { $in: userIds } },
+                            { userName: { $in: userNames } }
+                        ]
+                    }
+                },
+                {
+                    $group: {
+                        _id: { $ifNull: ["$user", "$userName"] },
+                        count: { $sum: 1 }
+                    }
+                }
+            ]),
+
             // 8. Walk-ins query
             LeadManagement.find({
                 $or: [
@@ -235,6 +277,19 @@ export const getUserRankings = async (req, res) => {
         const manualMap = {};
         leadManualAgg.forEach(r => { if (r._id) manualMap[r._id.toString()] = r.count; });
 
+        // PNTSE & PMO Follow-up map (ObjectId-keyed)
+        const studentFollowUpMap = {};
+        studentFollowUpsAgg.forEach(r => { if (r._id) studentFollowUpMap[r._id.toString()] = r.count; });
+
+        // Student Service Calls map (ObjectId or name-keyed)
+        const serviceCallMap = {};
+        serviceCallsAgg.forEach(r => {
+            if (r._id) {
+                const key = r._id.toString().toLowerCase().trim();
+                serviceCallMap[key] = (serviceCallMap[key] || 0) + r.count;
+            }
+        });
+
         // Build name-keyed lookup maps (for string-based fields)
         const followUpMap = {};
         followUpsAgg.forEach(r => { if (r._id) followUpMap[r._id.toLowerCase().trim()] = r.count; });
@@ -249,9 +304,10 @@ export const getUserRankings = async (req, res) => {
 
             const counselling = (boardCounselMap[uid] || 0) + (leadCounselMap[nameLower] || 0);
             const admissions = (normalAdmMap[uid] || 0) + (boardAdmMap[uid] || 0);
-            const calling = followUpMap[nameLower] || 0;
+            const totalCalls = (followUpMap[nameLower] || 0) + (studentFollowUpMap[uid] || 0) + (serviceCallMap[uid] || serviceCallMap[nameLower] || 0);
+            const calling = totalCalls;
             const walkIn = walkInMap[uid] || 0;
-            const followUps = followUpMap[nameLower] || 0;
+            const followUps = totalCalls;
             const leadUploads = uploadMap[uid] || 0;
             const leadManual = manualMap[uid] || 0;
             const revenue = (normalDpMap[uid] || 0) + (boardDpMap[uid] || 0); // Admission Amount (Total Down Payment)
@@ -530,11 +586,33 @@ export const getUserCallingDetails = async (req, res) => {
         const dateRange = { $gte: startDate, $lte: endDate };
 
         const userNameLower = (user.name || "").toLowerCase().trim();
+        const userObjId = new mongoose.Types.ObjectId(userId);
 
-        const leads = await LeadManagement.find({
-            "followUps.date": dateRange,
-            "followUps.updatedBy": { $regex: new RegExp(`^${user.name.trim()}$`, "i") }
-        }).populate("centre", "centreName").lean();
+        const [leads, studentFollowUps, serviceCalls] = await Promise.all([
+            LeadManagement.find({
+                "followUps.date": dateRange,
+                "followUps.updatedBy": { $regex: new RegExp(`^${user.name.trim()}$`, "i") }
+            }).populate("centre", "centreName").lean(),
+
+            StudentFollowUp.find({
+                calledBy: userObjId,
+                $or: [
+                    { callDate: dateRange },
+                    { createdAt: dateRange }
+                ]
+            }).populate("centre", "centreName").lean(),
+
+            StudentServiceCall.find({
+                $or: [
+                    { user: userObjId },
+                    { userName: { $regex: new RegExp(`^${user.name.trim()}$`, "i") } }
+                ],
+                $or: [
+                    { callDate: dateRange },
+                    { createdAt: dateRange }
+                ]
+            }).populate("centre", "centreName").lean()
+        ]);
 
         const list = [];
         leads.forEach(lead => {
@@ -581,6 +659,69 @@ export const getUserCallingDetails = async (req, res) => {
                 }
             });
         });
+
+        // 2. Process PNTSE & PMO student follow-up calls
+        if (studentFollowUps && studentFollowUps.length > 0) {
+            const pntseIds = studentFollowUps.filter(f => f.studentType === 'PNTSE').map(f => f.studentId).filter(Boolean);
+            const pmoIds = studentFollowUps.filter(f => f.studentType === 'PMO').map(f => f.studentId).filter(Boolean);
+
+            const [pntseStudents, pmoStudents] = await Promise.all([
+                pntseIds.length > 0 ? PNTSEStudent.find({ _id: { $in: pntseIds } }).populate("centre", "centreName").lean() : [],
+                pmoIds.length > 0 ? PMOStudent.find({ _id: { $in: pmoIds } }).populate("centre", "centreName").lean() : []
+            ]);
+
+            const studentMap = {};
+            pntseStudents.forEach(s => { studentMap[s._id.toString()] = { ...s, type: 'PNTSE' }; });
+            pmoStudents.forEach(s => { studentMap[s._id.toString()] = { ...s, type: 'PMO' }; });
+
+            studentFollowUps.forEach((fu, idx) => {
+                const st = studentMap[fu.studentId?.toString()] || {};
+                const fuDate = new Date(fu.callDate || fu.createdAt);
+                const day = String(fuDate.getDate()).padStart(2, '0');
+                const monthNum = String(fuDate.getMonth() + 1).padStart(2, '0');
+                const year = fuDate.getFullYear();
+
+                list.push({
+                    id: fu._id || `sfu_${idx}`,
+                    date: `${day}-${monthNum}-${year}`,
+                    rawDate: fuDate,
+                    studentName: st.name || "Student",
+                    mobile: st.mobile || st.secondaryMobile || "-",
+                    status: `${fu.studentType || 'PNTSE'} Call (${fu.feedback || 'Follow-up'})`,
+                    remarks: fu.notes ? `${fu.feedback || ''} - ${fu.notes}` : (fu.feedback || `${fu.studentType} Call`),
+                    duration: fu.callDuration ? `${fu.callDuration}s` : "-",
+                    centre: fu.centre?.centreName || st.centre?.centreName || "-",
+                    totalFollowUps: 1,
+                    followUpSeq: 1,
+                    prevFollowUp: null
+                });
+            });
+        }
+
+        // 3. Process StudentServiceCalls
+        if (serviceCalls && serviceCalls.length > 0) {
+            serviceCalls.forEach((sc, idx) => {
+                const scDate = new Date(sc.callDate || sc.createdAt);
+                const day = String(scDate.getDate()).padStart(2, '0');
+                const monthNum = String(scDate.getMonth() + 1).padStart(2, '0');
+                const year = scDate.getFullYear();
+
+                list.push({
+                    id: sc._id || `sc_${idx}`,
+                    date: `${day}-${monthNum}-${year}`,
+                    rawDate: scDate,
+                    studentName: sc.studentName || "Student",
+                    mobile: sc.studentPhone || "-",
+                    status: `Service Call (${sc.servicePurpose || sc.status || 'General'})`,
+                    remarks: sc.remarks || sc.servicePurpose || "Service Call",
+                    duration: "-",
+                    centre: sc.centreName || sc.centre?.centreName || "-",
+                    totalFollowUps: 1,
+                    followUpSeq: 1,
+                    prevFollowUp: null
+                });
+            });
+        }
 
         list.sort((a, b) => new Date(b.rawDate) - new Date(a.rawDate));
         res.status(200).json({ data: list, totalCount: list.length });

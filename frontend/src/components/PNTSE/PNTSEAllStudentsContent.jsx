@@ -268,12 +268,13 @@ const PNTSEAllStudentsContent = () => {
         status: [],
         session: [],
         admissionStatus: [],
+        contactStatus: [],
         datePreset: 'all',
         dateType: 'registration',
         startDate: '',
         endDate: ''
     });
-    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+    const [sortConfig, setSortConfig] = useState({ key: 'air', direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -303,6 +304,7 @@ const PNTSEAllStudentsContent = () => {
         filters.status?.length > 0 ||
         filters.session?.length > 0 ||
         filters.admissionStatus?.length > 0 ||
+        filters.contactStatus?.length > 0 ||
         filters.startDate ||
         filters.endDate ||
         filters.datePreset !== 'all'
@@ -318,6 +320,7 @@ const PNTSEAllStudentsContent = () => {
             status: [],
             session: [],
             admissionStatus: [],
+            contactStatus: [],
             datePreset: 'all',
             dateType: 'registration',
             startDate: '',
@@ -747,6 +750,7 @@ const PNTSEAllStudentsContent = () => {
                 if (filters.session?.length > 0) params.append('session', filters.session.join(','));
                 if (filters.status?.length > 0) params.append('status', filters.status.join(','));
                 if (filters.admissionStatus?.length > 0) params.append('admissionStatus', filters.admissionStatus.join(','));
+                if (filters.contactStatus?.length > 0) params.append('contactStatus', filters.contactStatus.join(','));
                 if (filters.startDate) params.append('startDate', filters.startDate);
                 if (filters.endDate) params.append('endDate', filters.endDate);
                 if (filters.dateType) params.append('dateType', filters.dateType);
@@ -799,6 +803,7 @@ const PNTSEAllStudentsContent = () => {
                         session: filters.session?.join(','),
                         status: filters.status?.join(','),
                         admissionStatus: filters.admissionStatus?.join(','),
+                        contactStatus: filters.contactStatus?.join(','),
                         startDate: filters.startDate,
                         endDate: filters.endDate,
                         dateType: filters.dateType
@@ -831,6 +836,7 @@ const PNTSEAllStudentsContent = () => {
                 if (filters.session?.length > 0) refreshParams.append('session', filters.session.join(','));
                 if (filters.status?.length > 0) refreshParams.append('status', filters.status.join(','));
                 if (filters.admissionStatus?.length > 0) refreshParams.append('admissionStatus', filters.admissionStatus.join(','));
+                if (filters.contactStatus?.length > 0) refreshParams.append('contactStatus', filters.contactStatus.join(','));
                 if (filters.startDate) refreshParams.append('startDate', filters.startDate);
                 if (filters.endDate) refreshParams.append('endDate', filters.endDate);
                 if (filters.dateType) refreshParams.append('dateType', filters.dateType);
@@ -1028,15 +1034,31 @@ const PNTSEAllStudentsContent = () => {
     };
 
     const sortedStudents = [...students].sort((a, b) => {
-        if (!sortConfig.key) return 0;
-        let aVal = a[sortConfig.key];
-        let bVal = b[sortConfig.key];
-        if (sortConfig.key === 'class') { aVal = a.class?.name || ''; bVal = b.class?.name || ''; }
-        if (sortConfig.key === 'school') { aVal = a.school || ''; bVal = b.school || ''; }
-        if (sortConfig.key === 'centre') { aVal = a.centre?.centreName || ''; bVal = b.centre?.centreName || ''; }
-        if (sortConfig.key === 'zone') { aVal = getZoneName(a.centre) || ''; bVal = getZoneName(b.centre) || ''; }
-        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        const key = sortConfig.key || 'air';
+        const direction = sortConfig.direction || 'asc';
+
+        if (key === 'air') {
+            const airA = a.result?.air ?? a.rank;
+            const airB = b.result?.air ?? b.rank;
+            const numA = (airA !== null && airA !== undefined && airA !== '' && !isNaN(Number(airA))) ? Number(airA) : null;
+            const numB = (airB !== null && airB !== undefined && airB !== '' && !isNaN(Number(airB))) ? Number(airB) : null;
+
+            if (numA !== null && numB !== null) {
+                return direction === 'asc' ? numA - numB : numB - numA;
+            }
+            if (numA !== null && numB === null) return -1;
+            if (numA === null && numB !== null) return 1;
+            return (a.name || '').localeCompare(b.name || '');
+        }
+
+        let aVal = a[key];
+        let bVal = b[key];
+        if (key === 'class') { aVal = a.class?.name || ''; bVal = b.class?.name || ''; }
+        if (key === 'school') { aVal = a.school || ''; bVal = b.school || ''; }
+        if (key === 'centre') { aVal = a.centre?.centreName || ''; bVal = b.centre?.centreName || ''; }
+        if (key === 'zone') { aVal = getZoneName(a.centre) || ''; bVal = getZoneName(b.centre) || ''; }
+        if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return direction === 'asc' ? 1 : -1;
         return 0;
     });
 
@@ -1302,6 +1324,16 @@ const PNTSEAllStudentsContent = () => {
                         selectedValues={filters.admissionStatus}
                         onChange={(vals) => setFilters(prev => ({ ...prev, admissionStatus: vals }))}
                     />
+                    <PNTSEMultiSelect
+                        label="Contact Status"
+                        placeholder="All Contact Statuses"
+                        options={[
+                            { value: 'Contacted', label: 'Contacted' },
+                            { value: 'Not Contacted', label: 'Not Contacted' }
+                        ]}
+                        selectedValues={filters.contactStatus}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, contactStatus: vals }))}
+                    />
                     {dbSessions.length > 0 && (
                         <PNTSEMultiSelect
                             label="Session"
@@ -1435,6 +1467,11 @@ const PNTSEAllStudentsContent = () => {
                                     <div className="flex items-center gap-1.5">Student Name <SortIcon field="name" /></div>
                                 </th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Roll No.</th>
+                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider cursor-pointer hover:text-cyan-400 transition-colors" onClick={() => handleSort('air')}>
+                                    <div className="flex items-center gap-1.5">AIR <SortIcon field="air" /></div>
+                                </th>
+                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Admission Status</th>
+                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Contact Status</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Mail</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Class</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Board</th>
@@ -1452,7 +1489,6 @@ const PNTSEAllStudentsContent = () => {
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Course</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Paid Status</th>
                                 <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Exam Tag</th>
-                                <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-400 uppercase tracking-wider">Admission Status</th>
                                 <th className="px-4 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Attendance</th>
                                 <th className="px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Admit Card</th>
                                 <th className="px-5 py-3.5 text-xs font-semibold text-gray-400 uppercase tracking-wider text-center">Student Result</th>
@@ -1489,6 +1525,45 @@ const PNTSEAllStudentsContent = () => {
                                         </div>
                                     </td>
                                     <td className="px-5 py-4 text-cyan-400 font-mono text-xs font-semibold">{student.rollNo}</td>
+                                    <td className="px-5 py-4 text-left">
+                                        {(student.result?.air || student.rank) ? (
+                                            <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold font-mono text-xs border border-amber-500/30">
+                                                #{student.result?.air || student.rank}
+                                            </span>
+                                        ) : (
+                                            <span className="text-gray-500 text-xs font-medium">—</span>
+                                        )}
+                                    </td>
+                                    <td className="px-5 py-4 text-left">
+                                        {student.admissionStatus === 'Both' ? (
+                                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                Both
+                                            </span>
+                                        ) : student.admissionStatus === 'Normal' ? (
+                                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                                                Normal
+                                            </span>
+                                        ) : student.admissionStatus === 'Board' ? (
+                                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
+                                                Board
+                                            </span>
+                                        ) : (
+                                            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-gray-500/20 text-gray-300 border border-gray-600/30">
+                                                {student.admissionStatus || 'Not Enrolled'}
+                                            </span>
+                                        )}
+                                    </td>
+                                    <td className="px-5 py-4 text-left">
+                                        {student.contactStatus === 'Contacted' ? (
+                                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                                                Contacted
+                                            </span>
+                                        ) : (
+                                            <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30">
+                                                Not Contacted
+                                            </span>
+                                        )}
+                                    </td>
                                     <td className="px-5 py-4 text-gray-300 text-xs font-mono">{student.email || ''}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.class?.name || student.class}</td>
                                     <td className="px-5 py-4 text-gray-300">{student.board?.boardCourse || student.board?.boardName || student.board || '—'}</td>
@@ -1518,23 +1593,7 @@ const PNTSEAllStudentsContent = () => {
                                             {student.examTag?.name || '—'}
                                         </span>
                                     </td>
-                                    <td className="px-5 py-4 text-left">
-                                        {student.admissionStatus === 'Both' ? (
-                                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                                                Both
-                                            </span>
-                                        ) : student.admissionStatus === 'Normal' ? (
-                                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                                                Normal
-                                            </span>
-                                        ) : student.admissionStatus === 'Board' ? (
-                                            <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-purple-500/20 text-purple-400 border border-purple-500/30">
-                                                Board
-                                            </span>
-                                        ) : (
-                                            <span className="text-gray-500 text-xs font-medium">—</span>
-                                        )}
-                                    </td>
+
                                     <td className="px-4 py-4 text-center">
                                         <div className="inline-flex items-center gap-1.5 p-1 bg-gray-900/80 rounded-lg border border-gray-800 shadow-inner">
                                             <button

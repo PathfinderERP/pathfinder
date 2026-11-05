@@ -488,6 +488,29 @@ export const getPNTSEStudents = async (req, res) => {
 
         let enrichedStudents = await attachAdmissionStatus(students);
 
+        // Attach Contact Status from PNTSE Calling (StudentFollowUp)
+        if (enrichedStudents && enrichedStudents.length > 0) {
+            const studentIds = enrichedStudents.map(s => s._id);
+            const contactedList = await StudentFollowUp.aggregate([
+                { $match: { studentId: { $in: studentIds }, studentType: "PNTSE" } },
+                { $group: { _id: "$studentId", count: { $sum: 1 }, lastCallDate: { $max: "$callDate" } } }
+            ]);
+            const contactMap = new Map();
+            contactedList.forEach(c => contactMap.set(c._id.toString(), c));
+
+            enrichedStudents.forEach(s => {
+                const callInfo = contactMap.get(s._id.toString());
+                if (callInfo && callInfo.count > 0) {
+                    s.contactStatus = "Contacted";
+                    s.followUpCount = callInfo.count;
+                    s.lastCallDate = callInfo.lastCallDate;
+                } else {
+                    s.contactStatus = "Not Contacted";
+                    s.followUpCount = 0;
+                }
+            });
+        }
+
         const stats = await getExamGivenStats();
 
         // Normalize percentage and attach dynamic exam counts per class/centre
@@ -511,11 +534,36 @@ export const getPNTSEStudents = async (req, res) => {
 
         const admissionStatusList = parseList(req.query.admissionStatus);
         if (admissionStatusList.length > 0) {
-            const lowerTargets = admissionStatusList.map(s => s.toLowerCase());
+            const lowerTargets = admissionStatusList.map(s => {
+                const l = s.toLowerCase();
+                return l === 'none' ? 'not enrolled' : l;
+            });
+            enrichedStudents = enrichedStudents.filter(s => {
+                const st = (s.admissionStatus || 'Not Enrolled').toLowerCase();
+                return lowerTargets.includes(st) || (lowerTargets.includes('not enrolled') && st === 'none');
+            });
+        }
+
+        const contactStatusList = parseList(req.query.contactStatus);
+        if (contactStatusList.length > 0) {
+            const lowerContactTargets = contactStatusList.map(s => s.toLowerCase());
             enrichedStudents = enrichedStudents.filter(s =>
-                lowerTargets.includes((s.admissionStatus || 'None').toLowerCase())
+                lowerContactTargets.includes((s.contactStatus || 'Not Contacted').toLowerCase())
             );
         }
+
+        // Sort AIR-wise ascending (from first rank, unranked at the end)
+        enrichedStudents.sort((a, b) => {
+            const airA = a.result?.air ?? a.rank;
+            const airB = b.result?.air ?? b.rank;
+            const numA = (airA !== null && airA !== undefined && airA !== '' && !isNaN(Number(airA))) ? Number(airA) : null;
+            const numB = (airB !== null && airB !== undefined && airB !== '' && !isNaN(Number(airB))) ? Number(airB) : null;
+
+            if (numA !== null && numB !== null) return numA - numB;
+            if (numA !== null && numB === null) return -1;
+            if (numA === null && numB !== null) return 1;
+            return (a.name || '').localeCompare(b.name || '');
+        });
 
         res.status(200).json(enrichedStudents);
     } catch (err) {

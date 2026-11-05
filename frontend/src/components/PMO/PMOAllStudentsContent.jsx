@@ -265,6 +265,7 @@ const PMOAllStudentsContent = () => {
         session: [],
         course: [],
         admissionStatus: [],
+        contactStatus: [],
         datePreset: 'all',
         dateType: 'registration',
         startDate: '',
@@ -287,7 +288,7 @@ const PMOAllStudentsContent = () => {
             [field]: val
         }));
     };
-    const [sortConfig, setSortConfig] = useState({ key: null, direction: 'asc' });
+    const [sortConfig, setSortConfig] = useState({ key: 'air', direction: 'asc' });
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
@@ -571,6 +572,7 @@ const PMOAllStudentsContent = () => {
             if (filters.session?.length > 0) params.append('session', filters.session.join(','));
             if (filters.course?.length > 0) params.append('course', filters.course.join(','));
             if (filters.admissionStatus?.length > 0) params.append('admissionStatus', filters.admissionStatus.join(','));
+            if (filters.contactStatus?.length > 0) params.append('contactStatus', filters.contactStatus.join(','));
             if (filters.startDate) params.append('startDate', filters.startDate);
             if (filters.endDate) params.append('endDate', filters.endDate);
             if (filters.dateType) params.append('dateType', filters.dateType);
@@ -627,6 +629,8 @@ const PMOAllStudentsContent = () => {
         filters.status?.length > 0 ||
         filters.session?.length > 0 ||
         filters.course?.length > 0 ||
+        filters.admissionStatus?.length > 0 ||
+        filters.contactStatus?.length > 0 ||
         filters.startDate ||
         filters.endDate ||
         filters.datePreset !== 'all'
@@ -642,6 +646,8 @@ const PMOAllStudentsContent = () => {
             status: [],
             session: [],
             course: [],
+            admissionStatus: [],
+            contactStatus: [],
             datePreset: 'all',
             dateType: 'registration',
             startDate: '',
@@ -659,19 +665,35 @@ const PMOAllStudentsContent = () => {
     };
 
     const sortedStudents = [...students].sort((a, b) => {
-        if (!sortConfig.key) return 0;
-        let aVal = a[sortConfig.key] || '';
-        let bVal = b[sortConfig.key] || '';
-        if (sortConfig.key === 'class') {
+        const key = sortConfig.key || 'air';
+        const direction = sortConfig.direction || 'asc';
+
+        if (key === 'air') {
+            const airA = a.result?.air ?? a.rank;
+            const airB = b.result?.air ?? b.rank;
+            const numA = (airA !== null && airA !== undefined && airA !== '' && !isNaN(Number(airA))) ? Number(airA) : null;
+            const numB = (airB !== null && airB !== undefined && airB !== '' && !isNaN(Number(airB))) ? Number(airB) : null;
+
+            if (numA !== null && numB !== null) {
+                return direction === 'asc' ? numA - numB : numB - numA;
+            }
+            if (numA !== null && numB === null) return -1;
+            if (numA === null && numB !== null) return 1;
+            return (a.name || '').localeCompare(b.name || '');
+        }
+
+        let aVal = a[key] || '';
+        let bVal = b[key] || '';
+        if (key === 'class') {
             aVal = a.class?.name || '';
             bVal = b.class?.name || '';
         }
-        if (sortConfig.key === 'centre') {
+        if (key === 'centre') {
             aVal = a.centre?.centreName || '';
             bVal = b.centre?.centreName || '';
         }
-        if (aVal < bVal) return sortConfig.direction === 'asc' ? -1 : 1;
-        if (aVal > bVal) return sortConfig.direction === 'asc' ? 1 : -1;
+        if (aVal < bVal) return direction === 'asc' ? -1 : 1;
+        if (aVal > bVal) return direction === 'asc' ? 1 : -1;
         return 0;
     });
 
@@ -691,6 +713,9 @@ const PMOAllStudentsContent = () => {
         const exportData = sortedStudents.map((s, idx) => ({
             'Sl. No': idx + 1,
             'Roll / Enrollment No': s.rollNo,
+            'AIR': s.result?.air || s.rank || '—',
+            'Admission Status': s.admissionStatus || 'Not Enrolled',
+            'Contact Status': s.contactStatus || 'Not Contacted',
             'Name': s.name,
             'Mobile': s.mobile,
             'Email': s.email || '—',
@@ -715,7 +740,6 @@ const PMOAllStudentsContent = () => {
             'Reporting Time': formatReportingTime(s.reportingTime),
             'Exam Time Slot': s.timeSlot || '—',
             'Exam Tag': s.examTag?.name || '—',
-            'Admission Status': s.admissionStatus || 'None',
             'Status': s.status,
             'Score': s.score || 0,
             'Rank': s.rank || '—',
@@ -1071,6 +1095,18 @@ const PMOAllStudentsContent = () => {
                         onChange={(vals) => setFilters(prev => ({ ...prev, admissionStatus: vals }))}
                     />
 
+                    {/* Contact Status MultiSelect */}
+                    <PMOMultiSelect
+                        label="Contact Status"
+                        placeholder="All Contact Statuses"
+                        options={[
+                            { value: 'Contacted', label: 'Contacted' },
+                            { value: 'Not Contacted', label: 'Not Contacted' }
+                        ]}
+                        selectedValues={filters.contactStatus}
+                        onChange={(vals) => setFilters(prev => ({ ...prev, contactStatus: vals }))}
+                    />
+
                     {/* Date Type */}
                     <select
                         value={filters.dateType}
@@ -1177,6 +1213,14 @@ const PMOAllStudentsContent = () => {
                                         {sortConfig.key === 'rollNo' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
                                     </div>
                                 </th>
+                                <th className="p-3.5 cursor-pointer hover:text-white" onClick={() => handleSort('air')}>
+                                    <div className="flex items-center gap-1">
+                                        AIR
+                                        {sortConfig.key === 'air' && (sortConfig.direction === 'asc' ? <FaSortUp /> : <FaSortDown />)}
+                                    </div>
+                                </th>
+                                <th className="p-3.5">Admission Status</th>
+                                <th className="p-3.5">Contact Status</th>
                                 <th className="p-3.5">Mail</th>
                                 <th className="p-3.5 cursor-pointer hover:text-white" onClick={() => handleSort('name')}>
                                     <div className="flex items-center gap-1">
@@ -1205,7 +1249,6 @@ const PMOAllStudentsContent = () => {
                                 <th className="p-3.5">Fee & Payment</th>
                                 <th className="p-3.5">Exam Venue & Time</th>
                                 <th className="p-3.5">Exam Tag</th>
-                                <th className="p-3.5">Admission Status</th>
                                 <th className="p-3.5 text-center">Attendance</th>
                                 <th className="p-3.5 text-right min-w-[150px]">Actions</th>
                             </tr>
@@ -1213,7 +1256,7 @@ const PMOAllStudentsContent = () => {
                         <tbody className="divide-y divide-gray-800/60">
                             {studentsLoading ? (
                                 <tr>
-                                    <td colSpan={14} className="p-12 text-center text-gray-500">
+                                    <td colSpan={16} className="p-12 text-center text-gray-500">
                                         <FaSpinner className="animate-spin text-2xl text-purple-400 mx-auto mb-2" />
                                         Loading PMO students...
                                     </td>
@@ -1247,6 +1290,51 @@ const PMOAllStudentsContent = () => {
                                                 <span className="font-mono font-bold text-purple-400 bg-purple-500/10 px-2 py-1 rounded-md border border-purple-500/20">
                                                     {s.rollNo}
                                                 </span>
+                                            </td>
+
+                                            {/* AIR */}
+                                            <td className="p-3.5">
+                                                {(s.result?.air || s.rank) ? (
+                                                    <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-bold font-mono text-xs border border-amber-500/30">
+                                                        #{s.result?.air || s.rank}
+                                                    </span>
+                                                ) : (
+                                                    <span className="text-gray-500 text-xs font-medium">—</span>
+                                                )}
+                                            </td>
+
+                                            {/* Admission Status */}
+                                            <td className="p-3.5">
+                                                {s.admissionStatus === 'Both' ? (
+                                                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[11px] border border-emerald-500/30">
+                                                        Both
+                                                    </span>
+                                                ) : s.admissionStatus === 'Normal' ? (
+                                                    <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-bold text-[11px] border border-cyan-500/30">
+                                                        Normal
+                                                    </span>
+                                                ) : s.admissionStatus === 'Board' ? (
+                                                    <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 font-bold text-[11px] border border-purple-500/30">
+                                                        Board
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 rounded bg-gray-500/20 text-gray-300 font-semibold text-[11px] border border-gray-600/30">
+                                                        {s.admissionStatus || 'Not Enrolled'}
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            {/* Contact Status */}
+                                            <td className="p-3.5">
+                                                {s.contactStatus === 'Contacted' ? (
+                                                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[11px] border border-emerald-500/30">
+                                                        Contacted
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2 py-0.5 rounded bg-rose-500/15 text-rose-300 font-semibold text-[11px] border border-rose-500/30">
+                                                        Not Contacted
+                                                    </span>
+                                                )}
                                             </td>
 
                                             <td className="p-3.5 text-gray-300 font-mono text-xs">
@@ -1388,23 +1476,6 @@ const PMOAllStudentsContent = () => {
                                                 </span>
                                             </td>
 
-                                            <td className="p-3.5">
-                                                {s.admissionStatus === 'Both' ? (
-                                                    <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-bold text-[11px] border border-emerald-500/30">
-                                                        Both
-                                                    </span>
-                                                ) : s.admissionStatus === 'Normal' ? (
-                                                    <span className="px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 font-bold text-[11px] border border-cyan-500/30">
-                                                        Normal
-                                                    </span>
-                                                ) : s.admissionStatus === 'Board' ? (
-                                                    <span className="px-2 py-0.5 rounded bg-purple-500/20 text-purple-400 font-bold text-[11px] border border-purple-500/30">
-                                                        Board
-                                                    </span>
-                                                ) : (
-                                                    <span className="text-gray-500 text-xs font-medium">—</span>
-                                                )}
-                                            </td>
 
                                             <td className="p-3.5 text-center">
                                                 <div className="inline-flex items-center gap-1.5 p-1 bg-gray-900/80 rounded-lg border border-gray-800 shadow-inner">

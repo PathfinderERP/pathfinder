@@ -326,6 +326,60 @@ const ComparisonAnalysis = () => {
         );
     }, [yearData, comparisonData]);
 
+    // Aggregate month-wise data per centre across selected months (single row per centre)
+    const monthWiseAggregatedData = React.useMemo(() => {
+        if (!comparisonData || comparisonData.length === 0) return [];
+
+        const monthsList = (selectedMonths && selectedMonths.length > 0)
+            ? selectedMonths
+            : Array.from(new Set(comparisonData.map(r => r.month))).filter(Boolean);
+
+        const sortedMonths = [...monthsList].sort((a, b) => monthNames.indexOf(a) - monthNames.indexOf(b));
+        const monthLabel = sortedMonths.length === 12
+            ? "All Months"
+            : (sortedMonths.length > 0 ? sortedMonths.join(", ") : "All Months");
+
+        const centreMap = {};
+        comparisonData.forEach(row => {
+            const cid = row.centre?._id?.toString() || row.centre;
+            if (!centreMap[cid]) {
+                centreMap[cid] = {
+                    centre: row.centre,
+                    month: monthLabel,
+                    selectedMonthsList: sortedMonths,
+                    target2526: 0,
+                    achieved2526: 0,
+                    achievedWithGST2526: 0,
+                    achievedExclGST2526: 0,
+                    target2627: 0,
+                    achieved2627: 0,
+                    achievedWithGST2627: 0,
+                    achievedExclGST2627: 0,
+                    targetId2526: row.targetId2526,
+                    targetId2627: row.targetId2627,
+                    financialYear2526: row.financialYear2526 || "2025-2026",
+                    financialYear2627: row.financialYear2627 || "2026-2027",
+                    year2526: row.year2526,
+                    year2627: row.year2627,
+                    monthlyBreakdown: []
+                };
+            }
+            centreMap[cid].target2526 += Number(row.target2526) || 0;
+            centreMap[cid].achieved2526 += Number(row.achieved2526) || 0;
+            centreMap[cid].achievedWithGST2526 += Number(row.achievedWithGST2526) || 0;
+            centreMap[cid].achievedExclGST2526 += Number(row.achievedExclGST2526) || 0;
+            centreMap[cid].target2627 += Number(row.target2627) || 0;
+            centreMap[cid].achieved2627 += Number(row.achieved2627) || 0;
+            centreMap[cid].achievedWithGST2627 += Number(row.achievedWithGST2627) || 0;
+            centreMap[cid].achievedExclGST2627 += Number(row.achievedExclGST2627) || 0;
+            centreMap[cid].monthlyBreakdown.push(row);
+        });
+
+        return Object.values(centreMap).sort((a, b) =>
+            (a.centre?.centreName || "").localeCompare(b.centre?.centreName || "")
+        );
+    }, [comparisonData, selectedMonths]);
+
     // Day-wise data: uses actual DailyTarget (set in tracking system) for current year
     // and pro-rates previous year's monthly achievement to today's day
     const dayWiseData = React.useMemo(() => {
@@ -436,9 +490,9 @@ const ComparisonAnalysis = () => {
 
     const handleExport = () => {
         if (viewMode === 'month') {
-            if (comparisonData.length === 0) { toast.warn("No data to export"); return; }
-            const exportRows = comparisonData.map(row => ({
-                "Centre Name": row.centre.centreName,
+            if (monthWiseAggregatedData.length === 0) { toast.warn("No data to export"); return; }
+            const exportRows = monthWiseAggregatedData.map(row => ({
+                "Centre Name": row.centre?.centreName || row.centre,
                 "Month": row.month,
                 "2025-2026 Target (Excl GST)": row.target2526,
                 "2025-2026 Target (With GST)": row.target2526 * 1.18,
@@ -493,7 +547,7 @@ const ComparisonAnalysis = () => {
                 return acc;
             }, { totalTarget2526: 0, totalAchieved2526: 0, totalTarget2627: 0, totalAchieved2627: 0 });
         }
-        const activeRows = viewMode === 'month' ? comparisonData : yearWiseData;
+        const activeRows = viewMode === 'month' ? monthWiseAggregatedData : yearWiseData;
         return activeRows.reduce((acc, row) => {
             acc.totalTarget2526 += row.target2526 || 0;
             acc.totalAchieved2526 += row.achieved2526 || 0;
@@ -501,7 +555,7 @@ const ComparisonAnalysis = () => {
             acc.totalAchieved2627 += row.achieved2627 || 0;
             return acc;
         }, { totalTarget2526: 0, totalAchieved2526: 0, totalTarget2627: 0, totalAchieved2627: 0 });
-    }, [viewMode, comparisonData, yearWiseData, dayWiseData]);
+    }, [viewMode, monthWiseAggregatedData, yearWiseData, dayWiseData]);
 
     return (
         <Layout activePage="Sales">
@@ -819,15 +873,15 @@ const ComparisonAnalysis = () => {
                                 <tbody className={`divide-y ${isDarkMode ? 'divide-gray-800' : 'divide-gray-100'} text-xs font-semibold`}>
                                     {loading ? (
                                         <tr><td colSpan="9" className="px-6 py-12 text-center text-cyan-400 font-bold">Loading comparative data...</td></tr>
-                                    ) : comparisonData.length === 0 ? (
+                                    ) : monthWiseAggregatedData.length === 0 ? (
                                         <tr><td colSpan="9" className="px-6 py-12 text-center text-gray-500 font-medium">No comparison data found. Please adjust filters.</td></tr>
                                     ) : (
-                                        comparisonData.map((row, idx) => {
+                                        monthWiseAggregatedData.map((row, idx) => {
                                             const targetDiff = calculateGrowth(row.target2526, row.target2627);
                                             const achievedDiff = calculateGrowth(row.achieved2526, row.achieved2627);
                                             return (
-                                                <tr key={`${row.centre._id}-${row.month}-${idx}`} className={`${isDarkMode ? 'hover:bg-[#131619] text-gray-400' : 'hover:bg-gray-50 text-gray-700'} transition-all duration-200`}>
-                                                    <td className={`px-6 py-4 font-bold sticky left-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] text-white border-r border-gray-800' : 'bg-white text-gray-900 border-r border-gray-100'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.15)' }}>{row.centre.centreName}</td>
+                                                <tr key={`${row.centre?._id || row.centre}-${idx}`} className={`${isDarkMode ? 'hover:bg-[#131619] text-gray-400' : 'hover:bg-gray-50 text-gray-700'} transition-all duration-200`}>
+                                                    <td className={`px-6 py-4 font-bold sticky left-0 z-10 ${isDarkMode ? 'bg-[#1a1f24] text-white border-r border-gray-800' : 'bg-white text-gray-900 border-r border-gray-100'}`} style={{ boxShadow: '2px 0 6px -1px rgba(0,0,0,0.15)' }}>{row.centre?.centreName || row.centre}</td>
                                                     <td className={`px-6 py-4 ${isDarkMode ? 'text-cyan-100' : 'text-cyan-700'} font-bold`}>{row.month}</td>
                                                     <td className="px-6 py-4 font-bold text-center border-l border-gray-800/40 bg-blue-500/5 text-blue-400">{(row.target2526 || 0).toLocaleString()}</td>
                                                     <td className="px-6 py-4 font-bold text-center bg-blue-500/5 text-emerald-500">{(row.achieved2526 || 0).toLocaleString()}</td>

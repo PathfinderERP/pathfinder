@@ -39,6 +39,19 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
         }
     };
 
+    // Helper to get values for a specific month and financial year (supports multi-month aggregated targets)
+    const getValuesForMonthAndFY = (mName, fy, targetObj) => {
+        const obj = targetObj || target;
+        if (!obj) return { targetAmount: "", achievedAmount: "", year: null };
+        if (obj.monthlyBreakdown && obj.monthlyBreakdown.length > 0) {
+            const matched = obj.monthlyBreakdown.find(m => m.month === mName);
+            if (matched) {
+                return getValuesForFY(fy, matched);
+            }
+        }
+        return getValuesForFY(fy, obj);
+    };
+
     // Calculate calendar year for FY and month
     const calculateYear = (financialYear, month, fallbackYear) => {
         if (financialYear && month) {
@@ -74,8 +87,15 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
             setSelectedCentres([]);
         } else {
             const initialFY = target.initialFY || (target.targetId2627 ? "2026-2027" : (target.targetId2526 ? "2025-2026" : (target.financialYear || "2026-2027")));
-            const targetMonth = target.month || "April";
-            const fyVals = getValuesForFY(initialFY, target);
+            let targetMonth = "April";
+            if (target.month) {
+                if (target.month.includes(',')) {
+                    targetMonth = target.month.split(',')[0].trim();
+                } else if (target.month !== "All Months") {
+                    targetMonth = target.month;
+                }
+            }
+            const fyVals = getValuesForMonthAndFY(targetMonth, initialFY, target);
             const computedYear = fyVals.year || calculateYear(initialFY, targetMonth, 2026);
 
             setFormData({
@@ -93,7 +113,7 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
     }, [target, sessions]);
 
     const handleFinancialYearChange = (newFY) => {
-        const fyVals = getValuesForFY(newFY, target);
+        const fyVals = getValuesForMonthAndFY(formData.month, newFY, target);
         const computedYear = fyVals.year || calculateYear(newFY, formData.month, formData.year);
         setFormData(prev => ({
             ...prev,
@@ -116,10 +136,13 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
 
     const handleMonthChange = (newMonth) => {
         const computedYear = calculateYear(formData.financialYear, newMonth, formData.year);
+        const fyVals = getValuesForMonthAndFY(newMonth, formData.financialYear, target);
         setFormData(prev => ({
             ...prev,
             month: newMonth,
-            year: computedYear
+            year: computedYear,
+            targetAmount: fyVals.targetAmount !== undefined && fyVals.targetAmount !== "" ? fyVals.targetAmount : prev.targetAmount,
+            achievedAmount: fyVals.achievedAmount !== undefined && fyVals.achievedAmount !== "" ? fyVals.achievedAmount : prev.achievedAmount
         }));
     };
 
@@ -131,15 +154,20 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
             const token = localStorage.getItem("token");
             const isEdit = !!target;
 
-            // Determine targetId if this row already has a record for the selected FY
+            // Determine targetId if this row already has a record for the selected FY and Month
             let targetId = null;
             if (target) {
-                if (formData.financialYear === "2026-2027" && target.targetId2627) {
-                    targetId = target.targetId2627;
-                } else if (formData.financialYear === "2025-2026" && target.targetId2526) {
-                    targetId = target.targetId2526;
-                } else if (target._id && !target.targetId2526 && !target.targetId2627) {
-                    targetId = target._id;
+                let rec = target;
+                if (target.monthlyBreakdown && target.monthlyBreakdown.length > 0) {
+                    const found = target.monthlyBreakdown.find(m => m.month === formData.month);
+                    if (found) rec = found;
+                }
+                if (formData.financialYear === "2026-2027" && rec.targetId2627) {
+                    targetId = rec.targetId2627;
+                } else if (formData.financialYear === "2025-2026" && rec.targetId2526) {
+                    targetId = rec.targetId2526;
+                } else if (rec._id && !rec.targetId2526 && !rec.targetId2627) {
+                    targetId = rec._id;
                 }
             }
 
@@ -232,7 +260,12 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
                                             : "text-gray-400 hover:text-white"
                                     }`}
                                 >
-                                    FY 2026-2027 {target.target2627 !== undefined ? `(₹${Number(target.target2627).toLocaleString()})` : ""}
+                                    FY 2026-2027 {(() => {
+                                        const v = getValuesForMonthAndFY(formData.month, "2026-2027", target);
+                                        return (v.targetAmount !== "" && v.targetAmount !== undefined && v.targetAmount !== null)
+                                            ? `(₹${Number(v.targetAmount).toLocaleString()})`
+                                            : "";
+                                    })()}
                                 </button>
                                 <button
                                     type="button"
@@ -243,7 +276,12 @@ const AddComparisonTargetModal = ({ target, onClose, onSuccess, centres, session
                                             : "text-gray-400 hover:text-white"
                                     }`}
                                 >
-                                    FY 2025-2026 {target.target2526 !== undefined ? `(₹${Number(target.target2526).toLocaleString()})` : ""}
+                                    FY 2025-2026 {(() => {
+                                        const v = getValuesForMonthAndFY(formData.month, "2025-2026", target);
+                                        return (v.targetAmount !== "" && v.targetAmount !== undefined && v.targetAmount !== null)
+                                            ? `(₹${Number(v.targetAmount).toLocaleString()})`
+                                            : "";
+                                    })()}
                                 </button>
                             </div>
                         </div>

@@ -45,7 +45,7 @@ export const attachAdmissionStatus = async (students) => {
     if (pntsePmoStudents.length === 0) {
         return students.map(doc => {
             const obj = doc.toObject ? doc.toObject() : { ...doc };
-            obj.admissionStatus = "None";
+            obj.admissionStatus = "Not Enrolled";
             return obj;
         });
     }
@@ -100,7 +100,7 @@ export const attachAdmissionStatus = async (students) => {
 
         // Pre-defined ERP enrollment numbers carried forward into PNTSE/PMO get 'None'
         if (!isPntseOrPmoCreatedRollNo(roll)) {
-            obj.admissionStatus = "None";
+            obj.admissionStatus = "Not Enrolled";
             return obj;
         }
 
@@ -117,7 +117,7 @@ export const attachAdmissionStatus = async (students) => {
         } else if (isBoard) {
             obj.admissionStatus = "Board";
         } else {
-            obj.admissionStatus = "None";
+            obj.admissionStatus = "Not Enrolled";
         }
         return obj;
     });
