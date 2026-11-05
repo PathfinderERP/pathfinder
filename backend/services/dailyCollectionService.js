@@ -10,6 +10,39 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
     try {
         const result = await Payment.aggregate([
             {
+                $match: {
+                    billId: { $exists: true, $nin: [null, "", "-"] },
+                    status: { $in: ["PAID", "PARTIAL"] },
+                    $or: [
+                        { paidDate: { $gte: startDate, $lte: endDate } },
+                        { clearedOrRejectedDate: { $gte: startDate, $lte: endDate } },
+                        { receivedDate: { $gte: startDate, $lte: endDate } },
+                        { createdAt: { $gte: startDate, $lte: endDate } }
+                    ]
+                }
+            },
+            {
+                $addFields: {
+                    effectiveDate: {
+                        $cond: {
+                            if: { $eq: ["$paymentMethod", "CHEQUE"] },
+                            then: {
+                                $ifNull: [
+                                    { $toDate: "$clearedOrRejectedDate" },
+                                    { $toDate: "$paidDate" }
+                                ]
+                            },
+                            else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
+                        }
+                    }
+                }
+            },
+            {
+                $match: {
+                    effectiveDate: { $gte: startDate, $lte: endDate }
+                }
+            },
+            {
                 $lookup: {
                     from: "admissions",
                     localField: "admission",
@@ -77,28 +110,6 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
                 $addFields: {
                     effectiveCentre: {
                         $ifNull: ["$centre", "$admissionDetails.centre"]
-                    }
-                }
-            },
-            {
-                $match: {
-                    billId: { $exists: true, $nin: [null, "", "-"] },
-                    status: { $in: ["PAID", "PARTIAL"] }
-                }
-            },
-            {
-                $addFields: {
-                    effectiveDate: {
-                        $cond: {
-                            if: { $eq: ["$paymentMethod", "CHEQUE"] },
-                            then: {
-                                $ifNull: [
-                                    { $toDate: "$clearedOrRejectedDate" },
-                                    { $toDate: "$paidDate" }
-                                ]
-                            },
-                            else: { $ifNull: ["$paidDate", "$receivedDate", "$createdAt"] }
-                        }
                     },
                     revenueBase: {
                         $cond: [
@@ -113,11 +124,6 @@ const getDailyAchievedForMonth = async (startDate, endDate) => {
                             }
                         ]
                     }
-                }
-            },
-            {
-                $match: {
-                    effectiveDate: { $gte: startDate, $lte: endDate }
                 }
             },
             {
@@ -190,6 +196,304 @@ const buildFixedWeeks = (year, monthIndex) => {
         });
 };
 
+
+export const getCentreDailyTargetsOnly = async ({ startDate, endDate, date, centreIds }) => {
+    const cleanDateStr = (d) => {
+        if (!d) return null;
+        if (typeof d === "string") {
+            const trimmed = d.trim();
+            if (!trimmed) return null;
+            const dmy = trimmed.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
+            if (dmy) {
+                const [_, day, month, year] = dmy;
+                return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            }
+            const ymd = trimmed.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+            if (ymd) {
+                const [_, year, month, day] = ymd;
+                return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+            }
+            const dateObj = new Date(trimmed);
+            if (!isNaN(dateObj.getTime())) {
+                return dateObj.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+            }
+            return trimmed.includes("T") ? trimmed.split("T")[0] : trimmed;
+        }
+        const dateObj = new Date(d);
+        if (isNaN(dateObj.getTime())) return null;
+        return dateObj.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    };
+
+    let selectedDateStr;
+    if (startDate && endDate) {
+        selectedDateStr = cleanDateStr(endDate);
+    } else if (date) {
+        selectedDateStr = cleanDateStr(date);
+    } else {
+        selectedDateStr = new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    }
+
+    const allCentres = await Centre.find({}).select("centreName").lean();
+
+    const [year, monthNum, selectedDayNum] = selectedDateStr.split('-').map(Number);
+    const monthIndex = monthNum - 1;
+    const daysInMonth = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+
+    const mm = String(monthNum).padStart(2, '0');
+    const lastDayStr = String(daysInMonth).padStart(2, '0');
+    const startOfMonth = new Date(`${year}-${mm}-01T00:00:00+05:30`);
+    const endOfMonth = new Date(`${year}-${mm}-${lastDayStr}T23:59:59.999+05:30`);
+
+    const monthCustomTargets = await DailyTarget.find({
+        date: { $gte: startOfMonth, $lte: endOfMonth }
+    }).sort({ date: -1 }).populate({ path: "centre", select: "centreName", model: "CentreSchema" }).lean();
+
+    const getDayOfMonthIST = (d) => {
+        if (!d) return 1;
+        const dateObj = typeof d === "string" ? new Date(d) : d;
+        const istStr = dateObj.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+        return Number(istStr.split("-")[2]);
+    };
+
+    const customTargetsByCentre = {};
+    (monthCustomTargets || []).forEach(dt => {
+        const cId = dt.centre?._id?.toString() || dt.centre?.toString();
+        const cName = dt.centre?.centreName?.trim().toUpperCase();
+        const dayNum = getDayOfMonthIST(dt.date);
+        const amt = Number(dt.targetAmount);
+        if (!isNaN(amt)) {
+            if (cId) {
+                if (!customTargetsByCentre[cId]) customTargetsByCentre[cId] = {};
+                customTargetsByCentre[cId][dayNum] = amt;
+            }
+            if (cName) {
+                if (!customTargetsByCentre[cName]) customTargetsByCentre[cName] = {};
+                customTargetsByCentre[cName][dayNum] = amt;
+            }
+        }
+    });
+
+    const achievementMap = {};
+    const dailyRaw = await getDailyAchievedForMonth(startOfMonth, endOfMonth);
+    dailyRaw.forEach(d => {
+        const cName = d._id.centre?.trim().toUpperCase();
+        const dayNum = d._id.day;
+        if (cName) {
+            if (!achievementMap[cName]) achievementMap[cName] = {};
+            achievementMap[cName][dayNum] = d.totalExclGST || 0;
+        }
+    });
+
+    const fixedWeeks = buildFixedWeeks(year, monthIndex);
+
+    const now = new Date();
+    const nowISTStr = now.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const [curYear, curMonth, curDay] = nowISTStr.split('-').map(Number);
+
+    const isMonthInPast = year < curYear || (year === curYear && monthNum < curMonth);
+    const isCurrentMonth = year === curYear && monthNum === curMonth;
+
+    const isWeekFinished = (week) => {
+        if (isMonthInPast) return true;
+        if (isCurrentMonth) {
+            return week.endDay < curDay;
+        }
+        return false;
+    };
+
+    const computeEngine = (getBaseTarget, dayMap) => {
+        const daysResult = {};
+        let carryoverAdjustment = 0;
+
+        for (const week of fixedWeeks) {
+            const weekTotalBase = week.days.reduce((sum, d) => sum + getBaseTarget(d.day), 0);
+            const daysCount = week.actualDays;
+
+            const weekDaysData = week.days.map(dObj => {
+                const manualBase = getBaseTarget(dObj.day);
+                let dailyAdjustment = 0;
+
+                if (carryoverAdjustment > 0) {
+                    dailyAdjustment = daysCount > 0 ? (carryoverAdjustment / daysCount) : 0;
+                } else if (carryoverAdjustment < 0) {
+                    dailyAdjustment = weekTotalBase > 0
+                        ? (carryoverAdjustment * (manualBase / weekTotalBase))
+                        : (daysCount > 0 ? (carryoverAdjustment / daysCount) : 0);
+                }
+
+                let effectiveBase;
+                if (carryoverAdjustment < 0 && manualBase > 0) {
+                    const minFloor = Math.round(manualBase * 0.25);
+                    effectiveBase = Math.max(minFloor, manualBase + dailyAdjustment);
+                } else {
+                    effectiveBase = Math.max(0, manualBase + dailyAdjustment);
+                }
+
+                const achieved = dayMap[dObj.day] || 0;
+                return {
+                    day: dObj.day,
+                    dayName: dObj.dayName,
+                    isWeekend: dObj.isWeekend,
+                    manualBase,
+                    effectiveBase,
+                    dailyAdj: dailyAdjustment,
+                    achieved
+                };
+            });
+
+            let runningShortfall = 0;
+
+            for (const d of weekDaysData) {
+                const rawTarget = d.effectiveBase + runningShortfall;
+                let finalTarget;
+                if (rawTarget < d.manualBase && d.manualBase > 0) {
+                    const minFloor = Math.round(d.manualBase * 0.25);
+                    finalTarget = Math.round(Math.max(minFloor, rawTarget));
+                } else {
+                    finalTarget = Math.round(Math.max(0, rawTarget));
+                }
+
+                let shortfallAdded = 0;
+                if (finalTarget > d.manualBase) {
+                    shortfallAdded = Math.round(finalTarget - d.manualBase);
+                } else if (finalTarget < d.manualBase) {
+                    shortfallAdded = Math.round(finalTarget - d.manualBase);
+                }
+
+                daysResult[d.day] = {
+                    finalTarget,
+                    baseTarget: Math.round(d.manualBase),
+                    effectiveBaseTarget: Math.round(d.effectiveBase),
+                    shortfallAdded,
+                    isWeekend: d.isWeekend,
+                    dayName: d.dayName
+                };
+
+                const isDayPastOrToday = isMonthInPast || (isCurrentMonth && d.day <= curDay);
+                if (isDayPastOrToday) {
+                    runningShortfall = rawTarget - d.achieved;
+                }
+            }
+
+            const weekTotalTarget = weekDaysData.reduce((sum, d) => sum + d.effectiveBase, 0);
+            const weekTotalAchieved = weekDaysData.reduce((sum, d) => sum + d.achieved, 0);
+
+            if (isWeekFinished(week)) {
+                carryoverAdjustment = weekTotalTarget - weekTotalAchieved;
+            } else {
+                carryoverAdjustment = 0;
+            }
+        }
+
+        return daysResult;
+    };
+
+    const computeCentreTargetsForMonth = (centreDoc) => {
+        const cId = centreDoc._id?.toString();
+        const cName = centreDoc.centreName?.trim() || "";
+        const cNameUpper = cName.toUpperCase();
+        const dayMap = achievementMap[cNameUpper] || {};
+
+        const getManualBaseTarget = (d) => {
+            return customTargetsByCentre[cId]?.[d] ?? customTargetsByCentre[cNameUpper]?.[d] ?? 0;
+        };
+
+        if (/shyam/i.test(cName)) {
+            const zeroDaysResult = {};
+            for (const week of fixedWeeks) {
+                for (const d of week.days) {
+                    zeroDaysResult[d.day] = {
+                        finalTarget: 0,
+                        baseTarget: 0,
+                        effectiveBaseTarget: 0,
+                        shortfallAdded: 0,
+                        isWeekend: d.isWeekend,
+                        dayName: d.dayName
+                    };
+                }
+            }
+            return zeroDaysResult;
+        }
+
+        if (/dumdum/i.test(cName)) {
+            const shyamMap = achievementMap["SHYAMBAZAR "] || achievementMap["SHYAMBAZAR"] || {};
+            const dBase = (d) => Math.round(getManualBaseTarget(d) * 0.8);
+            const sBase = (d) => getManualBaseTarget(d) - dBase(d);
+
+            const dResult = computeEngine(dBase, dayMap);
+            const sResult = computeEngine(sBase, shyamMap);
+
+            const mergedResult = {};
+            for (const week of fixedWeeks) {
+                for (const d of week.days) {
+                    const dr = dResult[d.day] || { finalTarget: 0, baseTarget: 0, effectiveBaseTarget: 0, shortfallAdded: 0 };
+                    const sr = sResult[d.day] || { finalTarget: 0, baseTarget: 0, effectiveBaseTarget: 0, shortfallAdded: 0 };
+                    const totalBase = getManualBaseTarget(d.day);
+                    const totalAdj = dr.shortfallAdded + sr.shortfallAdded;
+                    mergedResult[d.day] = {
+                        finalTarget: dr.finalTarget + sr.finalTarget,
+                        baseTarget: totalBase,
+                        effectiveBaseTarget: dr.effectiveBaseTarget + sr.effectiveBaseTarget,
+                        shortfallAdded: totalAdj,
+                        isWeekend: d.isWeekend,
+                        dayName: d.dayName
+                    };
+                }
+            }
+            return mergedResult;
+        }
+
+        return computeEngine(getManualBaseTarget, dayMap);
+    };
+
+    const centreTargets = {};
+    const isDateRange = startDate && endDate && cleanDateStr(startDate) !== cleanDateStr(endDate);
+
+    if (isDateRange) {
+        const sStr = cleanDateStr(startDate);
+        const eStr = cleanDateStr(endDate);
+        const [sYear, sMonth, sDay] = sStr.split('-').map(Number);
+        const [eYear, eMonth, eDay] = eStr.split('-').map(Number);
+
+        const daysInRange = [];
+        let cur = new Date(Date.UTC(sYear, sMonth - 1, sDay));
+        const endAnchor = new Date(Date.UTC(eYear, eMonth - 1, eDay));
+        while (cur <= endAnchor) {
+            if (cur.getUTCMonth() === monthIndex && cur.getUTCFullYear() === year) {
+                daysInRange.push(cur.getUTCDate());
+            }
+            cur.setUTCDate(cur.getUTCDate() + 1);
+        }
+
+        allCentres.forEach(c => {
+            if (!c.centreName) return;
+            const name = c.centreName;
+            if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name))) {
+                const daysMap = computeCentreTargetsForMonth(c);
+                let rangeSum = 0;
+                daysInRange.forEach(dNum => {
+                    const res = daysMap[dNum];
+                    if (res) {
+                        rangeSum += (res.effectiveBaseTarget !== undefined ? res.effectiveBaseTarget : res.baseTarget);
+                    }
+                });
+                centreTargets[name] = rangeSum;
+            }
+        });
+    } else {
+        allCentres.forEach(c => {
+            if (!c.centreName) return;
+            const name = c.centreName;
+            if (centreIds || (!/franchise/i.test(name) && !/phsps/i.test(name) && !/rkm/i.test(name))) {
+                const daysMap = computeCentreTargetsForMonth(c);
+                const res = daysMap[selectedDayNum] || { finalTarget: 0 };
+                centreTargets[name] = res.finalTarget;
+            }
+        });
+    }
+
+    return centreTargets;
+};
 
 export const getDailyCollectionReportData = async ({ query, user }) => {
     const {

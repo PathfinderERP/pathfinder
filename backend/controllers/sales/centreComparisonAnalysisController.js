@@ -118,23 +118,32 @@ export const getCentreComparisonAnalysis = async (req, res) => {
         const prevFinancialYear = `${currStartYear - 1}-${currEndYear - 1}`;
 
         if (viewMode === "day") {
-            let dayDate;
-            if (selectedDate) {
-                const parts = selectedDate.split("-").map(Number);
-                dayDate = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
-            } else {
-                dayDate = new Date();
-            }
+            const rawStart = req.query.startDate || req.query.fromDate || selectedDate;
+            const rawEnd = req.query.endDate || req.query.toDate || selectedDate || rawStart;
 
-            const currDayStart = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate(), 0, 0, 0, 0);
-            const currDayEnd = new Date(dayDate.getFullYear(), dayDate.getMonth(), dayDate.getDate(), 23, 59, 59, 999);
+            const parseDatePart = (dStr) => {
+                if (!dStr) return new Date();
+                const parts = typeof dStr === 'string' ? dStr.split("-").map(Number) : [];
+                if (parts.length === 3) {
+                    return new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+                }
+                const d = new Date(dStr);
+                return isNaN(d.getTime()) ? new Date() : d;
+            };
+
+            const sDate = parseDatePart(rawStart);
+            const eDate = parseDatePart(rawEnd);
+
+            const actualStart = sDate <= eDate ? sDate : eDate;
+            const actualEnd = sDate <= eDate ? eDate : sDate;
+
+            const currDayStart = new Date(actualStart.getFullYear(), actualStart.getMonth(), actualStart.getDate(), 0, 0, 0, 0);
+            const currDayEnd = new Date(actualEnd.getFullYear(), actualEnd.getMonth(), actualEnd.getDate(), 23, 59, 59, 999);
             currentRanges.push({ start: currDayStart, end: currDayEnd });
 
-            // Previous Year Same Day
-            const prevDayDate = new Date(dayDate);
-            prevDayDate.setFullYear(prevDayDate.getFullYear() - 1);
-            const prevDayStart = new Date(prevDayDate.getFullYear(), prevDayDate.getMonth(), prevDayDate.getDate(), 0, 0, 0, 0);
-            const prevDayEnd = new Date(prevDayDate.getFullYear(), prevDayDate.getMonth(), prevDayDate.getDate(), 23, 59, 59, 999);
+            // Previous Year Same Date Range
+            const prevDayStart = new Date(actualStart.getFullYear() - 1, actualStart.getMonth(), actualStart.getDate(), 0, 0, 0, 0);
+            const prevDayEnd = new Date(actualEnd.getFullYear() - 1, actualEnd.getMonth(), actualEnd.getDate(), 23, 59, 59, 999);
             previousRanges.push({ start: prevDayStart, end: prevDayEnd });
 
         } else if (viewMode === "year") {
@@ -556,6 +565,12 @@ export const getCentreComparisonAnalysis = async (req, res) => {
             viewMode,
             financialYear,
             prevFinancialYear,
+            dateRange: viewMode === "day" && currentRanges.length > 0 ? {
+                startDate: currentRanges[0].start.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+                endDate: currentRanges[0].end.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+                prevStartDate: previousRanges[0].start.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" }),
+                prevEndDate: previousRanges[0].end.toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" })
+            } : null,
             summary: {
                 totalRevenueCurrent,
                 totalRevenuePrevious,

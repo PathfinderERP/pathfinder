@@ -1,8 +1,13 @@
+import mongoose from "mongoose";
 import CentreTarget from "../../models/Sales/CentreTarget.js";
 import Centre from "../../models/Master_data/Centre.js";
 import DailyTarget from "../../models/Sales/DailyTarget.js";
-import { calculateCentreTargetAchieved } from "../../services/centreTargetService.js";
-import { getDailyCollectionReportData } from "../../services/dailyCollectionService.js";
+import { 
+    calculateCentreTargetAchieved,
+    getBatchAchievedForDateRange,
+    getBatchAchievedForYearOrMonths
+} from "../../services/centreTargetService.js";
+import { getCentreDailyTargetsOnly } from "../../services/dailyCollectionService.js";
 
 const standardMonths = [
     "April", "May", "June", "July", "August", "September", 
@@ -83,12 +88,18 @@ export const getComparisonAnalysis = async (req, res) => {
             centre: { $in: centres.map(c => c._id) },
             financialYear: { $in: ["2025-2026", "2026-2027"] },
             month: { $in: targetMonths }
-        }).sort({ updatedAt: -1 });
+        }).sort({ updatedAt: -1 }).lean();
 
-        // 4. Construct response grid
+        // 4. Batch calculate achievements for 2026-2027 for all requested months in ONE query
+        const batchAchievedMap = await getBatchAchievedForYearOrMonths("2026-2027", targetMonths);
+
+        // 5. Construct response grid and prepare bulk updates
         const data = [];
+        const bulkUpdates = [];
 
         for (const centre of centres) {
+            const centreKey = (centre.centreName || "").trim().toUpperCase();
+
             for (const month of targetMonths) {
                 // Find 2025-2026 target record
                 const rec2526 = targetRecords.find(t => 
@@ -104,22 +115,25 @@ export const getComparisonAnalysis = async (req, res) => {
                     t.month === month
                 );
 
-                // Calculate achievement dynamically for 2026-2027
+                // Look up achievement from batch result
                 const year2627 = getYearForMonth("2026-2027", month);
-                const achieved2627Result = await calculateCentreTargetAchieved(centre.centreName, month, year2627);
+                const bucketKey = `${centreKey}_${month.trim().toUpperCase()}`;
+                const achieved2627Result = batchAchievedMap[bucketKey] || { totalWithGST: 0, totalExclGST: 0 };
 
-                // Update database cache for 2026-2027 target record if it exists and changed
+                // Queue background update for 2026-2027 target record if changed
                 if (rec2627) {
                     if (rec2627.achievedAmountWithGST !== achieved2627Result.totalWithGST || 
                         rec2627.achievedAmountExclGST !== achieved2627Result.totalExclGST) {
-                        await CentreTarget.updateOne(
-                            { _id: rec2627._id },
-                            { $set: { 
-                                achievedAmount: achieved2627Result.totalWithGST,
-                                achievedAmountWithGST: achieved2627Result.totalWithGST,
-                                achievedAmountExclGST: achieved2627Result.totalExclGST 
-                            }}
-                        );
+                        bulkUpdates.push({
+                            updateOne: {
+                                filter: { _id: rec2627._id },
+                                update: { $set: { 
+                                    achievedAmount: achieved2627Result.totalWithGST,
+                                    achievedAmountWithGST: achieved2627Result.totalWithGST,
+                                    achievedAmountExclGST: achieved2627Result.totalExclGST 
+                                }}
+                            }
+                        });
                     }
                 }
 
@@ -148,6 +162,13 @@ export const getComparisonAnalysis = async (req, res) => {
                     year2627: rec2627 ? rec2627.year : year2627
                 });
             }
+        }
+
+        // Fire bulk updates asynchronously in background without blocking response
+        if (bulkUpdates.length > 0) {
+            CentreTarget.bulkWrite(bulkUpdates).catch(err => {
+                console.error("Async bulkWrite error for CentreTarget:", err);
+            });
         }
 
         res.status(200).json({ data });
@@ -225,17 +246,45 @@ export const saveComparisonManualData = async (req, res) => {
  */
 export const getDayWiseComparison = async (req, res) => {
     try {
-        const { centreIds, zoneIds, date: queryDate } = req.query;
+        const { centreIds, zoneIds } = req.query;
+        const startDateParam = req.query.startDate || req.query.fromDate || req.query.date;
+        const endDateParam = req.query.endDate || req.query.toDate || req.query.date;
 
-        // -- Determine target date in IST --
         const nowIST = new Date();
-        const todayISTStr = (queryDate && typeof queryDate === 'string' && queryDate.trim()) ? queryDate.trim().split('T')[0] : nowIST.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
-        const todayDate = new Date(`${todayISTStr}T00:00:00+05:30`);
-        const targetDateObj = new Date(`${todayISTStr}T12:00:00+05:30`);
-        const todayDay = targetDateObj.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', day: 'numeric' }) * 1;
-        const todayMonthName = targetDateObj.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', month: 'long' });
-        const todayYear = new Date(todayISTStr).getFullYear(); // calendar year
-        const daysInMonth = new Date(todayYear, new Date(todayISTStr).getMonth() + 1, 0).getDate();
+        const defaultISTStr = nowIST.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+
+        const startISTStr = (startDateParam && typeof startDateParam === 'string' && startDateParam.trim())
+            ? startDateParam.trim().split('T')[0]
+            : defaultISTStr;
+        const endISTStr = (endDateParam && typeof endDateParam === 'string' && endDateParam.trim())
+            ? endDateParam.trim().split('T')[0]
+            : startISTStr;
+
+        const sDate = new Date(`${startISTStr}T12:00:00+05:30`);
+        const eDate = new Date(`${endISTStr}T12:00:00+05:30`);
+        const actualStart = sDate <= eDate ? startISTStr : endISTStr;
+        const actualEnd = sDate <= eDate ? endISTStr : startISTStr;
+
+        const startDateObj = new Date(`${actualStart}T12:00:00+05:30`);
+        const endDateObj = new Date(`${actualEnd}T12:00:00+05:30`);
+
+        const msPerDay = 24 * 60 * 60 * 1000;
+        const daysInRange = Math.max(1, Math.round((new Date(actualEnd) - new Date(actualStart)) / msPerDay) + 1);
+
+        const startDay = startDateObj.getDate();
+        const endDay = endDateObj.getDate();
+        const todayMonthName = startDateObj.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', month: 'long' });
+        const todayYear = startDateObj.getFullYear();
+        const daysInMonth = new Date(todayYear, startDateObj.getMonth() + 1, 0).getDate();
+
+        // Build list of months covered by date range
+        const monthsInRange = new Set();
+        let curDate = new Date(startDateObj);
+        while (curDate <= endDateObj) {
+            monthsInRange.add(curDate.toLocaleString('en-US', { timeZone: 'Asia/Kolkata', month: 'long' }));
+            curDate.setDate(curDate.getDate() + 1);
+        }
+        const targetMonthsArray = Array.from(monthsInRange);
 
         // -- Build allowed centre list (same permission logic as getComparisonAnalysis) --
         let allowedCentreIds = [];
@@ -268,70 +317,72 @@ export const getDayWiseComparison = async (req, res) => {
 
         const centres = await Centre.find(centreQuery).sort({ centreName: 1 });
 
-        // -- Fetch targets from Daily Collection module (same dynamic targets as daily collection report) --
+        // -- Fetch targets from Daily Collection module for this date range --
         let dailyCollectionTargets = {};
         try {
-            const dailyReport = await getDailyCollectionReportData({
-                query: { date: todayISTStr, centreIds, zoneIds },
-                user: req.user
+            dailyCollectionTargets = await getCentreDailyTargetsOnly({
+                startDate: actualStart,
+                endDate: actualEnd,
+                date: actualEnd,
+                centreIds
             });
-            dailyCollectionTargets = dailyReport.centreTargets || {};
         } catch (err) {
             console.error("Error fetching daily collection targets in getDayWiseComparison:", err);
         }
 
-        // -- Fetch previous year's same month achievement from CentreTarget (FY 2025-2026) --
+        // -- Fetch previous year's target and achievement from CentreTarget (FY 2025-2026) --
         const prevYearRecords = await CentreTarget.find({
             centre: { $in: centres.map(c => c._id) },
             financialYear: '2025-2026',
-            month: todayMonthName
+            month: { $in: targetMonthsArray }
         }).lean();
 
         const prevYearMap = {};
         prevYearRecords.forEach(r => {
+            const cid = r.centre.toString();
+            if (!prevYearMap[cid]) {
+                prevYearMap[cid] = { target: 0, achievedExcl: 0 };
+            }
             const hasAchieved = (r.achievedAmount && r.achievedAmount > 0);
-            prevYearMap[r.centre.toString()] = {
-                target: r.targetAmount || 0,
-                // Only use achievedExcl if achievedAmount > 0; if achievedAmount is 0, achievement is 0!
-                achievedExcl: hasAchieved ? (r.achievedAmountExclGST || (r.achievedAmount / 1.18)) : 0
-            };
+            prevYearMap[cid].target += (r.targetAmount || 0);
+            prevYearMap[cid].achievedExcl += (hasAchieved ? (r.achievedAmountExclGST || (r.achievedAmount / 1.18)) : 0);
         });
 
         // -- Fetch current year's month target from CentreTarget (FY 2026-2027) --
         const currYearRecords = await CentreTarget.find({
             centre: { $in: centres.map(c => c._id) },
             financialYear: '2026-2027',
-            month: todayMonthName
+            month: { $in: targetMonthsArray }
         }).lean();
 
         const currYearMap = {};
         currYearRecords.forEach(r => {
-            currYearMap[r.centre.toString()] = {
-                target: r.targetAmount || 0,
-                achievedAmount: r.achievedAmount || 0
-            };
+            const cid = r.centre.toString();
+            if (!currYearMap[cid]) {
+                currYearMap[cid] = { target: 0, achievedAmount: 0 };
+            }
+            currYearMap[cid].target += (r.targetAmount || 0);
+            currYearMap[cid].achievedAmount += (r.achievedAmount || 0);
         });
 
-        // -- Compute today's achievement for each centre --
+        // -- Compute achievement for all centres across the date range in ONE fast batch aggregation --
+        const batchAchievedDayMap = await getBatchAchievedForDateRange(actualStart, actualEnd);
+
         const data = [];
         for (const centre of centres) {
             const cid = centre._id.toString();
 
-            // Match today's target from daily collection module
             const cleanName = (centre.centreName || "").trim().toLowerCase();
             const matchKey = Object.keys(dailyCollectionTargets).find(k => k.trim().toLowerCase() === cleanName);
             let currDayTarget = matchKey ? (dailyCollectionTargets[matchKey] || 0) : 0;
 
-            // Previous year data (pro-rating done on frontend)
             const prev = prevYearMap[cid] || { target: 0, achievedExcl: 0 };
             const currMonth = currYearMap[cid] || { target: 0, achievedAmount: 0 };
 
-            // Today's live achievement — excl. GST (matches how targets are set)
-            const achievedResult = await calculateCentreTargetAchieved(centre.centreName, todayMonthName, todayYear, todayISTStr, todayISTStr);
-            let currDayActual = achievedResult.totalExclGST || 0;
+            const centreKey = (centre.centreName || "").trim().toUpperCase();
+            const achRes = batchAchievedDayMap[centreKey] || { totalWithGST: 0, totalExclGST: 0 };
+            let currDayActual = achRes.totalExclGST || 0;
 
-            // If in month-wise for current year the centre has 0 target and 0 achievement,
-            // do not show day target and day achievement in day-wise
             if (currMonth.target === 0 && currMonth.achievedAmount === 0) {
                 currDayTarget = 0;
                 currDayActual = 0;
@@ -339,18 +390,32 @@ export const getDayWiseComparison = async (req, res) => {
 
             data.push({
                 centre: { _id: centre._id, centreName: centre.centreName },
-                todayDay,
+                todayDay: endDay,
+                startDay,
                 daysInMonth,
+                daysInRange,
                 monthName: todayMonthName,
-                todayDateStr: todayISTStr,
+                todayDateStr: actualEnd,
+                startDateStr: actualStart,
+                endDateStr: actualEnd,
                 currDayTarget,
                 currDayActual,
                 prevYearMonthTarget: prev.target,
-                prevYearMonthAchieved: prev.achievedExcl   // excl. GST
+                prevYearMonthAchieved: prev.achievedExcl
             });
         }
 
-        return res.status(200).json({ data, daysInMonth, todayDay, monthName: todayMonthName, date: todayISTStr });
+        return res.status(200).json({
+            data,
+            daysInMonth,
+            todayDay: endDay,
+            startDay,
+            daysInRange,
+            monthName: todayMonthName,
+            startDate: actualStart,
+            endDate: actualEnd,
+            date: actualEnd
+        });
     } catch (error) {
         console.error('Error in getDayWiseComparison:', error);
         return res.status(500).json({ message: 'Server error', error: error.message });

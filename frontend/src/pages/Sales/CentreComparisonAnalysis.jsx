@@ -60,10 +60,10 @@ const CentreComparisonAnalysis = () => {
     }, []);
     const [selectedMonths, setSelectedMonths] = useState([currentMonthName]);
 
-    // Day Mode Selector: Default to today in IST
-    const [selectedDate, setSelectedDate] = useState(() => {
-        return new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
-    });
+    // Day Mode Selector: Default to today in IST (From Date to To Date)
+    const defaultTodayIST = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Kolkata" });
+    const [dayStartDate, setDayStartDate] = useState(defaultTodayIST);
+    const [dayEndDate, setDayEndDate] = useState(defaultTodayIST);
 
     // Search term
     const [searchTerm, setSearchTerm] = useState("");
@@ -84,7 +84,8 @@ const CentreComparisonAnalysis = () => {
     }, [
         viewMode,
         selectedMonths,
-        selectedDate,
+        dayStartDate,
+        dayEndDate,
         selectedCentres,
         selectedZones
     ]);
@@ -140,7 +141,9 @@ const CentreComparisonAnalysis = () => {
                     params.set("months", cleanMonths.join(","));
                 }
             } else if (viewMode === "day") {
-                params.set("selectedDate", selectedDate);
+                if (dayStartDate) params.set("startDate", dayStartDate);
+                if (dayEndDate) params.set("endDate", dayEndDate);
+                if (dayStartDate) params.set("selectedDate", dayStartDate);
             }
 
             const cleanCentres = (selectedCentres || [])
@@ -261,7 +264,8 @@ const CentreComparisonAnalysis = () => {
         XLSX.utils.book_append_sheet(workbook, worksheet, "Centre Comparison");
         const excelBuffer = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
         const dataBlob = new Blob([excelBuffer], { type: "application/octet-stream" });
-        saveAs(dataBlob, `Centre_Comparison_Analysis_${viewMode}_${new Date().toISOString().slice(0, 10)}.xlsx`);
+        const dateSuffix = viewMode === "day" ? `_${dayStartDate}_to_${dayEndDate}` : `_${new Date().toISOString().slice(0, 10)}`;
+        saveAs(dataBlob, `Centre_Comparison_Analysis_${viewMode}${dateSuffix}.xlsx`);
         toast.success("Excel report exported successfully");
     };
 
@@ -430,20 +434,57 @@ const CentreComparisonAnalysis = () => {
                     )}
 
                     {viewMode === "day" && (
-                        <div>
-                            <label className="block text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">
-                                Select Date
-                            </label>
-                            <input
-                                type="date"
-                                value={selectedDate}
-                                onChange={e => setSelectedDate(e.target.value)}
-                                className={`w-full px-3 py-2 rounded-xl text-xs font-bold border transition-colors outline-none ${
-                                    isDarkMode
-                                        ? "bg-slate-800 border-slate-700 text-white focus:border-cyan-400"
-                                        : "bg-slate-50 border-slate-300 text-slate-800 focus:border-cyan-600"
-                                }`}
-                            />
+                        <div className="flex flex-wrap items-center gap-2">
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">
+                                    From Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={dayStartDate}
+                                    onChange={e => setDayStartDate(e.target.value)}
+                                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors outline-none cursor-pointer ${
+                                        isDarkMode
+                                            ? "bg-slate-800 border-slate-700 text-white focus:border-cyan-400"
+                                            : "bg-slate-50 border-slate-300 text-slate-800 focus:border-cyan-600"
+                                    }`}
+                                />
+                            </div>
+                            <div>
+                                <label className="block text-[11px] font-bold text-slate-400 mb-1 uppercase tracking-wider">
+                                    To Date
+                                </label>
+                                <input
+                                    type="date"
+                                    value={dayEndDate}
+                                    onChange={e => setDayEndDate(e.target.value)}
+                                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-colors outline-none cursor-pointer ${
+                                        isDarkMode
+                                            ? "bg-slate-800 border-slate-700 text-white focus:border-cyan-400"
+                                            : "bg-slate-50 border-slate-300 text-slate-800 focus:border-cyan-600"
+                                    }`}
+                                />
+                            </div>
+                            {(dayStartDate !== defaultTodayIST() || dayEndDate !== defaultTodayIST()) && (
+                                <div className="self-end pb-1">
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            const today = defaultTodayIST();
+                                            setDayStartDate(today);
+                                            setDayEndDate(today);
+                                        }}
+                                        className={`text-[11px] font-bold px-2.5 py-1.5 rounded-lg border transition-colors ${
+                                            isDarkMode
+                                                ? "bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300"
+                                                : "bg-slate-100 border-slate-200 hover:bg-slate-200 text-slate-700"
+                                        }`}
+                                        title="Reset to today"
+                                    >
+                                        Today
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     )}
 
@@ -644,6 +685,23 @@ const CentreComparisonAnalysis = () => {
                 <div className={`rounded-2xl border overflow-hidden shadow-xl ${
                     isDarkMode ? "bg-slate-900/70 border-slate-800/80" : "bg-white border-slate-200"
                 }`}>
+                    {viewMode === "day" && (
+                        <div className={`px-4 py-2.5 border-b flex flex-wrap items-center justify-between text-xs font-bold ${
+                            isDarkMode ? "bg-slate-950/80 border-slate-800 text-slate-300" : "bg-slate-50 border-slate-200 text-slate-700"
+                        }`}>
+                            <div className="flex items-center gap-2">
+                                <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+                                <span>
+                                    Day-wise Date Range: <span className="font-black text-cyan-400">{dayStartDate}</span> to <span className="font-black text-cyan-400">{dayEndDate}</span>
+                                </span>
+                            </div>
+                            <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-bold ${
+                                isDarkMode ? "bg-slate-800 text-slate-400 border border-slate-700" : "bg-slate-200 text-slate-600 border border-slate-300"
+                            }`}>
+                                Comparing with same period in FY 2025-26
+                            </span>
+                        </div>
+                    )}
                     <div className="overflow-x-auto max-h-[650px] scrollbar-thin scrollbar-thumb-slate-700">
                         <table className="w-full text-left text-xs border-collapse">
                             {/* Table Header */}
