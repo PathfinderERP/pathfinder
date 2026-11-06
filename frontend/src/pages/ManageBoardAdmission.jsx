@@ -173,21 +173,21 @@ const ManageBoardAdmission = () => {
                     setAllAdmissionPayments(allPayments);
                     setExamPayments(allPayments.filter(p =>
                         (p.remarks?.toLowerCase()?.includes("exam") ||
-                        p.boardCourseName?.toLowerCase()?.includes("examination")) &&
+                            p.boardCourseName?.toLowerCase()?.includes("examination")) &&
                         p.status !== "REJECTED"
                     ));
                     setAdditionalFeePayments(allPayments.filter(p =>
                         (p.remarks?.toLowerCase()?.includes("additional") ||
-                        (admissionData?.additionalThingsName && p.boardCourseName?.toLowerCase()?.includes(admissionData.additionalThingsName.toLowerCase()))) &&
+                            (admissionData?.additionalThingsName && p.boardCourseName?.toLowerCase()?.includes(admissionData.additionalThingsName.toLowerCase()))) &&
                         p.status !== "REJECTED"
                     ));
                     setAdmissionPayments(allPayments.filter(p =>
                         (p.remarks?.toLowerCase()?.includes("initial") ||
-                        p.remarks?.toLowerCase()?.includes("admission") ||
-                        p.remarks?.toLowerCase()?.includes("recovery") ||
-                        p.remarks?.toLowerCase()?.includes("restored") ||
-                        p.installmentNumber === 0 ||
-                        p.installmentNumber === 1) &&
+                            p.remarks?.toLowerCase()?.includes("admission") ||
+                            p.remarks?.toLowerCase()?.includes("recovery") ||
+                            p.remarks?.toLowerCase()?.includes("restored") ||
+                            p.installmentNumber === 0 ||
+                            p.installmentNumber === 1) &&
                         p.status !== "REJECTED"
                     ));
                 }
@@ -1122,11 +1122,10 @@ const ManageBoardAdmission = () => {
                         <button
                             onClick={handleDownloadFeePdf}
                             disabled={isDownloadingPdf}
-                            className={`px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm ${
-                                isDarkMode
+                            className={`px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm ${isDarkMode
                                     ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500 hover:text-black'
                                     : 'bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-600 hover:text-white'
-                            } disabled:opacity-50`}
+                                } disabled:opacity-50`}
                             title="Download Course Fee Statement & Installment Breakup PDF"
                         >
                             {isDownloadingPdf ? (
@@ -1139,13 +1138,12 @@ const ManageBoardAdmission = () => {
                         <button
                             onClick={handleOpenBuyBookModal}
                             disabled={isDeactivated}
-                            className={`px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm ${
-                                isDeactivated
+                            className={`px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm ${isDeactivated
                                     ? 'opacity-40 cursor-not-allowed'
                                     : (isDarkMode
                                         ? 'bg-purple-500/20 text-purple-300 border border-purple-500/40 hover:bg-purple-600 hover:text-white'
                                         : 'bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-600 hover:text-white')
-                            }`}
+                                }`}
                             title="Buy Academic Books / Study Material"
                         >
                             <FaBook size={10} />
@@ -1240,25 +1238,27 @@ const ManageBoardAdmission = () => {
                                         ) && !matchingPaidPayment && !isChequePending;
 
                                         // Displayed paid amount: sum from transactions / inst.paidAmount or matched bill for THIS installment
+                                        const isStatusPaid = inst.status === "PAID";
                                         const actualPaid = (inst.paidAmount !== undefined && inst.paidAmount !== null && Number(inst.paidAmount) > 0)
                                             ? Number(inst.paidAmount)
                                             : (matchingPaidPayment ? Number(matchingPaidPayment.paidAmount || matchingPaidPayment.totalAmount || 0) : 0);
-                                        const displayPaid = hasOnlyRejectedCheque ? 0 : (isChequePending ? (matchingPendingCheque?.paidAmount || inst.paidAmount || 0) : actualPaid);
+                                        const displayPaid = hasOnlyRejectedCheque ? 0 : (isChequePending ? (matchingPendingCheque?.paidAmount || inst.paidAmount || 0) : (isStatusPaid && actualPaid < (inst.payableAmount || 0) ? (inst.payableAmount || 0) : actualPaid));
 
-                                        // An installment is paid if its own status is PAID or matching payment covers its payable amount
+                                        // An installment is paid if its own status is PAID, or matching payment covers payable, or 100% waiver
                                         const isZeroDue = (inst.payableAmount <= 0.5 && (inst.standardAmount || 0) > 0 && (inst.waiverAmount || 0) >= (inst.standardAmount || 0));
-                                        const dueAmount = Math.max(0, (inst.payableAmount || 0) - displayPaid);
-                                        const hasValidPaidAmount = actualPaid > 0.5 || Boolean(matchingPaidPayment);
+                                        const dueAmount = isStatusPaid ? 0 : Math.max(0, (inst.payableAmount || 0) - displayPaid);
 
                                         const isPaid = !isChequePending && !hasOnlyRejectedCheque && (
-                                            (inst.status === "PAID" && (actualPaid > 0.5 || isZeroDue)) ||
+                                            isStatusPaid ||
                                             (Boolean(matchingPaidPayment) && (actualPaid >= (inst.payableAmount || 0) - 0.5 || isZeroDue)) ||
-                                            (dueAmount <= 0.5 && (displayPaid > 0 || actualPaid > 0 || isZeroDue) && hasValidPaidAmount)
+                                                (actualPaid >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0) ||
+                                            isZeroDue
                                         );
                                         const isFullyPaid = isPaid && (
-                                            inst.status === "PAID" ||
+                                            isStatusPaid ||
                                             isZeroDue ||
-                                            (dueAmount <= 0.5 && (actualPaid >= (inst.payableAmount || 0) - 0.5 || isZeroDue))
+                                                (actualPaid >= (inst.payableAmount || 0) - 0.5) ||
+                                            dueAmount <= 0.5
                                         );
                                         const isPartialWithDue = !isFullyPaid && !isChequePending && (displayPaid > 0 || actualPaid > 0 || inst.paymentTransactions?.some(t => Number(t.amount || 0) > 0) || Boolean(matchingPaidPayment)) && dueAmount > 0.5;
 
@@ -1282,238 +1282,240 @@ const ManageBoardAdmission = () => {
                                         const prevZeroDue = prevInst ? (prevInst.payableAmount <= 0.5 && (prevInst.standardAmount || 0) > 0 && (prevInst.waiverAmount || 0) >= (prevInst.standardAmount || 0)) : false;
 
                                         const prevPaid = !prevChequePending && !prevHasOnlyRejected && (
-                                            (prevInst?.status === "PAID" && (prevActualPaid > 0.5 || prevZeroDue)) ||
-                                            (Boolean(prevMatchingPaid) && (prevActualPaid >= (prevInst?.payableAmount || 0) - 0.5 || prevZeroDue))
+                                            prevInst?.status === "PAID" ||
+                                            (Boolean(prevMatchingPaid) && (prevActualPaid >= (prevInst?.payableAmount || 0) - 0.5 || prevZeroDue)) ||
+                                            (prevActualPaid >= (prevInst?.payableAmount || 0) - 0.5 && (prevInst?.payableAmount || 0) > 0) ||
+                                            prevZeroDue
                                         );
                                         const prevHasPayment = Boolean(prevActualPaid > 0 || prevInst?.status === "PARTIAL" || prevMatchingPaid);
-                                        const prevCleared = index === 0 || prevPaid || prevHasPayment || prevChequePending;
-                                        const isNextToPay = !isFullyPaid && !isPartialWithDue && !isChequePending && prevCleared;
+                                    const prevCleared = index === 0 || prevPaid || prevHasPayment || prevChequePending;
+                                    const isNextToPay = !isFullyPaid && !isPartialWithDue && !isChequePending && prevCleared;
 
-                                        return (
-                                            <div
-                                                key={inst._id}
-                                                onClick={() => {
-                                                    if (!isPaid && !isChequePending) {
-                                                        setEffectiveFromMonth(inst);
-                                                        let subIds = inst.subjects?.map(s =>
-                                                            (typeof s.subjectId === 'object' && s.subjectId !== null)
-                                                                ? s.subjectId._id.toString()
-                                                                : s.subjectId?.toString()
-                                                        ) || [];
-                                                        if (subIds.length === 0) {
-                                                            subIds = admission.selectedSubjects?.map(s =>
-                                                                (typeof s.subjectId === 'object' && s.subjectId !== null)
-                                                                    ? s.subjectId._id.toString()
-                                                                    : s.subjectId?.toString()
-                                                            ) || [];
-                                                        }
-                                                        setSelectedSubjectIds(subIds.filter(Boolean));
-                                                    }
-                                                }}
-                                                className={`relative z-10 p-5 rounded-xl border flex items-center justify-between cursor-pointer transition-all shadow-sm ${isCurrent
-                                                    ? 'border-cyan-500 ring-2 ring-cyan-500/50 bg-cyan-900/20 scale-[1.02]'
-                                                    : isPaid
-                                                        ? (isDarkMode ? 'border-emerald-500/30 bg-emerald-950/10' : 'border-emerald-500/30 bg-emerald-50')
-                                                        : isChequePending
-                                                            ? (isDarkMode ? 'border-amber-500/30 bg-amber-950/10' : 'border-amber-500/30 bg-amber-50')
-                                                            : (isDarkMode ? 'border-gray-800 bg-[#22272e]' : 'border-gray-200 bg-white')
-                                                    }`}
-                                            >
-                                                <div className="flex items-center gap-4">
-                                                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm ${isFullyPaid
-                                                        ? 'bg-emerald-500 text-black shadow-[0_0_12px_rgba(16,185,129,0.4)]'
-                                                        : isPartialWithDue
-                                                            ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50' : 'bg-amber-50 text-amber-600 border border-amber-300')
-                                                            : isChequePending
-                                                                ? 'bg-amber-500 text-black'
-                                                                : isNextToPay
-                                                                    ? 'bg-cyan-500 text-black shadow-[0_0_12px_rgba(6,182,212,0.4)]'
-                                                                    : (isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400')
-                                                        }`}>
-                                                        {isFullyPaid ? <FaCheck /> : isChequePending ? <FaFileInvoice /> : inst.monthNumber}
-                                                    </div>
-                                                    <div>
-                                                        <div className="flex items-center gap-2">
-                                                            {editingInstId === inst._id ? (
-                                                                <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                                                                    <select
-                                                                        value={editMonth}
-                                                                        onChange={(e) => setEditMonth(parseInt(e.target.value))}
-                                                                        className={`text-xs font-bold p-1 rounded border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
-                                                                    >
-                                                                        {MONTH_NAMES.map((m, idx) => (
-                                                                            <option key={idx} value={idx}>{m}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                    <select
-                                                                        value={editYear}
-                                                                        onChange={(e) => setEditYear(parseInt(e.target.value))}
-                                                                        className={`text-xs font-bold p-1 rounded border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
-                                                                    >
-                                                                        {YEARS_LIST.map((yr) => (
-                                                                            <option key={yr} value={yr}>{yr}</option>
-                                                                        ))}
-                                                                    </select>
-                                                                    <button
-                                                                        onClick={(e) => handleSaveInstallmentDate(inst._id, e)}
-                                                                        disabled={isSavingDate}
-                                                                        className="p-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs transition-colors"
-                                                                        title="Save Date"
-                                                                    >
-                                                                        <FaCheck />
-                                                                    </button>
-                                                                    <button
-                                                                        onClick={(e) => { e.stopPropagation(); setEditingInstId(null); }}
-                                                                        className="p-1.5 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs transition-colors"
-                                                                        title="Cancel"
-                                                                    >
-                                                                        <FaTimes />
-                                                                    </button>
-                                                                </div>
-                                                            ) : (
-                                                                <p className={`text-sm font-black uppercase flex items-center gap-1.5 ${isFullyPaid ? 'text-emerald-400' : isPartialWithDue ? 'text-amber-400' : isChequePending ? 'text-amber-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
-                                                                    {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                                                                    {!isDeactivated && (!isChequePending || isPaid) && (
-                                                                        <button
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                const d = new Date(inst.dueDate);
-                                                                                setEditingInstId(inst._id);
-                                                                                setEditMonth(d.getMonth());
-                                                                                setEditYear(d.getFullYear());
-                                                                            }}
-                                                                            className="text-gray-500 hover:text-cyan-400 transition-colors p-1"
-                                                                            title="Edit Billing Month/Year"
-                                                                        >
-                                                                            <FaEdit className="text-xs" />
-                                                                        </button>
-                                                                    )}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                        <p className="text-xs font-black uppercase text-gray-500">
-                                                            Payable: <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>₹{inst.payableAmount.toFixed(0)}</span>
-                                                        </p>
-                                                    </div>
-                                                </div>
-
-                                                <div className="flex items-center gap-6" onClick={(e) => e.stopPropagation()}>
-                                                    <div className="text-right">
-                                                        <p className={`text-sm font-black tracking-widest ${isFullyPaid ? 'text-emerald-500' : isPartialWithDue ? 'text-amber-400' : isChequePending ? 'text-amber-400' : 'text-gray-500'}`}>
-                                                            {isFullyPaid ? "PAID" : isChequePending ? "PENDING CLEARANCE" : (hasOnlyRejectedCheque ? "PENDING" : inst.status)}
-                                                        </p>
-                                                        <p className={`text-[11px] font-bold ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Paid: ₹{displayPaid}</p>
-                                                        {isPartialWithDue && (
-                                                            <p className="text-[10px] font-bold text-amber-400/90">Due: ₹{Math.round(dueAmount)}</p>
-                                                        )}
-                                                    </div>
-                                                    <div className="w-[1px] h-10 bg-gray-700/50 mx-2"></div>
-                                                    <div className="flex items-center gap-2 flex-wrap justify-end">
-                                                        {/* Bills for all completed payments for this installment (BILL or BILL 1, BILL 2, etc.) */}
-                                                        {matchingPaidPayments.length > 0 && (
-                                                            matchingPaidPayments.map((p, pIdx) => {
-                                                                const billBtnLabel = matchingPaidPayments.length > 1 ? `BILL ${pIdx + 1}` : 'BILL';
-                                                                return (
-                                                                    <button
-                                                                        key={p.billId || p._id || pIdx}
-                                                                        type="button"
-                                                                        onClick={() => handleOpenBill(p, inst, pIdx + 1)}
-                                                                        className="px-3.5 py-2 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[11px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-1.5 group shadow-sm"
-                                                                        title={`View ${billBtnLabel}: ₹${p.paidAmount || p.totalAmount} (${p.billId || 'Bill'})`}
-                                                                    >
-                                                                        <FaFileInvoice className="text-emerald-500 group-hover:text-black" />
-                                                                        {billBtnLabel}
-                                                                    </button>
-                                                                );
-                                                            })
-                                                        )}
-
-                                                        {/* Cheque receiving slips if pending */}
-                                                        {matchingPendingCheques.map((cp, cpIdx) => (
-                                                            <button
-                                                                key={cp._id || cpIdx}
-                                                                type="button"
-                                                                onClick={() => handleOpenBill(cp, inst, cpIdx + 1)}
-                                                                className="px-3.5 py-2 border border-amber-500/50 text-amber-500 rounded-lg font-black text-[11px] uppercase hover:bg-amber-500 hover:text-black transition-all flex items-center gap-1.5 group shadow-sm"
-                                                                title="View Cheque Receiving Slip"
+                                    return (
+                                    <div
+                                        key={inst._id}
+                                        onClick={() => {
+                                            if (!isPaid && !isChequePending) {
+                                                setEffectiveFromMonth(inst);
+                                                let subIds = inst.subjects?.map(s =>
+                                                    (typeof s.subjectId === 'object' && s.subjectId !== null)
+                                                        ? s.subjectId._id.toString()
+                                                        : s.subjectId?.toString()
+                                                ) || [];
+                                                if (subIds.length === 0) {
+                                                    subIds = admission.selectedSubjects?.map(s =>
+                                                        (typeof s.subjectId === 'object' && s.subjectId !== null)
+                                                            ? s.subjectId._id.toString()
+                                                            : s.subjectId?.toString()
+                                                    ) || [];
+                                                }
+                                                setSelectedSubjectIds(subIds.filter(Boolean));
+                                            }
+                                        }}
+                                        className={`relative z-10 p-5 rounded-xl border flex items-center justify-between cursor-pointer transition-all shadow-sm ${isCurrent
+                                            ? 'border-cyan-500 ring-2 ring-cyan-500/50 bg-cyan-900/20 scale-[1.02]'
+                                            : isPaid
+                                                ? (isDarkMode ? 'border-emerald-500/30 bg-emerald-950/10' : 'border-emerald-500/30 bg-emerald-50')
+                                                : isChequePending
+                                                    ? (isDarkMode ? 'border-amber-500/30 bg-amber-950/10' : 'border-amber-500/30 bg-amber-50')
+                                                    : (isDarkMode ? 'border-gray-800 bg-[#22272e]' : 'border-gray-200 bg-white')
+                                            }`}
+                                    >
+                                        <div className="flex items-center gap-4">
+                                            <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm ${isFullyPaid
+                                                ? 'bg-emerald-500 text-black shadow-[0_0_12px_rgba(16,185,129,0.4)]'
+                                                : isPartialWithDue
+                                                    ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50' : 'bg-amber-50 text-amber-600 border border-amber-300')
+                                                    : isChequePending
+                                                        ? 'bg-amber-500 text-black'
+                                                        : isNextToPay
+                                                            ? 'bg-cyan-500 text-black shadow-[0_0_12px_rgba(6,182,212,0.4)]'
+                                                            : (isDarkMode ? 'bg-gray-800 text-gray-500' : 'bg-gray-100 text-gray-400')
+                                                }`}>
+                                                {isFullyPaid ? <FaCheck /> : isChequePending ? <FaFileInvoice /> : inst.monthNumber}
+                                            </div>
+                                            <div>
+                                                <div className="flex items-center gap-2">
+                                                    {editingInstId === inst._id ? (
+                                                        <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                                                            <select
+                                                                value={editMonth}
+                                                                onChange={(e) => setEditMonth(parseInt(e.target.value))}
+                                                                className={`text-xs font-bold p-1 rounded border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
                                                             >
-                                                                <FaFileInvoice className="text-amber-500 group-hover:text-black" />
-                                                                {matchingPendingCheques.length > 1 ? `SLIP ${cpIdx + 1}` : 'RECEIVING SLIP'}
-                                                            </button>
-                                                        ))}
-
-                                                        {/* Fallback for fully paid with 0 matched payment records (e.g. 100% waiver or adjustment carry) */}
-                                                        {isFullyPaid && matchingPaidPayments.length === 0 && !isChequePending && (actualPaid > 0 || isZeroDue) && (
+                                                                {MONTH_NAMES.map((m, idx) => (
+                                                                    <option key={idx} value={idx}>{m}</option>
+                                                                ))}
+                                                            </select>
+                                                            <select
+                                                                value={editYear}
+                                                                onChange={(e) => setEditYear(parseInt(e.target.value))}
+                                                                className={`text-xs font-bold p-1 rounded border ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-800'}`}
+                                                            >
+                                                                {YEARS_LIST.map((yr) => (
+                                                                    <option key={yr} value={yr}>{yr}</option>
+                                                                ))}
+                                                            </select>
                                                             <button
+                                                                onClick={(e) => handleSaveInstallmentDate(inst._id, e)}
+                                                                disabled={isSavingDate}
+                                                                className="p-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded text-xs transition-colors"
+                                                                title="Save Date"
+                                                            >
+                                                                <FaCheck />
+                                                            </button>
+                                                            <button
+                                                                onClick={(e) => { e.stopPropagation(); setEditingInstId(null); }}
+                                                                className="p-1.5 bg-gray-600 hover:bg-gray-500 text-white rounded text-xs transition-colors"
+                                                                title="Cancel"
+                                                            >
+                                                                <FaTimes />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <p className={`text-sm font-black uppercase flex items-center gap-1.5 ${isFullyPaid ? 'text-emerald-400' : isPartialWithDue ? 'text-amber-400' : isChequePending ? 'text-amber-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
+                                                            {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
+                                                            {!isDeactivated && (!isChequePending || isPaid) && (
+                                                                <button
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        const d = new Date(inst.dueDate);
+                                                                        setEditingInstId(inst._id);
+                                                                        setEditMonth(d.getMonth());
+                                                                        setEditYear(d.getFullYear());
+                                                                    }}
+                                                                    className="text-gray-500 hover:text-cyan-400 transition-colors p-1"
+                                                                    title="Edit Billing Month/Year"
+                                                                >
+                                                                    <FaEdit className="text-xs" />
+                                                                </button>
+                                                            )}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <p className="text-xs font-black uppercase text-gray-500">
+                                                    Payable: <span className={isDarkMode ? "text-gray-300" : "text-gray-700"}>₹{inst.payableAmount.toFixed(0)}</span>
+                                                </p>
+                                            </div>
+                                        </div>
+
+                                        <div className="flex items-center gap-6" onClick={(e) => e.stopPropagation()}>
+                                            <div className="text-right">
+                                                <p className={`text-sm font-black tracking-widest ${isFullyPaid ? 'text-emerald-500' : isPartialWithDue ? 'text-amber-400' : isChequePending ? 'text-amber-400' : 'text-gray-500'}`}>
+                                                    {isFullyPaid ? "PAID" : isChequePending ? "PENDING CLEARANCE" : (hasOnlyRejectedCheque ? "PENDING" : inst.status)}
+                                                </p>
+                                                <p className={`text-[11px] font-bold ${isDarkMode ? "text-gray-400" : "text-gray-600"}`}>Paid: ₹{displayPaid}</p>
+                                                {isPartialWithDue && (
+                                                    <p className="text-[10px] font-bold text-amber-400/90">Due: ₹{Math.round(dueAmount)}</p>
+                                                )}
+                                            </div>
+                                            <div className="w-[1px] h-10 bg-gray-700/50 mx-2"></div>
+                                            <div className="flex items-center gap-2 flex-wrap justify-end">
+                                                {/* Bills for all completed payments for this installment (BILL or BILL 1, BILL 2, etc.) */}
+                                                {matchingPaidPayments.length > 0 && (
+                                                    matchingPaidPayments.map((p, pIdx) => {
+                                                        const billBtnLabel = matchingPaidPayments.length > 1 ? `BILL ${pIdx + 1}` : 'BILL';
+                                                        return (
+                                                            <button
+                                                                key={p.billId || p._id || pIdx}
                                                                 type="button"
-                                                                onClick={() => handleOpenBill(inst, inst, 1)}
-                                                                className="px-5 py-2.5 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[11px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-2 group"
+                                                                onClick={() => handleOpenBill(p, inst, pIdx + 1)}
+                                                                className="px-3.5 py-2 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[11px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-1.5 group shadow-sm"
+                                                                title={`View ${billBtnLabel}: ₹${p.paidAmount || p.totalAmount} (${p.billId || 'Bill'})`}
                                                             >
                                                                 <FaFileInvoice className="text-emerald-500 group-hover:text-black" />
-                                                                BILL
+                                                                {billBtnLabel}
                                                             </button>
-                                                        )}
+                                                        );
+                                                    })
+                                                )}
 
-                                                        {/* Fallback for cheque pending with 0 matched records */}
-                                                        {!isFullyPaid && isChequePending && matchingPendingCheques.length === 0 && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => handleOpenBill(inst, inst, 1)}
-                                                                className="px-5 py-2.5 border border-amber-500/50 text-amber-500 rounded-lg font-black text-[11px] uppercase hover:bg-amber-500 hover:text-black transition-all flex items-center gap-2 group"
-                                                            >
-                                                                <FaFileInvoice className="text-amber-500 group-hover:text-black" />
-                                                                RECEIVING SLIP
-                                                            </button>
-                                                        )}
+                                                {/* Cheque receiving slips if pending */}
+                                                {matchingPendingCheques.map((cp, cpIdx) => (
+                                                    <button
+                                                        key={cp._id || cpIdx}
+                                                        type="button"
+                                                        onClick={() => handleOpenBill(cp, inst, cpIdx + 1)}
+                                                        className="px-3.5 py-2 border border-amber-500/50 text-amber-500 rounded-lg font-black text-[11px] uppercase hover:bg-amber-500 hover:text-black transition-all flex items-center gap-1.5 group shadow-sm"
+                                                        title="View Cheque Receiving Slip"
+                                                    >
+                                                        <FaFileInvoice className="text-amber-500 group-hover:text-black" />
+                                                        {matchingPendingCheques.length > 1 ? `SLIP ${cpIdx + 1}` : 'RECEIVING SLIP'}
+                                                    </button>
+                                                ))}
 
-                                                        {/* If partial with due, show PAY DUE button */}
-                                                        {isPartialWithDue && (
-                                                            <button
-                                                                type="button"
-                                                                onClick={() => {
-                                                                    setPaymentModal({ show: true, installment: inst });
-                                                                    setPaymentForm({ ...paymentForm, amount: dueAmount });
-                                                                }}
-                                                                disabled={isDeactivated}
-                                                                className={`px-3.5 py-2 rounded-lg font-black text-[10px] uppercase transition-all shadow-md flex items-center gap-1.5 ${!isDeactivated
-                                                                    ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500 hover:text-black shadow-[0_2px_10px_rgba(245,158,11,0.2)]'
-                                                                    : 'bg-gray-700/50 text-gray-500 cursor-not-allowed border border-gray-800'
-                                                                    }`}
-                                                                title={`Pay remaining balance of ₹${Math.round(dueAmount)} for ${new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'short' })}`}
-                                                            >
-                                                                PAY DUE: ₹{Math.round(dueAmount)}
-                                                            </button>
-                                                        )}
+                                                {/* Fallback for fully paid with 0 matched payment records (e.g. 100% waiver or adjustment carry) */}
+                                                {isFullyPaid && matchingPaidPayments.length === 0 && !isChequePending && (actualPaid > 0 || isZeroDue) && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenBill(inst, inst, 1)}
+                                                        className="px-5 py-2.5 border border-emerald-500/50 text-emerald-500 rounded-lg font-black text-[11px] uppercase hover:bg-emerald-500 hover:text-black transition-all flex items-center gap-2 group"
+                                                    >
+                                                        <FaFileInvoice className="text-emerald-500 group-hover:text-black" />
+                                                        BILL
+                                                    </button>
+                                                )}
 
-                                                        {/* If pending with no payments yet and has positive due amount */}
-                                                        {!isFullyPaid && !isPartialWithDue && !isChequePending && dueAmount > 0.5 && (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                if (!isNextToPay) {
-                                                                    toast.warning("Please pay previous installments first.");
-                                                                    return;
-                                                                }
-                                                                if (dueAmount <= 0) {
-                                                                    toast.info("This installment has no pending balance.");
-                                                                    return;
-                                                                }
-                                                                setPaymentModal({ show: true, installment: inst });
-                                                                setPaymentForm({ ...paymentForm, amount: dueAmount });
-                                                            }}
-                                                            disabled={!isNextToPay || isDeactivated}
-                                                            className={`px-6 py-2.5 rounded-lg font-black text-[11px] uppercase transition-all shadow-lg ${isNextToPay && !isDeactivated
-                                                                ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_5px_15px_rgba(6,182,212,0.3)]'
-                                                                : 'bg-gray-700/50 text-gray-500 cursor-not-allowed border border-gray-800'
-                                                                }`}
-                                                        >
-                                                            PAY NOW
-                                                        </button>
-                                                    )}
-                                                    </div>
-                                                </div>
+                                                {/* Fallback for cheque pending with 0 matched records */}
+                                                {!isFullyPaid && isChequePending && matchingPendingCheques.length === 0 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleOpenBill(inst, inst, 1)}
+                                                        className="px-5 py-2.5 border border-amber-500/50 text-amber-500 rounded-lg font-black text-[11px] uppercase hover:bg-amber-500 hover:text-black transition-all flex items-center gap-2 group"
+                                                    >
+                                                        <FaFileInvoice className="text-amber-500 group-hover:text-black" />
+                                                        RECEIVING SLIP
+                                                    </button>
+                                                )}
+
+                                                {/* If partial with due, show PAY DUE button */}
+                                                {isPartialWithDue && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setPaymentModal({ show: true, installment: inst });
+                                                            setPaymentForm({ ...paymentForm, amount: dueAmount });
+                                                        }}
+                                                        disabled={isDeactivated}
+                                                        className={`px-3.5 py-2 rounded-lg font-black text-[10px] uppercase transition-all shadow-md flex items-center gap-1.5 ${!isDeactivated
+                                                            ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40 hover:bg-amber-500 hover:text-black shadow-[0_2px_10px_rgba(245,158,11,0.2)]'
+                                                            : 'bg-gray-700/50 text-gray-500 cursor-not-allowed border border-gray-800'
+                                                            }`}
+                                                        title={`Pay remaining balance of ₹${Math.round(dueAmount)} for ${new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'short' })}`}
+                                                    >
+                                                        PAY DUE: ₹{Math.round(dueAmount)}
+                                                    </button>
+                                                )}
+
+                                                {/* If pending with no payments yet and has positive due amount */}
+                                                {!isFullyPaid && !isPartialWithDue && !isChequePending && dueAmount > 0.5 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            if (!isNextToPay) {
+                                                                toast.warning("Please pay previous installments first.");
+                                                                return;
+                                                            }
+                                                            if (dueAmount <= 0) {
+                                                                toast.info("This installment has no pending balance.");
+                                                                return;
+                                                            }
+                                                            setPaymentModal({ show: true, installment: inst });
+                                                            setPaymentForm({ ...paymentForm, amount: dueAmount });
+                                                        }}
+                                                        disabled={!isNextToPay || isDeactivated}
+                                                        className={`px-6 py-2.5 rounded-lg font-black text-[11px] uppercase transition-all shadow-lg ${isNextToPay && !isDeactivated
+                                                            ? 'bg-cyan-500 text-black hover:bg-cyan-400 shadow-[0_5px_15px_rgba(6,182,212,0.3)]'
+                                                            : 'bg-gray-700/50 text-gray-500 cursor-not-allowed border border-gray-800'
+                                                            }`}
+                                                    >
+                                                        PAY NOW
+                                                    </button>
+                                                )}
                                             </div>
-                                        );
+                                        </div>
+                                    </div>
+                                    );
                                     })}
                                 </div>
 
@@ -1594,11 +1596,10 @@ const ManageBoardAdmission = () => {
                                                             setAddInstCount(1);
                                                         }
                                                     }}
-                                                    className={`w-full p-3 rounded-lg border text-sm font-black transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500 ${
-                                                        isDarkMode
+                                                    className={`w-full p-3 rounded-lg border text-sm font-black transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500 ${isDarkMode
                                                             ? 'bg-gray-800 border-gray-700 text-white'
                                                             : 'bg-white border-gray-300 text-gray-800'
-                                                    }`}
+                                                        }`}
                                                 />
                                                 <p className="text-[10px] text-gray-500 mt-1">Max 24 months at a time</p>
                                             </div>
@@ -1606,9 +1607,8 @@ const ManageBoardAdmission = () => {
                                             <div className="flex gap-3">
                                                 <button
                                                     onClick={() => { setShowAddInstModal(false); setAddInstCount(1); }}
-                                                    className={`flex-1 py-3 rounded-lg font-black text-xs uppercase transition-all ${
-                                                        isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
-                                                    }`}
+                                                    className={`flex-1 py-3 rounded-lg font-black text-xs uppercase transition-all ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-gray-300' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'
+                                                        }`}
                                                 >
                                                     Cancel
                                                 </button>
@@ -1984,11 +1984,10 @@ const ManageBoardAdmission = () => {
                                             setPreloadedBillData(null);
                                             setShowBillGenerator(true);
                                         }}
-                                        className={`px-6 py-3 border rounded-lg font-black text-xs uppercase transition-all flex items-center gap-2 shadow-lg ${
-                                            isSlip
+                                        className={`px-6 py-3 border rounded-lg font-black text-xs uppercase transition-all flex items-center gap-2 shadow-lg ${isSlip
                                                 ? 'bg-amber-500/10 border-amber-500/30 text-amber-500 hover:bg-amber-500 hover:text-black'
                                                 : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-500 hover:bg-emerald-500 hover:text-black'
-                                        }`}
+                                            }`}
                                     >
                                         <FaFileInvoice />
                                         {isSlip ? 'VIEW RECEIVING SLIP' : 'VIEW ADMISSION BILL'} {admissionPayments.length > 1 ? `#${idx + 1}` : ''}
@@ -2107,11 +2106,10 @@ const ManageBoardAdmission = () => {
                                                     setPreloadedBillData(null);
                                                     setShowBillGenerator(true);
                                                 }}
-                                                className={`w-full py-2 border rounded-lg font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${
-                                                    isSlip
+                                                className={`w-full py-2 border rounded-lg font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${isSlip
                                                         ? 'border-amber-500/50 text-amber-500 hover:bg-amber-500 hover:text-black'
                                                         : 'border-emerald-500/50 text-emerald-500 hover:bg-emerald-500 hover:text-black'
-                                                }`}
+                                                    }`}
                                             >
                                                 <FaFileInvoice />
                                                 {isSlip ? 'VIEW RECEIVING SLIP' : 'VIEW BILL'} {examPayments.length > 1 ? `#${idx + 1}` : ''}
@@ -2323,11 +2321,10 @@ const ManageBoardAdmission = () => {
                                                     setPreloadedBillData(null);
                                                     setShowBillGenerator(true);
                                                 }}
-                                                className={`w-full py-2 border rounded-lg font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${
-                                                    isSlip
+                                                className={`w-full py-2 border rounded-lg font-black text-[10px] uppercase transition-all flex items-center justify-center gap-2 ${isSlip
                                                         ? 'border-amber-500/50 text-amber-500 hover:bg-amber-500 hover:text-black'
                                                         : 'border-emerald-500/50 text-emerald-500 hover:bg-emerald-500 hover:text-black'
-                                                }`}
+                                                    }`}
                                             >
                                                 <FaFileInvoice />
                                                 {isSlip ? 'VIEW RECEIVING SLIP' : 'VIEW BILL'} {additionalFeePayments.length > 1 ? `#${idx + 1}` : ''}
@@ -2360,11 +2357,10 @@ const ManageBoardAdmission = () => {
                             <button
                                 onClick={handleOpenBuyBookModal}
                                 disabled={isDeactivated}
-                                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${
-                                    isDeactivated
+                                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDeactivated
                                         ? 'opacity-40 cursor-not-allowed'
                                         : (isDarkMode ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/30' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200')
-                                }`}
+                                    }`}
                             >
                                 <FaBook size={10} /> Buy Book
                             </button>
@@ -2410,11 +2406,10 @@ const ManageBoardAdmission = () => {
                                             <button
                                                 type="button"
                                                 onClick={() => handleViewBookBill(item.billNumber)}
-                                                className={`flex items-center justify-center gap-1.5 w-full py-1.5 px-2 rounded text-[10px] font-black uppercase tracking-wider transition-all ${
-                                                    isDarkMode
+                                                className={`flex items-center justify-center gap-1.5 w-full py-1.5 px-2 rounded text-[10px] font-black uppercase tracking-wider transition-all ${isDarkMode
                                                         ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-500 hover:text-white border border-purple-500/30 shadow-sm'
                                                         : 'bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200 shadow-sm'
-                                                }`}
+                                                    }`}
                                                 title={`View Receipt ${item.billNumber}`}
                                             >
                                                 <FaFileInvoice size={10} /> Receipt #{item.billNumber}
@@ -2433,11 +2428,10 @@ const ManageBoardAdmission = () => {
                                 type="button"
                                 onClick={handleOpenBuyBookModal}
                                 disabled={isDeactivated}
-                                className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${
-                                    isDeactivated
+                                className={`px-4 py-2 rounded text-[10px] font-black uppercase tracking-widest flex items-center gap-2 transition-all ${isDeactivated
                                         ? 'opacity-40 cursor-not-allowed'
                                         : (isDarkMode ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/40 shadow-sm' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-300 shadow-sm')
-                                }`}
+                                    }`}
                             >
                                 <FaBook size={11} /> Buy Book Now
                             </button>
@@ -2838,11 +2832,10 @@ const ManageBoardAdmission = () => {
                                     }
                                     onChange={handleSelectBuyBookCourse}
                                     required
-                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                        isDarkMode
+                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                             : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                    }`}
+                                        }`}
                                 >
                                     <option value="">-- Choose Course for Book Purchase --</option>
                                     {(() => {
@@ -2887,11 +2880,10 @@ const ManageBoardAdmission = () => {
                                     value={buyBookForm.itemName}
                                     onChange={(e) => setBuyBookForm({ ...buyBookForm, itemName: e.target.value })}
                                     placeholder="e.g. Board Course Books Set"
-                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                        isDarkMode
+                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                             : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                    }`}
+                                        }`}
                                 />
                             </div>
 
@@ -2902,9 +2894,8 @@ const ManageBoardAdmission = () => {
                                         <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                             Course Amount (₹) <span className="text-red-500">*</span>
                                         </label>
-                                        <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-1 ${
-                                            isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-100 text-purple-700 border border-purple-200'
-                                        }`}>
+                                        <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-1 ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-100 text-purple-700 border border-purple-200'
+                                            }`}>
                                             <FaLock size={8} /> Auto-Fetched
                                         </span>
                                     </div>
@@ -2916,11 +2907,10 @@ const ManageBoardAdmission = () => {
                                             disabled
                                             value={buyBookForm.amount ? fmt(buyBookForm.amount) : "0.00"}
                                             placeholder="0.00"
-                                            className={`w-full pl-7 pr-8 py-2.5 sm:py-3 rounded-[4px] border text-xs font-black cursor-not-allowed select-none ${
-                                                isDarkMode
+                                            className={`w-full pl-7 pr-8 py-2.5 sm:py-3 rounded-[4px] border text-xs font-black cursor-not-allowed select-none ${isDarkMode
                                                     ? 'bg-black/40 border-gray-700/80 text-gray-200 shadow-inner'
                                                     : 'bg-gray-100 border-gray-300 text-gray-800 shadow-inner'
-                                            }`}
+                                                }`}
                                         />
                                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" title="Locked to Course Amount">
                                             <FaLock size={10} />
@@ -2941,11 +2931,10 @@ const ManageBoardAdmission = () => {
                                             value={buyBookForm.discount}
                                             onChange={(e) => setBuyBookForm({ ...buyBookForm, discount: e.target.value })}
                                             placeholder="0.00"
-                                            className={`w-full pl-7 pr-3 py-2.5 sm:py-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                                isDarkMode
+                                            className={`w-full pl-7 pr-3 py-2.5 sm:py-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                                     ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                                     : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                            }`}
+                                                }`}
                                         />
                                     </div>
                                 </div>
@@ -2967,11 +2956,10 @@ const ManageBoardAdmission = () => {
                                     <select
                                         value={buyBookForm.paymentMethod}
                                         onChange={(e) => setBuyBookForm({ ...buyBookForm, paymentMethod: e.target.value })}
-                                        className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                            isDarkMode
+                                        className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                                 ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                                 : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                        }`}
+                                            }`}
                                     >
                                         <option value="CASH">CASH</option>
                                         <option value="UPI">UPI</option>
@@ -2989,11 +2977,10 @@ const ManageBoardAdmission = () => {
                                         type="date"
                                         value={buyBookForm.receivedDate}
                                         onChange={(e) => setBuyBookForm({ ...buyBookForm, receivedDate: e.target.value })}
-                                        className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                            isDarkMode
+                                        className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                                 ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                                 : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                        }`}
+                                            }`}
                                     />
                                 </div>
                             </div>
@@ -3011,11 +2998,10 @@ const ManageBoardAdmission = () => {
                                             value={buyBookForm.transactionId}
                                             onChange={(e) => setBuyBookForm({ ...buyBookForm, transactionId: e.target.value })}
                                             placeholder="Enter Reference / UTR / Cheque No."
-                                            className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                                isDarkMode
+                                            className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                                     ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                                     : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                            }`}
+                                                }`}
                                         />
                                     </div>
                                     <div>
@@ -3027,11 +3013,10 @@ const ManageBoardAdmission = () => {
                                             value={buyBookForm.accountHolderName}
                                             onChange={(e) => setBuyBookForm({ ...buyBookForm, accountHolderName: e.target.value })}
                                             placeholder="Optional"
-                                            className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                                isDarkMode
+                                            className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                                     ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                                     : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                            }`}
+                                                }`}
                                         />
                                     </div>
                                 </div>
@@ -3047,11 +3032,10 @@ const ManageBoardAdmission = () => {
                                     value={buyBookForm.remarks}
                                     onChange={(e) => setBuyBookForm({ ...buyBookForm, remarks: e.target.value })}
                                     placeholder="e.g. Study Kit / Material"
-                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                        isDarkMode
+                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                             : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                    }`}
+                                        }`}
                                 />
                             </div>
 
@@ -3061,9 +3045,8 @@ const ManageBoardAdmission = () => {
                                     type="button"
                                     onClick={() => setIsBuyBookModalOpen(false)}
                                     disabled={submittingBuyBook}
-                                    className={`px-5 py-2.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${
-                                        isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    }`}
+                                    className={`px-5 py-2.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                        }`}
                                 >
                                     Cancel
                                 </button>

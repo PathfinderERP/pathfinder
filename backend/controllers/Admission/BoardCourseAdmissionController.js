@@ -986,10 +986,6 @@ export const getBoardAdmissionById = async (req, res) => {
                     ? txSum
                     : (matchingPayment ? Number(matchingPayment.paidAmount || matchingPayment.totalAmount || 0) : 0);
 
-                if (Math.abs((inst.paidAmount || 0) - correctPaid) > 0.01) {
-                    inst.paidAmount = correctPaid;
-                    needsSave = true;
-                }
                 const netMonthly = (inst.standardAmount || 0) - (inst.waiverAmount || 0);
                 const extraFees = inst.monthNumber === 1 ? (Number(admission.admissionFee) || 0) : 0;
                 const correctPayable = Math.max(0, netMonthly + extraFees);
@@ -1003,32 +999,46 @@ export const getBoardAdmissionById = async (req, res) => {
                     needsSave = true;
                 }
 
-                const targetStatus = (inst.paidAmount >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0)
-                    ? "PAID"
-                    : (inst.payableAmount <= 0.5 && (inst.standardAmount || 0) > 0 && (inst.waiverAmount || 0) >= (inst.standardAmount || 0)
-                        ? "PAID"
-                        : (inst.paidAmount > 0.5 ? "PARTIAL" : "PENDING"));
+                if (inst.status === "PAID") {
+                    // Respect manual DB change to PAID (even without mode of payment / payment transaction)
+                    const effectivePaid = correctPaid > 0 ? correctPaid : (inst.paidAmount >= (inst.payableAmount || 0) - 0.5 ? inst.paidAmount : (inst.payableAmount || 0));
+                    if (Math.abs((inst.paidAmount || 0) - effectivePaid) > 0.01) {
+                        inst.paidAmount = effectivePaid;
+                        needsSave = true;
+                    }
+                } else {
+                    if (Math.abs((inst.paidAmount || 0) - correctPaid) > 0.01) {
+                        inst.paidAmount = correctPaid;
+                        needsSave = true;
+                    }
 
-                if (inst.status !== targetStatus) {
-                    inst.status = targetStatus;
-                    needsSave = true;
-                }
+                    const targetStatus = (inst.paidAmount >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0)
+                        ? "PAID"
+                        : (inst.payableAmount <= 0.5 && (inst.standardAmount || 0) > 0 && (inst.waiverAmount || 0) >= (inst.standardAmount || 0)
+    ? "PAID"
+    : (inst.paidAmount > 0.5 ? "PARTIAL" : "PENDING"));
+
+    if (inst.status !== targetStatus) {
+        inst.status = targetStatus;
+        needsSave = true;
+    }
+}
             });
 
-            if (needsSave) {
-                admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0) + (admission.additionalThingsPaid || 0);
-                if (admission.totalExpectedAmount && admission.totalPaidAmount < admission.totalExpectedAmount - 0.5) {
-                    admission.status = "ACTIVE";
-                }
+if (needsSave) {
+    admission.totalPaidAmount = admission.installments.reduce((sum, item) => sum + (item.paidAmount || 0), 0) + (admission.examFeePaid || 0) + (admission.additionalThingsPaid || 0);
+    if (admission.totalExpectedAmount && admission.totalPaidAmount < admission.totalExpectedAmount - 0.5) {
+        admission.status = "ACTIVE";
+    }
 
-                await admission.save({ validateBeforeSave: false });
-            }
+    await admission.save({ validateBeforeSave: false });
+}
         }
 
-        res.status(200).json(admission);
+res.status(200).json(admission);
     } catch (error) {
-        res.status(500).json({ message: "Server error", error: error.message }); console.error("COLLECT ERROR:", error)
-    }
+    res.status(500).json({ message: "Server error", error: error.message }); console.error("COLLECT ERROR:", error)
+}
 };
 
 export const updateBoardSubjects = async (req, res) => {
