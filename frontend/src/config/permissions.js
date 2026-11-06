@@ -383,6 +383,10 @@ export const PERMISSION_MODULES = {
             b2bComparison: {
                 label: "B2B Comparison",
                 operations: ["create", "edit", "delete"]
+            },
+            marketingAnalysis: {
+                label: "Marketing Analysis",
+                operations: ["create", "edit", "delete"]
             }
         }
     },

@@ -266,6 +266,21 @@ export const requireGranularPermission = (module, section, action) => {
                 }
             }
 
+            // Marketing CRM module check
+            if (!hasAccess && module === 'marketingCRM') {
+                const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead', 'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'].includes(user.role?.toLowerCase()?.replace(/\s+/g, ''));
+                if (hasCustomPerms) {
+                    const secObj = user.granularPermissions?.marketingCRM?.[section];
+                    if (secObj) {
+                        hasAccess = action === "view" ? (secObj.view !== false) : (secObj[action] === true);
+                    } else if (isSuperAdmin || (user.granularPermissions?.marketingCRM && action === "view")) {
+                        hasAccess = true;
+                    }
+                } else {
+                    hasAccess = isMktTargetRole;
+                }
+            }
+
             // Marketing Approval access check
             if (!hasAccess && (module === 'marketingApproval' || (module === 'operations' && section === 'marketingApproval') || section === 'marketingApproval')) {
                 const mktAppPerm = user.granularPermissions?.marketingApproval?.approval ||

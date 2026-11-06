@@ -82,6 +82,7 @@ import SchoolJourney from "./pages/SchoolJourney";
 import TeamPerformance from "./pages/TeamPerformance";
 import CentrePerformance from "./pages/CentrePerformance";
 import B2BComparison from "./pages/B2BComparison";
+import MarketingAnalysis from "./pages/MarketingAnalysis";
 import UploadLeads from "./pages/LeadManagement/UploadLeads";
 import CarryForward from "./pages/CarryForward";
 import Tasks from "./pages/TaskWorkflow/Tasks";
@@ -235,6 +236,7 @@ function App() {
         <Route path="/marketing-crm/team-performance" element={<ProtectedRoute><TeamPerformance /></ProtectedRoute>} />
         <Route path="/marketing-crm/centre-performance" element={<ProtectedRoute><CentrePerformance /></ProtectedRoute>} />
         <Route path="/marketing-crm/b2b-comparison" element={<ProtectedRoute><B2BComparison /></ProtectedRoute>} />
+        <Route path="/marketing-crm/marketing-analysis" element={<ProtectedRoute requiredPermissionModule="marketingCRM" requiredPermissionSection="marketingAnalysis"><MarketingAnalysis /></ProtectedRoute>} />
         <Route path="/marketing-crm/upload-leads" element={<ProtectedRoute><UploadLeads /></ProtectedRoute>} />
         <Route path="/admissions" element={<ProtectedRoute><Admissions /></ProtectedRoute>} />
         <Route path="/board-admissions" element={<ProtectedRoute><BoardAdmissions /></ProtectedRoute>} />
