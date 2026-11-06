@@ -1,22 +1,12 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
-dotenv.config();
+dotenv.config({ path: './backend/.env' });
 
-const MONGO_URL = process.env.MONGO_URL;
+async function check() {
+    await mongoose.connect(process.env.MONGO_URL);
+    const collections = await mongoose.connection.db.listCollections().toArray();
+    console.log('Collections:', collections.map(c => c.name).filter(n => n.toLowerCase().includes('attend') || n.toLowerCase().includes('punch') || n.toLowerCase().includes('biometric')));
 
-async function checkCollections() {
-    try {
-        await mongoose.connect(MONGO_URL);
-        console.log("Connected to database");
-
-        const db = mongoose.connection.db;
-        const collections = await db.listCollections().toArray();
-        console.log("Collections:", collections.map(c => c.name));
-
-        await mongoose.disconnect();
-    } catch (error) {
-        console.error("Error:", error);
-    }
+    await mongoose.disconnect();
 }
-
-checkCollections();
+check().catch(console.error);

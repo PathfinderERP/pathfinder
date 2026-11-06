@@ -31,6 +31,47 @@ const MyRegularization = () => {
     const [deleteConfirmReq, setDeleteConfirmReq] = useState(null);
     const [deletingId, setDeletingId] = useState(null);
 
+    const calculateDuration = (fromTime, toTime) => {
+        if (!fromTime || !toTime) return null;
+        const [fh, fm] = fromTime.split(':').map(Number);
+        const [th, tm] = toTime.split(':').map(Number);
+        if (isNaN(fh) || isNaN(fm) || isNaN(th) || isNaN(tm)) return null;
+        let diffMinutes = (th * 60 + tm) - (fh * 60 + fm);
+        if (diffMinutes < 0) diffMinutes += 24 * 60;
+        const hours = Math.floor(diffMinutes / 60);
+        const minutes = diffMinutes % 60;
+        if (hours > 0 && minutes > 0) return `${hours}h ${minutes}m`;
+        if (hours > 0) return `${hours}h`;
+        return `${minutes}m`;
+    };
+
+    const dateSummaryMap = React.useMemo(() => {
+        const map = new Map();
+        requests.forEach(r => {
+            if (!r.date) return;
+            const dKey = new Date(r.date).toISOString().split('T')[0];
+            if (!map.has(dKey)) {
+                map.set(dKey, { totalMinutes: 0, count: 0, approvedCount: 0, approvedMinutes: 0 });
+            }
+            const entry = map.get(dKey);
+            entry.count += 1;
+            if (r.fromTime && r.toTime) {
+                const [fh, fm] = r.fromTime.split(':').map(Number);
+                const [th, tm] = r.toTime.split(':').map(Number);
+                if (!isNaN(fh) && !isNaN(fm) && !isNaN(th) && !isNaN(tm)) {
+                    let diff = (th * 60 + tm) - (fh * 60 + fm);
+                    if (diff < 0) diff += 24 * 60;
+                    entry.totalMinutes += diff;
+                    if (r.status === 'Approved') {
+                        entry.approvedMinutes += diff;
+                        entry.approvedCount += 1;
+                    }
+                }
+            }
+        });
+        return map;
+    }, [requests]);
+
     const handleDeleteReq = async (reqId) => {
         if (!reqId) return;
         setDeletingId(reqId);
@@ -693,9 +734,29 @@ const MyRegularization = () => {
                                             <p className="text-sm font-bold text-gray-500 uppercase">{req.type}</p>
                                             <p className="text-sm mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">"{req.reason}"</p>
                                             {req.fromTime && req.toTime && (
-                                                <p className="text-xs font-bold text-cyan-600 dark:text-cyan-400 mt-1">
-                                                    Timings: {req.fromTime} - {req.toTime}
-                                                </p>
+                                                <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                                                    <p className="text-xs font-bold text-cyan-600 dark:text-cyan-400">
+                                                        Timings: {req.fromTime} - {req.toTime}
+                                                    </p>
+                                                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-cyan-500/10 text-cyan-500 border border-cyan-500/20">
+                                                        +{calculateDuration(req.fromTime, req.toTime)}
+                                                    </span>
+                                                    {(() => {
+                                                        const dKey = new Date(req.date).toISOString().split('T')[0];
+                                                        const sm = dateSummaryMap.get(dKey);
+                                                        if (sm && sm.count > 1) {
+                                                            const mins = sm.approvedMinutes || sm.totalMinutes;
+                                                            const h = Math.floor(mins / 60);
+                                                            const m = mins % 60;
+                                                            return (
+                                                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-purple-500/10 text-purple-600 dark:text-purple-400 border border-purple-500/20">
+                                                                    Date Total: {h}h {m}m ({sm.approvedCount > 0 ? `${sm.approvedCount} approved` : `${sm.count} requests`})
+                                                                </span>
+                                                            );
+                                                        }
+                                                        return null;
+                                                    })()}
+                                                </div>
                                             )}
                                             {req.photos && req.photos.length > 0 && (
                                                 <div className="flex gap-2 mt-3 flex-wrap">
@@ -783,8 +844,42 @@ const MyRegularization = () => {
 
                             {viewModalReq.fromTime && viewModalReq.toTime && (
                                 <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border border-gray-100 dark:border-gray-800">
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1">Regularized Hours</span>
-                                    <p className="font-mono font-bold text-cyan-400">{viewModalReq.fromTime} - {viewModalReq.toTime}</p>
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-gray-400 block mb-1">Regularized Timings & Duration</span>
+                                    <div className="flex items-center justify-between">
+                                        <p className="font-mono font-bold text-cyan-400">{viewModalReq.fromTime} - {viewModalReq.toTime}</p>
+                                        <span className="text-xs font-bold text-cyan-500 bg-cyan-500/10 px-2 py-0.5 rounded-md border border-cyan-500/20">
+                                            +{calculateDuration(viewModalReq.fromTime, viewModalReq.toTime)}
+                                        </span>
+                                    </div>
+                                    {(() => {
+                                        const dKey = new Date(viewModalReq.date).toISOString().split('T')[0];
+                                        const sm = dateSummaryMap.get(dKey);
+                                        if (sm && sm.count > 1) {
+                                            const mins = sm.approvedMinutes || sm.totalMinutes;
+                                            const h = Math.floor(mins / 60);
+                                            const m = mins % 60;
+                                            return (
+                                                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-800 flex items-center justify-between text-[11px]">
+                                                    <span className="text-gray-400 font-bold uppercase text-[9px] tracking-wider">Date Total Added:</span>
+                                                    <span className="font-bold text-purple-400">
+                                                        {h}h {m}m ({sm.approvedCount} of {sm.count} requests approved)
+                                                    </span>
+                                                </div>
+                                            );
+                                        }
+                                        return null;
+                                    })()}
+                                </div>
+                            )}
+
+                            {viewModalReq.existingAttendance && (
+                                <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-between">
+                                    <div>
+                                        <span className="text-[9px] font-black uppercase tracking-widest block mb-0.5">Day Attendance Record</span>
+                                        <p className="font-bold text-xs">
+                                            Total Worked: {viewModalReq.existingAttendance.workingHours || 0}h • Status: {viewModalReq.existingAttendance.status}
+                                        </p>
+                                    </div>
                                 </div>
                             )}
 
