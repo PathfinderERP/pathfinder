@@ -50,6 +50,10 @@ const employeeAttendanceSchema = new mongoose.Schema({
         type: Number,
         default: 0
     },
+    baseWorkedHours: {
+        type: Number,
+        default: 0
+    },
     regularizedHours: {
         type: Number,
         default: 0
