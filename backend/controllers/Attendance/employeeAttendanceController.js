@@ -1,4 +1,4 @@
-﻿import mongoose from "mongoose";
+import mongoose from "mongoose";
 import EmployeeAttendance from "../../models/Attendance/EmployeeAttendance.js";
 import LeaveRequest from "../../models/Attendance/LeaveRequest.js";
 import Employee from "../../models/HR/Employee.js";
@@ -347,70 +347,100 @@ export const markAttendance = async (req, res) => {
     }
 };
 
-// Mark Week Off (Allow employees to change their week off within the current week)
+// Mark Week Off / Day Off (Allow employees & admins to mark a day off, including previous absent days)
 export const markWeekOff = async (req, res) => {
     try {
-        const { date } = req.body;
+        const { date, employeeId } = req.body;
         if (!date) return res.status(400).json({ message: "Date is required" });
 
-        const userId = req.user.id;
+        const userRole = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const isSuperAdminOrHR = userRole === "superadmin" || userRole === "hr";
 
-        // Parse date safely as UTC midnight to prevent timezone drift.
-        // The client now sends a "YYYY-MM-DD" string (local calendar date).
-        // Using startOfDay(new Date(isoString)) on a UTC server would shift the
-        // date back by the client's UTC offset (e.g. IST midnight → previous UTC day).
+        let userId = req.user.id;
+        let employee = null;
+
+        // If Superadmin or HR is marking on behalf of another employee
+        if (isSuperAdminOrHR && employeeId) {
+            if (mongoose.Types.ObjectId.isValid(employeeId)) {
+                employee = await Employee.findById(employeeId).populate("primaryCentre");
+            }
+            if (!employee) {
+                employee = await Employee.findOne({
+                    $or: [{ employeeId }, { employeeCode: employeeId }]
+                }).populate("primaryCentre");
+            }
+            if (employee && employee.user) {
+                userId = employee.user;
+            }
+        }
+
+        if (!employee) {
+            employee = await Employee.findOne({ user: userId }).populate("primaryCentre");
+        }
+        if (!employee) return res.status(404).json({ message: "Employee profile not found" });
+
+        // Parse date safely as UTC midnight to prevent timezone drift
         const dateStr = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
             ? date
             : new Date(date).toISOString().split('T')[0];
         const markDate = new Date(dateStr + 'T00:00:00.000Z');
 
-        // Compute today's UTC midnight for comparison (avoids server-tz dependency)
+        const dayUtcStart = new Date(dateStr + 'T00:00:00.000Z');
+        const dayUtcEnd = new Date(dateStr + 'T23:59:59.999Z');
+        const localStart = startOfDay(new Date(date));
+        const localEnd = endOfDay(new Date(date));
+        const searchStart = dayUtcStart < localStart ? dayUtcStart : localStart;
+        const searchEnd = dayUtcEnd > localEnd ? dayUtcEnd : localEnd;
+
+        // Compute today's UTC midnight for comparison
         const todayStr = new Date().toISOString().split('T')[0];
         const todayStart = new Date(todayStr + 'T00:00:00.000Z');
+        const isPastDay = markDate < todayStart;
 
-        // 1. Validation: Must be today or future
-        if (markDate < todayStart) {
-            return res.status(400).json({ message: "You cannot mark week-off for past days." });
-        }
-
-        // 2. Check if a Week Off is already defined for this specific week
-        const startOfMarkWeek = startOfWeek(markDate, { weekStartsOn: 1 });
-        const endOfMarkWeek = endOfWeek(markDate, { weekStartsOn: 1 });
-
-        const existingWeekOff = await EmployeeAttendance.findOne({
-            user: userId,
-            date: { $gte: startOfMarkWeek, $lte: endOfMarkWeek },
-            status: "Week Off"
+        // Find existing attendance record for this day
+        let attendance = await EmployeeAttendance.findOne({
+            $or: [
+                { user: userId },
+                { employeeId: employee._id }
+            ],
+            date: { $gte: searchStart, $lte: searchEnd }
         });
 
-        if (existingWeekOff && existingWeekOff.date.getTime() !== markDate.getTime()) {
-            return res.status(400).json({ message: `You have already marked ${format(existingWeekOff.date, 'EEEE')} as your week off for this week.` });
+        // 1. Validation for past days:
+        // Must be absent. If the employee was present, reject!
+        if (isPastDay && attendance) {
+            const wasPresent = attendance.status === "Present" ||
+                               attendance.status === "Overtime" ||
+                               attendance.status === "Half Day" ||
+                               attendance.status === "Early Leave" ||
+                               attendance.status === "Short Leave" ||
+                               (attendance.workingHours && attendance.workingHours >= 4) ||
+                               Boolean(attendance.checkIn && attendance.checkOut && attendance.workingHours > 0);
+            if (wasPresent) {
+                return res.status(400).json({ message: "Cannot mark Day Off on a day where you were Present." });
+            }
         }
 
-        // 3. Get Employee
-        const employee = await Employee.findOne({ user: userId }).populate("primaryCentre");
-        if (!employee) return res.status(404).json({ message: "Employee profile not found" });
-
-        // 4. Check for existing attendance record for this specific day
-        let attendance = await EmployeeAttendance.findOne({ user: userId, date: markDate });
-
+        // 2. Update or create attendance record as Week Off
         if (attendance) {
             attendance.status = "Week Off";
             attendance.checkIn = undefined;
             attendance.checkOut = undefined;
             attendance.workingHours = 0;
+            attendance.remarks = isPastDay ? "Marked as Day Off for absent day" : "Marked as Week Off";
         } else {
             attendance = new EmployeeAttendance({
                 user: userId,
                 employeeId: employee._id,
-                centreId: employee.primaryCentre?._id || null, // Fallback if no centre
-                date: markDate,
-                status: "Week Off"
+                centreId: employee.primaryCentre?._id || null,
+                date: dayUtcStart,
+                status: "Week Off",
+                remarks: isPastDay ? "Marked as Day Off for absent day" : "Marked as Week Off"
             });
         }
 
         await attendance.save();
-        res.status(200).json({ message: "Day marked as Week Off successfully", attendance });
+        res.status(200).json({ message: "Day marked as Day Off successfully", attendance });
 
     } catch (error) {
         console.error("Mark Week Off Error:", error);

@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams } from "react-router-dom";
 import Layout from "../../components/Layout";
 import {
@@ -10,7 +10,7 @@ import { toast } from "react-toastify";
 import {
     format, startOfYear, endOfYear, eachMonthOfInterval,
     eachDayOfInterval, startOfMonth, endOfMonth, isToday,
-    isSameDay, getDay, startOfDay, getMonth, startOfWeek, endOfWeek, isWithinInterval
+    getDay, startOfDay, getMonth, startOfWeek, endOfWeek
 } from "date-fns";
 import {
     CartesianGrid,
@@ -20,8 +20,6 @@ import {
 import { useTheme } from "../../context/ThemeContext";
 
 const ShiftTimer = ({ checkIn, targetHours }) => {
-    const { theme } = useTheme();
-    const isDarkMode = theme === 'dark';
     const [elapsed, setElapsed] = useState(0);
 
     useEffect(() => {
@@ -163,22 +161,22 @@ const DayDetailsModal = React.memo(({
     isDarkMode,
     isSuperAdminOrHR,
     marking,
-    handleAdminOverrideWeekOff,
     handleMarkWeekOff,
     attendanceData
 }) => {
-    if (!data) return null;
-    const { day, status } = data;
-    const isDark = isDarkMode;
-
     // Lock background body scroll while modal is active
     useEffect(() => {
+        if (!data) return;
         const prevOverflow = document.body.style.overflow;
         document.body.style.overflow = 'hidden';
         return () => {
             document.body.style.overflow = prevOverflow;
         };
-    }, []);
+    }, [data]);
+
+    if (!data) return null;
+    const { day, status } = data;
+    const isDark = isDarkMode;
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-4 md:p-6 overflow-hidden">
@@ -412,60 +410,92 @@ const DayDetailsModal = React.memo(({
                         </div>
                     ))}
 
-                    {/* Admin / HR Manual Override as Week Off */}
-                    {isSuperAdminOrHR && status.status !== "Week Off" && (
-                        <div className="pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-amber-500/30">
-                            <div className="p-3.5 sm:p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 mb-3 sm:mb-4">
-                                <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest flex items-center gap-2">
-                                    <FaBolt /> Admin & HR Override
-                                </p>
-                                <p className={`text-[10px] mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    As Superadmin / HR, you can mark this date as a Week Off for this employee upon their request.
-                                </p>
-                            </div>
-                            <button
-                                onClick={() => handleAdminOverrideWeekOff(day)}
-                                disabled={marking}
-                                className="w-full py-3.5 sm:py-4 bg-amber-500 hover:bg-amber-600 text-black font-black rounded-2xl transition-all shadow-xl shadow-amber-500/20 active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
-                            >
-                                {marking ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-black"></div> : <><FaCalendarCheck size={16} /> Mark as Week Off (Admin Override)</>}
-                            </button>
-                        </div>
-                    )}
-
-                    {/* Mark as Week Off Option (For Employees: Current & Upcoming Week) */}
-                    {!isSuperAdminOrHR && (() => {
+                    {/* Mark as Day Off / Week Off Option (Available for All Users) */}
+                    {(() => {
                         const today = new Date();
                         const todayStart = startOfDay(today);
-
-                        // Prevent marking for past days
                         const isPastDay = day < todayStart;
 
-                        // Check if a Week Off is already defined for the week of the selected 'day'
-                        const weekStart = startOfWeek(day, { weekStartsOn: 1 });
-                        const weekEnd = endOfWeek(day, { weekStartsOn: 1 });
-                        const hasWeekOffInThisWeek = (attendanceData || []).some(a => {
-                            const d = new Date(a.date);
-                            return d >= weekStart && d <= weekEnd && a.status === "Week Off";
-                        });
+                        const isAlreadyWeekOff = 
+                            status.status === "Week Off" || 
+                            status.type === "Off" || 
+                            status.name === "Weekly Off" ||
+                            status.name === "Week Off";
 
-                        if (!isPastDay && status.status !== "Week Off" && !hasWeekOffInThisWeek) {
-                            return (
-                                <div className="pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-gray-800/50">
-                                    <button
-                                        onClick={() => handleMarkWeekOff(day)}
-                                        disabled={marking}
-                                        className="w-full py-3.5 sm:py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-500/20 active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
-                                    >
-                                        {marking ? <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white"></div> : <><FaCalendarCheck size={16} /> Mark as Week Off</>}
-                                    </button>
-                                    <p className={`mt-2 text-[8px] font-bold text-center uppercase tracking-widest ${isDark ? 'text-gray-600' : 'text-gray-400'}`}>
-                                        * ALLOWED FOR CURRENT & UPCOMING WEEKS
+                        const isHolidayOrLeave = 
+                            status.type === "Holiday" || 
+                            status.type === "Leave" || 
+                            status.status === "Leave" || 
+                            status.status === "Holiday";
+
+                        const isPresent = 
+                            (status.type === "Present" && status.status !== "Absent") ||
+                            status.status === "Present" ||
+                            status.status === "Overtime" ||
+                            status.status === "Half Day" ||
+                            status.status === "Early Leave" ||
+                            status.status === "Short Leave" ||
+                            status.hasOfficePresence ||
+                            (status.workingHours && status.workingHours >= 4) ||
+                            Boolean(status.checkIn && status.checkOut && status.workingHours > 0);
+
+                        const isAbsent = status.type === "Absent" || status.status === "Absent";
+
+                        // Never show for already Week Off, Holiday, Leave, or NA
+                        if (isAlreadyWeekOff || isHolidayOrLeave || status.type === "NA") {
+                            return null;
+                        }
+
+                        // Never show if employee was Present on that day
+                        if (isPresent) {
+                            return null;
+                        }
+
+                        // For past days: ONLY show if the day is Absent
+                        if (isPastDay && !isAbsent) {
+                            return null;
+                        }
+
+                        // For current / upcoming days: check if week off limit is met for normal users
+                        if (!isPastDay && !isSuperAdminOrHR) {
+                            const weekStart = startOfWeek(day, { weekStartsOn: 1 });
+                            const weekEnd = endOfWeek(day, { weekStartsOn: 1 });
+                            const hasWeekOffInThisWeek = (attendanceData || []).some(a => {
+                                const d = new Date(a.date);
+                                return d >= weekStart && d <= weekEnd && a.status === "Week Off";
+                            });
+                            if (hasWeekOffInThisWeek) {
+                                return null;
+                            }
+                        }
+
+                        return (
+                            <div className="pt-4 sm:pt-6 mt-4 sm:mt-6 border-t border-indigo-500/30">
+                                <div className="p-3.5 sm:p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 mb-3 sm:mb-4">
+                                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-2">
+                                        <FaCalendarCheck /> Day Off Selection
+                                    </p>
+                                    <p className={`text-[10px] mt-1 ${isDark ? 'text-gray-400' : 'text-gray-600'}`}>
+                                        {isPastDay
+                                            ? "This day is marked as Absent. You can mark this previous day as your Day Off."
+                                            : "You can set this day as your Day Off / Week Off."}
                                     </p>
                                 </div>
-                            );
-                        }
-                        return null;
+                                <button
+                                    onClick={() => handleMarkWeekOff(day)}
+                                    disabled={marking}
+                                    className="w-full py-3.5 sm:py-4 bg-indigo-600 hover:bg-indigo-700 text-white font-black rounded-2xl transition-all shadow-xl shadow-indigo-600/20 active:scale-95 disabled:opacity-50 uppercase tracking-widest text-[10px] flex items-center justify-center gap-3"
+                                >
+                                    {marking ? (
+                                        <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-white"></div>
+                                    ) : (
+                                        <>
+                                            <FaCalendarCheck size={16} /> Mark as Day Off
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        );
                     })()}
                 </div>
             </div>
@@ -475,7 +505,6 @@ const DayDetailsModal = React.memo(({
 
 const CalendarMonthCard = React.memo(({
     month,
-    mIdx,
     monthSummary,
     monthWorkingHours,
     isDarkMode,
@@ -627,7 +656,7 @@ const EmployeeAttendance = () => {
     const [holidays, setHolidays] = useState([]);
     const [workingDays, setWorkingDays] = useState({});
     const [workingHours, setWorkingHours] = useState(0);
-    const [assignedCentres, setAssignedCentres] = useState(null);
+    const [_assignedCentres, setAssignedCentres] = useState(null);
     const [dateOfJoining, setDateOfJoining] = useState(null);
     const [employeeDetails, setEmployeeDetails] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -813,32 +842,36 @@ const EmployeeAttendance = () => {
         setMarking(true);
         try {
             const token = localStorage.getItem("token");
+            const targetId = employeeDetails?._id || employeeDetails?.employeeId || employeeIdParam;
             const response = await fetch(`${import.meta.env.VITE_API_URL}/hr/employee-attendance/mark-week-off`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
                     Authorization: `Bearer ${token}`
                 },
-                body: JSON.stringify({ date: format(date, "yyyy-MM-dd") })
+                body: JSON.stringify({
+                    date: format(date, "yyyy-MM-dd"),
+                    ...(targetId ? { employeeId: targetId } : {})
+                })
             });
 
             const data = await response.json();
             if (response.ok) {
-                toast.success(data.message);
+                toast.success(data.message || "Day marked as Day Off successfully");
                 fetchAttendance();
                 setSelectedDay(null); // Close modal
             } else {
-                toast.error(data.message || "Failed to mark week-off");
+                toast.error(data.message || "Failed to mark Day Off");
             }
         } catch (error) {
-            console.error("Mark week-off error:", error);
+            console.error("Mark Day Off error:", error);
             toast.error("Network error");
         } finally {
             setMarking(false);
         }
     };
 
-    const handleAdminOverrideWeekOff = async (date) => {
+    const _handleAdminOverrideWeekOff = async (date) => {
         const targetId = employeeDetails?._id || employeeDetails?.employeeId || employeeIdParam;
         if (!targetId) {
             toast.error("Target employee not identified");
@@ -1203,7 +1236,7 @@ const EmployeeAttendance = () => {
     }, [dayStatusMap, holidays, year]);
 
 
-    const getWorkingDaysList = () => {
+    const _getWorkingDaysList = () => {
         if (!workingDays) return [];
         const days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
         return days.filter(d => workingDays[d]).map(d => d.charAt(0).toUpperCase() + d.slice(1, 3));
@@ -1474,7 +1507,6 @@ const EmployeeAttendance = () => {
                         isDarkMode={isDarkMode}
                         isSuperAdminOrHR={isSuperAdminOrHR}
                         marking={marking}
-                        handleAdminOverrideWeekOff={handleAdminOverrideWeekOff}
                         handleMarkWeekOff={handleMarkWeekOff}
                         attendanceData={attendanceData}
                     />
