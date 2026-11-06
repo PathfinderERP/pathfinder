@@ -193,7 +193,8 @@ const Sidebar = ({ activePage, isOpen, toggleSidebar }) => {
                 { name: "School Journey", path: "/marketing-crm/school-journey", permissionModule: "marketingCRM", permissionSection: "schoolJourney" },
                 { name: "Team Performance", path: "/marketing-crm/team-performance", permissionModule: "marketingCRM", permissionSection: "teamPerformance" },
                 { name: "Centre Performance", path: "/marketing-crm/centre-performance", permissionModule: "marketingCRM", permissionSection: "centrePerformance" },
-                { name: "B2B Comparison", path: "/marketing-crm/b2b-comparison", permissionModule: "marketingCRM", permissionSection: "b2bComparison" }
+                { name: "B2B Comparison", path: "/marketing-crm/b2b-comparison", permissionModule: "marketingCRM", permissionSection: "b2bComparison" },
+                { name: "Marketing Analysis", path: "/marketing-crm/marketing-analysis", permissionModule: "marketingCRM", permissionSection: "marketingAnalysis" }
             ]
         },
         //{ name: "CEO Control Tower", icon: <FaChartBar />, path: "/ceo-control-tower", permissionModule: "ceoControlTower" },

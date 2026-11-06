@@ -19,6 +19,7 @@ import {
 } from 'recharts';
 import { hasModuleAccess } from "../config/permissions";
 import TeamPerformanceContent from "../components/MarketingCRM/TeamPerformanceContent";
+import MarketingAnalysisContent from "../components/MarketingCRM/MarketingAnalysisContent";
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
 
@@ -2454,7 +2455,7 @@ const MarketingCRM = ({ initialTab }) => {
                         {/* NAVIGATION */}
                         <div className="flex flex-wrap items-center gap-2">
                             {[
-                                "Command Centre", "Activity Planner", "Today Task", "Activity Audit"
+                                "Command Centre", "Activity Planner", "Today Task", "Activity Audit", "Marketing Analysis"
                             ].map((tab, idx) => (
                                 <button
                                     key={idx}
@@ -5257,6 +5258,11 @@ const MarketingCRM = ({ initialTab }) => {
                                         </div>
                                     )}
                                 </div>
+                            </div>
+                        )}
+                        {activeTab === "Marketing Analysis" && (
+                            <div className="pt-2">
+                                <MarketingAnalysisContent isDarkMode={isDarkMode} />
                             </div>
                         )}
                         {/* Full-Screen Image Preview Modal */}
