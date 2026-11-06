@@ -72,6 +72,14 @@ export default function B2BComparisonContent() {
     const [centreDropdownOpen, setCentreDropdownOpen] = useState(false);
 
     const token = localStorage.getItem("token");
+    const currentUser = useMemo(() => {
+        try {
+            return JSON.parse(localStorage.getItem("user") || "{}");
+        } catch {
+            return {};
+        }
+    }, []);
+    const canSyncExcel = currentUser?.role === "superAdmin" || currentUser?.role === "Super Admin" || currentUser?.role === "admin";
 
     // Fetch data from API
     const fetchData = useCallback(async () => {
@@ -312,17 +320,19 @@ export default function B2BComparisonContent() {
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2.5">
-                    <label className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer shadow-md shadow-indigo-600/20 transition-all">
-                        <FaSync className={syncing ? "animate-spin" : ""} />
-                        <span>{syncing ? "Syncing..." : "Sync / Import Excel"}</span>
-                        <input
-                            type="file"
-                            accept=".xlsx, .xls"
-                            className="hidden"
-                            onChange={handleSyncData}
-                            disabled={syncing}
-                        />
-                    </label>
+                    {canSyncExcel && (
+                        <label className="flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-bold bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer shadow-md shadow-indigo-600/20 transition-all">
+                            <FaSync className={syncing ? "animate-spin" : ""} />
+                            <span>{syncing ? "Syncing..." : "Sync / Import Excel"}</span>
+                            <input
+                                type="file"
+                                accept=".xlsx, .xls"
+                                className="hidden"
+                                onChange={handleSyncData}
+                                disabled={syncing}
+                            />
+                        </label>
+                    )}
 
                     <button
                         onClick={handleExportExcel}
