@@ -131,24 +131,74 @@ export const getMarketingAnalysis = async (req, res) => {
             });
         });
 
-        // 3. User Permission Scope: if not superAdmin, restrict to allowed centres or self
-        const userRoleLower = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const isSuperAdmin = userRoleLower === "superadmin" || userRoleLower === "super admin";
-        let allowedUserIds = null;
+        // 3. User Permission Scope:
+        // In user management, whatever centres are assigned to the logged-in user,
+        // only that respective centres' data should be visible.
+        const loggedInUser = await User.findById(req.user._id || req.user.id)
+            .select("name role employeeId centres primaryCentre granularPermissions")
+            .populate("centres", "centreName enterCode")
+            .populate("primaryCentre", "centreName enterCode")
+            .lean();
 
-        if (!isSuperAdmin) {
-            const userCentreIds = (req.user.centres || []).map(c => (c._id || c).toString());
-            if (userCentreIds.length > 0) {
-                // Allowed to view staff in the same centres
-                allowedUserIds = allUsers
-                    .filter(u => {
-                        const uCentres = (u.centres || []).map(c => (c._id || c).toString());
-                        return uCentres.some(cid => userCentreIds.includes(cid)) || u._id.toString() === req.user._id.toString();
-                    })
-                    .map(u => u._id.toString());
-            } else {
-                allowedUserIds = [req.user._id.toString()];
-            }
+        const userRoleLower = (loggedInUser?.role || req.user.role || "").toLowerCase().replace(/\s+/g, "");
+        const isSuperAdmin = userRoleLower === "superadmin" || userRoleLower === "super admin";
+
+        // Gather all centre IDs explicitly assigned to the logged-in user in User Management
+        const assignedCentreIdSet = new Set();
+        if (loggedInUser?.primaryCentre) {
+            assignedCentreIdSet.add((loggedInUser.primaryCentre._id || loggedInUser.primaryCentre).toString());
+        }
+        if (Array.isArray(loggedInUser?.centres)) {
+            loggedInUser.centres.forEach(c => {
+                if (c) assignedCentreIdSet.add((c._id || c).toString());
+            });
+        }
+        if (req.user.primaryCentre) {
+            assignedCentreIdSet.add((req.user.primaryCentre._id || req.user.primaryCentre).toString());
+        }
+        if (Array.isArray(req.user.centres)) {
+            req.user.centres.forEach(c => {
+                if (c) assignedCentreIdSet.add((c._id || c).toString());
+            });
+        }
+
+        // If the user has assigned centres in User Management, restrict strictly to those centres.
+        // If superAdmin and NO centres assigned in User Management, allow all centres.
+        // If non-superAdmin and NO centres assigned, restrict to self only.
+        const hasAssignedCentres = assignedCentreIdSet.size > 0;
+        let accessibleCentres = masterCentres;
+        let accessibleCentreIds = null;
+
+        if (hasAssignedCentres) {
+            accessibleCentres = masterCentres.filter(c => assignedCentreIdSet.has(c._id.toString()));
+            accessibleCentreIds = new Set(accessibleCentres.map(c => c._id.toString()));
+        } else if (!isSuperAdmin) {
+            accessibleCentres = [];
+            accessibleCentreIds = new Set();
+        }
+
+        // Zones accessible through accessibleCentres
+        let accessibleZones = masterZones;
+        if (accessibleCentreIds !== null) {
+            accessibleZones = masterZones.filter(z =>
+                (z.centres || []).some(c => accessibleCentreIds.has((c._id || c).toString()))
+            );
+        }
+
+        // Determine allowed user IDs based on accessible centres
+        let allowedUserIds = null;
+        if (accessibleCentreIds !== null) {
+            allowedUserIds = allUsers
+                .filter(u => {
+                    if (u._id.toString() === req.user._id.toString()) return true;
+                    if (accessibleCentreIds.size === 0) return false;
+                    const uCentres = (u.centres || []).map(c => (c._id || c).toString());
+                    if (u.primaryCentre) {
+                        uCentres.push((u.primaryCentre._id || u.primaryCentre).toString());
+                    }
+                    return uCentres.some(cid => accessibleCentreIds.has(cid));
+                })
+                .map(u => u._id.toString());
         }
 
         // 4. Query TomorrowPlanner, MarketingPlanner, and AssignedTask in date range
@@ -220,17 +270,18 @@ export const getMarketingAnalysis = async (req, res) => {
         const userMap = {};
         allUsers.forEach(u => {
             const uCentres = u.centres || [];
-            const centreNames = uCentres.map(c => c.centreName).filter(Boolean);
-            const primaryName = u.primaryCentre?.centreName;
-            if (primaryName && !centreNames.includes(primaryName)) {
-                centreNames.unshift(primaryName);
+            let centreDocs = [...uCentres];
+            if (u.primaryCentre && !centreDocs.some(c => (c._id || c).toString() === (u.primaryCentre._id || u.primaryCentre).toString())) {
+                centreDocs.unshift(u.primaryCentre);
             }
 
-            const rawCentres = uCentres.map(c => c._id?.toString() || c.toString());
-            if (u.primaryCentre?._id) {
-                const pId = u.primaryCentre._id.toString();
-                if (!rawCentres.includes(pId)) rawCentres.unshift(pId);
+            // If viewer has restricted centre access, only retain viewer's accessible centres
+            if (accessibleCentreIds !== null && accessibleCentreIds.size > 0) {
+                centreDocs = centreDocs.filter(c => accessibleCentreIds.has((c._id || c).toString()));
             }
+
+            const centreNames = centreDocs.map(c => c.centreName).filter(Boolean);
+            const rawCentres = centreDocs.map(c => (c._id || c).toString());
 
             const userZoneIds = new Set();
             const userZoneNames = new Set();
@@ -378,6 +429,12 @@ export const getMarketingAnalysis = async (req, res) => {
                 const pDateStr = pDate ? getISTDateString(new Date(pDate)) : startDate;
 
                 (p.tasks || []).forEach(t => {
+                    // If school has an assigned centre, enforce accessible centres boundary
+                    if (accessibleCentreIds !== null && accessibleCentreIds.size > 0 && t.schoolRef?.centerName) {
+                        const scId = (t.schoolRef.centerName._id || t.schoolRef.centerName).toString();
+                        if (scId && !accessibleCentreIds.has(scId)) return;
+                    }
+
                     const taskPlace = (t.place || t.schoolRef?.schoolName || "").trim();
                     const taskType = (t.activityType || "").trim();
                     const taskPurpose = (t.activityPurpose || "").trim();
@@ -493,6 +550,12 @@ export const getMarketingAnalysis = async (req, res) => {
             // 6B. Process direct MarketingPlanner activities done today
             userActivities.forEach(act => {
                 if (matchedActivityIds.has(act._id.toString())) return;
+
+                // If school has an assigned centre, enforce accessible centres boundary
+                if (accessibleCentreIds !== null && accessibleCentreIds.size > 0 && act.schoolRef?.centerName) {
+                    const scId = (act.schoolRef.centerName._id || act.schoolRef.centerName).toString();
+                    if (scId && !accessibleCentreIds.has(scId)) return;
+                }
 
                 const actPlace = (act.institution || act.place || act.schoolRef?.schoolName || "").trim();
                 const actType = (act.type || "").trim();
@@ -714,8 +777,8 @@ export const getMarketingAnalysis = async (req, res) => {
                 .map(u => ({ value: u._id.toString(), label: u.name, role: formatRoleLabel(u.role) }))
                 .sort((a, b) => a.label.localeCompare(b.label)),
             roles: roleOptions,
-            zones: masterZones.map(z => ({ value: z._id.toString(), label: z.name })).sort((a, b) => a.label.localeCompare(b.label)),
-            centres: masterCentres.map(c => ({ value: c._id.toString(), label: c.centreName })).sort((a, b) => a.label.localeCompare(b.label)),
+            zones: accessibleZones.map(z => ({ value: z._id.toString(), label: z.name })).sort((a, b) => a.label.localeCompare(b.label)),
+            centres: accessibleCentres.map(c => ({ value: c._id.toString(), label: c.centreName })).sort((a, b) => a.label.localeCompare(b.label)),
             activityTypes: allTypes,
             activityPurposes: allPurposes
         };

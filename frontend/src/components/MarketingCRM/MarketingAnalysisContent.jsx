@@ -42,6 +42,675 @@ const PhotoProofThumbnail = ({ photo, onClick, size = "w-7 h-7" }) => {
     );
 };
 
+// Modal Popup for Interactive KPI Card Details
+const KpiDetailModal = ({
+    modalType,
+    onClose,
+    userSummary = [],
+    detailedTasks = [],
+    stats = {},
+    dateRangeInfo = {},
+    isDarkMode = true,
+    onOpenLightbox
+}) => {
+    const [subTab, setSubTab] = useState(() => {
+        if (modalType === "planCompliance") return "pending";
+        if (modalType === "leads") return "withLeads";
+        return "all";
+    });
+    const [searchTerm, setSearchTerm] = useState("");
+
+    // Lock body scrolling when modal is open
+    useEffect(() => {
+        const originalOverflow = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => {
+            document.body.style.overflow = originalOverflow;
+        };
+    }, []);
+
+    // Close on Escape key
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", handleKeyDown);
+        return () => window.removeEventListener("keydown", handleKeyDown);
+    }, [onClose]);
+
+    // Metadata config per card type
+    const config = useMemo(() => {
+        switch (modalType) {
+            case "activeStaff":
+                return {
+                    title: "Active Marketing Staff Analysis",
+                    icon: <FaUsers className="text-cyan-400" size={20} />,
+                    accentText: "text-cyan-400",
+                    accentBorder: "border-cyan-500/30",
+                    accentBg: "bg-cyan-500/10",
+                    badge: `${stats.activeStaff || 0} Active / ${stats.totalStaff || 0} Total Staff`,
+                    description: "Staff-wise planner status, execution volume, compliance rate, and leads generated"
+                };
+            case "tomorrowPlan":
+                return {
+                    title: "Tomorrow Planner Pre-Planned Tasks",
+                    icon: <FaTasks className="text-blue-400" size={20} />,
+                    accentText: "text-blue-400",
+                    accentBorder: "border-blue-500/30",
+                    accentBg: "bg-blue-500/10",
+                    badge: `${stats.totalPlanned || 0} Pre-Planned Tasks`,
+                    description: "Activities scheduled ahead in Tomorrow Planner for the selected date range"
+                };
+            case "tasksDone":
+                return {
+                    title: "Total Executed Tasks",
+                    icon: <FaCheckCircle className="text-emerald-400" size={20} />,
+                    accentText: "text-emerald-400",
+                    accentBorder: "border-emerald-500/30",
+                    accentBg: "bg-emerald-500/10",
+                    badge: `${stats.totalExecutedAll || 0} Executed (${stats.totalCompleted || 0} Plan + ${stats.totalAdHoc || 0} Direct)`,
+                    description: "All completed ground visits and activities executed by marketing staff"
+                };
+            case "planCompliance":
+                return {
+                    title: "Plan Compliance & Pending Tasks",
+                    icon: <FaAward className="text-yellow-400" size={20} />,
+                    accentText: "text-yellow-400",
+                    accentBorder: "border-yellow-500/30",
+                    accentBg: "bg-yellow-500/10",
+                    badge: `Compliance: ${stats.overallCompletionRate !== null ? stats.overallCompletionRate + '%' : 'N/A'} • ${stats.totalPending || 0} Pending`,
+                    description: "Tracks whether staff fulfilled what was pre-planned in their Tomorrow Planner vs what was left pending"
+                };
+            case "leads":
+                return {
+                    title: "Leads Collected Analysis",
+                    icon: <FaBullhorn className="text-purple-400" size={20} />,
+                    accentText: "text-purple-400",
+                    accentBorder: "border-purple-500/30",
+                    accentBg: "bg-purple-500/10",
+                    badge: `${stats.totalLeads || 0} Total Leads Collected`,
+                    description: "Detailed breakdown of leads captured across all executed activities"
+                };
+            case "proofCompliance":
+                return {
+                    title: "Photo & GPS Proof Compliance",
+                    icon: <FaCamera className="text-orange-400" size={20} />,
+                    accentText: "text-orange-400",
+                    accentBorder: "border-orange-500/30",
+                    accentBg: "bg-orange-500/10",
+                    badge: `${stats.totalProofs || 0} Photos • ${stats.totalGeoTagged || 0} GPS Verified`,
+                    description: "Verification of photographic evidence and GPS geolocation tags submitted by marketing staff"
+                };
+            default:
+                return {
+                    title: "Details",
+                    icon: <FaChartLine className="text-cyan-400" size={20} />,
+                    accentText: "text-cyan-400",
+                    accentBorder: "border-cyan-500/30",
+                    accentBg: "bg-cyan-500/10",
+                    badge: "",
+                    description: ""
+                };
+        }
+    }, [modalType, stats]);
+
+    // Sub-tab definitions
+    const tabs = useMemo(() => {
+        if (modalType === "activeStaff") {
+            const activeCount = userSummary.filter(u => {
+                const totalExec = u.totalExecuted !== undefined ? u.totalExecuted : (u.totalExecutedAll || 0);
+                const planned = u.plannedTasksCount !== undefined ? u.plannedTasksCount : (u.totalPlanned || 0);
+                return totalExec > 0 || planned > 0;
+            }).length;
+            const inactiveCount = userSummary.length - activeCount;
+            return [
+                { id: "active", label: `Active Staff (${activeCount})` },
+                { id: "all", label: `All Assigned Staff (${userSummary.length})` },
+                { id: "inactive", label: `No Activity (${inactiveCount})` }
+            ];
+        }
+
+        if (modalType === "tomorrowPlan") {
+            const plannedTasks = detailedTasks.filter(t => t.isPlanned);
+            const doneCount = plannedTasks.filter(t => t.isCompleted).length;
+            const pendingCount = plannedTasks.filter(t => !t.isCompleted && t.status !== "Skipped").length;
+            const skippedCount = plannedTasks.filter(t => t.status === "Skipped").length;
+            return [
+                { id: "all", label: `All Pre-Planned (${plannedTasks.length})` },
+                { id: "completed", label: `Completed (${doneCount})` },
+                { id: "pending", label: `Pending / Not Done (${pendingCount})` },
+                { id: "skipped", label: `Skipped (${skippedCount})` }
+            ];
+        }
+
+        if (modalType === "tasksDone") {
+            const executedTasks = detailedTasks.filter(t => t.isCompleted);
+            const fromPlan = executedTasks.filter(t => !t.isAdHoc).length;
+            const direct = executedTasks.filter(t => t.isAdHoc).length;
+            return [
+                { id: "all", label: `All Executed (${executedTasks.length})` },
+                { id: "fromPlan", label: `From Plan (${fromPlan})` },
+                { id: "direct", label: `Direct Visits (${direct})` }
+            ];
+        }
+
+        if (modalType === "planCompliance") {
+            const plannedTasks = detailedTasks.filter(t => t.isPlanned);
+            const doneCount = plannedTasks.filter(t => t.isCompleted).length;
+            const pendingCount = plannedTasks.filter(t => !t.isCompleted && t.status !== "Skipped").length;
+            const skippedCount = plannedTasks.filter(t => t.status === "Skipped").length;
+            return [
+                { id: "pending", label: `Pending / Not Done (${pendingCount})` },
+                { id: "completed", label: `Completed As Planned (${doneCount})` },
+                { id: "skipped", label: `Skipped (${skippedCount})` },
+                { id: "all", label: `All Pre-Planned (${plannedTasks.length})` }
+            ];
+        }
+
+        if (modalType === "leads") {
+            const executedTasks = detailedTasks.filter(t => t.isCompleted);
+            const withLeads = executedTasks.filter(t => Number(t.leads) > 0).length;
+            return [
+                { id: "withLeads", label: `Activities With Leads (${withLeads})` },
+                { id: "all", label: `All Executed (${executedTasks.length})` }
+            ];
+        }
+
+        if (modalType === "proofCompliance") {
+            const executedTasks = detailedTasks.filter(t => t.isCompleted);
+            const withPhoto = executedTasks.filter(t => t.photo || (t.photos && t.photos.length > 0)).length;
+            const withGeo = executedTasks.filter(t => t.geoTagged).length;
+            const missing = executedTasks.filter(t => !t.photo && !t.geoTagged).length;
+            return [
+                { id: "all", label: `All Executed (${executedTasks.length})` },
+                { id: "photo", label: `With Photo (${withPhoto})` },
+                { id: "geo", label: `With GPS Tag (${withGeo})` },
+                { id: "missing", label: `Missing Proof (${missing})` }
+            ];
+        }
+
+        return [];
+    }, [modalType, userSummary, detailedTasks]);
+
+    // Data filtering per modal type, subTab, and quick search
+    const filteredRows = useMemo(() => {
+        const q = searchTerm.toLowerCase().trim();
+
+        if (modalType === "activeStaff") {
+            let list = userSummary.map(u => ({
+                userId: u.user?._id || u.userId || u._id,
+                userName: u.user?.name || u.userName || "Staff Member",
+                employeeId: u.user?.employeeId || u.employeeId || "",
+                userRole: u.user?.role || u.userRole || "marketing",
+                centres: Array.isArray(u.user?.centres) ? u.user.centres.join(", ") : (u.centres || "—"),
+                zone: u.user?.zone || u.zone || "",
+                totalPlanned: u.plannedTasksCount !== undefined ? u.plannedTasksCount : (u.totalPlanned || 0),
+                totalCompleted: u.completedPlanned !== undefined ? u.completedPlanned : (u.totalCompleted || 0),
+                totalAdHoc: u.adHocCompleted !== undefined ? u.adHocCompleted : (u.totalAdHoc || 0),
+                totalExecutedAll: u.totalExecuted !== undefined ? u.totalExecuted : (u.totalExecutedAll || 0),
+                totalPending: u.pendingTasksCount !== undefined ? u.pendingTasksCount : (u.totalPending || 0),
+                totalSkipped: u.skippedTasksCount !== undefined ? u.skippedTasksCount : (u.totalSkipped || 0),
+                completionRate: u.completionRate !== undefined ? u.completionRate : null,
+                totalLeads: u.totalLeads || 0,
+                proofCount: u.proofCount || 0,
+                geoCount: u.geoCount || 0,
+                hasActivity: ((u.totalExecuted !== undefined ? u.totalExecuted : (u.totalExecutedAll || 0)) > 0) || ((u.plannedTasksCount !== undefined ? u.plannedTasksCount : (u.totalPlanned || 0)) > 0)
+            }));
+
+            if (subTab === "active") {
+                list = list.filter(u => u.hasActivity);
+            } else if (subTab === "inactive") {
+                list = list.filter(u => !u.hasActivity);
+            }
+            if (q) {
+                list = list.filter(u =>
+                    (u.userName || "").toLowerCase().includes(q) ||
+                    (u.employeeId || "").toLowerCase().includes(q) ||
+                    (u.userRole || "").toLowerCase().includes(q) ||
+                    (u.centres || "").toLowerCase().includes(q) ||
+                    (u.zone || "").toLowerCase().includes(q)
+                );
+            }
+            return list;
+        }
+
+        let tasks = [...detailedTasks];
+
+        if (modalType === "tomorrowPlan") {
+            tasks = tasks.filter(t => t.isPlanned);
+            if (subTab === "completed") tasks = tasks.filter(t => t.isCompleted);
+            else if (subTab === "pending") tasks = tasks.filter(t => !t.isCompleted && t.status !== "Skipped");
+            else if (subTab === "skipped") tasks = tasks.filter(t => t.status === "Skipped");
+        } else if (modalType === "tasksDone") {
+            tasks = tasks.filter(t => t.isCompleted);
+            if (subTab === "fromPlan") tasks = tasks.filter(t => !t.isAdHoc);
+            else if (subTab === "direct") tasks = tasks.filter(t => t.isAdHoc);
+        } else if (modalType === "planCompliance") {
+            tasks = tasks.filter(t => t.isPlanned);
+            if (subTab === "pending") tasks = tasks.filter(t => !t.isCompleted && t.status !== "Skipped");
+            else if (subTab === "completed") tasks = tasks.filter(t => t.isCompleted);
+            else if (subTab === "skipped") tasks = tasks.filter(t => t.status === "Skipped");
+        } else if (modalType === "leads") {
+            if (subTab === "withLeads") tasks = tasks.filter(t => Number(t.leads) > 0);
+            else tasks = tasks.filter(t => t.isCompleted);
+        } else if (modalType === "proofCompliance") {
+            tasks = tasks.filter(t => t.isCompleted);
+            if (subTab === "photo") tasks = tasks.filter(t => t.photo || (t.photos && t.photos.length > 0));
+            else if (subTab === "geo") tasks = tasks.filter(t => t.geoTagged);
+            else if (subTab === "missing") tasks = tasks.filter(t => !t.photo && !t.geoTagged);
+        }
+
+        if (q) {
+            tasks = tasks.filter(t =>
+                (t.userName || "").toLowerCase().includes(q) ||
+                (t.centres || "").toLowerCase().includes(q) ||
+                (t.place || "").toLowerCase().includes(q) ||
+                (t.activityType || "").toLowerCase().includes(q) ||
+                (t.activityPurpose || "").toLowerCase().includes(q) ||
+                (t.locationName || "").toLowerCase().includes(q) ||
+                (t.notes || "").toLowerCase().includes(q)
+            );
+        }
+
+        return tasks;
+    }, [modalType, subTab, searchTerm, userSummary, detailedTasks]);
+
+    // Export Excel
+    const handleExportExcel = () => {
+        try {
+            let exportData = [];
+            if (modalType === "activeStaff") {
+                exportData = filteredRows.map((u, i) => ({
+                    "#": i + 1,
+                    "Staff Name": u.userName || "",
+                    "Employee ID": u.employeeId || "",
+                    "Role": u.userRole || "",
+                    "Centres": u.centres || "",
+                    "Zone": u.zone || "",
+                    "Planned Tasks": u.totalPlanned || 0,
+                    "Tasks Done": u.totalExecutedAll || 0,
+                    "From Plan": u.totalCompleted || 0,
+                    "Direct Visits": u.totalAdHoc || 0,
+                    "Pending Tasks": u.totalPending || 0,
+                    "Skipped Tasks": u.totalSkipped || 0,
+                    "Plan Compliance %": u.completionRate !== null ? `${u.completionRate}%` : "N/A",
+                    "Leads": u.totalLeads || 0,
+                    "Photos Submitted": u.proofCount || 0,
+                    "GPS Tags Verified": u.geoCount || 0,
+                    "Status": ((u.totalExecutedAll || 0) > 0 || (u.totalPlanned || 0) > 0) ? "Active" : "Inactive"
+                }));
+            } else {
+                exportData = filteredRows.map((t, i) => ({
+                    "#": i + 1,
+                    "Date": t.date || "",
+                    "Staff Name": t.userName || "",
+                    "Centres": t.centres || "",
+                    "Task Type": t.isPlanned ? "From Plan" : "Direct Visit",
+                    "Activity Type": t.activityType || "",
+                    "Activity Purpose": t.activityPurpose || "",
+                    "Place / School": t.place || "",
+                    "Scheduled Time": t.time || "",
+                    "Actual Time": t.actualTime || "",
+                    "Execution Status": t.status || (t.isCompleted ? "Completed" : "Pending"),
+                    "Activity Outcome": t.activityStatus || "",
+                    "Leads": t.leads || "0",
+                    "Photo Proof": t.photo ? "Attached" : "No Photo",
+                    "GPS Tag": t.geoTagged ? "Verified" : "No GPS",
+                    "Location Name": t.locationName || "",
+                    "ZM Review Status": t.approvalStatus || ""
+                }));
+            }
+
+            const ws = XLSX.utils.json_to_sheet(exportData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Details");
+            const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+            saveAs(new Blob([buf], { type: "application/octet-stream" }), `${modalType}_details.xlsx`);
+            toast.success("Excel exported successfully!");
+        } catch (err) {
+            console.error("Export error:", err);
+            toast.error("Failed to export modal data");
+        }
+    };
+
+    return (
+        <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/85 backdrop-blur-sm animate-in fade-in duration-200"
+            onClick={onClose}
+        >
+            <div
+                className={`w-full max-w-6xl max-h-[92vh] flex flex-col rounded-2xl border shadow-2xl overflow-hidden ${
+                    isDarkMode ? "bg-[#13171f] border-slate-700/80 text-slate-200" : "bg-white border-slate-200 text-slate-800"
+                }`}
+                onClick={(e) => e.stopPropagation()}
+            >
+                {/* ── MODAL HEADER ── */}
+                <div className={`px-6 py-4 border-b flex items-center justify-between ${
+                    isDarkMode ? "bg-slate-950/80 border-slate-800" : "bg-slate-50 border-slate-200"
+                }`}>
+                    <div className="flex items-center gap-3">
+                        <div className={`p-2.5 rounded-xl border ${config.accentBg} ${config.accentBorder}`}>
+                            {config.icon}
+                        </div>
+                        <div>
+                            <div className="flex items-center gap-2.5 flex-wrap">
+                                <h3 className="text-base font-black tracking-wide text-white">
+                                    {config.title}
+                                </h3>
+                                {config.badge && (
+                                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${config.accentBg} ${config.accentBorder} ${config.accentText}`}>
+                                        {config.badge}
+                                    </span>
+                                )}
+                            </div>
+                            <p className="text-xs text-slate-400 mt-0.5 font-medium">
+                                {config.description}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center gap-2.5">
+                        <button
+                            onClick={handleExportExcel}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-400 border border-emerald-500/30 font-bold text-xs transition-colors shadow-sm"
+                            title="Export this modal table to Excel"
+                        >
+                            <FaFileExcel size={13} />
+                            <span>Export</span>
+                        </button>
+                        <button
+                            onClick={onClose}
+                            className="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors border border-slate-700"
+                            title="Close (Esc)"
+                        >
+                            <FaTimes size={14} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* ── TOOLBAR: TABS + QUICK SEARCH ── */}
+                <div className={`px-6 py-3 border-b flex flex-wrap items-center justify-between gap-3 ${
+                    isDarkMode ? "bg-slate-900/90 border-slate-800" : "bg-white border-slate-100"
+                }`}>
+                    {/* Sub-tabs */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto py-0.5">
+                        {tabs.map((tab) => {
+                            const isActive = subTab === tab.id;
+                            return (
+                                <button
+                                    key={tab.id}
+                                    onClick={() => setSubTab(tab.id)}
+                                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all whitespace-nowrap ${
+                                        isActive
+                                            ? `${config.accentBg} ${config.accentText} border ${config.accentBorder} shadow`
+                                            : isDarkMode
+                                            ? "bg-slate-800/60 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-transparent"
+                                            : "bg-slate-100 text-slate-600 hover:bg-slate-200 border border-transparent"
+                                    }`}
+                                >
+                                    {tab.label}
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Quick Search */}
+                    <div className="relative min-w-[240px] max-w-xs flex-1">
+                        <FaSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500 text-xs" />
+                        <input
+                            type="text"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            placeholder="Filter in this modal..."
+                            className={`w-full pl-8 pr-7 py-1.5 rounded-xl text-xs font-medium border focus:outline-none transition-colors ${
+                                isDarkMode
+                                    ? "bg-slate-950/70 border-slate-700/80 text-white placeholder-slate-500 focus:border-cyan-500"
+                                    : "bg-slate-50 border-slate-200 text-slate-800 placeholder-slate-400 focus:border-cyan-500"
+                            }`}
+                        />
+                        {searchTerm && (
+                            <button
+                                onClick={() => setSearchTerm("")}
+                                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-white text-xs"
+                            >
+                                <FaTimes />
+                            </button>
+                        )}
+                    </div>
+                </div>
+
+                {/* ── MODAL TABLE BODY ── */}
+                <div className="flex-1 overflow-auto max-h-[60vh] scrollbar-thin scrollbar-thumb-slate-700">
+                    {modalType === "activeStaff" ? (
+                        /* VIEW: ACTIVE STAFF TABLE */
+                        <table className="w-full text-left text-xs border-collapse">
+                            <thead className={`sticky top-0 z-10 font-black uppercase tracking-wider text-[11px] ${
+                                isDarkMode ? "bg-slate-950 text-slate-300" : "bg-slate-100 text-slate-700"
+                            }`}>
+                                <tr className="border-b border-slate-800/80">
+                                    <th className="p-3 w-12 text-center">#</th>
+                                    <th className="p-3 min-w-[180px]">Staff Name & Role</th>
+                                    <th className="p-3 min-w-[150px]">Centres / Location</th>
+                                    <th className="p-3 text-center min-w-[90px] text-blue-400">Tomorrow Plan</th>
+                                    <th className="p-3 text-center min-w-[120px] text-emerald-400">Tasks Done</th>
+                                    <th className="p-3 text-center min-w-[80px] text-amber-400">Pending</th>
+                                    <th className="p-3 text-center min-w-[110px]">Compliance</th>
+                                    <th className="p-3 text-center min-w-[80px] text-purple-400">Leads</th>
+                                    <th className="p-3 text-center min-w-[100px] text-orange-400">Proof / Geo</th>
+                                    <th className="p-3 text-center min-w-[100px]">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody className={`divide-y ${isDarkMode ? "divide-slate-800/50 text-slate-300" : "divide-slate-200 text-slate-700"}`}>
+                                {filteredRows.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="10" className="py-16 text-center text-slate-500">
+                                            <FaExclamationTriangle className="text-3xl mx-auto mb-2 text-slate-600" />
+                                            <p className="text-xs font-bold">No staff matching the criteria.</p>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredRows.map((u, idx) => {
+                                        const isActive = (u.totalExecutedAll || 0) > 0 || (u.totalPlanned || 0) > 0;
+                                        return (
+                                            <tr key={u.userId || idx} className={`transition-colors ${isDarkMode ? "hover:bg-slate-800/40" : "hover:bg-slate-50"}`}>
+                                                <td className="p-3 text-center font-bold text-slate-500">{idx + 1}</td>
+                                                <td className="p-3">
+                                                    <div className="font-extrabold text-white">{u.userName}</div>
+                                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
+                                                            {u.userRole || "Marketing"}
+                                                        </span>
+                                                        {u.employeeId && (
+                                                            <span className="text-[10px] text-slate-500">ID: {u.employeeId}</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="p-3">
+                                                    <div className="font-semibold text-slate-300">{u.centres || "—"}</div>
+                                                    <div className="text-[10px] text-slate-500">{u.zone || ""}</div>
+                                                </td>
+                                                <td className="p-3 text-center font-black text-blue-400 text-sm">
+                                                    {u.totalPlanned || 0}
+                                                </td>
+                                                <td className="p-3 text-center font-black text-emerald-400 text-sm">
+                                                    <div>{u.totalExecutedAll || 0}</div>
+                                                    <div className="text-[9px] text-slate-500 font-normal">
+                                                        {u.totalCompleted || 0} plan + {u.totalAdHoc || 0} direct
+                                                    </div>
+                                                </td>
+                                                <td className="p-3 text-center font-bold text-amber-400">
+                                                    {u.totalPending || 0}
+                                                </td>
+                                                <td className="p-3 text-center">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-black ${
+                                                        u.completionRate === null ? "bg-slate-800 text-slate-400" :
+                                                        u.completionRate >= 80 ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/30" :
+                                                        u.completionRate >= 50 ? "bg-yellow-500/15 text-yellow-400 border border-yellow-500/30" :
+                                                        "bg-rose-500/15 text-rose-400 border border-rose-500/30"
+                                                    }`}>
+                                                        {u.completionRate !== null ? `${u.completionRate}%` : "N/A"}
+                                                    </span>
+                                                </td>
+                                                <td className="p-3 text-center font-black text-purple-400">
+                                                    {u.totalLeads || 0}
+                                                </td>
+                                                <td className="p-3 text-center font-semibold text-orange-400 text-[11px]">
+                                                    {u.proofCount || 0} Photos | {u.geoCount || 0} GPS
+                                                </td>
+                                                <td className="p-3 text-center">
+                                                    {isActive ? (
+                                                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                                                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                                                            Active
+                                                        </span>
+                                                    ) : (
+                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-800 text-slate-400 border border-slate-700">
+                                                            Inactive
+                                                        </span>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
+                            </tbody>
+                        </table>
+                    ) : (
+                        /* VIEW: TASK-BASED DETAILED TABLE */
+                        <table className="w-full text-left text-xs border-collapse">
+                            <thead className={`sticky top-0 z-10 font-black uppercase tracking-wider text-[11px] ${
+                                isDarkMode ? "bg-slate-950 text-slate-300" : "bg-slate-100 text-slate-700"
+                            }`}>
+                                <tr className="border-b border-slate-800/80">
+                                    <th className="p-3 w-12 text-center">#</th>
+                                    <th className="p-3 min-w-[95px]">Date</th>
+                                    <th className="p-3 min-w-[170px]">Staff Name & Centre</th>
+                                    <th className="p-3 min-w-[180px]">Activity & Purpose</th>
+                                    <th className="p-3 min-w-[170px]">Place / Institution</th>
+                                    <th className="p-3 min-w-[110px]">Time</th>
+                                    <th className="p-3 text-center min-w-[130px]">Status</th>
+                                    <th className="p-3 text-center min-w-[90px]">Outcome</th>
+                                    <th className="p-3 text-center min-w-[70px] text-purple-400">Leads</th>
+                                    <th className="p-3 text-center min-w-[110px]">Proof & Geo</th>
+                                    <th className="p-3 text-center min-w-[100px]">Review</th>
+                                </tr>
+                            </thead>
+                            <tbody className={`divide-y ${isDarkMode ? "divide-slate-800/50 text-slate-300" : "divide-slate-200 text-slate-700"}`}>
+                                {filteredRows.length === 0 ? (
+                                    <tr>
+                                        <td colSpan="11" className="py-16 text-center text-slate-500">
+                                            <FaExclamationTriangle className="text-3xl mx-auto mb-2 text-slate-600" />
+                                            <p className="text-xs font-bold">No tasks matching the criteria.</p>
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredRows.map((t, idx) => (
+                                        <tr key={t._id || idx} className={`transition-colors ${isDarkMode ? "hover:bg-slate-800/40" : "hover:bg-slate-50"}`}>
+                                            <td className="p-3 text-center font-bold text-slate-500">{idx + 1}</td>
+                                            <td className="p-3 font-bold text-cyan-400 whitespace-nowrap">{t.date}</td>
+                                            <td className="p-3">
+                                                <div className="font-extrabold text-white">{t.userName}</div>
+                                                <div className="text-[10px] text-slate-400 font-semibold">{t.centres}</div>
+                                            </td>
+                                            <td className="p-3">
+                                                <div className="font-extrabold text-white flex items-center gap-1.5 flex-wrap">
+                                                    <span>{t.activityType}</span>
+                                                    {t.isAdHoc ? (
+                                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-teal-500/10 text-teal-400 border border-teal-500/20">Direct</span>
+                                                    ) : (
+                                                        <span className="px-1.5 py-0.2 rounded text-[9px] font-black bg-blue-500/10 text-blue-400 border border-blue-500/20">Plan</span>
+                                                    )}
+                                                </div>
+                                                <div className="text-[10px] text-slate-400">{t.activityPurpose}</div>
+                                            </td>
+                                            <td className="p-3 font-semibold text-slate-200">{t.place}</td>
+                                            <td className="p-3 text-slate-400 font-medium">
+                                                <div>{t.actualTime && t.actualTime !== "—" ? t.actualTime : t.time}</div>
+                                                {t.submittedAt && t.submittedAt !== "—" && (
+                                                    <div className="text-[9px] text-slate-500">{t.submittedAt}</div>
+                                                )}
+                                            </td>
+                                            <td className="p-3 text-center">
+                                                {t.isCompleted ? (
+                                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 whitespace-nowrap">
+                                                        Completed ✅
+                                                    </span>
+                                                ) : t.status === "Skipped" ? (
+                                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-slate-800 text-slate-400 border border-slate-700 whitespace-nowrap">
+                                                        Skipped ⏹
+                                                    </span>
+                                                ) : (
+                                                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-rose-500/15 text-rose-400 border border-rose-500/30 whitespace-nowrap">
+                                                        Pending ⏳
+                                                    </span>
+                                                )}
+                                            </td>
+                                            <td className="p-3 text-center">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                    t.activityStatus === "Success" ? "bg-emerald-500/15 text-emerald-400 border border-emerald-500/20" :
+                                                    t.activityStatus === "Failed" ? "bg-rose-500/15 text-rose-400 border border-rose-500/20" : "bg-slate-800 text-slate-400 border border-slate-700"
+                                                }`}>
+                                                    {t.activityStatus}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 text-center font-black text-purple-400 text-sm">
+                                                {t.leads}
+                                            </td>
+                                            <td className="p-3 text-center">
+                                                <div className="flex items-center justify-center gap-1.5">
+                                                    <PhotoProofThumbnail
+                                                        photo={t.photo}
+                                                        onClick={() => onOpenLightbox(t.photo)}
+                                                        size="w-6 h-6"
+                                                    />
+                                                    {t.geoTagged ? (
+                                                        <span className="text-emerald-400" title={t.locationName || "GPS Verified"}><FaMapMarkerAlt size={13} /></span>
+                                                    ) : (
+                                                        <span className="text-slate-600" title="No GPS tag"><FaMapMarkerAlt size={13} /></span>
+                                                    )}
+                                                </div>
+                                                {t.locationName && t.locationName !== "No Geo-Tag" && (
+                                                    <div className="text-[9px] text-slate-500 truncate max-w-[100px] mx-auto mt-0.5" title={t.locationName}>
+                                                        {t.locationName}
+                                                    </div>
+                                                )}
+                                            </td>
+                                            <td className="p-3 text-center">
+                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                                                    t.approvalStatus === "Approved" ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20" :
+                                                    t.approvalStatus === "Rejected" ? "bg-rose-500/10 text-rose-400 border border-rose-500/20" : "bg-yellow-500/10 text-yellow-400 border border-yellow-500/20"
+                                                }`}>
+                                                    {t.approvalStatus}
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+
+                {/* ── MODAL FOOTER ── */}
+                <div className={`px-6 py-3 border-t flex items-center justify-between text-xs ${
+                    isDarkMode ? "bg-slate-950/70 border-slate-800 text-slate-400" : "bg-slate-50 border-slate-200 text-slate-600"
+                }`}>
+                    <div>
+                        Showing <span className="font-bold text-white">{filteredRows.length}</span> record{filteredRows.length === 1 ? "" : "s"}
+                        {searchTerm && <span> matching "<span className="text-cyan-400">{searchTerm}</span>"</span>}
+                    </div>
+                    <button
+                        onClick={onClose}
+                        className="px-4 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white font-bold transition-colors border border-slate-700"
+                    >
+                        Close
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const MarketingAnalysisContent = ({ isDarkMode = true }) => {
     const navigate = useNavigate();
 
@@ -72,6 +741,9 @@ const MarketingAnalysisContent = ({ isDarkMode = true }) => {
 
     // Lightbox Modal for Photo Proofs
     const [lightboxPhoto, setLightboxPhoto] = useState(null);
+
+    // Active KPI Details Modal Popup ("activeStaff" | "tomorrowPlan" | "tasksDone" | "planCompliance" | "leads" | "proofCompliance")
+    const [activeKpiModal, setActiveKpiModal] = useState(null);
 
     // Initial and parameter-driven data fetch
     const fetchAnalysisData = useCallback(async () => {
@@ -407,51 +1079,96 @@ const MarketingAnalysisContent = ({ isDarkMode = true }) => {
             {/* ── TOP KPI SUMMARY CARDS ── */}
             <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-6 gap-3.5">
                 {/* 1. Marketing Staff */}
-                <div className={`p-4 rounded-2xl border ${isDarkMode ? "bg-[#161b22] border-slate-800/80" : "bg-white border-slate-200 shadow-sm"}`}>
+                <div
+                    onClick={() => setActiveKpiModal("activeStaff")}
+                    className={`p-4 rounded-2xl border cursor-pointer hover:border-cyan-500/80 hover:shadow-lg hover:shadow-cyan-500/10 hover:-translate-y-0.5 transition-all group relative ${
+                        isDarkMode ? "bg-[#161b22] border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
+                    }`}
+                    title="Click to view Active Staff details in modal popup"
+                >
                     <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-                        <span className="uppercase text-[10px] tracking-wider">Active Staff</span>
-                        <FaUsers className="text-cyan-400" />
+                        <span className="uppercase text-[10px] tracking-wider group-hover:text-cyan-400 transition-colors">Active Staff</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-cyan-500/15 text-cyan-400 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View ↗</span>
+                            <FaUsers className="text-cyan-400 group-hover:scale-110 transition-transform" />
+                        </div>
                     </div>
                     <div className="text-2xl font-black text-cyan-400">
                         {stats.activeStaff || 0}
                         <span className="text-xs font-medium text-slate-400 ml-1.5">/ {stats.totalStaff || 0}</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 font-semibold mt-1">Total marketing users</p>
+                    <p className="text-[10px] text-slate-500 font-semibold mt-1 flex items-center justify-between">
+                        <span>Total marketing users</span>
+                        <span className="text-cyan-400/80 text-[9px] group-hover:underline">Click for details</span>
+                    </p>
                 </div>
 
                 {/* 2. Tomorrow Plan (Planned) */}
-                <div className={`p-4 rounded-2xl border ${isDarkMode ? "bg-[#161b22] border-slate-800/80" : "bg-white border-slate-200 shadow-sm"}`}>
+                <div
+                    onClick={() => setActiveKpiModal("tomorrowPlan")}
+                    className={`p-4 rounded-2xl border cursor-pointer hover:border-blue-500/80 hover:shadow-lg hover:shadow-blue-500/10 hover:-translate-y-0.5 transition-all group relative ${
+                        isDarkMode ? "bg-[#161b22] border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
+                    }`}
+                    title="Click to view Tomorrow Planner tasks in modal popup"
+                >
                     <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-                        <span className="uppercase text-[10px] tracking-wider">Tomorrow Plan</span>
-                        <FaTasks className="text-blue-400" />
+                        <span className="uppercase text-[10px] tracking-wider group-hover:text-blue-400 transition-colors">Tomorrow Plan</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-blue-500/15 text-blue-400 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View ↗</span>
+                            <FaTasks className="text-blue-400 group-hover:scale-110 transition-transform" />
+                        </div>
                     </div>
                     <div className="text-2xl font-black text-blue-400">
                         {stats.totalPlanned || 0}
                     </div>
-                    <p className="text-[10px] text-slate-500 font-semibold mt-1">Pre-planned tasks</p>
+                    <p className="text-[10px] text-slate-500 font-semibold mt-1 flex items-center justify-between">
+                        <span>Pre-planned tasks</span>
+                        <span className="text-blue-400/80 text-[9px] group-hover:underline">Click for details</span>
+                    </p>
                 </div>
 
                 {/* 3. Total Tasks Done */}
-                <div className={`p-4 rounded-2xl border ${isDarkMode ? "bg-[#161b22] border-slate-800/80" : "bg-white border-slate-200 shadow-sm"}`}>
+                <div
+                    onClick={() => setActiveKpiModal("tasksDone")}
+                    className={`p-4 rounded-2xl border cursor-pointer hover:border-emerald-500/80 hover:shadow-lg hover:shadow-emerald-500/10 hover:-translate-y-0.5 transition-all group relative ${
+                        isDarkMode ? "bg-[#161b22] border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
+                    }`}
+                    title="Click to view Total Executed Tasks in modal popup"
+                >
                     <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-                        <span className="uppercase text-[10px] tracking-wider">Total Tasks Done</span>
-                        <FaCheckCircle className="text-emerald-400" />
+                        <span className="uppercase text-[10px] tracking-wider group-hover:text-emerald-400 transition-colors">Total Tasks Done</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-emerald-500/15 text-emerald-400 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View ↗</span>
+                            <FaCheckCircle className="text-emerald-400 group-hover:scale-110 transition-transform" />
+                        </div>
                     </div>
                     <div className="text-2xl font-black text-emerald-400">
                         {stats.totalExecutedAll || 0}
                     </div>
-                    <p className="text-[10px] text-slate-400 font-medium mt-1">
-                        <span className="text-emerald-400 font-bold">{stats.totalCompleted || 0} from plan</span>
-                        <span className="mx-1">•</span>
-                        <span className="text-teal-400 font-bold">{stats.totalAdHoc || 0} direct visits</span>
+                    <p className="text-[10px] text-slate-400 font-medium mt-1 flex items-center justify-between">
+                        <span>
+                            <span className="text-emerald-400 font-bold">{stats.totalCompleted || 0} from plan</span>
+                            <span className="mx-1">•</span>
+                            <span className="text-teal-400 font-bold">{stats.totalAdHoc || 0} direct</span>
+                        </span>
+                        <span className="text-emerald-400/80 text-[9px] group-hover:underline">Click for details</span>
                     </p>
                 </div>
 
                 {/* 4. Plan Compliance Rate */}
-                <div className={`p-4 rounded-2xl border ${isDarkMode ? "bg-[#161b22] border-slate-800/80" : "bg-white border-slate-200 shadow-sm"}`}>
+                <div
+                    onClick={() => setActiveKpiModal("planCompliance")}
+                    className={`p-4 rounded-2xl border cursor-pointer hover:border-yellow-500/80 hover:shadow-lg hover:shadow-yellow-500/10 hover:-translate-y-0.5 transition-all group relative ${
+                        isDarkMode ? "bg-[#161b22] border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
+                    }`}
+                    title="Click to view Plan Compliance & Pending Tasks in modal popup"
+                >
                     <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-                        <span className="uppercase text-[10px] tracking-wider">Plan Compliance</span>
-                        <FaAward className="text-yellow-400" />
+                        <span className="uppercase text-[10px] tracking-wider group-hover:text-yellow-400 transition-colors">Plan Compliance</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-yellow-500/15 text-yellow-400 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View ↗</span>
+                            <FaAward className="text-yellow-400 group-hover:scale-110 transition-transform" />
+                        </div>
                     </div>
                     <div className={`text-2xl font-black ${
                         stats.overallCompletionRate === null ? "text-slate-400" :
@@ -459,34 +1176,59 @@ const MarketingAnalysisContent = ({ isDarkMode = true }) => {
                     }`}>
                         {stats.overallCompletionRate !== null ? `${stats.overallCompletionRate}%` : "N/A"}
                     </div>
-                    <p className="text-[10px] text-slate-500 font-semibold mt-1">
-                        {stats.overallCompletionRate !== null ? `${stats.totalPending || 0} pending planned tasks` : "No tomorrow plan filled"}
+                    <p className="text-[10px] text-slate-500 font-semibold mt-1 flex items-center justify-between">
+                        <span>{stats.overallCompletionRate !== null ? `${stats.totalPending || 0} pending planned tasks` : "No tomorrow plan filled"}</span>
+                        <span className="text-yellow-400/80 text-[9px] group-hover:underline">Click for details</span>
                     </p>
                 </div>
 
                 {/* 5. Total Leads Collected */}
-                <div className={`p-4 rounded-2xl border ${isDarkMode ? "bg-[#161b22] border-slate-800/80" : "bg-white border-slate-200 shadow-sm"}`}>
+                <div
+                    onClick={() => setActiveKpiModal("leads")}
+                    className={`p-4 rounded-2xl border cursor-pointer hover:border-purple-500/80 hover:shadow-lg hover:shadow-purple-500/10 hover:-translate-y-0.5 transition-all group relative ${
+                        isDarkMode ? "bg-[#161b22] border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
+                    }`}
+                    title="Click to view Leads Collected in modal popup"
+                >
                     <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-                        <span className="uppercase text-[10px] tracking-wider">Leads Collected</span>
-                        <FaBullhorn className="text-purple-400" />
+                        <span className="uppercase text-[10px] tracking-wider group-hover:text-purple-400 transition-colors">Leads Collected</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-purple-500/15 text-purple-400 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View ↗</span>
+                            <FaBullhorn className="text-purple-400 group-hover:scale-110 transition-transform" />
+                        </div>
                     </div>
                     <div className="text-2xl font-black text-purple-400">
                         {stats.totalLeads || 0}
                     </div>
-                    <p className="text-[10px] text-slate-500 font-semibold mt-1">From executed tasks</p>
+                    <p className="text-[10px] text-slate-500 font-semibold mt-1 flex items-center justify-between">
+                        <span>From executed tasks</span>
+                        <span className="text-purple-400/80 text-[9px] group-hover:underline">Click for details</span>
+                    </p>
                 </div>
 
                 {/* 6. Proof & Geo-Tag Compliance */}
-                <div className={`p-4 rounded-2xl border ${isDarkMode ? "bg-[#161b22] border-slate-800/80" : "bg-white border-slate-200 shadow-sm"}`}>
+                <div
+                    onClick={() => setActiveKpiModal("proofCompliance")}
+                    className={`p-4 rounded-2xl border cursor-pointer hover:border-orange-500/80 hover:shadow-lg hover:shadow-orange-500/10 hover:-translate-y-0.5 transition-all group relative ${
+                        isDarkMode ? "bg-[#161b22] border-slate-800/80" : "bg-white border-slate-200 shadow-sm"
+                    }`}
+                    title="Click to view Proof & GPS Compliance in modal popup"
+                >
                     <div className="flex items-center justify-between text-slate-400 text-xs font-bold mb-1">
-                        <span className="uppercase text-[10px] tracking-wider">Proof Compliance</span>
-                        <FaCamera className="text-orange-400" />
+                        <span className="uppercase text-[10px] tracking-wider group-hover:text-orange-400 transition-colors">Proof Compliance</span>
+                        <div className="flex items-center gap-1">
+                            <span className="text-[9px] px-1 py-0.2 rounded bg-orange-500/15 text-orange-400 font-semibold opacity-0 group-hover:opacity-100 transition-opacity">View ↗</span>
+                            <FaCamera className="text-orange-400 group-hover:scale-110 transition-transform" />
+                        </div>
                     </div>
                     <div className="text-2xl font-black text-orange-400">
                         {stats.totalProofs || 0}
                         <span className="text-xs font-medium text-slate-400 ml-1.5">({stats.totalGeoTagged || 0} Geo)</span>
                     </div>
-                    <p className="text-[10px] text-slate-500 font-semibold mt-1">Photo & GPS verified</p>
+                    <p className="text-[10px] text-slate-500 font-semibold mt-1 flex items-center justify-between">
+                        <span>Photo & GPS verified</span>
+                        <span className="text-orange-400/80 text-[9px] group-hover:underline">Click for details</span>
+                    </p>
                 </div>
             </div>
 
@@ -1079,10 +1821,24 @@ const MarketingAnalysisContent = ({ isDarkMode = true }) => {
                 </div>
             )}
 
+            {/* ── KPI DETAILS MODAL POPUP ── */}
+            {activeKpiModal && (
+                <KpiDetailModal
+                    modalType={activeKpiModal}
+                    onClose={() => setActiveKpiModal(null)}
+                    userSummary={analysisData?.userSummary || []}
+                    detailedTasks={analysisData?.detailedTasks || []}
+                    stats={stats}
+                    dateRangeInfo={analysisData?.dateRangeInfo}
+                    isDarkMode={isDarkMode}
+                    onOpenLightbox={(photo) => setLightboxPhoto(photo)}
+                />
+            )}
+
             {/* ── LIGHTBOX PHOTO MODAL ── */}
             {lightboxPhoto && (
                 <div
-                    className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+                    className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm animate-in fade-in duration-200"
                     onClick={() => setLightboxPhoto(null)}
                 >
                     <div
