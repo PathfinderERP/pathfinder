@@ -1209,13 +1209,16 @@ const ManageBoardAdmission = () => {
                                             ? instDueDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' }).toLowerCase().trim()
                                             : '';
 
-                                        // Match all payments for this installment by month name or installmentNumber
+                                        // Match all payments for this installment primarily by installmentNumber, falling back to billingMonth for legacy records
                                         const matchingPayments = regularPayments.filter(p => {
+                                            if (p.installmentNumber !== undefined && p.installmentNumber !== null) {
+                                                return p.installmentNumber === (inst.monthNumber - 1) || p.installmentNumber === inst.monthNumber;
+                                            }
                                             const pMonthStr = (p.billingMonth || '').toLowerCase().trim();
                                             if (pMonthStr && instMonthStr) {
                                                 return pMonthStr === instMonthStr;
                                             }
-                                            return p.installmentNumber === (inst.monthNumber - 1) || p.installmentNumber === inst.monthNumber;
+                                            return false;
                                         }).sort((a, b) => new Date(a.createdAt || a.receivedDate || a.paidDate || 0) - new Date(b.createdAt || b.receivedDate || b.paidDate || 0));
 
                                         const matchingPaidPayments = matchingPayments.filter(p =>
@@ -1236,39 +1239,27 @@ const ManageBoardAdmission = () => {
                                             p.status === 'REJECTED'
                                         ) && !matchingPaidPayment && !isChequePending;
 
-                                        // Cumulative checks to support overpayments/adjustments carry-forward:
-                                        const cumPayableUpToNow = admission.installments.slice(0, index + 1).reduce((sum, item) => sum + (item.payableAmount || 0), 0);
-                                        const cumPaidUpToNow = admission.installments.slice(0, index + 1).reduce((sum, item) => {
-                                            const matchP = regularPayments.find(p =>
-                                                p.installmentNumber === (item.monthNumber - 1) &&
-                                                (p.status === 'PAID' || p.status === 'COMPLETED') &&
-                                                (Number(p.paidAmount || p.totalAmount || 0) > 0)
-                                            );
-                                            const pAmt = item.paidAmount || (matchP ? Number(matchP.paidAmount || matchP.totalAmount || 0) : 0);
-                                            return sum + pAmt;
-                                        }, 0);
-                                        const isCumulativelyCleared = (cumPaidUpToNow >= cumPayableUpToNow - 0.5) && (cumPayableUpToNow > 0);
-
-                                        // Displayed paid amount: sum from transactions / inst.paidAmount or matched bill
+                                        // Displayed paid amount: sum from transactions / inst.paidAmount or matched bill for THIS installment
                                         const actualPaid = (inst.paidAmount !== undefined && inst.paidAmount !== null && Number(inst.paidAmount) > 0)
                                             ? Number(inst.paidAmount)
                                             : (matchingPaidPayment ? Number(matchingPaidPayment.paidAmount || matchingPaidPayment.totalAmount || 0) : 0);
-                                        const displayPaid = hasOnlyRejectedCheque ? 0 : (isChequePending ? (matchingPendingCheque?.paidAmount || inst.paidAmount) : (isCumulativelyCleared && actualPaid < inst.payableAmount ? inst.payableAmount : actualPaid));
+                                        const displayPaid = hasOnlyRejectedCheque ? 0 : (isChequePending ? (matchingPendingCheque?.paidAmount || inst.paidAmount || 0) : actualPaid);
 
-                                        // An installment is paid if:
-                                        // 1. inst.status is PAID and (actualPaid > 0.5 or 100% waiver zero due)
-                                        // 2. OR matchingPaidPayment exists with actual paid amount >= payableAmount - 0.5
-                                        // 3. OR cumulative payments up to this installment cover cumulative payable (excess carry-forward)
+                                        // An installment is paid if its own status is PAID or matching payment covers its payable amount
                                         const isZeroDue = (inst.payableAmount <= 0.5 && (inst.standardAmount || 0) > 0 && (inst.waiverAmount || 0) >= (inst.standardAmount || 0));
                                         const dueAmount = Math.max(0, (inst.payableAmount || 0) - displayPaid);
                                         const hasValidPaidAmount = actualPaid > 0.5 || Boolean(matchingPaidPayment);
+
                                         const isPaid = !isChequePending && !hasOnlyRejectedCheque && (
                                             (inst.status === "PAID" && (actualPaid > 0.5 || isZeroDue)) ||
                                             (Boolean(matchingPaidPayment) && (actualPaid >= (inst.payableAmount || 0) - 0.5 || isZeroDue)) ||
-                                            (isCumulativelyCleared && hasValidPaidAmount) ||
-                                            (dueAmount <= 0.5 && (displayPaid > 0 || actualPaid > 0) && hasValidPaidAmount)
+                                            (dueAmount <= 0.5 && (displayPaid > 0 || actualPaid > 0 || isZeroDue) && hasValidPaidAmount)
                                         );
-                                        const isFullyPaid = isPaid && (inst.status !== "PENDING" || isZeroDue) && (actualPaid > 0.5 || isZeroDue);
+                                        const isFullyPaid = isPaid && (
+                                            inst.status === "PAID" ||
+                                            isZeroDue ||
+                                            (dueAmount <= 0.5 && (actualPaid >= (inst.payableAmount || 0) - 0.5 || isZeroDue))
+                                        );
                                         const isPartialWithDue = !isFullyPaid && !isChequePending && (displayPaid > 0 || actualPaid > 0 || inst.paymentTransactions?.some(t => Number(t.amount || 0) > 0) || Boolean(matchingPaidPayment)) && dueAmount > 0.5;
 
                                         const isCurrent = effectiveFromMonth?._id === inst._id;
@@ -1290,21 +1281,9 @@ const ManageBoardAdmission = () => {
                                         const prevActualPaid = prevInst ? (prevInst.paidAmount || (prevMatchingPaid ? Number(prevMatchingPaid.paidAmount || prevMatchingPaid.totalAmount || 0) : 0)) : 0;
                                         const prevZeroDue = prevInst ? (prevInst.payableAmount <= 0.5 && (prevInst.standardAmount || 0) > 0 && (prevInst.waiverAmount || 0) >= (prevInst.standardAmount || 0)) : false;
 
-                                        const prevCumPayable = prevInst ? admission.installments.slice(0, index).reduce((sum, item) => sum + (item.payableAmount || 0), 0) : 0;
-                                        const prevCumPaid = prevInst ? admission.installments.slice(0, index).reduce((sum, item) => {
-                                            const matchP = regularPayments.find(p =>
-                                                p.installmentNumber === (item.monthNumber - 1) &&
-                                                (p.status === 'PAID' || p.status === 'COMPLETED') &&
-                                                (Number(p.paidAmount || p.totalAmount || 0) > 0)
-                                            );
-                                            return sum + (item.paidAmount || (matchP ? Number(matchP.paidAmount || matchP.totalAmount || 0) : 0));
-                                        }, 0) : 0;
-                                        const prevCumCleared = prevInst && (prevCumPaid >= prevCumPayable - 0.5) && (prevCumPayable > 0);
-
                                         const prevPaid = !prevChequePending && !prevHasOnlyRejected && (
                                             (prevInst?.status === "PAID" && (prevActualPaid > 0.5 || prevZeroDue)) ||
-                                            (Boolean(prevMatchingPaid) && (prevActualPaid >= (prevInst?.payableAmount || 0) - 0.5 || prevZeroDue)) ||
-                                            (prevCumCleared && (prevActualPaid > 0.5 || Boolean(prevMatchingPaid)))
+                                            (Boolean(prevMatchingPaid) && (prevActualPaid >= (prevInst?.payableAmount || 0) - 0.5 || prevZeroDue))
                                         );
                                         const prevHasPayment = Boolean(prevActualPaid > 0 || prevInst?.status === "PARTIAL" || prevMatchingPaid);
                                         const prevCleared = index === 0 || prevPaid || prevHasPayment || prevChequePending;
@@ -1394,7 +1373,7 @@ const ManageBoardAdmission = () => {
                                                             ) : (
                                                                 <p className={`text-sm font-black uppercase flex items-center gap-1.5 ${isFullyPaid ? 'text-emerald-400' : isPartialWithDue ? 'text-amber-400' : isChequePending ? 'text-amber-400' : (isNextToPay ? 'text-cyan-400' : (isDarkMode ? 'text-gray-300' : 'text-gray-700'))}`}>
                                                                     {new Date(inst.dueDate).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })}
-                                                                    {!isPaid && !isChequePending && !isDeactivated && (
+                                                                    {!isDeactivated && (!isChequePending || isPaid) && (
                                                                         <button
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();
@@ -1506,8 +1485,8 @@ const ManageBoardAdmission = () => {
                                                             </button>
                                                         )}
 
-                                                        {/* If pending with no payments yet */}
-                                                        {!isFullyPaid && !isPartialWithDue && !isChequePending && (
+                                                        {/* If pending with no payments yet and has positive due amount */}
+                                                        {!isFullyPaid && !isPartialWithDue && !isChequePending && dueAmount > 0.5 && (
                                                         <button
                                                             type="button"
                                                             onClick={() => {

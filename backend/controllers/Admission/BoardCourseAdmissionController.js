@@ -1003,7 +1003,7 @@ export const getBoardAdmissionById = async (req, res) => {
                     needsSave = true;
                 }
 
-                const targetStatus = (inst.paidAmount >= inst.payableAmount - 0.5 && inst.payableAmount > 0)
+                const targetStatus = (inst.paidAmount >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0)
                     ? "PAID"
                     : (inst.payableAmount <= 0.5 && (inst.standardAmount || 0) > 0 && (inst.waiverAmount || 0) >= (inst.standardAmount || 0)
                         ? "PAID"
@@ -2176,6 +2176,21 @@ export const updateBoardInstallmentDate = async (req, res) => {
 
         const newDueDate = new Date(Date.UTC(yearNum, monthIdx, day, 12, 0, 0));
         inst.dueDate = newDueDate;
+
+        // Also update any payments associated with this installment so billingMonth & dueDate stay synchronized
+        const newBillingMonthStr = newDueDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+        await Payment.updateMany(
+            {
+                admission: admission._id,
+                installmentNumber: inst.monthNumber - 1
+            },
+            {
+                $set: {
+                    dueDate: newDueDate,
+                    billingMonth: newBillingMonthStr
+                }
+            }
+        );
 
         await admission.save({ validateBeforeSave: false });
 
