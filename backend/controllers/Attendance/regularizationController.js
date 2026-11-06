@@ -87,10 +87,20 @@ export const getRegularizations = async (req, res) => {
                     $gte: startOfRegDay,
                     $lte: endOfRegDay
                 }
-            }).select('checkIn checkOut workingHours status');
+            }).select('checkIn checkOut workingHours regularizedHours status remarks');
 
             if (existingAttendance) {
                 regObj.existingAttendance = existingAttendance;
+            }
+
+            if (regObj.fromTime && regObj.toTime) {
+                const [fh, fm] = regObj.fromTime.split(':').map(Number);
+                const [th, tm] = regObj.toTime.split(':').map(Number);
+                if (!isNaN(fh) && !isNaN(fm) && !isNaN(th) && !isNaN(tm)) {
+                    let mins = (th * 60 + tm) - (fh * 60 + fm);
+                    if (mins < 0) mins += 24 * 60;
+                    regObj.durationHours = Number((mins / 60).toFixed(2));
+                }
             }
 
             return regObj;
@@ -99,6 +109,234 @@ export const getRegularizations = async (req, res) => {
         res.status(200).json(signedRegularizations);
     } catch (error) {
         res.status(500).json({ message: error.message });
+    }
+};
+
+/**
+ * Shared helper to recalculate and sync EmployeeAttendance when regularizations change.
+ * Sums ALL approved regularizations on that date so multiple requests for the same day
+ * correctly add up in workingHours and regularizedHours.
+ */
+export const applyRegularizationsToAttendance = async (employeeId, date, options = {}) => {
+    try {
+        const employee = await Employee.findById(employeeId);
+        if (!employee) return null;
+
+        const regDate = new Date(date);
+        const dateOnlyStr = format(regDate, "yyyy-MM-dd");
+        const localStart = startOfDay(regDate);
+        const localEnd = endOfDay(regDate);
+        const utcStart = new Date(dateOnlyStr + "T00:00:00.000Z");
+        const utcEnd = new Date(dateOnlyStr + "T23:59:59.999Z");
+        const qStart = localStart < utcStart ? localStart : utcStart;
+        const qEnd = localEnd > utcEnd ? localEnd : utcEnd;
+
+        const targetHours = getTargetWorkingHours(employee?.workingHours);
+
+        // Find ALL Approved regularizations for this employee on this date
+        const approvedRegs = await Regularization.find({
+            employeeId: employee._id,
+            date: { $gte: qStart, $lte: qEnd },
+            status: 'Approved'
+        }).sort({ fromTime: 1, createdAt: 1 });
+
+        let totalRegularizedHours = 0;
+        let earliestRegIn = null;
+        let latestRegOut = null;
+        let regCheckInObj = null;
+        let regCheckOutObj = null;
+        const remarksList = [];
+
+        for (const reg of approvedRegs) {
+            let durHours = 0;
+            let rIn = null;
+            let rOut = null;
+
+            if (reg.fromTime && reg.toTime) {
+                const [fh, fm] = reg.fromTime.split(':').map(Number);
+                const [th, tm] = reg.toTime.split(':').map(Number);
+                if (!isNaN(fh) && !isNaN(fm) && !isNaN(th) && !isNaN(tm)) {
+                    let durMinutes = (th * 60 + tm) - (fh * 60 + fm);
+                    if (durMinutes < 0) {
+                        durMinutes += 24 * 60; // overnight span
+                    }
+                    if (durMinutes > 0) {
+                        durHours = Number((durMinutes / 60).toFixed(2));
+                    }
+
+                    rIn = new Date(`${dateOnlyStr}T${reg.fromTime}:00+05:30`);
+                    rOut = new Date(`${dateOnlyStr}T${reg.toTime}:00+05:30`);
+                    if (isNaN(rIn.getTime())) {
+                        rIn = new Date(regDate);
+                        rIn.setHours(fh, fm, 0, 0);
+                    }
+                    if (isNaN(rOut.getTime())) {
+                        rOut = new Date(regDate);
+                        rOut.setHours(th, tm, 0, 0);
+                    }
+                    if (rOut < rIn) {
+                        rOut = new Date(rOut.getTime() + 24 * 60 * 60 * 1000);
+                    }
+                }
+            }
+
+            if (durHours <= 0) {
+                durHours = targetHours;
+            }
+
+            totalRegularizedHours += durHours;
+
+            if (rIn) {
+                if (!earliestRegIn || rIn < earliestRegIn) {
+                    earliestRegIn = rIn;
+                    regCheckInObj = {
+                        time: rIn,
+                        address: reg.locationAddress || 'Regularized',
+                        latitude: reg.latitude,
+                        longitude: reg.longitude
+                    };
+                }
+            }
+            if (rOut) {
+                if (!latestRegOut || rOut > latestRegOut) {
+                    latestRegOut = rOut;
+                    regCheckOutObj = {
+                        time: rOut,
+                        address: reg.locationAddress || 'Regularized',
+                        latitude: reg.latitude,
+                        longitude: reg.longitude
+                    };
+                }
+            }
+
+            const desc = `+${durHours}h (${reg.type}): ${reg.reason || reg.reviewRemark || ''}`.trim();
+            remarksList.push(desc);
+        }
+
+        totalRegularizedHours = Number(totalRegularizedHours.toFixed(2));
+
+        let attendance = await EmployeeAttendance.findOne({
+            $or: [
+                { employeeId: employee._id },
+                { user: employee?.user }
+            ],
+            date: {
+                $gte: qStart,
+                $lte: qEnd
+            }
+        });
+
+        const centreId = attendance?.centreId || employee?.primaryCentre || employee?.centres?.[0];
+
+        // Determine base logged hours (biometric / physical punch or manual marking)
+        let baseLoggedHours = 0;
+        if (attendance) {
+            if (attendance.baseWorkedHours !== undefined && attendance.baseWorkedHours !== null && attendance.baseWorkedHours > 0) {
+                baseLoggedHours = attendance.baseWorkedHours;
+            } else {
+                const prevWorking = Number(attendance.workingHours) || 0;
+                const prevReg = Number(attendance.regularizedHours) || 0;
+                if (prevWorking > prevReg) {
+                    baseLoggedHours = Number((prevWorking - prevReg).toFixed(2));
+                } else {
+                    baseLoggedHours = 0;
+                }
+            }
+        }
+
+        const totalWorkingHours = Number((baseLoggedHours + totalRegularizedHours).toFixed(2));
+
+        if (!attendance) {
+            if (approvedRegs.length === 0) return null;
+
+            const isWeekOff = remarksList.some(r => /weekly?\s*off/i.test(r));
+            const finalStatus = (isWeekOff && totalWorkingHours < targetHours)
+                ? 'Week Off'
+                : determineAttendanceStatus(totalWorkingHours, targetHours);
+
+            attendance = new EmployeeAttendance({
+                user: employee.user,
+                employeeId: employee._id,
+                centreId: centreId,
+                date: utcStart,
+                status: finalStatus,
+                baseWorkedHours: 0,
+                workingHours: totalWorkingHours,
+                regularizedHours: totalRegularizedHours,
+                remarks: `Regularized ${totalRegularizedHours}h: ${remarksList.join(' | ')}`,
+                checkIn: regCheckInObj ? {
+                    time: regCheckInObj.time,
+                    address: regCheckInObj.address || 'Regularized',
+                    latitude: regCheckInObj.latitude,
+                    longitude: regCheckInObj.longitude,
+                    centreId: centreId
+                } : undefined,
+                checkOut: regCheckOutObj ? {
+                    time: regCheckOutObj.time,
+                    address: regCheckOutObj.address || 'Regularized',
+                    latitude: regCheckOutObj.latitude,
+                    longitude: regCheckOutObj.longitude,
+                    centreId: centreId
+                } : undefined
+            });
+            await attendance.save();
+            return attendance;
+        }
+
+        // Attendance exists
+        attendance.baseWorkedHours = baseLoggedHours;
+        attendance.regularizedHours = totalRegularizedHours;
+        attendance.workingHours = totalWorkingHours;
+
+        if (totalWorkingHours === 0 && approvedRegs.length === 0) {
+            if (attendance.status !== 'Week Off' && attendance.status !== 'Holiday' && attendance.status !== 'Leave') {
+                attendance.status = 'Absent';
+            }
+        } else {
+            const isWeekOff = attendance.status === 'Week Off' || remarksList.some(r => /weekly?\s*off/i.test(r));
+            if (isWeekOff && totalWorkingHours < targetHours) {
+                attendance.status = 'Week Off';
+            } else {
+                attendance.status = determineAttendanceStatus(totalWorkingHours, targetHours);
+            }
+        }
+
+        // Preserve earliest checkIn & latest checkOut
+        if (regCheckInObj) {
+            if (!attendance.checkIn?.time || (regCheckInObj.time && new Date(regCheckInObj.time) < new Date(attendance.checkIn.time))) {
+                attendance.checkIn = {
+                    time: regCheckInObj.time,
+                    address: regCheckInObj.address || attendance.checkIn?.address || 'Regularized',
+                    latitude: regCheckInObj.latitude || attendance.checkIn?.latitude,
+                    longitude: regCheckInObj.longitude || attendance.checkIn?.longitude,
+                    centreId: attendance.checkIn?.centreId || centreId
+                };
+            }
+        }
+        if (regCheckOutObj) {
+            if (!attendance.checkOut?.time || (regCheckOutObj.time && new Date(regCheckOutObj.time) > new Date(attendance.checkOut.time))) {
+                attendance.checkOut = {
+                    time: regCheckOutObj.time,
+                    address: regCheckOutObj.address || attendance.checkOut?.address || 'Regularized',
+                    latitude: regCheckOutObj.latitude || attendance.checkOut?.latitude,
+                    longitude: regCheckOutObj.longitude || attendance.checkOut?.longitude,
+                    centreId: attendance.checkOut?.centreId || centreId
+                };
+            }
+        }
+
+        if (remarksList.length > 0) {
+            attendance.remarks = `Regularized ${totalRegularizedHours}h: ${remarksList.join(' | ')}`;
+        }
+
+        if (!attendance.centreId && centreId) attendance.centreId = centreId;
+        if (!attendance.user && employee?.user) attendance.user = employee.user;
+
+        await attendance.save();
+        return attendance;
+    } catch (err) {
+        console.error("Error in applyRegularizationsToAttendance:", err);
+        throw err;
     }
 };
 
@@ -128,168 +366,8 @@ export const updateRegularizationStatus = async (req, res) => {
 
         if (!regularization) return res.status(404).json({ message: 'Regularization not found' });
 
-        // If Approved, update the actual Attendance Record
-        if (status === 'Approved') {
-            const regDate = new Date(regularization.date);
-            const dateOnlyStr = format(regDate, "yyyy-MM-dd");
-            const effFromTime = fromTime || regularization.fromTime;
-            const effToTime = toTime || regularization.toTime;
-
-            const employee = await Employee.findById(regularization.employeeId);
-            const targetHours = getTargetWorkingHours(employee?.workingHours);
-
-            let cIn = null;
-            let cOut = null;
-            let regularizedHours = 0;
-
-            if (effFromTime && effToTime) {
-                cIn = new Date(`${dateOnlyStr}T${effFromTime}:00+05:30`);
-                cOut = new Date(`${dateOnlyStr}T${effToTime}:00+05:30`);
-
-                if (isNaN(cIn.getTime())) {
-                    const [fromHours, fromMinutes] = effFromTime.split(':').map(Number);
-                    cIn = new Date(regDate);
-                    cIn.setHours(fromHours, fromMinutes, 0, 0);
-                }
-                if (isNaN(cOut.getTime())) {
-                    const [toHours, toMinutes] = effToTime.split(':').map(Number);
-                    cOut = new Date(regDate);
-                    cOut.setHours(toHours, toMinutes, 0, 0);
-                }
-
-                const diffMs = cOut.getTime() - cIn.getTime();
-                if (diffMs > 0) {
-                    regularizedHours = Number((diffMs / (1000 * 60 * 60)).toFixed(2));
-                }
-            }
-
-            if (regularizedHours <= 0) {
-                regularizedHours = targetHours;
-            }
-
-            const localStart = startOfDay(regDate);
-            const localEnd = endOfDay(regDate);
-            const utcStart = new Date(dateOnlyStr + "T00:00:00.000Z");
-            const utcEnd = new Date(dateOnlyStr + "T23:59:59.999Z");
-            const qStart = localStart < utcStart ? localStart : utcStart;
-            const qEnd = localEnd > utcEnd ? localEnd : utcEnd;
-
-            let attendance = await EmployeeAttendance.findOne({
-                $or: [
-                    { employeeId: regularization.employeeId },
-                    { user: employee?.user }
-                ],
-                date: {
-                    $gte: qStart,
-                    $lte: qEnd
-                }
-            });
-
-            const centreId = attendance?.centreId || employee?.primaryCentre || employee?.centres?.[0];
-
-            if (attendance) {
-                const isFullDay = attendanceMode === 'full';
-                const hasExistingPunches = Boolean((attendance.workingHours && attendance.workingHours > 0) || (attendance.checkIn?.time && attendance.checkOut?.time));
-
-                if (!isFullDay && hasExistingPunches) {
-                    // ADDITIVE MODE: Add regularized hours to existing logged attendance
-                    const prevRegHours = Number(attendance.regularizedHours) || 0;
-                    const baseLoggedHours = Math.max(0, Number(attendance.workingHours || 0) - prevRegHours);
-                    const totalWorkingHours = Number((baseLoggedHours + regularizedHours).toFixed(2));
-
-                    attendance.workingHours = totalWorkingHours;
-                    attendance.regularizedHours = regularizedHours;
-                    attendance.status = determineAttendanceStatus(totalWorkingHours, targetHours);
-
-                    // Preserve earliest check-in time
-                    if (!attendance.checkIn?.time || (cIn && cIn < new Date(attendance.checkIn.time))) {
-                        attendance.checkIn = {
-                            time: cIn || attendance.checkIn?.time,
-                            address: regularization.locationAddress || attendance.checkIn?.address || 'Regularized',
-                            latitude: regularization.latitude || attendance.checkIn?.latitude,
-                            longitude: regularization.longitude || attendance.checkIn?.longitude,
-                            centreId: attendance.checkIn?.centreId || centreId
-                        };
-                    }
-
-                    // Preserve / extend latest check-out time
-                    if (!attendance.checkOut?.time || (cOut && cOut > new Date(attendance.checkOut.time))) {
-                        attendance.checkOut = {
-                            time: cOut || attendance.checkOut?.time,
-                            address: regularization.locationAddress || attendance.checkOut?.address || 'Regularized',
-                            latitude: regularization.latitude || attendance.checkOut?.latitude,
-                            longitude: regularization.longitude || attendance.checkOut?.longitude,
-                            centreId: attendance.checkOut?.centreId || centreId
-                        };
-                    }
-
-                    const regRemark = `Regularized +${regularizedHours}h (${regularization.type}): ${regularization.reason || reviewRemark || ''}`.trim();
-                    if (!attendance.remarks) {
-                        attendance.remarks = regRemark;
-                    } else if (!attendance.remarks.includes(regularization.type) && !attendance.remarks.includes(regularization.reason)) {
-                        attendance.remarks = `${attendance.remarks} | ${regRemark}`;
-                    }
-                } else {
-                    // FULL DAY replacement
-                    attendance.workingHours = regularizedHours;
-                    attendance.regularizedHours = regularizedHours;
-                    attendance.status = determineAttendanceStatus(regularizedHours, targetHours);
-                    attendance.remarks = `Regularized ${regularizedHours}h (${regularization.type}): ${regularization.reason || reviewRemark || ''}`.trim();
-
-                    if (cIn) {
-                        attendance.checkIn = {
-                            time: cIn,
-                            address: regularization.locationAddress || attendance.checkIn?.address || 'Regularized',
-                            latitude: regularization.latitude || attendance.checkIn?.latitude,
-                            longitude: regularization.longitude || attendance.checkIn?.longitude,
-                            centreId: attendance.checkIn?.centreId || centreId
-                        };
-                    }
-                    if (cOut) {
-                        attendance.checkOut = {
-                            time: cOut,
-                            address: regularization.locationAddress || attendance.checkOut?.address || 'Regularized',
-                            latitude: regularization.latitude || attendance.checkOut?.latitude,
-                            longitude: regularization.longitude || attendance.checkOut?.longitude,
-                            centreId: attendance.checkOut?.centreId || centreId
-                        };
-                    }
-                }
-
-                if (!attendance.centreId && centreId) attendance.centreId = centreId;
-                if (!attendance.user && employee?.user) attendance.user = employee.user;
-
-                await attendance.save();
-            } else {
-                if (employee) {
-                    const newAttendance = new EmployeeAttendance({
-                        user: employee.user,
-                        employeeId: regularization.employeeId,
-                        centreId: centreId,
-                        date: utcStart,
-                        status: determineAttendanceStatus(regularizedHours, targetHours),
-                        workingHours: regularizedHours,
-                        regularizedHours: regularizedHours,
-                        remarks: `Regularized ${regularizedHours}h (${regularization.type}): ${regularization.reason || reviewRemark || ''}`.trim(),
-                        checkIn: { 
-                            time: cIn, 
-                            address: regularization.locationAddress || 'Regularized',
-                            latitude: regularization.latitude,
-                            longitude: regularization.longitude,
-                            centreId: centreId
-                        },
-                        checkOut: { 
-                            time: cOut, 
-                            address: regularization.locationAddress || 'Regularized',
-                            latitude: regularization.latitude,
-                            longitude: regularization.longitude,
-                            centreId: centreId
-                        }
-                    });
-                    await newAttendance.save();
-                }
-            }
-        }
+        // Recalculate attendance for this employee and date (properly adds all approved regularizations for the day)
+        await applyRegularizationsToAttendance(regularization.employeeId, regularization.date, { attendanceMode });
 
         res.status(200).json(regularization);
     } catch (error) {
@@ -361,6 +439,8 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
         }
 
         const results = [];
+        const affectedPairs = new Map();
+
         for (const id of ids) {
             const updateData = {
                 status,
@@ -374,164 +454,19 @@ export const bulkUpdateRegularizationStatus = async (req, res) => {
                 { new: true }
             );
 
-            if (regularization && status === 'Approved') {
-                const regDate = new Date(regularization.date);
-                const dateOnlyStr = format(regDate, "yyyy-MM-dd");
-                const employee = await Employee.findById(regularization.employeeId);
-                const targetHours = getTargetWorkingHours(employee?.workingHours);
-
-                let checkInDate = null;
-                let checkOutDate = null;
-                let regularizedHours = 0;
-
-                if (regularization.fromTime && regularization.toTime) {
-                    checkInDate = new Date(`${dateOnlyStr}T${regularization.fromTime}:00+05:30`);
-                    checkOutDate = new Date(`${dateOnlyStr}T${regularization.toTime}:00+05:30`);
-
-                    if (isNaN(checkInDate.getTime())) {
-                        const [fromHours, fromMinutes] = regularization.fromTime.split(':').map(Number);
-                        checkInDate = new Date(regDate);
-                        checkInDate.setHours(fromHours, fromMinutes, 0, 0);
-                    }
-                    if (isNaN(checkOutDate.getTime())) {
-                        const [toHours, toMinutes] = regularization.toTime.split(':').map(Number);
-                        checkOutDate = new Date(regDate);
-                        checkOutDate.setHours(toHours, toMinutes, 0, 0);
-                    }
-
-                    const diffMs = checkOutDate.getTime() - checkInDate.getTime();
-                    if (diffMs > 0) {
-                        regularizedHours = Number((diffMs / (1000 * 60 * 60)).toFixed(2));
-                    }
-                }
-
-                if (regularizedHours <= 0) {
-                    regularizedHours = targetHours;
-                }
-
-                const localStart = startOfDay(regDate);
-                const localEnd = endOfDay(regDate);
-                const utcStart = new Date(dateOnlyStr + "T00:00:00.000Z");
-                const utcEnd = new Date(dateOnlyStr + "T23:59:59.999Z");
-                const qStart = localStart < utcStart ? localStart : utcStart;
-                const qEnd = localEnd > utcEnd ? localEnd : utcEnd;
-
-                let attendance = await EmployeeAttendance.findOne({
-                    $or: [
-                        { employeeId: regularization.employeeId },
-                        { user: employee?.user }
-                    ],
-                    date: {
-                        $gte: qStart,
-                        $lte: qEnd
-                    }
+            if (regularization) {
+                results.push(regularization._id);
+                const dateKey = `${regularization.employeeId.toString()}_${format(new Date(regularization.date), "yyyy-MM-dd")}`;
+                affectedPairs.set(dateKey, {
+                    employeeId: regularization.employeeId,
+                    date: regularization.date
                 });
-
-                const centreId = attendance?.centreId || employee?.primaryCentre || employee?.centres?.[0];
-
-                if (attendance) {
-                    const hasExistingPunches = Boolean((attendance.workingHours && attendance.workingHours > 0) || (attendance.checkIn?.time && attendance.checkOut?.time));
-
-                    if (hasExistingPunches) {
-                        // ADDITIVE MODE: Add regularized hours to existing logged attendance
-                        const prevRegHours = Number(attendance.regularizedHours) || 0;
-                        const baseLoggedHours = Math.max(0, Number(attendance.workingHours || 0) - prevRegHours);
-                        const totalWorkingHours = Number((baseLoggedHours + regularizedHours).toFixed(2));
-
-                        attendance.workingHours = totalWorkingHours;
-                        attendance.regularizedHours = regularizedHours;
-                        attendance.status = determineAttendanceStatus(totalWorkingHours, targetHours);
-
-                        // Preserve earliest check-in time
-                        if (!attendance.checkIn?.time || (checkInDate && checkInDate < new Date(attendance.checkIn.time))) {
-                            attendance.checkIn = {
-                                time: checkInDate || attendance.checkIn?.time,
-                                address: regularization.locationAddress || attendance.checkIn?.address || 'Regularized',
-                                latitude: regularization.latitude || attendance.checkIn?.latitude,
-                                longitude: regularization.longitude || attendance.checkIn?.longitude,
-                                centreId: attendance.checkIn?.centreId || centreId
-                            };
-                        }
-
-                        // Preserve / extend latest check-out time
-                        if (!attendance.checkOut?.time || (checkOutDate && checkOutDate > new Date(attendance.checkOut.time))) {
-                            attendance.checkOut = {
-                                time: checkOutDate || attendance.checkOut?.time,
-                                address: regularization.locationAddress || attendance.checkOut?.address || 'Regularized',
-                                latitude: regularization.latitude || attendance.checkOut?.latitude,
-                                longitude: regularization.longitude || attendance.checkOut?.longitude,
-                                centreId: attendance.checkOut?.centreId || centreId
-                            };
-                        }
-
-                        const newRemark = `Regularized +${regularizedHours}h (${regularization.type}): ${regularization.reason || reviewRemark || ''}`.trim();
-                        if (!attendance.remarks) {
-                            attendance.remarks = newRemark;
-                        } else if (!attendance.remarks.includes(regularization.type) && !attendance.remarks.includes(regularization.reason)) {
-                            attendance.remarks = `${attendance.remarks} | ${newRemark}`;
-                        }
-                    } else {
-                        // FULL DAY replacement
-                        attendance.workingHours = regularizedHours;
-                        attendance.regularizedHours = regularizedHours;
-                        attendance.status = determineAttendanceStatus(regularizedHours, targetHours);
-                        attendance.remarks = `Regularized ${regularizedHours}h (${regularization.type}): ${regularization.reason || reviewRemark || ''}`.trim();
-
-                        if (checkInDate) {
-                            attendance.checkIn = {
-                                time: checkInDate,
-                                address: regularization.locationAddress || attendance.checkIn?.address || 'Regularized',
-                                latitude: regularization.latitude || attendance.checkIn?.latitude,
-                                longitude: regularization.longitude || attendance.checkIn?.longitude,
-                                centreId: attendance.checkIn?.centreId || centreId
-                            };
-                        }
-                        if (checkOutDate) {
-                            attendance.checkOut = {
-                                time: checkOutDate,
-                                address: regularization.locationAddress || attendance.checkOut?.address || 'Regularized',
-                                latitude: regularization.latitude || attendance.checkOut?.latitude,
-                                longitude: regularization.longitude || attendance.checkOut?.longitude,
-                                centreId: attendance.checkOut?.centreId || centreId
-                            };
-                        }
-                    }
-
-                    if (!attendance.centreId && centreId) attendance.centreId = centreId;
-                    if (!attendance.user && employee?.user) attendance.user = employee.user;
-
-                    await attendance.save();
-                } else {
-                    if (employee) {
-                        const newAttendance = new EmployeeAttendance({
-                            user: employee.user,
-                            employeeId: regularization.employeeId,
-                            centreId: centreId,
-                            date: utcStart,
-                            status: determineAttendanceStatus(regularizedHours, targetHours),
-                            workingHours: regularizedHours,
-                            regularizedHours: regularizedHours,
-                            remarks: `Regularized ${regularizedHours}h (${regularization.type}): ${regularization.reason || reviewRemark || ''}`.trim(),
-                            checkIn: { 
-                                time: checkInDate, 
-                                address: regularization.locationAddress || 'Regularized',
-                                latitude: regularization.latitude,
-                                longitude: regularization.longitude,
-                                centreId: centreId
-                            },
-                            checkOut: { 
-                                time: checkOutDate, 
-                                address: regularization.locationAddress || 'Regularized',
-                                latitude: regularization.latitude,
-                                longitude: regularization.longitude,
-                                centreId: centreId
-                            }
-                        });
-                        await newAttendance.save();
-                    }
-                }
             }
-            if (regularization) results.push(regularization._id);
+        }
+
+        // Recalculate attendance for all affected employees and dates
+        for (const pair of affectedPairs.values()) {
+            await applyRegularizationsToAttendance(pair.employeeId, pair.date);
         }
 
         res.status(200).json({ message: `Successfully ${status.toLowerCase()} ${results.length} regularization requests`, count: results.length });
