@@ -39,8 +39,21 @@ export const getB2BComparisonData = async (req, res) => {
         }
 
         if (currentMockTieUp && currentMockTieUp !== "All") {
-            const statuses = typeof currentMockTieUp === "string" ? currentMockTieUp.split(",") : currentMockTieUp;
-            query.currentMockTieUp = { $in: statuses };
+            const isConfirmedSearch = /^confirmed$/i.test(String(currentMockTieUp).trim());
+            const isNotConfirmedSearch = /not\s*confirmed/i.test(String(currentMockTieUp).trim());
+
+            if (isConfirmedSearch) {
+                query.$or = [
+                    { currentMockTieUp: /^confirmed$/i },
+                    { currentStatus: /mock/i }
+                ];
+            } else if (isNotConfirmedSearch) {
+                query.currentMockTieUp = { $not: /^confirmed$/i };
+                query.currentStatus = { $not: /mock/i };
+            } else {
+                const statuses = typeof currentMockTieUp === "string" ? currentMockTieUp.split(",") : currentMockTieUp;
+                query.currentMockTieUp = { $in: statuses };
+            }
         }
 
         if (visitedThisYear && visitedThisYear !== "All") {
@@ -53,7 +66,7 @@ export const getB2BComparisonData = async (req, res) => {
 
         if (search) {
             const regex = new RegExp(search.trim(), "i");
-            query.$or = [
+            const searchConditions = [
                 { schoolName: regex },
                 { centerName: regex },
                 { lastExecutive: regex },
@@ -62,6 +75,16 @@ export const getB2BComparisonData = async (req, res) => {
                 { currentStatus: regex },
                 { visitNotes: regex }
             ];
+
+            if (query.$or) {
+                query.$and = [
+                    { $or: query.$or },
+                    { $or: searchConditions }
+                ];
+                delete query.$or;
+            } else {
+                query.$or = searchConditions;
+            }
         }
 
         // Pagination & Export handling
@@ -107,8 +130,9 @@ export const getB2BComparisonData = async (req, res) => {
         // Enrich records with latest SchoolForTask status and dynamically correlate Mock Tie-Up
         const enrichedRecords = records.map(r => {
             const liveStatus = r.schoolRef?.status || r.currentStatus || "—";
-            const isMockTieUp = Boolean(liveStatus && (/mock/i.test(liveStatus) || liveStatus === "MOCK TEST TIE-UP"));
-            const liveMockTieUp = isMockTieUp ? "Confirmed" : "Not confirmed";
+            const isDbConfirmed = r.currentMockTieUp && /^confirmed$/i.test(String(r.currentMockTieUp).trim()) && !/not/i.test(String(r.currentMockTieUp));
+            const isLiveMock = Boolean(liveStatus && (/mock/i.test(liveStatus) || liveStatus === "MOCK TEST TIE-UP"));
+            const liveMockTieUp = (isDbConfirmed || isLiveMock) ? "Confirmed" : "Not confirmed";
             return {
                 ...r,
                 liveStatus,
@@ -156,11 +180,13 @@ export const updateB2BRecord = async (req, res) => {
         let updates = { ...req.body };
 
         // Automatically harmonize Mock Tie-Up and B2B Status
-        if (updates.currentStatus) {
+        if (updates.currentMockTieUp) {
+            if (updates.currentMockTieUp === "Confirmed" && (!updates.currentStatus || updates.currentStatus === "—")) {
+                updates.currentStatus = "MOCK TEST TIE-UP";
+            }
+        } else if (updates.currentStatus) {
             const isMock = /mock/i.test(updates.currentStatus) || updates.currentStatus === "MOCK TEST TIE-UP";
             updates.currentMockTieUp = isMock ? "Confirmed" : "Not confirmed";
-        } else if (updates.currentMockTieUp === "Confirmed") {
-            updates.currentStatus = "MOCK TEST TIE-UP";
         }
 
         const record = await B2BComparison.findByIdAndUpdate(id, updates, { new: true });

@@ -62,7 +62,7 @@ const GranularPermissionsEditor = ({ granularPermissions = {}, onChange }) => {
             delete newPermissions[moduleKey][sectionKey];
             setExpandedSections(prev => ({ ...prev, [sectionExpandKey]: false }));
         } else {
-            const ops = {};
+            const ops = { view: true };
             const operations = moduleData?.sections?.[sectionKey]?.operations || ['create', 'edit', 'delete'];
             operations.forEach(op => {
                 ops[op] = true;

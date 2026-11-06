@@ -366,23 +366,23 @@ export const PERMISSION_MODULES = {
         sections: {
             commandCentre: {
                 label: "Command Centre",
-                operations: ["create", "edit", "delete"]
+                operations: ["view", "create", "edit", "delete"]
             },
             schoolJourney: {
                 label: "School Journey",
-                operations: ["create", "edit", "delete"]
+                operations: ["view", "create", "edit", "delete"]
             },
             teamPerformance: {
                 label: "Team Performance",
-                operations: ["create", "edit", "delete"]
+                operations: ["view", "create", "edit", "delete"]
             },
             centrePerformance: {
                 label: "Centre Performance",
-                operations: ["create", "edit", "delete"]
+                operations: ["view", "create", "edit", "delete"]
             },
             b2bComparison: {
                 label: "B2B Comparison",
-                operations: ["create", "edit", "delete"]
+                operations: ["view", "create", "edit", "delete"]
             }
         }
     },
@@ -665,7 +665,7 @@ const getUserRole = (userOrPermissions) => {
     try {
         const localUser = JSON.parse(localStorage.getItem("user") || "{}");
         return localUser?.role;
-    } catch (e) {
+    } catch {
         return null;
     }
 };
@@ -884,17 +884,37 @@ export const hasPermission = (granularPermissionsOrUser, module, section, operat
 
     // Grant automatic access to marketingCRM module ONLY if custom granularPermissions are not set
     if (module === 'marketingCRM') {
+        const userPermissions = Array.isArray(granularPermissionsOrUser?.permissions)
+            ? granularPermissionsOrUser.permissions
+            : (granularPermissionsOrUser?.user?.permissions || []);
+        const hasLegacyPermission = userPermissions.some(p =>
+            typeof p === 'string' && (
+                p.toLowerCase() === 'marketing & crm' ||
+                p.toLowerCase() === 'marketingcrm' ||
+                p.toLowerCase() === 'b2b comparison' ||
+                p.toLowerCase() === section?.toLowerCase()
+            )
+        );
+
         if (hasGranularObject) {
-            if (!granularPermissions?.marketingCRM) return false;
+            if (!granularPermissions?.marketingCRM) {
+                return hasLegacyPermission;
+            }
             const targetSection = (section === 'leads' || section === 'uploadLeads') ? 'commandCentre' : section;
             const secObj = granularPermissions.marketingCRM[targetSection];
-            if (!secObj || typeof secObj !== 'object') return false;
+            if (!secObj || typeof secObj !== 'object') {
+                return hasLegacyPermission;
+            }
             if (operation === 'view') {
-                return secObj.view === true;
+                if (secObj.view !== undefined) return secObj.view === true;
+                return Object.values(secObj).some(v => v === true);
             }
             return secObj[operation] === true;
         }
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
+
+        if (hasLegacyPermission) return true;
+
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead', 'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'].includes(role?.toLowerCase()?.replace(/\s+/g, ''));
         return isMktTargetRole;
     }
 
@@ -1054,15 +1074,35 @@ export const hasModuleAccess = (granularPermissionsOrUser, module) => {
     }
 
     if (module === 'marketingCRM') {
+        const userPermissions = Array.isArray(granularPermissionsOrUser?.permissions)
+            ? granularPermissionsOrUser.permissions
+            : (granularPermissionsOrUser?.user?.permissions || []);
+        const hasLegacyPermission = userPermissions.some(p =>
+            typeof p === 'string' && (
+                p.toLowerCase() === 'marketing & crm' ||
+                p.toLowerCase() === 'marketingcrm' ||
+                p.toLowerCase() === 'b2b comparison'
+            )
+        );
+
         if (hasGranularObject) {
             const sections = granularPermissions?.marketingCRM;
-            if (!sections || typeof sections !== 'object') return false;
-            return Object.keys(sections).some(secKey => {
+            if (!sections || typeof sections !== 'object') {
+                return hasLegacyPermission;
+            }
+            const hasAnySection = Object.keys(sections).some(secKey => {
                 const sec = sections[secKey];
-                return sec && typeof sec === 'object' && sec.view === true;
+                if (!sec || typeof sec !== 'object') return false;
+                if (sec.view !== undefined) return sec.view === true;
+                return Object.values(sec).some(v => v === true);
             });
+            if (hasAnySection) return true;
+            return hasLegacyPermission;
         }
-        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead', 'superadmin', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'].includes(normalizedRole);
+
+        if (hasLegacyPermission) return true;
+
+        const isMktTargetRole = ['marketing', 'centerincharge', 'centreincharge', 'zonalmanager', 'areamanager', 'zonalhead', 'superadmin', 'admin', 'assistantzonalmanager', 'assistantcenterincharge', 'digital'].includes(normalizedRole);
         if (isMktTargetRole) return true;
     }
 

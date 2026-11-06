@@ -3,7 +3,7 @@ import Layout from "../components/Layout";
 import B2BComparisonContent from "../components/MarketingCRM/B2BComparisonContent";
 import { useTheme } from "../context/ThemeContext";
 import { useNavigate } from "react-router-dom";
-import { hasModuleAccess } from "../config/permissions";
+import { hasModuleAccess, hasPermission } from "../config/permissions";
 
 const B2BComparison = () => {
     const { theme } = useTheme();
@@ -13,7 +13,16 @@ const B2BComparison = () => {
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
 
     useEffect(() => {
-        if (!hasModuleAccess(currentUser, "marketingCRM")) {
+        const canAccess =
+            hasModuleAccess(currentUser, "marketingCRM") ||
+            hasPermission(currentUser, "marketingCRM", "b2bComparison", "view") ||
+            (currentUser?.permissions && (
+                currentUser.permissions.includes("Marketing & CRM") ||
+                currentUser.permissions.includes("marketingCRM") ||
+                currentUser.permissions.includes("B2B Comparison")
+            ));
+
+        if (!canAccess) {
             navigate("/dashboard");
         }
     }, [currentUser, navigate]);
