@@ -1250,7 +1250,9 @@ const ManageBoardAdmission = () => {
                                         const isCumulativelyCleared = (cumPaidUpToNow >= cumPayableUpToNow - 0.5) && (cumPayableUpToNow > 0);
 
                                         // Displayed paid amount: sum from transactions / inst.paidAmount or matched bill
-                                        const actualPaid = inst.paidAmount || (matchingPaidPayment ? Number(matchingPaidPayment.paidAmount || matchingPaidPayment.totalAmount || 0) : 0);
+                                        const actualPaid = (inst.paidAmount !== undefined && inst.paidAmount !== null && Number(inst.paidAmount) > 0)
+                                            ? Number(inst.paidAmount)
+                                            : (matchingPaidPayment ? Number(matchingPaidPayment.paidAmount || matchingPaidPayment.totalAmount || 0) : 0);
                                         const displayPaid = hasOnlyRejectedCheque ? 0 : (isChequePending ? (matchingPendingCheque?.paidAmount || inst.paidAmount) : (isCumulativelyCleared && actualPaid < inst.payableAmount ? inst.payableAmount : actualPaid));
 
                                         // An installment is paid if:
@@ -1259,14 +1261,15 @@ const ManageBoardAdmission = () => {
                                         // 3. OR cumulative payments up to this installment cover cumulative payable (excess carry-forward)
                                         const isZeroDue = (inst.payableAmount <= 0.5 && (inst.standardAmount || 0) > 0 && (inst.waiverAmount || 0) >= (inst.standardAmount || 0));
                                         const dueAmount = Math.max(0, (inst.payableAmount || 0) - displayPaid);
+                                        const hasValidPaidAmount = actualPaid > 0.5 || Boolean(matchingPaidPayment);
                                         const isPaid = !isChequePending && !hasOnlyRejectedCheque && (
                                             (inst.status === "PAID" && (actualPaid > 0.5 || isZeroDue)) ||
                                             (Boolean(matchingPaidPayment) && (actualPaid >= (inst.payableAmount || 0) - 0.5 || isZeroDue)) ||
-                                            (isCumulativelyCleared && (actualPaid > 0.5 || Boolean(matchingPaidPayment))) ||
-                                            (dueAmount <= 0.5 && (displayPaid > 0 || actualPaid > 0))
+                                            (isCumulativelyCleared && hasValidPaidAmount) ||
+                                            (dueAmount <= 0.5 && (displayPaid > 0 || actualPaid > 0) && hasValidPaidAmount)
                                         );
-                                        const isFullyPaid = isPaid;
-                                        const isPartialWithDue = !isFullyPaid && !isChequePending && (displayPaid > 0 || actualPaid > 0 || inst.paymentTransactions?.length > 0 || Boolean(matchingPaidPayment)) && dueAmount > 0.5;
+                                        const isFullyPaid = isPaid && (inst.status !== "PENDING" || isZeroDue) && (actualPaid > 0.5 || isZeroDue);
+                                        const isPartialWithDue = !isFullyPaid && !isChequePending && (displayPaid > 0 || actualPaid > 0 || inst.paymentTransactions?.some(t => Number(t.amount || 0) > 0) || Boolean(matchingPaidPayment)) && dueAmount > 0.5;
 
                                         const isCurrent = effectiveFromMonth?._id === inst._id;
                                         const prevInst = admission.installments[index - 1];
@@ -1305,7 +1308,6 @@ const ManageBoardAdmission = () => {
                                         );
                                         const prevHasPayment = Boolean(prevActualPaid > 0 || prevInst?.status === "PARTIAL" || prevMatchingPaid);
                                         const prevCleared = index === 0 || prevPaid || prevHasPayment || prevChequePending;
-                                        const hasPayment = isFullyPaid || isPartialWithDue;
                                         const isNextToPay = !isFullyPaid && !isPartialWithDue && !isChequePending && prevCleared;
 
                                         return (
@@ -1462,7 +1464,7 @@ const ManageBoardAdmission = () => {
                                                         ))}
 
                                                         {/* Fallback for fully paid with 0 matched payment records (e.g. 100% waiver or adjustment carry) */}
-                                                        {isFullyPaid && matchingPaidPayments.length === 0 && !isChequePending && (
+                                                        {isFullyPaid && matchingPaidPayments.length === 0 && !isChequePending && (actualPaid > 0 || isZeroDue) && (
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleOpenBill(inst, inst, 1)}
@@ -1762,12 +1764,12 @@ const ManageBoardAdmission = () => {
                             <div className={`absolute top-5 left-8 right-8 h-1 -translate-y-1/2 z-0 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}></div>
                             <div
                                 className="absolute top-5 left-8 h-1 bg-emerald-500 -translate-y-1/2 z-0 transition-all duration-1000 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
-                                style={{ width: `${(Math.max(0, admission.installments.filter(i => i.status === "PAID").length - 1) / Math.max(1, admission.installments.length - 1)) * 100}%` }}
+                                style={{ width: `${(Math.max(0, admission.installments.filter(i => (i.status === "PAID" && ((i.paidAmount || 0) > 0.5 || (i.payableAmount || 0) <= 0.5))).length - 1) / Math.max(1, admission.installments.length - 1)) * 100}%` }}
                             ></div>
                             <div className="flex justify-between relative z-10 w-full">
                                 {admission.installments.map((inst, index) => {
                                     const dPaid = inst.paidAmount || 0;
-                                    const isFullPaid = inst.status === "PAID" || (dPaid >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0);
+                                    const isFullPaid = (inst.status === "PAID" && (dPaid > 0.5 || (inst.payableAmount || 0) <= 0.5)) || (dPaid >= (inst.payableAmount || 0) - 0.5 && (inst.payableAmount || 0) > 0);
                                     const isPartDue = !isFullPaid && dPaid > 0;
                                     const prevHasPayment = index === 0 || (admission.installments[index - 1]?.paidAmount > 0) || admission.installments[index - 1]?.status === "PAID";
                                     const isNext = !isFullPaid && !isPartDue && prevHasPayment;

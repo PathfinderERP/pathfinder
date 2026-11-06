@@ -173,7 +173,7 @@ export const generateBill = async (req, res) => {
             if (isBoardType) {
                 // Priority 1: Check for a direct match in installments (could be 0-indexed or 1-indexed)
                 installment = (admission.installments || []).find(i => i.monthNumber === installmentNum);
-                
+
                 // Priority 2: If not found, try the 0-indexed mapping (installment 0 -> month 1)
                 if (!installment) {
                     installment = (admission.installments || []).find(i => i.monthNumber === installmentNum + 1);
@@ -229,8 +229,8 @@ export const generateBill = async (req, res) => {
             let existingPaymentRecord = null;
             if (queryPaymentId && mongoose.Types.ObjectId.isValid(queryPaymentId)) {
                 existingPaymentRecord = await Payment.findById(queryPaymentId);
-            } 
-            
+            }
+
             if (!existingPaymentRecord && queryBillId) {
                 existingPaymentRecord = await Payment.findOne({ billId: queryBillId });
             }
@@ -255,7 +255,7 @@ export const generateBill = async (req, res) => {
                     installmentNumber: alternateNum,
                     status: { $nin: ["REJECTED", "CANCELLED"] }
                 }).sort({ createdAt: 1 });
-                
+
                 if (existingPaymentRecord) {
                     paymentLookupNum = alternateNum;
                 }
@@ -271,7 +271,7 @@ export const generateBill = async (req, res) => {
 
             if (!existingPaymentRecord && installment.status !== "PAID" && installment.status !== "PARTIAL") {
                 // Special check: If any amount is paid for installment 0/1, allow bill generation
-                if (!( (installmentNum === 0 || installmentNum === 1) && (installment.paidAmount > 0 || (isBoardType && (admission.examFeePaid > 0 || admission.totalPaidAmount > 0))))) {
+                if (!((installmentNum === 0 || installmentNum === 1) && (installment.paidAmount > 0 || (isBoardType && (admission.examFeePaid > 0 || admission.totalPaidAmount > 0))))) {
                     console.error(`❌ Installment #${installmentNum} is not PAID. Status: ${installment.status}`);
                     return { status: 400, data: { message: "Cannot generate bill for unpaid installment" } };
                 }
@@ -310,16 +310,18 @@ export const generateBill = async (req, res) => {
             // For installment 0 (standard), we trust admission.downPayment. 
             // For others, we trust the specific payment record's amount if available, otherwise installment.paidAmount.
             let actualPaidTotal = 0;
-            if (payment && payment.paidAmount > 0) {
-                actualPaidTotal = payment.paidAmount;
+            if (payment && Number(payment.paidAmount || 0) > 0) {
+                actualPaidTotal = Number(payment.paidAmount);
                 // SELF-HEALING: If Transaction ID is missing in Payment record, but present in Admission record, fix it!
                 if (!payment.transactionId && installment.transactionId) {
                     console.log(`🏥 Self-healing: Extracting missing Transaction ID from Admission: ${installment.transactionId}`);
                     payment.transactionId = installment.transactionId;
                     await payment.save();
                 }
+            } else if (payment && payment.paidAmount !== undefined && payment.paidAmount !== null && Number(payment.totalAmount || 0) === 0) {
+                actualPaidTotal = Number(payment.paidAmount || 0);
             } else if (installmentNum === 0 && !isBoardAdmission) {
-                actualPaidTotal = admission.downPayment;
+                actualPaidTotal = admission.downPayment || 0;
             } else if (installmentNum === 0 && isBoardAdmission) {
                 // If payment record wasn't found (unlikely due to self-healing above), 
                 // the installment.paidAmount is the only fall-back, though it might be the sum.
@@ -352,13 +354,13 @@ export const generateBill = async (req, res) => {
                     paidAmount: totalAmount,
                     dueDate: installment.dueDate,
                     paidDate: isBoardAdmission ? new Date() : (installment.paidDate || new Date()),
-                    receivedDate: isBoardAdmission 
+                    receivedDate: isBoardAdmission
                         ? (installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].date : new Date())
                         : (installment.receivedDate || installment.paidDate || new Date()),
                     status: installment.status || "PAID",
-                    paymentMethod: installment.paymentMethod || 
-                        (isBoardAdmission && installment.paymentTransactions?.length > 0 
-                            ? installment.paymentTransactions[installment.paymentTransactions.length - 1].paymentMethod 
+                    paymentMethod: installment.paymentMethod ||
+                        (isBoardAdmission && installment.paymentTransactions?.length > 0
+                            ? installment.paymentTransactions[installment.paymentTransactions.length - 1].paymentMethod
                             : "CASH"),
                     transactionId: installment.transactionId || (isBoardAdmission && installment.paymentTransactions?.length > 0 ? installment.paymentTransactions[installment.paymentTransactions.length - 1].transactionId : ""),
                     remarks: installment.remarks || (isBoardAdmission ? `Board Installment Month ${installment.monthNumber}` : ""),
@@ -395,9 +397,11 @@ export const generateBill = async (req, res) => {
                 admission,
                 student: admission.student || admission.studentId
             });
-            const billTotal = payment?.paidAmount !== undefined && payment.paidAmount > 0
-                ? payment.paidAmount
-                : (payment?.totalAmount || actualPaidTotal);
+            const billTotal = payment
+                ? (Number(payment.paidAmount || 0) > 0
+                    ? Number(payment.paidAmount)
+                    : (payment.totalAmount !== undefined && payment.totalAmount !== null ? Number(payment.totalAmount) : actualPaidTotal))
+                : actualPaidTotal;
 
             let finalCourseFee, finalCgst, finalSgst;
             if (exempt) {
@@ -613,9 +617,9 @@ export const getBillById = async (req, res) => {
             admission,
             student: admission?.student
         });
-        const billTotal = payment.paidAmount !== undefined && payment.paidAmount > 0
-            ? payment.paidAmount
-            : (payment.totalAmount || 0);
+        const billTotal = payment.paidAmount !== undefined && Number(payment.paidAmount) > 0
+            ? Number(payment.paidAmount)
+            : Number(payment.totalAmount || 0);
 
         let finalCourseFee, finalCgst, finalSgst;
         if (exempt) {
@@ -640,9 +644,9 @@ export const getBillById = async (req, res) => {
             finalSgst = parseFloat((finalGstPool - finalCgst).toFixed(2));
         }
 
-        const studentProfile = admission?.student?.studentsDetails?.[0] || 
-                               allocation?.student?.studentsDetails?.[0] || 
-                               boardCourseAdmission?.studentId?.studentsDetails?.[0] || {};
+        const studentProfile = admission?.student?.studentsDetails?.[0] ||
+            allocation?.student?.studentsDetails?.[0] ||
+            boardCourseAdmission?.studentId?.studentsDetails?.[0] || {};
 
         let resolvedStudentName = (boardCourseAdmission?.studentName || admission?.studentName || studentProfile.studentName || 'N/A').trim();
         let resolvedPhone = boardCourseAdmission?.mobileNum || admission?.mobileNum || studentProfile.mobileNum || studentProfile.whatsappNumber || 'N/A';
@@ -710,18 +714,18 @@ export const getBillById = async (req, res) => {
             course: {
                 name: payment.boardCourseName || (allocation?.items?.map(i => `${i.itemName} (x${i.quantity || 1})`).join(', ')) || (admission?.boardCourseName || (admission?.course?.courseName || 'N/A')),
                 department: (admission?.department?.departmentName && !/inventory/i.test(admission.department.departmentName) ? admission.department.departmentName : null) ||
-                            (allocation?.departmentName && !/inventory/i.test(allocation.departmentName) ? allocation.departmentName : null) ||
-                            boardCourseAdmission?.department?.departmentName ||
-                            admission?.student?.department?.departmentName || 'N/A',
+                    (allocation?.departmentName && !/inventory/i.test(allocation.departmentName) ? allocation.departmentName : null) ||
+                    boardCourseAdmission?.department?.departmentName ||
+                    admission?.student?.department?.departmentName || 'N/A',
                 examTag: (admission?.examTag?.name && !/inventory/i.test(admission.examTag.name) ? admission.examTag.name : null) ||
-                         (allocation?.examTagName && !/inventory/i.test(allocation.examTagName) ? allocation.examTagName : null) ||
-                         boardCourseAdmission?.examTag?.name || 'N/A',
+                    (allocation?.examTagName && !/inventory/i.test(allocation.examTagName) ? allocation.examTagName : null) ||
+                    boardCourseAdmission?.examTag?.name || 'N/A',
                 class: admission?.class?.name ||
-                       allocation?.className ||
-                       boardCourseAdmission?.lastClass || 'N/A',
+                    allocation?.className ||
+                    boardCourseAdmission?.lastClass || 'N/A',
                 session: admission?.academicSession ||
-                         allocation?.session ||
-                         boardCourseAdmission?.academicSession || 'N/A'
+                    allocation?.session ||
+                    boardCourseAdmission?.academicSession || 'N/A'
             },
             payment: {
                 installmentNumber: payment.installmentNumber,
@@ -967,10 +971,10 @@ export const generateReceivingSlip = async (req, res) => {
         }
 
         // Check if payment is definitively cleared/approved with an official billId and PAID status
-        const isCleardCheque = payment && Boolean(payment.billId) && 
-                               (payment.status === "PAID" || payment.status === "COMPLETED") && 
-                               payment.status !== "REJECTED" && 
-                               payment.status !== "CANCELLED";
+        const isCleardCheque = payment && Boolean(payment.billId) &&
+            (payment.status === "PAID" || payment.status === "COMPLETED") &&
+            payment.status !== "REJECTED" &&
+            payment.status !== "CANCELLED";
 
         if (isCleardCheque) {
             return generateBill(req, res);

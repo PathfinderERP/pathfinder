@@ -101,7 +101,7 @@ export const createBoardAdmission = async (req, res) => {
         const methodMap = { 'ONLINE': 'CARD', 'NEFT': 'BANK_TRANSFER', 'IMPS': 'BANK_TRANSFER', 'RTGS': 'BANK_TRANSFER' };
         const rawPaymentMethod = paymentMethod;
         paymentMethod = methodMap[rawPaymentMethod] || rawPaymentMethod;
-        
+
         let student = null;
         if (studentId && mongoose.Types.ObjectId.isValid(studentId)) {
             student = await Students.findById(studentId).populate('batches');
@@ -277,7 +277,7 @@ export const createBoardAdmission = async (req, res) => {
         if (student.status === 'Deactivated') {
             const deactivationDate = student.deactivationDate;
             const now = new Date();
-            const daysDeactivated = deactivationDate 
+            const daysDeactivated = deactivationDate
                 ? Math.floor((now - new Date(deactivationDate)) / (1000 * 60 * 60 * 24))
                 : 0;
 
@@ -563,7 +563,7 @@ export const createBoardAdmission = async (req, res) => {
         }
 
         // Update student enrollment status if needed
-        const studentUpdatePayload = { 
+        const studentUpdatePayload = {
             isEnrolled: true,
             updatedBy: req.user?.name || "System",
             updatedByUserId: req.user?._id,
@@ -639,7 +639,7 @@ export const createBoardAdmission = async (req, res) => {
             await BoardCourseCounselling.findByIdAndUpdate(req.body.counselId, { status: "ENROLLED" });
         }
         await BoardCourseCounselling.updateMany(
-            { 
+            {
                 $or: [
                     { studentId, boardId },
                     { studentId },
@@ -664,7 +664,7 @@ export const createBoardAdmission = async (req, res) => {
 export const getBoardAdmissions = async (req, res) => {
     try {
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
-        
+
         let query = {};
         if (!isSuperAdmin) {
             // Get centre names for the user's assigned centre IDs
@@ -794,7 +794,7 @@ export const getBoardAdmissions = async (req, res) => {
             }
         });
         const uniqueUserIds = [...new Set(userIds)];
-        
+
         const User = (await import("../../models/User.js")).default;
         const users = await User.find({ _id: { $in: uniqueUserIds } }).select('name').lean();
         const userMap = users.reduce((map, user) => {
@@ -891,11 +891,11 @@ export const getBoardAdmissions = async (req, res) => {
 
             const studentPhone = admissionObj.studentId?.studentsDetails?.[0]?.mobileNum ? admissionObj.studentId.studentsDetails[0].mobileNum.toString().trim() : null;
             const latestServiceCall = (admissionObj._id && serviceCallMap[admissionObj._id.toString()]) ||
-                                      (admissionObj.studentId?._id && serviceCallMap[admissionObj.studentId._id.toString()]) ||
-                                      (studentPhone && serviceCallMap[studentPhone]) || null;
+                (admissionObj.studentId?._id && serviceCallMap[admissionObj.studentId._id.toString()]) ||
+                (studentPhone && serviceCallMap[studentPhone]) || null;
             const allCalls = (admissionObj._id && allServiceCallsMap[admissionObj._id.toString()]) ||
-                             (admissionObj.studentId?._id && allServiceCallsMap[admissionObj.studentId._id.toString()]) ||
-                             (studentPhone && allServiceCallsMap[studentPhone]) || [];
+                (admissionObj.studentId?._id && allServiceCallsMap[admissionObj.studentId._id.toString()]) ||
+                (studentPhone && allServiceCallsMap[studentPhone]) || [];
 
             admissionObj.latestServiceCall = latestServiceCall;
             admissionObj.nextFollowUpDate = latestServiceCall?.nextFollowUpDate || null;
@@ -958,14 +958,19 @@ export const getBoardAdmissionById = async (req, res) => {
 
         // --- SELF-HEALING & SYNCHRONIZATION WITH PAYMENT RECORDS ---
         const allPayments = await Payment.find({ admission: admission._id });
-        const rejectedTxIds = new Set(allPayments.filter(p => p.status === "REJECTED" || p.status === "CANCELLED").map(p => p.transactionId).filter(Boolean));
+        const invalidPayments = allPayments.filter(p =>
+            p.status === "REJECTED" ||
+            p.status === "CANCELLED" ||
+            ((Number(p.paidAmount || 0) === 0) && (Number(p.totalAmount || 0) === 0) && p.status !== "PENDING_CLEARANCE")
+        );
+        const rejectedTxIds = new Set(invalidPayments.map(p => p.transactionId).filter(Boolean));
 
         let needsSave = false;
         if (admission.installments && admission.installments.length > 0) {
             admission.installments.forEach(inst => {
-                if (rejectedTxIds.size > 0) {
+                if (rejectedTxIds.size > 0 || (inst.paymentTransactions && inst.paymentTransactions.some(t => Number(t.amount || 0) <= 0))) {
                     const initialTxCount = (inst.paymentTransactions || []).length;
-                    inst.paymentTransactions = (inst.paymentTransactions || []).filter(t => !rejectedTxIds.has(t.transactionId));
+                    inst.paymentTransactions = (inst.paymentTransactions || []).filter(t => !rejectedTxIds.has(t.transactionId) && Number(t.amount || 0) > 0);
                     if (inst.paymentTransactions.length !== initialTxCount) {
                         needsSave = true;
                     }
@@ -979,7 +984,7 @@ export const getBoardAdmissionById = async (req, res) => {
                 );
                 const correctPaid = txSum > 0
                     ? txSum
-                    : (matchingPayment ? Number(matchingPayment.paidAmount || matchingPayment.totalAmount || 0) : (inst.paidAmount || 0));
+                    : (matchingPayment ? Number(matchingPayment.paidAmount || matchingPayment.totalAmount || 0) : 0);
 
                 if (Math.abs((inst.paidAmount || 0) - correctPaid) > 0.01) {
                     inst.paidAmount = correctPaid;
@@ -1402,7 +1407,7 @@ export const collectBoardInstallment = async (req, res) => {
             // const totalPaidToday = Number(amount || 0) + Number(paidExamFee || 0) + Number(paidAdditionalThings || 0);
             // if (isNaN(totalPaidToday) || totalPaidToday <= 0) return; // Nothing to record
 
-             const totalPaidToday = Number(amount) + Number(paidExamFee) + Number(paidAdditionalThings);
+            const totalPaidToday = Number(amount) + Number(paidExamFee) + Number(paidAdditionalThings);
             if (totalPaidToday <= 0) return; // Nothing to record
 
 
@@ -1459,8 +1464,8 @@ export const collectBoardInstallment = async (req, res) => {
             populatedPayment = await Payment.findById(paymentRecord._id).populate('recordedBy', 'name username').lean();
         }
 
-        res.status(200).json({ 
-            message: "Payment collected", 
+        res.status(200).json({
+            message: "Payment collected",
             admission,
             payment: populatedPayment,
             billId: paymentRecord?.billId
@@ -1803,7 +1808,7 @@ export const bulkUpdateBoardAdmissions = async (req, res) => {
         }
 
         const cleanUpdateData = { ...updateData };
-        
+
         // Clean empty fields
         const optionalFields = ['lastClass', 'examTag', 'department', 'boardId', 'counselledBy', 'createdBy'];
         optionalFields.forEach(field => {
