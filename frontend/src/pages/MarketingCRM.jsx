@@ -361,12 +361,12 @@ const MarketingCRM = ({ initialTab }) => {
     };
 
     const userRoleLower = (currentUser.role || "").toLowerCase().replace(/\s+/g, "");
-    const canApproveOrReject = ["superadmin", "super admin", "admin", "zonalmanager", "areamanager", "zonalhead", "centerincharge", "centreincharge", "assistantzonalmanager", "assistantcenterincharge"].includes(userRoleLower);
+    const canApproveOrReject = ["superadmin", "super admin", "admin", "digital", "zonalmanager", "areamanager", "zonalhead", "centerincharge", "centreincharge", "assistantzonalmanager", "assistantcenterincharge"].includes(userRoleLower);
 
     const canUserApproveRecord = (userObj, record) => {
         if (!userObj || !record) return false;
         const actorRole = (userObj.role || "").toLowerCase().replace(/\s+/g, "");
-        if (["superadmin", "super admin", "admin"].includes(actorRole)) {
+        if (["superadmin", "super admin", "admin", "digital"].includes(actorRole)) {
             return true;
         }
 
@@ -4226,8 +4226,7 @@ const MarketingCRM = ({ initialTab }) => {
                                     )}
 
                                     {/* Search + Filter bar */}
-                                    {(totalRecordsBeforeFilters > 0 || filtersActive) && (
-                                        <div className={`p-4 rounded-2xl border flex flex-wrap gap-3 items-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
+                                    <div className={`p-4 rounded-2xl border flex flex-wrap gap-3 items-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-gray-50 border-gray-200'}`}>
                                             {/* Search */}
                                             <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border flex-1 min-w-[200px] transition-all ${isDarkMode ? 'bg-[#131619] border-gray-700 focus-within:border-blue-500' : 'bg-white border-gray-200 focus-within:border-black'
                                                 }`}>
@@ -4389,9 +4388,8 @@ const MarketingCRM = ({ initialTab }) => {
                                                 </button>
                                             )}
                                         </div>
-                                    )}
 
-                                    {auditRecords.length === 0 && !auditLoading && totalRecordsBeforeFilters === 0 ? (
+                                    {auditRecords.length === 0 && !auditLoading && totalRecordsBeforeFilters === 0 && !filtersActive ? (
                                         <div className={`p-16 rounded-[24px] border flex flex-col items-center justify-center gap-4 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>
                                             <div className="w-14 h-14 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
                                                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-7 h-7 text-gray-400">
@@ -4399,12 +4397,9 @@ const MarketingCRM = ({ initialTab }) => {
                                                 </svg>
                                             </div>
                                             <div className="text-center">
-                                                <p className="text-[11px] font-black uppercase tracking-widest text-gray-400">No Audit Records Yet</p>
-                                                <p className="text-[10px] text-gray-400 mt-1">Submit a field plan from Today Task to populate this table.</p>
+                                                <p className="text-[11px] font-black uppercase tracking-widest text-gray-400">No Audit Records Found</p>
+                                                <p className="text-[10px] text-gray-400 mt-1">No activities submitted for today yet. Use the Date Range or Centre filters above to audit past activities.</p>
                                             </div>
-                                            <button onClick={() => setActiveTab("Today Task")} className="px-6 py-2.5 rounded-full bg-black text-white text-[10px] font-black uppercase tracking-widest hover:shadow-lg transition-all active:scale-95">
-                                                Go to Today Task
-                                            </button>
                                         </div>
                                     ) : (
                                         <div className={`rounded-[24px] border overflow-hidden ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-100 shadow-sm'}`}>

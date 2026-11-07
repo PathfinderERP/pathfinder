@@ -1,5 +1,6 @@
 import MarketingPlanner from "../../models/MarketingPlanner.js";
 import User from "../../models/User.js";
+import Centre from "../../models/Master_data/Centre.js";
 import mongoose from "mongoose";
 import DraftPlanner from "../../models/DraftPlanner.js";
 import { uploadToR2, getSignedFileUrl } from "../../utils/r2Upload.js";
@@ -20,22 +21,22 @@ const uploadBase64ToR2 = async (base64Str, folder = "marketing_planner") => {
         if (!matches || matches.length !== 3) {
             return null;
         }
-        
+
         const mimeType = matches[1];
         const base64Data = matches[2];
         const buffer = Buffer.from(base64Data, 'base64');
-        
+
         let extension = "jpg";
         if (mimeType.includes("png")) extension = "png";
         else if (mimeType.includes("gif")) extension = "gif";
         else if (mimeType.includes("webp")) extension = "webp";
-        
+
         const file = {
             buffer,
             originalname: `activity_${Date.now()}.${extension}`,
             mimetype: mimeType
         };
-        
+
         const url = await uploadToR2(file, folder);
         return url;
     } catch (error) {
@@ -46,7 +47,7 @@ const uploadBase64ToR2 = async (base64Str, folder = "marketing_planner") => {
 
 const processActivitiesImages = async (activities) => {
     if (!activities || !Array.isArray(activities)) return activities;
-    
+
     const processed = [];
     for (const act of activities) {
         const uploadedPhotos = [];
@@ -60,7 +61,7 @@ const processActivitiesImages = async (activities) => {
                 }
             }
         }
-        
+
         let primaryPhoto = act.photo;
         if (isBase64(primaryPhoto)) {
             if (act.photos && act.photos[0] === primaryPhoto && uploadedPhotos[0]) {
@@ -72,7 +73,7 @@ const processActivitiesImages = async (activities) => {
         } else if (!primaryPhoto && uploadedPhotos.length > 0) {
             primaryPhoto = uploadedPhotos[0];
         }
-        
+
         processed.push({
             ...act,
             photos: uploadedPhotos,
@@ -87,11 +88,11 @@ const formatPlanTime = (timeStr) => {
     if (typeof timeStr !== "string") return String(timeStr);
     const trimmed = timeStr.trim();
     if (!trimmed) return "—";
-    
+
     if (/am|pm/i.test(trimmed)) {
         return trimmed;
     }
-    
+
     const parts = trimmed.split(':');
     if (parts.length >= 1) {
         const h = parseInt(parts[0], 10);
@@ -349,8 +350,8 @@ export const getPlanners = async (req, res) => {
         let query = {};
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
 
-        if (userRoleStr === "superadmin" || userRoleStr === "super admin" || userRoleStr === "admin") {
-            // Superadmin and Admin can view all data
+        if (userRoleStr === "superadmin" || userRoleStr === "super admin" || userRoleStr === "admin" || userRoleStr === "digital") {
+            // Superadmin, Admin, and Digital can view all data
             query = {};
         } else if (userRoleStr === "zonalmanager" || userRoleStr === "zonalhead" || userRoleStr === "areamanager") {
             // Zonal/Area Manager / Head can view assistantzonalmanager, centerincharge, assistantcenterincharge, marketing, and supportstaff in their allotted centres, plus their own logs
@@ -360,14 +361,16 @@ export const getPlanners = async (req, res) => {
                 const centreObjectIds = userCentres.map(id => new mongoose.Types.ObjectId(id));
                 const subordinateUsers = await User.find({
                     centres: { $in: centreObjectIds },
-                    role: { $in: [
-                        "marketing", "Marketing",
-                        "centerincharge", "centerIncharge", "centreincharge", "centreIncharge",
-                        "assistantcenterincharge", "assistantCenterIncharge", "assistantcentreincharge", "assistantCentreIncharge",
-                        "supportstaff", "supportStaff",
-                        "assistantzonalmanager", "assistantZonalManager",
-                        "areamanager", "areaManager"
-                    ] }
+                    role: {
+                        $in: [
+                            "marketing", "Marketing",
+                            "centerincharge", "centerIncharge", "centreincharge", "centreIncharge",
+                            "assistantcenterincharge", "assistantCenterIncharge", "assistantcentreincharge", "assistantCentreIncharge",
+                            "supportstaff", "supportStaff",
+                            "assistantzonalmanager", "assistantZonalManager",
+                            "areamanager", "areaManager"
+                        ]
+                    }
                 }).select('_id');
                 subordinateUsers.forEach(u => {
                     userIds.push(u._id.toString());
@@ -382,12 +385,14 @@ export const getPlanners = async (req, res) => {
                 const centreObjectIds = userCentres.map(id => new mongoose.Types.ObjectId(id));
                 const subordinateUsers = await User.find({
                     centres: { $in: centreObjectIds },
-                    role: { $in: [
-                        "marketing", "Marketing",
-                        "centerincharge", "centerIncharge", "centreincharge", "centreIncharge",
-                        "assistantcenterincharge", "assistantCenterIncharge", "assistantcentreincharge", "assistantCentreIncharge",
-                        "supportstaff", "supportStaff"
-                    ] }
+                    role: {
+                        $in: [
+                            "marketing", "Marketing",
+                            "centerincharge", "centerIncharge", "centreincharge", "centreIncharge",
+                            "assistantcenterincharge", "assistantCenterIncharge", "assistantcentreincharge", "assistantCentreIncharge",
+                            "supportstaff", "supportStaff"
+                        ]
+                    }
                 }).select('_id');
                 subordinateUsers.forEach(u => {
                     userIds.push(u._id.toString());
@@ -402,11 +407,13 @@ export const getPlanners = async (req, res) => {
                 const centreObjectIds = userCentres.map(id => new mongoose.Types.ObjectId(id));
                 const subordinateUsers = await User.find({
                     centres: { $in: centreObjectIds },
-                    role: { $in: [
-                        "marketing", "Marketing",
-                        "assistantcenterincharge", "assistantCenterIncharge", "assistantcentreincharge", "assistantCentreIncharge",
-                        "supportstaff", "supportStaff"
-                    ] }
+                    role: {
+                        $in: [
+                            "marketing", "Marketing",
+                            "assistantcenterincharge", "assistantCenterIncharge", "assistantcentreincharge", "assistantCentreIncharge",
+                            "supportstaff", "supportStaff"
+                        ]
+                    }
                 }).select('_id');
                 subordinateUsers.forEach(u => {
                     userIds.push(u._id.toString());
@@ -638,7 +645,7 @@ export const updatePlannerApproval = async (req, res) => {
         const { status, remarks } = req.body;
 
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const allowedRoles = ["superadmin", "super admin", "admin", "zonalmanager", "areamanager", "zonalhead", "centerincharge", "centreincharge", "assistantzonalmanager", "assistantcenterincharge"];
+        const allowedRoles = ["superadmin", "super admin", "admin", "digital", "zonalmanager", "areamanager", "zonalhead", "centerincharge", "centreincharge", "assistantzonalmanager", "assistantcenterincharge"];
         if (!allowedRoles.includes(userRoleStr)) {
             return res.status(403).json({ error: "Forbidden: You do not have permission to approve/reject plans." });
         }
@@ -655,7 +662,7 @@ export const updatePlannerApproval = async (req, res) => {
 
         const ownerRoleStr = (ownerUser.role || "").toLowerCase().replace(/\s+/g, "");
 
-        const isSuperAdminApprover = ["superadmin", "super admin", "admin"].includes(userRoleStr);
+        const isSuperAdminApprover = ["superadmin", "super admin", "admin", "digital"].includes(userRoleStr);
 
         if (!isSuperAdminApprover) {
             // Disallow self-approval
@@ -758,14 +765,14 @@ export const saveDraftPlanner = async (req, res) => {
 
         const userId = req.user._id || req.user.id;
         const processedActivities = await processActivitiesImages(activities);
-        
+
         const draft = await DraftPlanner.findOneAndUpdate(
             { user: userId },
-            { 
-                date, 
-                expectedLeadTarget: Number(expectedLeadTarget || 0), 
-                expectedHotLeads: Number(expectedHotLeads || 0), 
-                activities: processedActivities 
+            {
+                date,
+                expectedLeadTarget: Number(expectedLeadTarget || 0),
+                expectedHotLeads: Number(expectedHotLeads || 0),
+                activities: processedActivities
             },
             { new: true, upsert: true }
         );
@@ -802,9 +809,9 @@ export const getDraftPlanner = async (req, res) => {
     try {
         const userId = req.user._id || req.user.id;
         const todayStr = req.query.date || new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD format
-        
+
         const draft = await DraftPlanner.findOne({ user: userId, date: todayStr });
-        
+
         let signedDraft = null;
         if (draft) {
             signedDraft = draft.toObject();
@@ -846,7 +853,7 @@ export const bulkUpdatePlannerApproval = async (req, res) => {
         }
 
         const userRoleStr = (req.user.role || "").toLowerCase().replace(/\s+/g, "");
-        const allowedRoles = ["superadmin", "super admin", "admin", "zonalmanager", "areamanager", "zonalhead", "centerincharge", "centreincharge", "assistantzonalmanager", "assistantcenterincharge"];
+        const allowedRoles = ["superadmin", "super admin", "admin", "digital", "zonalmanager", "areamanager", "zonalhead", "centerincharge", "centreincharge", "assistantzonalmanager", "assistantcenterincharge"];
         if (!allowedRoles.includes(userRoleStr)) {
             return res.status(403).json({ error: "Forbidden: You do not have permission to approve/reject plans." });
         }
@@ -864,7 +871,7 @@ export const bulkUpdatePlannerApproval = async (req, res) => {
             return res.status(404).json({ error: "No matching planner records found" });
         }
 
-        const isSuperAdminApprover = ["superadmin", "super admin", "admin"].includes(userRoleStr);
+        const isSuperAdminApprover = ["superadmin", "super admin", "admin", "digital"].includes(userRoleStr);
         const getCentreStrArr = (cList) => {
             if (!Array.isArray(cList)) return [];
             return cList.map(c => (c?._id || c?.id || c || "").toString()).filter(Boolean);
