@@ -87,7 +87,7 @@ export const getUserAssignedCentres = async (user) => {
 export const getStoreOverview = async (req, res) => {
     try {
         const isSuperAdmin = req.user.role === "superAdmin" || req.user.role === "Super Admin";
-        
+
         let centreQuery = { status: { $ne: "deactive" } };
 
         // Centre access restriction for non-superAdmins
@@ -337,30 +337,30 @@ export const getCentreStudents = async (req, res) => {
                 status: { $ne: "Deactivated" },
                 "studentsDetails.centre": regexCentre
             })
-            .select("_id studentsDetails allocatedItems department examSchema sessionExamCourse createdAt")
-            .populate("department", "departmentName")
-            .lean(),
+                .select("_id studentsDetails allocatedItems department examSchema sessionExamCourse createdAt")
+                .populate("department", "departmentName")
+                .lean(),
 
             Admission.find({
                 centre: regexCentre,
                 admissionStatus: { $nin: ["INACTIVE", "CANCELLED"] }
             })
-            .select("_id student admissionNumber academicSession class department board boardCourseName examTag admissionDate createdAt")
-            .populate("class", "name")
-            .populate("department", "departmentName")
-            .populate("examTag", "name")
-            .lean(),
+                .select("_id student admissionNumber academicSession class department board boardCourseName examTag admissionDate createdAt")
+                .populate("class", "name")
+                .populate("department", "departmentName")
+                .populate("examTag", "name")
+                .lean(),
 
             BoardCourseAdmission.find({
                 centre: regexCentre,
                 enrolledStudentsStatus: { $ne: "INACTIVE" },
                 status: { $ne: "CANCELLED" }
             })
-            .select("_id studentId admissionNumber academicSession lastClass department boardId boardCourseName examTag admissionDate createdAt")
-            .populate("department", "departmentName")
-            .populate("boardId", "boardCourse")
-            .populate("examTag", "name")
-            .lean()
+                .select("_id studentId admissionNumber academicSession lastClass department boardId boardCourseName examTag admissionDate createdAt")
+                .populate("department", "departmentName")
+                .populate("boardId", "boardCourse")
+                .populate("examTag", "name")
+                .lean()
         ]);
 
         if (students.length === 0) {
@@ -406,25 +406,25 @@ export const getCentreStudents = async (req, res) => {
         const result = students.map(student => {
             const sId = student._id.toString();
             const admissions = studentAdmissionsMap.get(sId) || [];
-            
+
             let latestAdmission = admissions[0] || null;
             if (admissions.length > 1) {
-                latestAdmission = admissions.reduce((latest, curr) => 
+                latestAdmission = admissions.reduce((latest, curr) =>
                     new Date(curr.admissionDate) > new Date(latest.admissionDate) ? curr : latest
-                , admissions[0]);
+                    , admissions[0]);
             }
 
             const studentDetail = student.studentsDetails?.[0] || {};
-            
+
             // Resolve Session
             const resolvedSession = latestAdmission?.academicSession || student.sessionExamCourse?.[0]?.session || "N/A";
 
             // Resolve Class
             const resolvedClass = latestAdmission?.className || student.examSchema?.[0]?.class || studentDetail.class || "N/A";
-            
+
             // Resolve Department
             const resolvedDepartment = latestAdmission?.departmentName || student.department?.departmentName || "N/A";
-            
+
             // Resolve Board
             const resolvedBoard = studentDetail.board || latestAdmission?.boardName || "N/A";
 
@@ -517,7 +517,7 @@ export const resolveStudentAcademicDetails = async (studentId, admissionId = nul
             .populate('class', 'name')
             .populate('board', 'boardCourse name')
             .lean();
-        
+
         if (!admissionDoc) {
             admissionDoc = await BoardCourseAdmission.findById(finalAdmissionId)
                 .populate('department', 'departmentName')
@@ -561,66 +561,66 @@ export const resolveStudentAcademicDetails = async (studentId, admissionId = nul
 
     // Resolve Session
     if (!resolvedSession || resolvedSession === "N/A") {
-        resolvedSession = admissionDoc?.academicSession || 
-                          admissionDoc?.course?.courseSession ||
-                          studentDoc?.course?.courseSession ||
-                          studentDoc?.sessionExamCourse?.[0]?.session || 
-                          studentInfo.session || 
-                          "N/A";
+        resolvedSession = admissionDoc?.academicSession ||
+            admissionDoc?.course?.courseSession ||
+            studentDoc?.course?.courseSession ||
+            studentDoc?.sessionExamCourse?.[0]?.session ||
+            studentInfo.session ||
+            "N/A";
     }
 
     // Resolve Class
     if (!resolvedClass || resolvedClass === "N/A") {
-        resolvedClass = admissionDoc?.class?.name || 
-                        admissionDoc?.class?.className ||
-                        admissionDoc?.lastClass || 
-                        admissionDoc?.course?.class?.name ||
-                        studentDoc?.course?.class?.name ||
-                        studentDoc?.examSchema?.[0]?.class || 
-                        studentInfo.lastClass ||
-                        studentInfo.class || 
-                        clientDetails?.class ||
-                        clientDetails?.lastClass ||
-                        "N/A";
+        resolvedClass = admissionDoc?.class?.name ||
+            admissionDoc?.class?.className ||
+            admissionDoc?.lastClass ||
+            admissionDoc?.course?.class?.name ||
+            studentDoc?.course?.class?.name ||
+            studentDoc?.examSchema?.[0]?.class ||
+            studentInfo.lastClass ||
+            studentInfo.class ||
+            clientDetails?.class ||
+            clientDetails?.lastClass ||
+            "N/A";
     }
 
     // Resolve Department (Ensure it never displays 'STORE / INVENTORY')
     if (!resolvedDepartment || resolvedDepartment === "N/A" || /inventory/i.test(resolvedDepartment)) {
-        resolvedDepartment = admissionDoc?.department?.departmentName || 
-                             admissionDoc?.department?.name ||
-                             admissionDoc?.course?.department?.departmentName ||
-                             studentDoc?.department?.departmentName || 
-                             studentDoc?.department?.name ||
-                             studentDoc?.course?.department?.departmentName ||
-                             "N/A";
+        resolvedDepartment = admissionDoc?.department?.departmentName ||
+            admissionDoc?.department?.name ||
+            admissionDoc?.course?.department?.departmentName ||
+            studentDoc?.department?.departmentName ||
+            studentDoc?.department?.name ||
+            studentDoc?.course?.department?.departmentName ||
+            "N/A";
     }
 
     // Resolve Exam Tag (Ensure it never displays 'INVENTORY')
     if (!resolvedExamTag || resolvedExamTag === "N/A" || /inventory/i.test(resolvedExamTag)) {
-        resolvedExamTag = admissionDoc?.examTag?.name || 
-                          admissionDoc?.course?.examTag?.name ||
-                          studentDoc?.course?.examTag?.name ||
-                          studentDoc?.sessionExamCourse?.[0]?.examTag || 
-                          "N/A";
+        resolvedExamTag = admissionDoc?.examTag?.name ||
+            admissionDoc?.course?.examTag?.name ||
+            studentDoc?.course?.examTag?.name ||
+            studentDoc?.sessionExamCourse?.[0]?.examTag ||
+            "N/A";
     }
 
     // Resolve Board
     if (!resolvedBoard || resolvedBoard === "N/A") {
-        resolvedBoard = admissionDoc?.board?.boardCourse || 
-                        admissionDoc?.board?.name || 
-                        admissionDoc?.boardId?.boardCourse || 
-                        admissionDoc?.boardId?.name || 
-                        studentInfo.board || 
-                        "N/A";
+        resolvedBoard = admissionDoc?.board?.boardCourse ||
+            admissionDoc?.board?.name ||
+            admissionDoc?.boardId?.boardCourse ||
+            admissionDoc?.boardId?.name ||
+            studentInfo.board ||
+            "N/A";
     }
 
     // Resolve Admission Number
     if (!admissionNumber || admissionNumber === "N/A") {
-        admissionNumber = admissionDoc?.admissionNumber || 
-                          studentInfo.formNo || 
-                          studentInfo.rollNo || 
-                          studentDoc?.uid ||
-                          "N/A";
+        admissionNumber = admissionDoc?.admissionNumber ||
+            studentInfo.formNo ||
+            studentInfo.rollNo ||
+            studentDoc?.uid ||
+            "N/A";
     }
 
     return {
@@ -640,12 +640,12 @@ export const resolveStudentAcademicDetails = async (studentId, admissionId = nul
 // Create new allocation for single student
 export const createAllocation = async (req, res) => {
     try {
-        let { 
-            studentId, 
-            admissionId, 
+        let {
+            studentId,
+            admissionId,
             courseId,
             courseName,
-            items, 
+            items,
             centreName,
             paymentMethod = 'CASH',
             receivedDate = new Date(),
@@ -728,8 +728,8 @@ export const createAllocation = async (req, res) => {
         const { isSuperAdmin: isSuperUser, centreNames: allowedCentresList } = await getUserAssignedCentres(req.user);
         if (!isSuperUser) {
             if (allowedCentresList.length === 0 || !allowedCentresList.some(cn => cn.toLowerCase() === targetCentreName.trim().toLowerCase())) {
-                return res.status(403).json({ 
-                    message: `You do not have access to purchase or allocate books for centre: ${targetCentreName}. Assigned centres: ${allowedCentresList.join(', ') || 'None'}` 
+                return res.status(403).json({
+                    message: `You do not have access to purchase or allocate books for centre: ${targetCentreName}. Assigned centres: ${allowedCentresList.join(', ') || 'None'}`
                 });
             }
         }
@@ -787,8 +787,8 @@ export const createAllocation = async (req, res) => {
         }, 0);
 
         const grossAmountNum = parseFloat(grossAmount.toFixed(2));
-        const inputDiscount = discount !== undefined && discount !== null && discount !== '' 
-            ? Number(discount) 
+        const inputDiscount = discount !== undefined && discount !== null && discount !== ''
+            ? Number(discount)
             : (waiver !== undefined && waiver !== null && waiver !== '' ? Number(waiver) : 0);
         const discountNum = Math.max(0, Math.min(grossAmountNum, parseFloat((Number(inputDiscount) || 0).toFixed(2))));
         const totalAmountNum = parseFloat(Math.max(0, grossAmountNum - discountNum).toFixed(2));
@@ -819,8 +819,8 @@ export const createAllocation = async (req, res) => {
                 paymentMethod: paymentMethod || 'CASH',
                 transactionId: transactionId || '',
                 accountHolderName: accountHolderName || '',
-                remarks: remarks || (discountNum > 0 
-                    ? `Book / Store Allotment - ${resolvedCourseName} | Gross: Rs. ${grossAmountNum} | Discount: Rs. ${discountNum} | Net: Rs. ${totalAmountNum}` 
+                remarks: remarks || (discountNum > 0
+                    ? `Book / Store Allotment - ${resolvedCourseName} | Gross: Rs. ${grossAmountNum} | Discount: Rs. ${discountNum} | Net: Rs. ${totalAmountNum}`
                     : `Book / Store Allotment - ${resolvedCourseName} - ${profile.studentInfo?.studentName || ''}`),
                 recordedBy: req.user?.id || req.user?._id,
                 cgst,
@@ -946,9 +946,9 @@ export const createAllocation = async (req, res) => {
 // Create bulk allocations for multiple students (multi-select)
 export const createBulkAllocation = async (req, res) => {
     try {
-        const { 
-            students, 
-            items, 
+        const {
+            students,
+            items,
             centreName,
             paymentMethod = 'CASH',
             receivedDate = new Date(),
@@ -977,8 +977,8 @@ export const createBulkAllocation = async (req, res) => {
         const perStudentGrossNum = parseFloat(perStudentGross.toFixed(2));
         const paymentDate = receivedDate ? new Date(receivedDate) : new Date();
 
-        const inputDiscount = discount !== undefined && discount !== null && discount !== '' 
-            ? Number(discount) 
+        const inputDiscount = discount !== undefined && discount !== null && discount !== ''
+            ? Number(discount)
             : (waiver !== undefined && waiver !== null && waiver !== '' ? Number(waiver) : 0);
         const totalDiscountNum = Math.max(0, Number(inputDiscount) || 0);
         const perStudentDiscount = students.length > 0 ? parseFloat((totalDiscountNum / students.length).toFixed(2)) : 0;
@@ -1066,8 +1066,8 @@ export const createBulkAllocation = async (req, res) => {
                     paymentMethod: paymentMethod || 'CASH',
                     transactionId: transactionId || '',
                     accountHolderName: accountHolderName || '',
-                    remarks: remarks || (studentDiscountNum > 0 
-                        ? `Bulk Inventory Allotment - Gross: Rs. ${studentGrossNum} | Discount: Rs. ${studentDiscountNum} | Net: Rs. ${studentNetNum}` 
+                    remarks: remarks || (studentDiscountNum > 0
+                        ? `Bulk Inventory Allotment - Gross: Rs. ${studentGrossNum} | Discount: Rs. ${studentDiscountNum} | Net: Rs. ${studentNetNum}`
                         : `Bulk Inventory Allotment - ${profile.studentInfo?.studentName || ''}`),
                     recordedBy: req.user?.id || req.user?._id,
                     cgst,
@@ -1177,7 +1177,7 @@ export const getStudentAllocations = async (req, res) => {
 export const getAllAllocations = async (req, res) => {
     try {
         const query = {};
-        
+
         if (req.user.role !== 'superAdmin') {
             const allowedCentres = req.user.centres || [];
             if (allowedCentres.length > 0) {
@@ -1408,6 +1408,8 @@ export const getExternalBookAllocations = async (req, res) => {
 
         const query = andConditions.length > 1 ? { $and: andConditions } : andConditions[0];
 
+        const queryLimit = Number(req.query?.limit) || 2000;
+
         const allocations = await Allocation.find(query)
             .populate({
                 path: 'student',
@@ -1416,7 +1418,7 @@ export const getExternalBookAllocations = async (req, res) => {
             .populate('payment')
             .populate('allocatedBy', 'name')
             .sort({ createdAt: -1 })
-            .limit(300)
+            .limit(queryLimit)
             .lean();
 
         res.status(200).json({
