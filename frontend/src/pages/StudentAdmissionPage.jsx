@@ -76,6 +76,10 @@ const StudentAdmissionPage = () => {
         baseFees: 0,
         cgstAmount: 0,
         sgstAmount: 0,
+        displayCgst: 0,
+        displaySgst: 0,
+        displayTotalWithGst: 0,
+        isPhsps: false,
         totalFees: 0,
         downPayment: 0,
         remainingAmount: 0,
@@ -158,681 +162,701 @@ const StudentAdmissionPage = () => {
         // Trigger calculation when inputs change
         calculateFees();
         // eslint-disable-next-line
-    }, [formData.courseId, formData.downPayment, formData.numberOfInstallments, formData.feeWaiver, admissionType, selectedSubjectIds, selectedBoard, boards, formData.customBoardDuration]);
+}, [formData.courseId, formData.downPayment, formData.numberOfInstallments, formData.feeWaiver, formData.centre, student, admissionType, selectedSubjectIds, selectedBoard, boards, formData.customBoardDuration]);
 
-    // Auto-fill down payment to total fees if installments is 0
-    useEffect(() => {
-        if (admissionType === "NORMAL" && parseInt(formData.numberOfInstallments) === 0 && feeBreakdown.totalFees > 0) {
-            if (formData.downPayment !== feeBreakdown.totalFees) {
-                setFormData(prev => ({ ...prev, downPayment: feeBreakdown.totalFees }));
-            }
+// Auto-fill down payment to total fees if installments is 0
+useEffect(() => {
+    if (admissionType === "NORMAL" && parseInt(formData.numberOfInstallments) === 0 && feeBreakdown.totalFees > 0) {
+        if (formData.downPayment !== feeBreakdown.totalFees) {
+            setFormData(prev => ({ ...prev, downPayment: feeBreakdown.totalFees }));
         }
-    }, [formData.numberOfInstallments, feeBreakdown.totalFees, admissionType]);
+    }
+}, [formData.numberOfInstallments, feeBreakdown.totalFees, admissionType]);
 
-    // Pre-select all matching fields when student and master data are loaded
-    useEffect(() => {
-        if (student && courses.length > 0) {
-            // Using localized matching logic instead of unused vars
+// Pre-select all matching fields when student and master data are loaded
+useEffect(() => {
+    if (student && courses.length > 0) {
+        // Using localized matching logic instead of unused vars
 
-            const registeredCourseName = student.sessionExamCourse?.[0]?.targetExams?.trim();
-            const registeredClassName = student.examSchema?.[0]?.class?.trim();
-            const registeredExamTagName = student.sessionExamCourse?.[0]?.examTag?.trim();
-            const registeredSession = student.sessionExamCourse?.[0]?.session?.trim();
+        const registeredCourseName = student.sessionExamCourse?.[0]?.targetExams?.trim();
+        const registeredClassName = student.examSchema?.[0]?.class?.trim();
+        const registeredExamTagName = student.sessionExamCourse?.[0]?.examTag?.trim();
+        const registeredSession = student.sessionExamCourse?.[0]?.session?.trim();
 
-            setFormData(prev => {
-                const newData = { ...prev };
+        setFormData(prev => {
+            const newData = { ...prev };
 
-                // Autofill Centre from lead/student data
-                if (student.studentsDetails?.[0]?.centre && !prev.centre) {
-                    newData.centre = student.studentsDetails[0].centre;
-                }
-
-                // Autofill Course - Prioritize student.course reference if it exists
-                if (student.course && !prev.courseId) {
-                    newData.courseId = typeof student.course === 'object' ? student.course._id : student.course;
-                }
-
-                // Autofill Department
-                if (student.department && !prev.departmentId) {
-                    newData.departmentId = typeof student.department === 'object' ? student.department._id : student.department;
-                }
-
-                // Autofill Class
-                if (!prev.classId) {
-                    const registeredClassName = student.examSchema?.[0]?.class?.trim();
-                    if (registeredClassName && classes.length > 0) {
-                        const matchedClass = classes.find(c =>
-                            c.name?.trim().toLowerCase() === registeredClassName.toLowerCase() ||
-                            c.name?.trim().toLowerCase().includes(registeredClassName.toLowerCase())
-                        );
-                        if (matchedClass) newData.classId = matchedClass._id;
-                    }
-                }
-
-                // Autofill Exam Tag
-                if (!prev.examTagId) {
-                    const registeredExamTagName = (student.sessionExamCourse?.[0]?.examTag || student.examSchema?.[0]?.examName)?.trim();
-                    if (registeredExamTagName && examTags.length > 0) {
-                        const matchedTag = examTags.find(t =>
-                            t.name?.trim().toLowerCase() === registeredExamTagName.toLowerCase()
-                        );
-                        if (matchedTag) newData.examTagId = matchedTag._id;
-                    }
-                }
-
-                // Autofill Programme from student
-                const studentProg = student.studentsDetails?.[0]?.programme || "CRP";
-                newData.programme = studentProg;
-                setCFilters(prevF => ({ ...prevF, programme: studentProg }));
-
-                // Autofill Batch from student
-                if (student.batches && student.batches.length > 0) {
-                    const bId = typeof student.batches[0] === 'object' ? student.batches[0]._id : student.batches[0];
-                    if (bId) newData.batchId = bId;
-                }
-
-                // Autofill Board from student
-                if (!prev.boardId && boards.length > 0) {
-                    const studentBoard = student.studentsDetails?.[0]?.board || student.board;
-                    if (studentBoard) {
-                        const matchedBoard = boards.find(b =>
-                            b._id === studentBoard ||
-                            b.boardCourse?.trim().toLowerCase() === String(studentBoard).trim().toLowerCase() ||
-                            b.boardCourse?.trim().toLowerCase().includes(String(studentBoard).trim().toLowerCase())
-                        );
-                        if (matchedBoard) {
-                            newData.boardId = matchedBoard._id;
-                            setSelectedBoard(matchedBoard._id);
-                        }
-                    }
-                }
-
-                // Autofill Session
-                if (!prev.academicSession && sessions.length > 0) {
-                    const registeredSession = student.sessionExamCourse?.[0]?.session?.trim();
-                    let matchedSession = null;
-                    if (registeredSession) {
-                        matchedSession = sessions.find(s =>
-                            s.sessionName?.trim().toLowerCase() === registeredSession.toLowerCase()
-                        );
-                    }
-
-                    if (matchedSession) {
-                        newData.academicSession = matchedSession.sessionName;
-                    } else {
-                        const defaultSession = sessions.find(s => s.sessionName === "2026-2027");
-                        newData.academicSession = defaultSession ? defaultSession.sessionName : sessions[0].sessionName;
-                    }
-                }
-
-                return newData;
-            });
-        }
-    }, [student, courses, classes, examTags, sessions, boards]); // simplified dependnecies
-
-    const fetchData = async () => {
-        setLoading(true);
-        try {
-            const token = localStorage.getItem("token");
-            const headers = { "Authorization": `Bearer ${token}` };
-
-            const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes, deptsRes, boardsRes, subjectsRes, accountsRes, batchesRes] = await Promise.all([
-                fetch(`${apiUrl}/normalAdmin/getStudent/${studentId}`, { headers }),
-                fetch(`${apiUrl}/course`, { headers }),
-                fetch(`${apiUrl}/class`, { headers }),
-                fetch(`${apiUrl}/examTag`, { headers }),
-                fetch(`${apiUrl}/session/list`, { headers }),
-                fetch(`${apiUrl}/department`, { headers }),
-                fetch(`${apiUrl}/board`, { headers }),
-                fetch(`${apiUrl}/subject`, { headers }),
-                fetch(`${apiUrl}/master-data/account`, { headers }),
-                fetch(`${apiUrl}/batch/list`, { headers })
-            ]);
-
-            const boardsData = boardsRes.ok ? await boardsRes.json() : [];
-            if (boardsRes.ok) setBoards(boardsData);
-
-            if (studentRes.ok) {
-                const sData = await studentRes.json();
-                setStudent(sData);
-                const initialBoard = (boardsData || []).find(b =>
-                    b._id === (sData.studentsDetails?.[0]?.board || sData.board) ||
-                    b.boardCourse?.trim().toLowerCase() === String(sData.studentsDetails?.[0]?.board || sData.board).trim().toLowerCase()
-                );
-                // Set initial centre
-                if (sData.studentsDetails?.[0]?.centre) {
-                    setFormData(prev => ({
-                        ...prev,
-                        centre: sData.studentsDetails[0].centre,
-                        programme: sData.studentsDetails[0].programme || prev.programme || "CRP",
-                        batchId: (sData.batches && sData.batches.length > 0) ? (sData.batches[0]?._id || sData.batches[0]) : prev.batchId,
-                        boardId: initialBoard ? initialBoard._id : prev.boardId
-                    }));
-                    if (sData.studentsDetails[0].programme) {
-                        setCFilters(prevF => ({ ...prevF, programme: sData.studentsDetails[0].programme }));
-                    }
-                    if (initialBoard) {
-                        setSelectedBoard(initialBoard._id);
-                    }
-                }
-            }
-            if (coursesRes.ok) setCourses(await coursesRes.json());
-            if (classesRes.ok) setClasses(await classesRes.json());
-            if (tagsRes.ok) setExamTags(await tagsRes.json());
-            if (sessionsRes.ok) {
-                const sData = await sessionsRes.json();
-                const sessionList = (Array.isArray(sData) ? sData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
-                setSessions(sessionList);
-            }
-            if (deptsRes.ok) {
-                const data = await deptsRes.json();
-                const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
-                setDepartments(visibleDepts);
-            }
-            if (subjectsRes.ok) await subjectsRes.json();
-            if (accountsRes.ok) {
-                const accData = await accountsRes.json();
-                const activeOnly = (Array.isArray(accData) ? accData : []).filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false);
-                setMasterAccounts(activeOnly);
-            }
-            if (batchesRes && batchesRes.ok) {
-                const bData = await batchesRes.json();
-                setBatches(Array.isArray(bData) ? bData : []);
+            // Autofill Centre from lead/student data
+            if (student.studentsDetails?.[0]?.centre && !prev.centre) {
+                newData.centre = student.studentsDetails[0].centre;
             }
 
-        } catch (error) {
-            console.error(error);
-            toast.error("Failed to fetch data");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const calculateFees = () => {
-        let baseFees = 0;
-        let courseDurationMonths = 1;
-        let monthlyFees = 0;
-
-        if (admissionType === "NORMAL") {
-            const course = courses.find(c => c._id === formData.courseId);
-            if (course) {
-                baseFees = course.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
-                setSelectedCourse(course);
-                // Auto-set department from course if available
-                if (course && course.department && formData.departmentId === "") { // Only auto-set if not already set
-                    setFormData(prev => ({ ...prev, departmentId: course.department._id || course.department }));
-                }
-            } else {
-                setSelectedCourse(null);
-                baseFees = 0;
+            // Autofill Course - Prioritize student.course reference if it exists
+            if (student.course && !prev.courseId) {
+                newData.courseId = typeof student.course === 'object' ? student.course._id : student.course;
             }
-        } else {
-            // BOARD Logic
-            if (selectedBoard && selectedSubjectIds.length > 0) {
-                const boardObj = boards.find(b => b._id === selectedBoard);
-                if (boardObj) {
-                    const selectedSubs = boardObj.subjects.filter(s =>
-                        s.subjectId && selectedSubjectIds.includes(s.subjectId._id)
+
+            // Autofill Department
+            if (student.department && !prev.departmentId) {
+                newData.departmentId = typeof student.department === 'object' ? student.department._id : student.department;
+            }
+
+            // Autofill Class
+            if (!prev.classId) {
+                const registeredClassName = student.examSchema?.[0]?.class?.trim();
+                if (registeredClassName && classes.length > 0) {
+                    const matchedClass = classes.find(c =>
+                        c.name?.trim().toLowerCase() === registeredClassName.toLowerCase() ||
+                        c.name?.trim().toLowerCase().includes(registeredClassName.toLowerCase())
                     );
-
-                    // Calculate monthly fees (sum of selected subject prices)
-                    monthlyFees = selectedSubs.reduce((sum, s) => sum + (s.price || 0), 0);
-
-                    // Calculate course duration from board
-                    if (boardObj.duration) {
-                        const durationStr = boardObj.duration.toLowerCase();
-                        if (durationStr.includes('month')) {
-                            const match = durationStr.match(/\d+/);
-                            if (match) courseDurationMonths = parseInt(match[0]);
-                        } else if (durationStr.includes('year')) {
-                            const match = durationStr.match(/\d+/);
-                            if (match) courseDurationMonths = parseInt(match[0]) * 12;
-                        }
-                    }
-
-                    // Override default duration if manual input is provided
-                    const manualDur = parseInt(formData.customBoardDuration);
-                    if (!isNaN(manualDur) && manualDur > 0) {
-                        courseDurationMonths = manualDur;
-                    }
-
-                    // Total base fees = monthly fees × duration
-                    baseFees = monthlyFees * courseDurationMonths;
-
-                    setSelectedCourse({
-                        courseName: `${boardObj.boardCourse} Course`,
-                        feesStructure: selectedSubs.map(s => ({
-                            feesType: s.subjectId.subName,
-                            value: s.price || 0
-                        })),
-                        courseDurationMonths: courseDurationMonths,
-                        monthlyFees: monthlyFees
-                    });
+                    if (matchedClass) newData.classId = matchedClass._id;
                 }
-            } else {
-                setSelectedCourse(null);
-            }
-        }
-
-        const feeWaiver = parseFloat(formData.feeWaiver) || 0;
-
-        const centre = (student?.studentsDetails?.[0]?.centre || formData.centre || '').toString();
-        const isPhsps = centre && /phsps/i.test(centre);
-
-        const boardDoc = boards.find(b => (b._id === formData.boardId || b._id === selectedBoard || b._id === formData.board || b.boardCourse === formData.board));
-        const board = (
-            boardDoc?.boardCourse ||
-            boardDoc?.name ||
-            selectedBoard?.boardCourse ||
-            selectedBoard?.name ||
-            formData.board ||
-            student?.studentsDetails?.[0]?.board ||
-            student?.examSchema?.[0]?.board ||
-            ''
-        ).toString();
-        const isWbchse = /wbchse/i.test(board);
-
-        const batchDoc = batches.find(b => (b._id === formData.batchId || b._id === formData.batch || b.batchName === formData.batch));
-        const rawBatches = Array.isArray(student?.batches) ? [...student.batches] : (student?.batches ? [student.batches] : []);
-        if (batchDoc) rawBatches.push(batchDoc);
-        if (formData.batchId) rawBatches.push(formData.batchId);
-        if (formData.batch) rawBatches.push(formData.batch);
-        if (student?.carryForwardBatch) rawBatches.push(student.carryForwardBatch);
-        if (student?.markedForCarryForward) rawBatches.push(student.markedForCarryForward);
-        if (student?.studentsDetails?.[0]?.batch) rawBatches.push(student.studentsDetails[0].batch);
-
-        const hasTaat = rawBatches.some(b => {
-            const bName = typeof b === 'string' ? b : (b?.batchName || b?.name || '');
-            return /taat\s*[ab]?\s*(jee|neet)?/i.test(bName) || /taat/i.test(bName);
-        }) || /taat/i.test(formData.programme || '') || /taat/i.test(student?.studentsDetails?.[0]?.programme || '');
-        const isExempt = isPhsps || (isWbchse && hasTaat);
-
-        // Calculate Total Inclusive Fees BEFORE waiver (Standard GST 18% or 0% if exempt)
-        const totalInclusiveBeforeWaiver = isExempt ? baseFees : baseFees * 1.18;
-
-        // Total Fees after waiver (deducted from total inclusive amount)
-        const previousBalance = student?.carryForwardBalance || 0;
-        const totalFees = parseFloat(Math.max(0, (totalInclusiveBeforeWaiver - feeWaiver + previousBalance)).toFixed(3));
-
-        // Back-calculate Taxable Amount and GST from the new total (exclusive of previous balance)
-        const totalForGst = Math.max(0, totalFees - previousBalance);
-        const taxableAmount = isExempt ? totalForGst : parseFloat((totalForGst / 1.18).toFixed(3));
-
-        // Calculate CGST (9%) and SGST (9%)
-        const cgstAmount = isExempt ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
-        const sgstAmount = isExempt ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
-
-        // Down payment can be a decimal (e.g. ₹500.50)
-        const downPayment = parseFloat(formData.downPayment) || 0;
-        const remainingAmount = parseFloat(Math.max(0, totalFees - downPayment).toFixed(3));
-
-        // For Board courses, calculate monthly amount with taxes
-        let monthlyAmount = 0;
-        if (admissionType === "BOARD") {
-            const monthlyTaxable = monthlyFees;
-            const monthlyCgst = isExempt ? 0 : parseFloat((monthlyTaxable * 0.09).toFixed(3));
-            const monthlySgst = isExempt ? 0 : parseFloat((monthlyTaxable * 0.09).toFixed(3));
-            monthlyAmount = parseFloat((monthlyTaxable + monthlyCgst + monthlySgst).toFixed(3));
-        }
-
-        // For Board courses, use course duration months; for Normal, use installments
-        // For Board courses, use course duration - 1 for installments (since DP is Month 1)
-        const numberOfInstallments = admissionType === "BOARD"
-            ? Math.max(0, courseDurationMonths - 1)
-            : (parseInt(formData.numberOfInstallments) || 0);
-
-        // ── Ceiling-based installment logic ──
-        let installmentAmount;
-        if (admissionType === "BOARD") {
-            installmentAmount = monthlyAmount; // Board: each month is the fixed monthly amount
-        } else if (numberOfInstallments === 0) {
-            installmentAmount = 0;
-        } else {
-            installmentAmount = numberOfInstallments === 1
-                ? remainingAmount           // Only one installment — keep exact (could be decimal)
-                : Math.ceil(remainingAmount / numberOfInstallments); // Ceil for multi-installment
-        }
-
-        // Generate payment schedule
-        const paymentSchedule = [];
-        const currentDate = new Date();
-
-        for (let i = 0; i < numberOfInstallments; i++) {
-            const dueDate = new Date(currentDate);
-            dueDate.setMonth(dueDate.getMonth() + i + 1);
-
-            let amount;
-            if (admissionType === "BOARD") {
-                amount = monthlyAmount;
-            } else if (numberOfInstallments === 1) {
-                amount = remainingAmount;
-            } else if (i === numberOfInstallments - 1) {
-                // Last installment = exact residual (remainingAmount minus what was already scheduled)
-                const alreadyScheduled = installmentAmount * (numberOfInstallments - 1);
-                amount = parseFloat(Math.max(0, remainingAmount - alreadyScheduled).toFixed(3));
-            } else {
-                amount = installmentAmount; // Ceiling value for all non-last installments
             }
 
-            paymentSchedule.push({
-                installmentNumber: i + 1,
-                dueDate: dueDate.toLocaleDateString(),
-                amount
-            });
-        }
-
-        setFeeBreakdown({
-            baseFees,
-            cgstAmount,
-            sgstAmount,
-            previousBalance,
-            totalFees,
-            downPayment,
-            remainingAmount,
-            installmentAmount,
-            paymentSchedule,
-            courseDurationMonths: admissionType === "BOARD" ? courseDurationMonths : undefined,
-            monthlyFees: admissionType === "BOARD" ? monthlyFees : undefined
-        });
-    };
-
-    // ── Discount helpers ──────────────────────────────────────────────────────
-    // Returns the maximum rupee discount allowed based on the course's feesStructure
-    const getMaxAllowedDiscount = (course) => {
-        const src = course || selectedCourse;
-        if (!src || !src.feesStructure) return Infinity; // no course selected → no cap
-        return src.feesStructure.reduce((total, fee) => {
-            const discountStr = (fee.discount || '0').toString().replace('%', '').trim();
-            const discountPct = parseFloat(discountStr) || 0;
-            if (discountPct <= 0) return total;
-            const maxForFee = (discountPct / 100) * (Number(fee.value) || 0);
-            return total + maxForFee;
-        }, 0);
-    };
-
-    // Per-fee discount cap details for display
-    const getDiscountBreakdown = () => {
-        if (!selectedCourse || !selectedCourse.feesStructure) return [];
-        return selectedCourse.feesStructure
-            .map(fee => {
-                const discountPct = parseFloat((fee.discount || '0').toString().replace('%', '').trim()) || 0;
-                const maxAmt = (discountPct / 100) * (Number(fee.value) || 0);
-                return { feesType: fee.feesType, value: fee.value, discountPct, maxAmt };
-            })
-            .filter(f => f.discountPct > 0);
-    };
-
-    const handleInputChange = (e) => {
-        const { name, value } = e.target;
-
-        // Validate feeWaiver against max allowed discount
-        if (name === 'feeWaiver') {
-            const entered = parseFloat(value) || 0;
-            const maxAllowed = getMaxAllowedDiscount();
-            if (maxAllowed < Infinity && entered > maxAllowed) {
-                setDiscountError(
-                    `❌ Discount cannot exceed ₹${Math.floor(maxAllowed).toLocaleString('en-IN')} — the maximum allowed by the course fee structure.`
-                );
-            } else {
-                setDiscountError('');
+            // Autofill Exam Tag
+            if (!prev.examTagId) {
+                const registeredExamTagName = (student.sessionExamCourse?.[0]?.examTag || student.examSchema?.[0]?.examName)?.trim();
+                if (registeredExamTagName && examTags.length > 0) {
+                    const matchedTag = examTags.find(t =>
+                        t.name?.trim().toLowerCase() === registeredExamTagName.toLowerCase()
+                    );
+                    if (matchedTag) newData.examTagId = matchedTag._id;
+                }
             }
-        }
 
-        setFormData({ ...formData, [name]: value });
+            // Autofill Programme from student
+            const studentProg = student.studentsDetails?.[0]?.programme || "CRP";
+            newData.programme = studentProg;
+            setCFilters(prevF => ({ ...prevF, programme: studentProg }));
 
-        // Auto-close filters if course is selected
-        if (name === "courseId" && value) {
-            setShowCourseFilters(false);
-        }
-    };
-
-    const handleFilterChange = (e) => {
-        const { name, value } = e.target;
-        setCFilters(prev => ({ ...prev, [name]: value }));
-    };
-
-    const filteredCourses = courses.filter(course => {
-        // Search term filter
-        if (courseSearchTerm && !course.courseName.toLowerCase().includes(courseSearchTerm.toLowerCase())) {
-            return false;
-        }
-
-        // Advanced filters
-        if (cFilters.examTagId && (course.examTag?._id !== cFilters.examTagId && course.examTag !== cFilters.examTagId)) return false;
-        if (cFilters.academicSession && course.courseSession !== cFilters.academicSession) return false;
-        if (cFilters.departmentId && (course.department?._id !== cFilters.departmentId && course.department !== cFilters.departmentId)) return false;
-        if (cFilters.classId && (course.class?._id !== cFilters.classId && course.class !== cFilters.classId)) return false;
-        if (cFilters.boardId && (course.board?._id !== cFilters.boardId && course.board !== cFilters.boardId)) return false;
-        if (cFilters.programme && course.programme !== cFilters.programme) return false;
-        if (cFilters.mode && course.mode !== cFilters.mode) return false;
-        if (cFilters.courseType && course.courseType !== cFilters.courseType) return false;
-
-        return true;
-    });
-
-    const handleSubjectChange = (subjectId) => {
-        setSelectedSubjectIds(prev => {
-            if (prev.includes(subjectId)) {
-                return prev.filter(id => id !== subjectId);
-            } else {
-                return [...prev, subjectId];
+            // Autofill Batch from student
+            if (student.batches && student.batches.length > 0) {
+                const bId = typeof student.batches[0] === 'object' ? student.batches[0]._id : student.batches[0];
+                if (bId) newData.batchId = bId;
             }
-        });
-    };
 
-    const handleSubmit = async (e, posData = null) => {
-        if (e) e.preventDefault();
-
-        if (!posData && formData.paymentMethod === 'RAZORPAY_POS' && parseFloat(formData.downPayment) > 0) {
-            setShowPOSModal(true);
-            return;
-        }
-
-        setLoading(true);
-
-        const currentFormData = posData ? {
-            ...formData,
-            transactionId: posData.p2pRequestId,
-            remarks: (formData.remarks ? formData.remarks + " | " : "") + "Razorpay POS Authorized"
-        } : formData;
-
-        console.log("📤 [Admission Submit] Final Payload Form Data:", JSON.stringify(currentFormData, null, 2));
-        console.log("📤 [Admission Submit] Student ID:", studentId);
-        console.log("📤 [Admission Submit] Admission Type:", admissionType);
-
-        // Validate discount cap
-        const maxAllowed = getMaxAllowedDiscount();
-        const enteredWaiver = parseFloat(currentFormData.feeWaiver) || 0;
-        if (maxAllowed < Infinity && enteredWaiver > maxAllowed) {
-            toast.error(`Fee waiver ₹${enteredWaiver.toLocaleString('en-IN')} exceeds the allowed maximum of ₹${Math.floor(maxAllowed).toLocaleString('en-IN')}. Please reduce the discount.`);
-            setLoading(false);
-            return;
-        }
-
-        if (!formData.examTagId) {
-            toast.error("Please select an Exam Tag.");
-            setLoading(false);
-            return;
-        }
-
-        // Basic validation for board admission
-        if (admissionType === "BOARD" && (!selectedBoard || selectedSubjectIds.length === 0)) {
-            toast.error("Please select a board and at least one subject for Board Admission.");
-            setLoading(false);
-            return;
-        }
-
-        if (admissionType === "BOARD" && !billingMonth) {
-            toast.error("Please select a billing month for Board Admission.");
-            setLoading(false);
-            return;
-        }
-
-        if (!formData.departmentId) {
-            toast.error("Please select a department.");
-            setLoading(false);
-            return;
-        }
-
-        if (!formData.boardId && !selectedBoard) {
-            toast.error("Board selection is mandatory.");
-            setLoading(false);
-            return;
-        }
-
-        if (!formData.paymentMethod) {
-            toast.error("Please select a payment method.");
-            setLoading(false);
-            return;
-        }
-
-        if (formData.programme === "CRP" && !formData.batchId) {
-            toast.error("Batch selection is mandatory for CRP programme.");
-            setLoading(false);
-            return;
-        }
-
-        if (!formData.admittedBy) {
-            toast.error("Please select an admitting officer.");
-            setLoading(false);
-            return;
-        }
-
-        // New validation: require Transaction ID for UPI/CARD/BANK_TRANSFER if down payment > 0
-        if (['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod) && parseFloat(formData.downPayment) > 0 && !formData.transactionId) {
-            toast.error(`Transaction ID / Ref is mandatory for ${formData.paymentMethod} payments.`);
-            setLoading(false);
-            return;
-        }
-
-        if (formData.paymentMethod === "CHEQUE" && !formData.bankAccount) {
-            toast.error("Bank Account selection is required for Cheque payments.");
-            setLoading(false);
-            return;
-        }
-
-
-        try {
-            const token = localStorage.getItem("token");
-            const response = await fetch(`${apiUrl}/admission/create`, {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
-                body: JSON.stringify({
-                    studentId,
-                    admissionType,
-                    boardId: selectedBoard,
-                    selectedSubjectIds,
-                    billingMonth,
-                    ...currentFormData,
-                    admissionNumber: student?.admissionNumber || student?.studentsDetails?.[0]?.rollNo || student?.studentsDetails?.[0]?.admissionNumber || location?.state?.rollNo || location?.state?.admissionNumber || location?.state?.leadData?.existingEnrollmentNo || undefined,
-                    // For Board courses, set numberOfInstallments to course duration - 1 (since DP covers Month 1)
-                    numberOfInstallments: admissionType === "BOARD" ? Math.max(1, feeBreakdown.courseDurationMonths - 1) : formData.numberOfInstallments
-                })
-            });
-
-            const data = await response.json();
-
-            if (response.ok) {
-                toast.success("Admission created successfully!");
-                setCreatedAdmission(data.admission);
-
-                // Mark lead as counseled if came from a lead
-                if (location.state?.leadData?._id) {
-                    try {
-                        await fetch(`${apiUrl}/lead-management/${location.state.leadData._id}`, {
-                            method: "PUT",
-                            headers: {
-                                "Content-Type": "application/json",
-                                "Authorization": `Bearer ${token}`
-                            },
-                            body: JSON.stringify({ isCounseled: true })
-                        });
-                    } catch (e) {
-                        console.error("Error updating lead status:", e);
+            // Autofill Board from student
+            if (!prev.boardId && boards.length > 0) {
+                const studentBoard = student.studentsDetails?.[0]?.board || student.board;
+                if (studentBoard) {
+                    const matchedBoard = boards.find(b =>
+                        b._id === studentBoard ||
+                        b.boardCourse?.trim().toLowerCase() === String(studentBoard).trim().toLowerCase() ||
+                        b.boardCourse?.trim().toLowerCase().includes(String(studentBoard).trim().toLowerCase())
+                    );
+                    if (matchedBoard) {
+                        newData.boardId = matchedBoard._id;
+                        setSelectedBoard(matchedBoard._id);
                     }
                 }
+            }
 
-                // If down payment was made via cheque, generate Receiving Slip; otherwise generate Bill
-                if (data.admission.downPayment > 0 && currentFormData.paymentMethod === "CHEQUE") {
-                    toast.success("Cheque recorded! Generating receiving slip...", { autoClose: 3000 });
-                    setBillModal({
-                        show: true,
-                        isReceivingSlip: true,
-                        admission: data.admission,
-                        installment: {
-                            installmentNumber: 0,
-                            amount: data.admission.downPayment,
-                            paidAmount: data.admission.downPayment,
-                            paidDate: new Date(),
-                            receivedDate: formData.receivedDate,
-                            paymentMethod: "CHEQUE",
-                            transactionId: formData.transactionId,
-                            bankName: formData.bankName,
-                            accountHolderName: formData.accountHolderName,
-                            chequeDate: formData.chequeDate,
-                            status: "PENDING_CLEARANCE",
-                            isReceivingSlip: true
-                        }
-                    });
-                } else if (data.admission.downPayment > 0) {
-                    toast.success("Admission created! Generating bill...", { autoClose: 3000 });
-                    setBillModal({
-                        show: true,
-                        isReceivingSlip: false,
-                        admission: data.admission,
-                        installment: {
-                            installmentNumber: 0,
-                            amount: data.admission.downPayment,
-                            paidAmount: data.admission.downPayment,
-                            paidDate: new Date(),
-                            receivedDate: formData.receivedDate,
-                            paymentMethod: formData.paymentMethod,
-                            status: "PAID"
-                        }
-                    });
+            // Autofill Session
+            if (!prev.academicSession && sessions.length > 0) {
+                const registeredSession = student.sessionExamCourse?.[0]?.session?.trim();
+                let matchedSession = null;
+                if (registeredSession) {
+                    matchedSession = sessions.find(s =>
+                        s.sessionName?.trim().toLowerCase() === registeredSession.toLowerCase()
+                    );
+                }
+
+                if (matchedSession) {
+                    newData.academicSession = matchedSession.sessionName;
                 } else {
-                    setTimeout(() => navigate("/admissions"), 2000);
+                    const defaultSession = sessions.find(s => s.sessionName === "2026-2027");
+                    newData.academicSession = defaultSession ? defaultSession.sessionName : sessions[0].sessionName;
                 }
-            } else {
-                toast.error(data.message || "Failed to create admission");
             }
-        } catch (error) {
-            console.error(error);
-            toast.error("Server error");
-        } finally {
-            setLoading(false);
-        }
-    };
 
-    if (loading && !student) {
-        return (
-            <div className={`flex-1 p-6 flex items-center justify-center ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
-                <p className={`${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Loading...</p>
-            </div>
-        );
+            return newData;
+        });
+    }
+}, [student, courses, classes, examTags, sessions, boards]); // simplified dependnecies
+
+const fetchData = async () => {
+    setLoading(true);
+    try {
+        const token = localStorage.getItem("token");
+        const headers = { "Authorization": `Bearer ${token}` };
+
+        const [studentRes, coursesRes, classesRes, tagsRes, sessionsRes, deptsRes, boardsRes, subjectsRes, accountsRes, batchesRes] = await Promise.all([
+            fetch(`${apiUrl}/normalAdmin/getStudent/${studentId}`, { headers }),
+            fetch(`${apiUrl}/course`, { headers }),
+            fetch(`${apiUrl}/class`, { headers }),
+            fetch(`${apiUrl}/examTag`, { headers }),
+            fetch(`${apiUrl}/session/list`, { headers }),
+            fetch(`${apiUrl}/department`, { headers }),
+            fetch(`${apiUrl}/board`, { headers }),
+            fetch(`${apiUrl}/subject`, { headers }),
+            fetch(`${apiUrl}/master-data/account`, { headers }),
+            fetch(`${apiUrl}/batch/list`, { headers })
+        ]);
+
+        const boardsData = boardsRes.ok ? await boardsRes.json() : [];
+        if (boardsRes.ok) setBoards(boardsData);
+
+        if (studentRes.ok) {
+            const sData = await studentRes.json();
+            setStudent(sData);
+            const initialBoard = (boardsData || []).find(b =>
+                b._id === (sData.studentsDetails?.[0]?.board || sData.board) ||
+                b.boardCourse?.trim().toLowerCase() === String(sData.studentsDetails?.[0]?.board || sData.board).trim().toLowerCase()
+            );
+            // Set initial centre
+            if (sData.studentsDetails?.[0]?.centre) {
+                setFormData(prev => ({
+                    ...prev,
+                    centre: sData.studentsDetails[0].centre,
+                    programme: sData.studentsDetails[0].programme || prev.programme || "CRP",
+                    batchId: (sData.batches && sData.batches.length > 0) ? (sData.batches[0]?._id || sData.batches[0]) : prev.batchId,
+                    boardId: initialBoard ? initialBoard._id : prev.boardId
+                }));
+                if (sData.studentsDetails[0].programme) {
+                    setCFilters(prevF => ({ ...prevF, programme: sData.studentsDetails[0].programme }));
+                }
+                if (initialBoard) {
+                    setSelectedBoard(initialBoard._id);
+                }
+            }
+        }
+        if (coursesRes.ok) setCourses(await coursesRes.json());
+        if (classesRes.ok) setClasses(await classesRes.json());
+        if (tagsRes.ok) setExamTags(await tagsRes.json());
+        if (sessionsRes.ok) {
+            const sData = await sessionsRes.json();
+            const sessionList = (Array.isArray(sData) ? sData : []).sort((a, b) => (b.sessionName || "").localeCompare(a.sessionName || ""));
+            setSessions(sessionList);
+        }
+        if (deptsRes.ok) {
+            const data = await deptsRes.json();
+            const visibleDepts = Array.isArray(data) ? data.filter(dept => dept.showInAdmission !== false) : [];
+            setDepartments(visibleDepts);
+        }
+        if (subjectsRes.ok) await subjectsRes.json();
+        if (accountsRes.ok) {
+            const accData = await accountsRes.json();
+            const activeOnly = (Array.isArray(accData) ? accData : []).filter(acc => (acc.status || 'Active') === 'Active' && acc.isActive !== false);
+            setMasterAccounts(activeOnly);
+        }
+        if (batchesRes && batchesRes.ok) {
+            const bData = await batchesRes.json();
+            setBatches(Array.isArray(bData) ? bData : []);
+        }
+
+    } catch (error) {
+        console.error(error);
+        toast.error("Failed to fetch data");
+    } finally {
+        setLoading(false);
+    }
+};
+
+const calculateFees = () => {
+    let baseFees = 0;
+    let courseDurationMonths = 1;
+    let monthlyFees = 0;
+
+    if (admissionType === "NORMAL") {
+        const course = courses.find(c => c._id === formData.courseId);
+        if (course) {
+            baseFees = course.feesStructure.reduce((sum, fee) => sum + fee.value, 0);
+            setSelectedCourse(course);
+            // Auto-set department from course if available
+            if (course && course.department && formData.departmentId === "") { // Only auto-set if not already set
+                setFormData(prev => ({ ...prev, departmentId: course.department._id || course.department }));
+            }
+        } else {
+            setSelectedCourse(null);
+            baseFees = 0;
+        }
+    } else {
+        // BOARD Logic
+        if (selectedBoard && selectedSubjectIds.length > 0) {
+            const boardObj = boards.find(b => b._id === selectedBoard);
+            if (boardObj) {
+                const selectedSubs = boardObj.subjects.filter(s =>
+                    s.subjectId && selectedSubjectIds.includes(s.subjectId._id)
+                );
+
+                // Calculate monthly fees (sum of selected subject prices)
+                monthlyFees = selectedSubs.reduce((sum, s) => sum + (s.price || 0), 0);
+
+                // Calculate course duration from board
+                if (boardObj.duration) {
+                    const durationStr = boardObj.duration.toLowerCase();
+                    if (durationStr.includes('month')) {
+                        const match = durationStr.match(/\d+/);
+                        if (match) courseDurationMonths = parseInt(match[0]);
+                    } else if (durationStr.includes('year')) {
+                        const match = durationStr.match(/\d+/);
+                        if (match) courseDurationMonths = parseInt(match[0]) * 12;
+                    }
+                }
+
+                // Override default duration if manual input is provided
+                const manualDur = parseInt(formData.customBoardDuration);
+                if (!isNaN(manualDur) && manualDur > 0) {
+                    courseDurationMonths = manualDur;
+                }
+
+                // Total base fees = monthly fees × duration
+                baseFees = monthlyFees * courseDurationMonths;
+
+                setSelectedCourse({
+                    courseName: `${boardObj.boardCourse} Course`,
+                    feesStructure: selectedSubs.map(s => ({
+                        feesType: s.subjectId.subName,
+                        value: s.price || 0
+                    })),
+                    courseDurationMonths: courseDurationMonths,
+                    monthlyFees: monthlyFees
+                });
+            }
+        } else {
+            setSelectedCourse(null);
+        }
     }
 
+    const feeWaiver = parseFloat(formData.feeWaiver) || 0;
+
+    const centre = (student?.studentsDetails?.[0]?.centre || formData.centre || '').toString();
+    const isPhsps = centre && /phsps/i.test(centre);
+    const isPhsps = Boolean(centre && (/^phsps/i.test(centre.trim()) || /phsps/i.test(centre)));
+
+    const boardDoc = boards.find(b => (b._id === formData.boardId || b._id === selectedBoard || b._id === formData.board || b.boardCourse === formData.board));
+    const board = (
+        boardDoc?.boardCourse ||
+        boardDoc?.name ||
+        selectedBoard?.boardCourse ||
+        selectedBoard?.name ||
+        formData.board ||
+        student?.studentsDetails?.[0]?.board ||
+        student?.examSchema?.[0]?.board ||
+        ''
+    ).toString();
+    const isWbchse = /wbchse/i.test(board);
+
+    const batchDoc = batches.find(b => (b._id === formData.batchId || b._id === formData.batch || b.batchName === formData.batch));
+    const rawBatches = Array.isArray(student?.batches) ? [...student.batches] : (student?.batches ? [student.batches] : []);
+    if (batchDoc) rawBatches.push(batchDoc);
+    if (formData.batchId) rawBatches.push(formData.batchId);
+    if (formData.batch) rawBatches.push(formData.batch);
+    if (student?.carryForwardBatch) rawBatches.push(student.carryForwardBatch);
+    if (student?.markedForCarryForward) rawBatches.push(student.markedForCarryForward);
+    if (student?.studentsDetails?.[0]?.batch) rawBatches.push(student.studentsDetails[0].batch);
+
+    const hasTaat = rawBatches.some(b => {
+        const bName = typeof b === 'string' ? b : (b?.batchName || b?.name || '');
+        return /taat\s*[ab]?\s*(jee|neet)?/i.test(bName) || /taat/i.test(bName);
+    }) || /taat/i.test(formData.programme || '') || /taat/i.test(student?.studentsDetails?.[0]?.programme || '');
+    const isExempt = isPhsps || (isWbchse && hasTaat);
+
+    // Standard Course Catalog Taxes (always 18% GST on base fees before discounts)
+    const standardCgst = parseFloat((baseFees * 0.09).toFixed(3));
+    const standardSgst = parseFloat((baseFees * 0.09).toFixed(3));
+    const standardTotalWithGst = parseFloat((baseFees * 1.18).toFixed(3));
+
+    // Calculate Total Inclusive Fees BEFORE waiver (Standard GST 18% or 0% if exempt)
+    // For PHSPS centres, Pathfinder does not charge GST, so the student's fee is based directly on baseFees
+    const totalInclusiveBeforeWaiver = isExempt ? baseFees : baseFees * 1.18;
+
+    // Total Fees after waiver (deducted from total inclusive amount)
+    // Total Fees after waiver (deducted from baseFees if exempt/PHSPS, or inclusive total if normal)
+    const previousBalance = student?.carryForwardBalance || 0;
+    const totalFees = parseFloat(Math.max(0, (totalInclusiveBeforeWaiver - feeWaiver + previousBalance)).toFixed(3));
+
+    // Back-calculate Taxable Amount and GST from the new total (exclusive of previous balance)
+    const totalForGst = Math.max(0, totalFees - previousBalance);
+    const taxableAmount = isExempt ? totalForGst : parseFloat((totalForGst / 1.18).toFixed(3));
+
+    // Calculate CGST (9%) and SGST (9%)
+    // Calculate CGST (9%) and SGST (9%) for the transaction/backend
+    const cgstAmount = isExempt ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
+    const sgstAmount = isExempt ? 0 : parseFloat((taxableAmount * 0.09).toFixed(3));
+
+    // Display values for Course Fee Structure section:
+    // For PHSPS centres, display the full course fee structure with GST:
+    // Base Fees + CGST (9%) + SGST (9%) = Total Fees (with GST)
+    const displayCgst = isPhsps ? standardCgst : cgstAmount;
+    const displaySgst = isPhsps ? standardSgst : sgstAmount;
+    const displayTotalWithGst = isPhsps ? standardTotalWithGst : totalFees;
+
+    // Down payment can be a decimal (e.g. ₹500.50)
+    const downPayment = parseFloat(formData.downPayment) || 0;
+    const remainingAmount = parseFloat(Math.max(0, totalFees - downPayment).toFixed(3));
+
+    // For Board courses, calculate monthly amount with taxes
+    let monthlyAmount = 0;
+    if (admissionType === "BOARD") {
+        const monthlyTaxable = monthlyFees;
+        const monthlyCgst = isExempt ? 0 : parseFloat((monthlyTaxable * 0.09).toFixed(3));
+        const monthlySgst = isExempt ? 0 : parseFloat((monthlyTaxable * 0.09).toFixed(3));
+        monthlyAmount = parseFloat((monthlyTaxable + monthlyCgst + monthlySgst).toFixed(3));
+    }
+
+    // For Board courses, use course duration months; for Normal, use installments
+    // For Board courses, use course duration - 1 for installments (since DP is Month 1)
+    const numberOfInstallments = admissionType === "BOARD"
+        ? Math.max(0, courseDurationMonths - 1)
+        : (parseInt(formData.numberOfInstallments) || 0);
+
+    // ── Ceiling-based installment logic ──
+    let installmentAmount;
+    if (admissionType === "BOARD") {
+        installmentAmount = monthlyAmount; // Board: each month is the fixed monthly amount
+    } else if (numberOfInstallments === 0) {
+        installmentAmount = 0;
+    } else {
+        installmentAmount = numberOfInstallments === 1
+            ? remainingAmount           // Only one installment — keep exact (could be decimal)
+            : Math.ceil(remainingAmount / numberOfInstallments); // Ceil for multi-installment
+    }
+
+    // Generate payment schedule
+    const paymentSchedule = [];
+    const currentDate = new Date();
+
+    for (let i = 0; i < numberOfInstallments; i++) {
+        const dueDate = new Date(currentDate);
+        dueDate.setMonth(dueDate.getMonth() + i + 1);
+
+        let amount;
+        if (admissionType === "BOARD") {
+            amount = monthlyAmount;
+        } else if (numberOfInstallments === 1) {
+            amount = remainingAmount;
+        } else if (i === numberOfInstallments - 1) {
+            // Last installment = exact residual (remainingAmount minus what was already scheduled)
+            const alreadyScheduled = installmentAmount * (numberOfInstallments - 1);
+            amount = parseFloat(Math.max(0, remainingAmount - alreadyScheduled).toFixed(3));
+        } else {
+            amount = installmentAmount; // Ceiling value for all non-last installments
+        }
+
+        paymentSchedule.push({
+            installmentNumber: i + 1,
+            dueDate: dueDate.toLocaleDateString(),
+            amount
+        });
+    }
+
+    setFeeBreakdown({
+        baseFees,
+        cgstAmount,
+        sgstAmount,
+        displayCgst,
+        displaySgst,
+        displayTotalWithGst,
+        isPhsps,
+        previousBalance,
+        totalFees,
+        downPayment,
+        remainingAmount,
+        installmentAmount,
+        paymentSchedule,
+        courseDurationMonths: admissionType === "BOARD" ? courseDurationMonths : undefined,
+        monthlyFees: admissionType === "BOARD" ? monthlyFees : undefined
+    });
+};
+
+// ── Discount helpers ──────────────────────────────────────────────────────
+// Returns the maximum rupee discount allowed based on the course's feesStructure
+const getMaxAllowedDiscount = (course) => {
+    const src = course || selectedCourse;
+    if (!src || !src.feesStructure) return Infinity; // no course selected → no cap
+    return src.feesStructure.reduce((total, fee) => {
+        const discountStr = (fee.discount || '0').toString().replace('%', '').trim();
+        const discountPct = parseFloat(discountStr) || 0;
+        if (discountPct <= 0) return total;
+        const maxForFee = (discountPct / 100) * (Number(fee.value) || 0);
+        return total + maxForFee;
+    }, 0);
+};
+
+// Per-fee discount cap details for display
+const getDiscountBreakdown = () => {
+    if (!selectedCourse || !selectedCourse.feesStructure) return [];
+    return selectedCourse.feesStructure
+        .map(fee => {
+            const discountPct = parseFloat((fee.discount || '0').toString().replace('%', '').trim()) || 0;
+            const maxAmt = (discountPct / 100) * (Number(fee.value) || 0);
+            return { feesType: fee.feesType, value: fee.value, discountPct, maxAmt };
+        })
+        .filter(f => f.discountPct > 0);
+};
+
+const handleInputChange = (e) => {
+    const { name, value } = e.target;
+
+    // Validate feeWaiver against max allowed discount
+    if (name === 'feeWaiver') {
+        const entered = parseFloat(value) || 0;
+        const maxAllowed = getMaxAllowedDiscount();
+        if (maxAllowed < Infinity && entered > maxAllowed) {
+            setDiscountError(
+                `❌ Discount cannot exceed ₹${Math.floor(maxAllowed).toLocaleString('en-IN')} — the maximum allowed by the course fee structure.`
+            );
+        } else {
+            setDiscountError('');
+        }
+    }
+
+    setFormData({ ...formData, [name]: value });
+
+    // Auto-close filters if course is selected
+    if (name === "courseId" && value) {
+        setShowCourseFilters(false);
+    }
+};
+
+const handleFilterChange = (e) => {
+    const { name, value } = e.target;
+    setCFilters(prev => ({ ...prev, [name]: value }));
+};
+
+const filteredCourses = courses.filter(course => {
+    // Search term filter
+    if (courseSearchTerm && !course.courseName.toLowerCase().includes(courseSearchTerm.toLowerCase())) {
+        return false;
+    }
+
+    // Advanced filters
+    if (cFilters.examTagId && (course.examTag?._id !== cFilters.examTagId && course.examTag !== cFilters.examTagId)) return false;
+    if (cFilters.academicSession && course.courseSession !== cFilters.academicSession) return false;
+    if (cFilters.departmentId && (course.department?._id !== cFilters.departmentId && course.department !== cFilters.departmentId)) return false;
+    if (cFilters.classId && (course.class?._id !== cFilters.classId && course.class !== cFilters.classId)) return false;
+    if (cFilters.boardId && (course.board?._id !== cFilters.boardId && course.board !== cFilters.boardId)) return false;
+    if (cFilters.programme && course.programme !== cFilters.programme) return false;
+    if (cFilters.mode && course.mode !== cFilters.mode) return false;
+    if (cFilters.courseType && course.courseType !== cFilters.courseType) return false;
+
+    return true;
+});
+
+const handleSubjectChange = (subjectId) => {
+    setSelectedSubjectIds(prev => {
+        if (prev.includes(subjectId)) {
+            return prev.filter(id => id !== subjectId);
+        } else {
+            return [...prev, subjectId];
+        }
+    });
+};
+
+const handleSubmit = async (e, posData = null) => {
+    if (e) e.preventDefault();
+
+    if (!posData && formData.paymentMethod === 'RAZORPAY_POS' && parseFloat(formData.downPayment) > 0) {
+        setShowPOSModal(true);
+        return;
+    }
+
+    setLoading(true);
+
+    const currentFormData = posData ? {
+        ...formData,
+        transactionId: posData.p2pRequestId,
+        remarks: (formData.remarks ? formData.remarks + " | " : "") + "Razorpay POS Authorized"
+    } : formData;
+
+    console.log("📤 [Admission Submit] Final Payload Form Data:", JSON.stringify(currentFormData, null, 2));
+    console.log("📤 [Admission Submit] Student ID:", studentId);
+    console.log("📤 [Admission Submit] Admission Type:", admissionType);
+
+    // Validate discount cap
+    const maxAllowed = getMaxAllowedDiscount();
+    const enteredWaiver = parseFloat(currentFormData.feeWaiver) || 0;
+    if (maxAllowed < Infinity && enteredWaiver > maxAllowed) {
+        toast.error(`Fee waiver ₹${enteredWaiver.toLocaleString('en-IN')} exceeds the allowed maximum of ₹${Math.floor(maxAllowed).toLocaleString('en-IN')}. Please reduce the discount.`);
+        setLoading(false);
+        return;
+    }
+
+    if (!formData.examTagId) {
+        toast.error("Please select an Exam Tag.");
+        setLoading(false);
+        return;
+    }
+
+    // Basic validation for board admission
+    if (admissionType === "BOARD" && (!selectedBoard || selectedSubjectIds.length === 0)) {
+        toast.error("Please select a board and at least one subject for Board Admission.");
+        setLoading(false);
+        return;
+    }
+
+    if (admissionType === "BOARD" && !billingMonth) {
+        toast.error("Please select a billing month for Board Admission.");
+        setLoading(false);
+        return;
+    }
+
+    if (!formData.departmentId) {
+        toast.error("Please select a department.");
+        setLoading(false);
+        return;
+    }
+
+    if (!formData.boardId && !selectedBoard) {
+        toast.error("Board selection is mandatory.");
+        setLoading(false);
+        return;
+    }
+
+    if (!formData.paymentMethod) {
+        toast.error("Please select a payment method.");
+        setLoading(false);
+        return;
+    }
+
+    if (formData.programme === "CRP" && !formData.batchId) {
+        toast.error("Batch selection is mandatory for CRP programme.");
+        setLoading(false);
+        return;
+    }
+
+    if (!formData.admittedBy) {
+        toast.error("Please select an admitting officer.");
+        setLoading(false);
+        return;
+    }
+
+    // New validation: require Transaction ID for UPI/CARD/BANK_TRANSFER if down payment > 0
+    if (['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod) && parseFloat(formData.downPayment) > 0 && !formData.transactionId) {
+        toast.error(`Transaction ID / Ref is mandatory for ${formData.paymentMethod} payments.`);
+        setLoading(false);
+        return;
+    }
+
+    if (formData.paymentMethod === "CHEQUE" && !formData.bankAccount) {
+        toast.error("Bank Account selection is required for Cheque payments.");
+        setLoading(false);
+        return;
+    }
+
+
+    try {
+        const token = localStorage.getItem("token");
+        const response = await fetch(`${apiUrl}/admission/create`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                studentId,
+                admissionType,
+                boardId: selectedBoard,
+                selectedSubjectIds,
+                billingMonth,
+                ...currentFormData,
+                admissionNumber: student?.admissionNumber || student?.studentsDetails?.[0]?.rollNo || student?.studentsDetails?.[0]?.admissionNumber || location?.state?.rollNo || location?.state?.admissionNumber || location?.state?.leadData?.existingEnrollmentNo || undefined,
+                // For Board courses, set numberOfInstallments to course duration - 1 (since DP covers Month 1)
+                numberOfInstallments: admissionType === "BOARD" ? Math.max(1, feeBreakdown.courseDurationMonths - 1) : formData.numberOfInstallments
+            })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            toast.success("Admission created successfully!");
+            setCreatedAdmission(data.admission);
+
+            // Mark lead as counseled if came from a lead
+            if (location.state?.leadData?._id) {
+                try {
+                    await fetch(`${apiUrl}/lead-management/${location.state.leadData._id}`, {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "Authorization": `Bearer ${token}`
+                        },
+                        body: JSON.stringify({ isCounseled: true })
+                    });
+                } catch (e) {
+                    console.error("Error updating lead status:", e);
+                }
+            }
+
+            // If down payment was made via cheque, generate Receiving Slip; otherwise generate Bill
+            if (data.admission.downPayment > 0 && currentFormData.paymentMethod === "CHEQUE") {
+                toast.success("Cheque recorded! Generating receiving slip...", { autoClose: 3000 });
+                setBillModal({
+                    show: true,
+                    isReceivingSlip: true,
+                    admission: data.admission,
+                    installment: {
+                        installmentNumber: 0,
+                        amount: data.admission.downPayment,
+                        paidAmount: data.admission.downPayment,
+                        paidDate: new Date(),
+                        receivedDate: formData.receivedDate,
+                        paymentMethod: "CHEQUE",
+                        transactionId: formData.transactionId,
+                        bankName: formData.bankName,
+                        accountHolderName: formData.accountHolderName,
+                        chequeDate: formData.chequeDate,
+                        status: "PENDING_CLEARANCE",
+                        isReceivingSlip: true
+                    }
+                });
+            } else if (data.admission.downPayment > 0) {
+                toast.success("Admission created! Generating bill...", { autoClose: 3000 });
+                setBillModal({
+                    show: true,
+                    isReceivingSlip: false,
+                    admission: data.admission,
+                    installment: {
+                        installmentNumber: 0,
+                        amount: data.admission.downPayment,
+                        paidAmount: data.admission.downPayment,
+                        paidDate: new Date(),
+                        receivedDate: formData.receivedDate,
+                        paymentMethod: formData.paymentMethod,
+                        status: "PAID"
+                    }
+                });
+            } else {
+                setTimeout(() => navigate("/admissions"), 2000);
+            }
+        } else {
+            toast.error(data.message || "Failed to create admission");
+        }
+    } catch (error) {
+        console.error(error);
+        toast.error("Server error");
+    } finally {
+        setLoading(false);
+    }
+};
+
+if (loading && !student) {
     return (
-        <div className={`flex-1 p-6 overflow-y-auto ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`}>
-            <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "colored"} />
+        <div className={`flex-1 p-6 flex items-center justify-center ${isDarkMode ? 'bg-[#131619]' : 'bg-gray-50'}`}>
+            <p className={`${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Loading...</p>
+        </div>
+    );
+}
 
-            {/* Header */}
-            <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                    <button
-                        onClick={() => navigate("/admissions")}
-                        className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-white border border-gray-200 hover:bg-gray-100 text-gray-700'}`}
-                    >
-                        <FaArrowLeft />
-                    </button>
-                    <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Student Admission</h2>
-                </div>
+return (
+    <div className={`flex-1 p-6 overflow-y-auto ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-gray-50 text-gray-900'}`}>
+        <ToastContainer position="top-right" theme={isDarkMode ? "dark" : "colored"} />
 
-                {/* Admission Type Toggle */}
-                {/* <div className={`p-1 rounded-lg flex items-center gap-1 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+                <button
+                    onClick={() => navigate("/admissions")}
+                    className={`p-2 rounded-lg transition-colors ${isDarkMode ? 'bg-gray-800 hover:bg-gray-700 text-white' : 'bg-white border border-gray-200 hover:bg-gray-100 text-gray-700'}`}
+                >
+                    <FaArrowLeft />
+                </button>
+                <h2 className={`text-2xl font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>Student Admission</h2>
+            </div>
+
+            {/* Admission Type Toggle */}
+            {/* <div className={`p-1 rounded-lg flex items-center gap-1 ${isDarkMode ? 'bg-gray-800' : 'bg-gray-200'}`}>
                     <button
                         type="button"
                         onClick={() => { setAdmissionType("NORMAL"); setFormData(prev => ({ ...prev, courseId: "", examTagId: "", departmentId: "" })); }}
@@ -848,847 +872,860 @@ const StudentAdmissionPage = () => {
                         Board Course
                     </button>
                 </div> */}
-            </div>
+        </div>
 
-            {/* Student Info Card */}
-            {student && (
-                <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                    <div className="flex items-center justify-between mb-3">
-                        <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Student Information</h3>
-                        {(student.admissionNumber || student.studentsDetails?.[0]?.rollNo || student.studentsDetails?.[0]?.admissionNumber || location?.state?.admissionNumber || location?.state?.rollNo) && (
-                            <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">Enrolment Number:</span>
-                                <span className="px-2.5 py-0.5 rounded bg-purple-500/20 border border-purple-500/40 text-purple-300 font-mono text-xs font-black">
-                                    {student.admissionNumber || student.studentsDetails?.[0]?.rollNo || student.studentsDetails?.[0]?.admissionNumber || location?.state?.admissionNumber || location?.state?.rollNo}
-                                </span>
-                            </div>
-                        )}
+        {/* Student Info Card */}
+        {student && (
+            <div className={`p-4 rounded-lg border mb-6 ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                <div className="flex items-center justify-between mb-3">
+                    <h3 className={`text-lg font-semibold ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Student Information</h3>
+                    {(student.admissionNumber || student.studentsDetails?.[0]?.rollNo || student.studentsDetails?.[0]?.admissionNumber || location?.state?.admissionNumber || location?.state?.rollNo) && (
+                        <div className="flex items-center gap-2">
+                            <span className="text-[10px] font-black uppercase tracking-wider text-purple-400">Enrolment Number:</span>
+                            <span className="px-2.5 py-0.5 rounded bg-purple-500/20 border border-purple-500/40 text-purple-300 font-mono text-xs font-black">
+                                {student.admissionNumber || student.studentsDetails?.[0]?.rollNo || student.studentsDetails?.[0]?.admissionNumber || location?.state?.admissionNumber || location?.state?.rollNo}
+                            </span>
+                        </div>
+                    )}
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div>
+                        <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Name</label>
+                        <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.studentName}</p>
                     </div>
-                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                        <div>
-                            <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Name</label>
-                            <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.studentName}</p>
-                        </div>
-                        <div>
-                            <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Email</label>
-                            <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.studentEmail || 'N/A'}</p>
-                        </div>
-                        <div>
-                            <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Mobile</label>
-                            <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.mobileNum}</p>
-                        </div>
-                        <div>
-                            <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Programme</label>
-                            <p className={`font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{student.studentsDetails?.[0]?.programme || formData.programme || 'CRP'}</p>
-                        </div>
+                    <div>
+                        <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Email</label>
+                        <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.studentEmail || 'N/A'}</p>
+                    </div>
+                    <div>
+                        <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Mobile</label>
+                        <p className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{student.studentsDetails?.[0]?.mobileNum}</p>
+                    </div>
+                    <div>
+                        <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>Programme</label>
+                        <p className={`font-bold ${isDarkMode ? 'text-cyan-400' : 'text-cyan-600'}`}>{student.studentsDetails?.[0]?.programme || formData.programme || 'CRP'}</p>
                     </div>
                 </div>
-            )}
+            </div>
+        )}
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Left Column - Admission Form */}
-                <div className="lg:col-span-2 space-y-6">
-                    <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                        <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Admission Details ({admissionType === "NORMAL" ? "Standard" : "Board"})</h3>
+        <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Left Column - Admission Form */}
+            <div className="lg:col-span-2 space-y-6">
+                <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Admission Details ({admissionType === "NORMAL" ? "Standard" : "Board"})</h3>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centre</label>
-                                <input
-                                    type="text"
-                                    name="centre"
-                                    value={formData.centre}
-                                    readOnly
-                                    className={`w-full border rounded-lg p-2 cursor-not-allowed focus:outline-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-100 border-gray-300 text-gray-500'}`}
-                                />
-                            </div>
-
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class *</label>
-                                <select
-                                    required
-                                    name="classId"
-                                    value={formData.classId}
-                                    onChange={handleInputChange}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                >
-                                    <option value="">Select Class</option>
-                                    {classes.map(cls => (
-                                        <option key={cls._id} value={cls._id}>{cls.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Department *</label>
-                                <select
-                                    required
-                                    name="departmentId"
-                                    value={formData.departmentId}
-                                    onChange={handleInputChange}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                >
-                                    <option value="">Select Department</option>
-                                    {departments.map(dept => (
-                                        <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Board *</label>
-                                <select
-                                    required
-                                    name="boardId"
-                                    value={formData.boardId || selectedBoard}
-                                    onChange={(e) => {
-                                        handleInputChange(e);
-                                        setSelectedBoard(e.target.value);
-                                    }}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                >
-                                    <option value="">Select Board</option>
-                                    {boards.map(b => (
-                                        <option key={b._id} value={b._id}>{b.boardCourse}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Programme *</label>
-                                <select
-                                    required
-                                    name="programme"
-                                    value={formData.programme}
-                                    onChange={(e) => {
-                                        handleInputChange(e);
-                                        setCFilters(prev => ({ ...prev, programme: e.target.value }));
-                                    }}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                >
-                                    <option value="CRP">CRP</option>
-                                    <option value="NCRP">NCRP</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    Batch {formData.programme === "CRP" ? "*" : ""}
-                                </label>
-                                <select
-                                    name="batchId"
-                                    value={formData.batchId}
-                                    onChange={handleInputChange}
-                                    required={formData.programme === "CRP"}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                >
-                                    <option value="">{formData.programme === "CRP" ? "Select Batch *" : "Select Batch (Optional)"}</option>
-                                    {batches.map(batch => (
-                                        <option key={batch._id} value={batch._id}>{batch.batchName}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {/* Normal Flow Specifics */}
-                            {admissionType === "NORMAL" && (
-                                <>
-
-                                    {/* Advanced Filters Section */}
-                                    {showCourseFilters && (
-                                        <div className={`col-span-1 md:col-span-2 p-4 rounded-lg border border-dashed animate-fadeIn ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-cyan-50 border-cyan-200'}`}>
-                                            <div className="flex items-center justify-between mb-4">
-                                                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-500">Course Filtering Engine</h4>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setCFilters({
-                                                        examTagId: "",
-                                                        academicSession: "",
-                                                        departmentId: "",
-                                                        classId: "",
-                                                        boardId: "",
-                                                        programme: "",
-                                                        mode: "",
-                                                        courseType: ""
-                                                    })}
-                                                    className="text-[9px] font-bold text-red-500 uppercase hover:underline"
-                                                >
-                                                    Reset Filters
-                                                </button>
-                                            </div>
-                                            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                                                <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Class</label>
-                                                    <select name="classId" value={cFilters.classId} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
-                                                        <option value="">All Classes</option>
-                                                        {classes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Tag</label>
-                                                    <select name="examTagId" value={cFilters.examTagId} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
-                                                        <option value="">All Tags</option>
-                                                        {examTags.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Session</label>
-                                                    <select name="academicSession" value={cFilters.academicSession} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
-                                                        <option value="">All Sessions</option>
-                                                        {sessions.map(s => <option key={s._id} value={s.sessionName}>{s.sessionName}</option>)}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Dept</label>
-                                                    <select name="departmentId" value={cFilters.departmentId} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
-                                                        <option value="">All Depts</option>
-                                                        {departments.map(d => <option key={d._id} value={d._id}>{d.departmentName}</option>)}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Programme</label>
-                                                    <select name="programme" value={cFilters.programme} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
-                                                        <option value="">All</option>
-                                                        <option value="CRP">CRP</option>
-                                                        <option value="NCRP">NCRP</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Mode</label>
-                                                    <select name="mode" value={cFilters.mode} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
-                                                        <option value="">All Modes</option>
-                                                        <option value="ONLINE">ONLINE</option>
-                                                        <option value="OFFLINE">OFFLINE</option>
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Type</label>
-                                                    <select name="courseType" value={cFilters.courseType} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
-                                                        <option value="">All Types</option>
-                                                        <option value="INSTATION">INSTATION</option>
-                                                        <option value="OUTSTATION">OUTSTATION</option>
-                                                    </select>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-
-                                    <div>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course *</label>
-                                            <button
-                                                type="button"
-                                                onClick={() => setShowCourseFilters(!showCourseFilters)}
-                                                className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded transition-all ${showCourseFilters ? 'bg-red-500/10 text-red-500' : 'bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500 hover:text-black'}`}
-                                            >
-                                                {showCourseFilters ? "Close Filters" : "Need Filters?"}
-                                            </button>
-                                        </div>
-                                        <div className="relative mb-1">
-                                            <input
-                                                type="text"
-                                                placeholder="Search course..."
-                                                value={courseSearchTerm}
-                                                onChange={(e) => setCourseSearchTerm(e.target.value)}
-                                                className={`w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
-                                            />
-                                        </div>
-                                        <select
-                                            name="courseId"
-                                            value={formData.courseId}
-                                            onChange={handleInputChange}
-                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                            required={admissionType === "NORMAL"}
-                                        >
-                                            <option value="">Select Course</option>
-                                            {filteredCourses
-                                                .map(course => (
-                                                    <option key={course._id} value={course._id}>{course.courseName}</option>
-                                                ))}
-                                        </select>
-                                    </div>
-                                </>
-                            )}
-
-                            {/* Board Flow Specifics */}
-                            {admissionType === "BOARD" && (
-                                <>
-                                    <div>
-                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Billing Month *</label>
-                                        <input
-                                            type="month"
-                                            value={billingMonth}
-                                            onChange={(e) => setBillingMonth(e.target.value)}
-                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                            required={admissionType === "BOARD"}
-                                        />
-                                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Select the month for billing</p>
-                                    </div>
-
-                                    <div>
-                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Manual Duration (Months)</label>
-                                        <input
-                                            type="number"
-                                            name="customBoardDuration"
-                                            value={formData.customBoardDuration}
-                                            onChange={handleInputChange}
-                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                            placeholder="Override default duration..."
-                                            min="1"
-                                        />
-                                        <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Leave blank to use board default</p>
-                                    </div>
-                                </>
-                            )}
-
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Academic Session *</label>
-                                <select
-                                    name="academicSession"
-                                    value={formData.academicSession}
-                                    onChange={handleInputChange}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                    required
-                                >
-                                    <option value="">Select Session</option>
-                                    {sessions.map(session => (
-                                        <option key={session._id} value={session.sessionName}>{session.sessionName}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Exam Tag *</label>
-                                <select
-                                    name="examTagId"
-                                    value={formData.examTagId}
-                                    onChange={handleInputChange}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                    required
-                                >
-                                    <option value="">Select Exam Tag</option>
-                                    {examTags.map(tag => (
-                                        <option key={tag._id} value={tag._id}>{tag.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Student Image URL</label>
-                                <input
-                                    type="text"
-                                    name="studentImage"
-                                    value={formData.studentImage}
-                                    onChange={handleInputChange}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                    placeholder="Optional"
-                                />
-                            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Centre</label>
+                            <input
+                                type="text"
+                                name="centre"
+                                value={formData.centre}
+                                readOnly
+                                className={`w-full border rounded-lg p-2 cursor-not-allowed focus:outline-none ${isDarkMode ? 'bg-gray-800 border-gray-700 text-gray-400' : 'bg-gray-100 border-gray-300 text-gray-500'}`}
+                            />
                         </div>
 
-                        {/* Subject Selection for Board */}
-                        {admissionType === "BOARD" && selectedBoard && (
-                            <div className={`mt-4 border-t pt-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                                <label className={`block font-semibold mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Select Subjects for {boards.find(b => b._id === selectedBoard)?.boardCourse}</label>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                                    {boards.find(b => b._id === selectedBoard)?.subjects?.map((item) => {
-                                        // item is { subjectId: { _id, subName }, price, duration }
-                                        const subject = item.subjectId;
-                                        if (!subject) return null; // safety check
-
-                                        return (
-                                            <label key={subject._id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${selectedSubjectIds.includes(subject._id) ? "bg-cyan-500/10 border-cyan-500" : (isDarkMode ? "bg-gray-800 border-gray-700 hover:border-gray-600" : "bg-gray-50 border-gray-200 hover:border-gray-300")}`}>
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedSubjectIds.includes(subject._id)}
-                                                    onChange={() => handleSubjectChange(subject._id)}
-                                                    className="w-4 h-4 text-cyan-500 rounded focus:ring-cyan-500"
-                                                />
-                                                <div className="flex-1">
-                                                    <span className={`block text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{subject.subName}</span>
-                                                    <span className="block text-cyan-400 text-xs font-bold">₹{item.price?.toLocaleString() || 0}</span>
-                                                </div>
-                                            </label>
-                                        )
-                                    })}
-                                </div>
-                                {selectedSubjectIds.length === 0 && (
-                                    <p className="text-yellow-500 text-xs mt-2">* Please select at least one subject to proceed.</p>
-                                )}
-                            </div>
-                        )}
-
-                        <div className="mt-4">
-                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remarks</label>
-                            <textarea
-                                name="remarks"
-                                value={formData.remarks}
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Class *</label>
+                            <select
+                                required
+                                name="classId"
+                                value={formData.classId}
                                 onChange={handleInputChange}
                                 className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                rows="3"
-                                placeholder="Additional notes..."
+                            >
+                                <option value="">Select Class</option>
+                                {classes.map(cls => (
+                                    <option key={cls._id} value={cls._id}>{cls.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Department *</label>
+                            <select
+                                required
+                                name="departmentId"
+                                value={formData.departmentId}
+                                onChange={handleInputChange}
+                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                            >
+                                <option value="">Select Department</option>
+                                {departments.map(dept => (
+                                    <option key={dept._id} value={dept._id}>{dept.departmentName}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Board *</label>
+                            <select
+                                required
+                                name="boardId"
+                                value={formData.boardId || selectedBoard}
+                                onChange={(e) => {
+                                    handleInputChange(e);
+                                    setSelectedBoard(e.target.value);
+                                }}
+                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                            >
+                                <option value="">Select Board</option>
+                                {boards.map(b => (
+                                    <option key={b._id} value={b._id}>{b.boardCourse}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Programme *</label>
+                            <select
+                                required
+                                name="programme"
+                                value={formData.programme}
+                                onChange={(e) => {
+                                    handleInputChange(e);
+                                    setCFilters(prev => ({ ...prev, programme: e.target.value }));
+                                }}
+                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                            >
+                                <option value="CRP">CRP</option>
+                                <option value="NCRP">NCRP</option>
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Batch {formData.programme === "CRP" ? "*" : ""}
+                            </label>
+                            <select
+                                name="batchId"
+                                value={formData.batchId}
+                                onChange={handleInputChange}
+                                required={formData.programme === "CRP"}
+                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                            >
+                                <option value="">{formData.programme === "CRP" ? "Select Batch *" : "Select Batch (Optional)"}</option>
+                                {batches.map(batch => (
+                                    <option key={batch._id} value={batch._id}>{batch.batchName}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        {/* Normal Flow Specifics */}
+                        {admissionType === "NORMAL" && (
+                            <>
+
+                                {/* Advanced Filters Section */}
+                                {showCourseFilters && (
+                                    <div className={`col-span-1 md:col-span-2 p-4 rounded-lg border border-dashed animate-fadeIn ${isDarkMode ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-cyan-50 border-cyan-200'}`}>
+                                        <div className="flex items-center justify-between mb-4">
+                                            <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-500">Course Filtering Engine</h4>
+                                            <button
+                                                type="button"
+                                                onClick={() => setCFilters({
+                                                    examTagId: "",
+                                                    academicSession: "",
+                                                    departmentId: "",
+                                                    classId: "",
+                                                    boardId: "",
+                                                    programme: "",
+                                                    mode: "",
+                                                    courseType: ""
+                                                })}
+                                                className="text-[9px] font-bold text-red-500 uppercase hover:underline"
+                                            >
+                                                Reset Filters
+                                            </button>
+                                        </div>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            <div>
+                                                <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Class</label>
+                                                <select name="classId" value={cFilters.classId} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                    <option value="">All Classes</option>
+                                                    {classes.map(c => <option key={c._id} value={c._id}>{c.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Tag</label>
+                                                <select name="examTagId" value={cFilters.examTagId} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                    <option value="">All Tags</option>
+                                                    {examTags.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Session</label>
+                                                <select name="academicSession" value={cFilters.academicSession} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                    <option value="">All Sessions</option>
+                                                    {sessions.map(s => <option key={s._id} value={s.sessionName}>{s.sessionName}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Filter by Dept</label>
+                                                <select name="departmentId" value={cFilters.departmentId} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                    <option value="">All Depts</option>
+                                                    {departments.map(d => <option key={d._id} value={d._id}>{d.departmentName}</option>)}
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Programme</label>
+                                                <select name="programme" value={cFilters.programme} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                    <option value="">All</option>
+                                                    <option value="CRP">CRP</option>
+                                                    <option value="NCRP">NCRP</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Mode</label>
+                                                <select name="mode" value={cFilters.mode} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                    <option value="">All Modes</option>
+                                                    <option value="ONLINE">ONLINE</option>
+                                                    <option value="OFFLINE">OFFLINE</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label className="text-[8px] font-black text-gray-500 uppercase tracking-widest block mb-1">Type</label>
+                                                <select name="courseType" value={cFilters.courseType} onChange={handleFilterChange} className={`w-full text-[10px] p-1.5 rounded border ${isDarkMode ? 'bg-gray-900 border-gray-800 text-white' : 'bg-white border-gray-200'}`}>
+                                                    <option value="">All Types</option>
+                                                    <option value="INSTATION">INSTATION</option>
+                                                    <option value="OUTSTATION">OUTSTATION</option>
+                                                </select>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <label className={`text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course *</label>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowCourseFilters(!showCourseFilters)}
+                                            className={`text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded transition-all ${showCourseFilters ? 'bg-red-500/10 text-red-500' : 'bg-cyan-500/10 text-cyan-500 hover:bg-cyan-500 hover:text-black'}`}
+                                        >
+                                            {showCourseFilters ? "Close Filters" : "Need Filters?"}
+                                        </button>
+                                    </div>
+                                    <div className="relative mb-1">
+                                        <input
+                                            type="text"
+                                            placeholder="Search course..."
+                                            value={courseSearchTerm}
+                                            onChange={(e) => setCourseSearchTerm(e.target.value)}
+                                            className={`w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white placeholder-gray-500' : 'bg-white border-gray-300 text-gray-900 placeholder-gray-400'}`}
+                                        />
+                                    </div>
+                                    <select
+                                        name="courseId"
+                                        value={formData.courseId}
+                                        onChange={handleInputChange}
+                                        className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                        required={admissionType === "NORMAL"}
+                                    >
+                                        <option value="">Select Course</option>
+                                        {filteredCourses
+                                            .map(course => (
+                                                <option key={course._id} value={course._id}>{course.courseName}</option>
+                                            ))}
+                                    </select>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Board Flow Specifics */}
+                        {admissionType === "BOARD" && (
+                            <>
+                                <div>
+                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Billing Month *</label>
+                                    <input
+                                        type="month"
+                                        value={billingMonth}
+                                        onChange={(e) => setBillingMonth(e.target.value)}
+                                        className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                        required={admissionType === "BOARD"}
+                                    />
+                                    <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Select the month for billing</p>
+                                </div>
+
+                                <div>
+                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Manual Duration (Months)</label>
+                                    <input
+                                        type="number"
+                                        name="customBoardDuration"
+                                        value={formData.customBoardDuration}
+                                        onChange={handleInputChange}
+                                        className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                        placeholder="Override default duration..."
+                                        min="1"
+                                    />
+                                    <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Leave blank to use board default</p>
+                                </div>
+                            </>
+                        )}
+
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Academic Session *</label>
+                            <select
+                                name="academicSession"
+                                value={formData.academicSession}
+                                onChange={handleInputChange}
+                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                required
+                            >
+                                <option value="">Select Session</option>
+                                {sessions.map(session => (
+                                    <option key={session._id} value={session.sessionName}>{session.sessionName}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Exam Tag *</label>
+                            <select
+                                name="examTagId"
+                                value={formData.examTagId}
+                                onChange={handleInputChange}
+                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                required
+                            >
+                                <option value="">Select Exam Tag</option>
+                                {examTags.map(tag => (
+                                    <option key={tag._id} value={tag._id}>{tag.name}</option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Student Image URL</label>
+                            <input
+                                type="text"
+                                name="studentImage"
+                                value={formData.studentImage}
+                                onChange={handleInputChange}
+                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                placeholder="Optional"
                             />
                         </div>
                     </div>
 
-                    {/* Payment Configuration */}
-                    <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                        <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                            <FaMoneyBillWave className="text-cyan-400" />
-                            Payment Configuration
-                        </h3>
+                    {/* Subject Selection for Board */}
+                    {admissionType === "BOARD" && selectedBoard && (
+                        <div className={`mt-4 border-t pt-4 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                            <label className={`block font-semibold mb-3 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>Select Subjects for {boards.find(b => b._id === selectedBoard)?.boardCourse}</label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                {boards.find(b => b._id === selectedBoard)?.subjects?.map((item) => {
+                                    // item is { subjectId: { _id, subName }, price, duration }
+                                    const subject = item.subjectId;
+                                    if (!subject) return null; // safety check
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                    Fee Waiver (Discount) ₹
-                                    {selectedCourse && (() => {
-                                        const maxAllowed = getMaxAllowedDiscount();
-                                        return maxAllowed < Infinity ? (
-                                            <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-orange-400">
-                                                Max: ₹{Math.floor(maxAllowed).toLocaleString('en-IN')}
-                                            </span>
-                                        ) : null;
-                                    })()}
-                                </label>
-                                <input
-                                    type="number"
-                                    name="feeWaiver"
-                                    value={formData.feeWaiver}
-                                    onChange={handleInputChange}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none transition-colors ${discountError
-                                        ? 'border-red-500 bg-red-500/10 text-red-400 focus:border-red-500'
-                                        : isDarkMode
-                                            ? 'bg-gray-800 border-gray-700 text-white focus:border-cyan-500'
-                                            : 'bg-white border-gray-300 text-gray-900 focus:border-cyan-500'
-                                        }`}
-                                    min="0"
-                                    max={selectedCourse ? Math.floor(getMaxAllowedDiscount()) : undefined}
-                                    placeholder="0"
-                                />
-                                {discountError && (
-                                    <p className="mt-1 text-xs font-semibold text-red-400">
-                                        {discountError}
-                                    </p>
-                                )}
-                                {selectedCourse && getDiscountBreakdown().length > 0 && (
-                                    <div className="mt-1 space-y-0.5">
-                                        {getDiscountBreakdown().map((fd, i) => (
-                                            <p key={i} className={`text-[10px] font-semibold uppercase tracking-wider ${discountError ? 'text-red-400/70' : 'text-orange-400'}`}>
-                                                {fd.feesType}: {fd.discountPct}% of ₹{Math.floor(fd.value).toLocaleString('en-IN')} → max ₹{Math.floor(fd.maxAmt).toLocaleString('en-IN')}
-                                            </p>
-                                        ))}
-                                    </div>
-                                )}
+                                    return (
+                                        <label key={subject._id} className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-all ${selectedSubjectIds.includes(subject._id) ? "bg-cyan-500/10 border-cyan-500" : (isDarkMode ? "bg-gray-800 border-gray-700 hover:border-gray-600" : "bg-gray-50 border-gray-200 hover:border-gray-300")}`}>
+                                            <input
+                                                type="checkbox"
+                                                checked={selectedSubjectIds.includes(subject._id)}
+                                                onChange={() => handleSubjectChange(subject._id)}
+                                                className="w-4 h-4 text-cyan-500 rounded focus:ring-cyan-500"
+                                            />
+                                            <div className="flex-1">
+                                                <span className={`block text-sm font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{subject.subName}</span>
+                                                <span className="block text-cyan-400 text-xs font-bold">₹{item.price?.toLocaleString() || 0}</span>
+                                            </div>
+                                        </label>
+                                    )
+                                })}
                             </div>
+                            {selectedSubjectIds.length === 0 && (
+                                <p className="text-yellow-500 text-xs mt-2">* Please select at least one subject to proceed.</p>
+                            )}
+                        </div>
+                    )}
 
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Down Payment (₹) *</label>
-                                <input
-                                    type="number"
-                                    name="downPayment"
-                                    value={formData.downPayment}
-                                    onChange={handleInputChange}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                    min="0"
-                                    step="0.01"
-                                    placeholder="0.00"
-                                    required
-                                />
-                                <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Decimals allowed (e.g. 500.50)</p>
-                            </div>
+                    <div className="mt-4">
+                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remarks</label>
+                        <textarea
+                            name="remarks"
+                            value={formData.remarks}
+                            onChange={handleInputChange}
+                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                            rows="3"
+                            placeholder="Additional notes..."
+                        />
+                    </div>
+                </div>
 
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Payment Method *</label>
-                                <select
-                                    name="paymentMethod"
-                                    value={formData.paymentMethod}
-                                    onChange={handleInputChange}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                    required
-                                >
-                                    <option value="">Select Payment Method</option>
-                                    <option value="CASH">CASH</option>
-                                    <option value="UPI">UPI</option>
-                                    <option value="CARD">CARD</option>
-                                    <option value="BANK_TRANSFER">BANK_TRANSFER</option>
-                                    <option value="CHEQUE">CHEQUE</option>
-                                    {/* <option value="RAZORPAY_POS">RAZORPAY POS</option> */}
-                                </select>
-                            </div>
+                {/* Payment Configuration */}
+                <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                    <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                        <FaMoneyBillWave className="text-cyan-400" />
+                        Payment Configuration
+                    </h3>
 
-                            <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Received Date *</label>
-                                <input
-                                    type="date"
-                                    name="receivedDate"
-                                    value={formData.receivedDate}
-                                    onChange={handleInputChange}
-                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                    required
-                                />
-                                <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">The actual date money was received</p>
-                            </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                Fee Waiver (Discount) ₹
+                                {selectedCourse && (() => {
+                                    const maxAllowed = getMaxAllowedDiscount();
+                                    return maxAllowed < Infinity ? (
+                                        <span className="ml-2 text-[10px] font-bold uppercase tracking-wider text-orange-400">
+                                            Max: ₹{Math.floor(maxAllowed).toLocaleString('en-IN')}
+                                        </span>
+                                    ) : null;
+                                })()}
+                            </label>
+                            <input
+                                type="number"
+                                name="feeWaiver"
+                                value={formData.feeWaiver}
+                                onChange={handleInputChange}
+                                className={`w-full border rounded-lg p-2 focus:outline-none transition-colors ${discountError
+                                    ? 'border-red-500 bg-red-500/10 text-red-400 focus:border-red-500'
+                                    : isDarkMode
+                                        ? 'bg-gray-800 border-gray-700 text-white focus:border-cyan-500'
+                                        : 'bg-white border-gray-300 text-gray-900 focus:border-cyan-500'
+                                    }`}
+                                min="0"
+                                max={selectedCourse ? Math.floor(getMaxAllowedDiscount()) : undefined}
+                                placeholder="0"
+                            />
+                            {discountError && (
+                                <p className="mt-1 text-xs font-semibold text-red-400">
+                                    {discountError}
+                                </p>
+                            )}
+                            {selectedCourse && getDiscountBreakdown().length > 0 && (
+                                <div className="mt-1 space-y-0.5">
+                                    {getDiscountBreakdown().map((fd, i) => (
+                                        <p key={i} className={`text-[10px] font-semibold uppercase tracking-wider ${discountError ? 'text-red-400/70' : 'text-orange-400'}`}>
+                                            {fd.feesType}: {fd.discountPct}% of ₹{Math.floor(fd.value).toLocaleString('en-IN')} → max ₹{Math.floor(fd.maxAmt).toLocaleString('en-IN')}
+                                        </p>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
 
-                            {formData.paymentMethod === "CHEQUE" ? (
-                                <>
-                                    <div>
-                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Cheque Number</label>
-                                        <input
-                                            type="text"
-                                            name="transactionId"
-                                            value={formData.transactionId}
-                                            onChange={handleInputChange}
-                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                            placeholder="CHQXXXXXX"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Cheque Date</label>
-                                        <input
-                                            type="date"
-                                            name="chequeDate"
-                                            value={formData.chequeDate}
-                                            onChange={handleInputChange}
-                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                        />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Bank Name</label>
-                                        <input
-                                            type="text"
-                                            name="accountHolderName"
-                                            value={formData.accountHolderName}
-                                            onChange={handleInputChange}
-                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                            placeholder="e.g. HDFC, ICICI..."
-                                        />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Bank Account <span className="text-red-500">*</span></label>
-                                        <select
-                                            name="bankAccount"
-                                            value={formData.bankAccount}
-                                            onChange={handleInputChange}
-                                            className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                            required
-                                        >
-                                            <option value="">Select Bank Account</option>
-                                            {masterAccounts.map(account => (
-                                                <option key={account._id} value={account._id}>
-                                                    {account.accname.toUpperCase()} (A/C: {account.accno})
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </>
-                            ) : (
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Down Payment (₹) *</label>
+                            <input
+                                type="number"
+                                name="downPayment"
+                                value={formData.downPayment}
+                                onChange={handleInputChange}
+                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                min="0"
+                                step="0.01"
+                                placeholder="0.00"
+                                required
+                            />
+                            <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Decimals allowed (e.g. 500.50)</p>
+                        </div>
+
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Payment Method *</label>
+                            <select
+                                name="paymentMethod"
+                                value={formData.paymentMethod}
+                                onChange={handleInputChange}
+                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                required
+                            >
+                                <option value="">Select Payment Method</option>
+                                <option value="CASH">CASH</option>
+                                <option value="UPI">UPI</option>
+                                <option value="CARD">CARD</option>
+                                <option value="BANK_TRANSFER">BANK_TRANSFER</option>
+                                <option value="CHEQUE">CHEQUE</option>
+                                {/* <option value="RAZORPAY_POS">RAZORPAY POS</option> */}
+                            </select>
+                        </div>
+
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Received Date *</label>
+                            <input
+                                type="date"
+                                name="receivedDate"
+                                value={formData.receivedDate}
+                                onChange={handleInputChange}
+                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                required
+                            />
+                            <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">The actual date money was received</p>
+                        </div>
+
+                        {formData.paymentMethod === "CHEQUE" ? (
+                            <>
                                 <div>
-                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                                        Transaction ID / Ref {(['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod)) && <span className="text-red-500">*</span>}
-                                    </label>
+                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Cheque Number</label>
                                     <input
                                         type="text"
                                         name="transactionId"
                                         value={formData.transactionId}
                                         onChange={handleInputChange}
                                         className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                        placeholder={(['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod)) ? "Required reference" : "Optional"}
-                                        required={(['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod)) && parseFloat(formData.downPayment) > 0}
+                                        placeholder="CHQXXXXXX"
                                     />
-
                                 </div>
-                            )}
-
-                            {admissionType === "NORMAL" && (
                                 <div>
-                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Number of Installments *</label>
+                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Cheque Date</label>
                                     <input
-                                        type="number"
-                                        name="numberOfInstallments"
-                                        value={formData.numberOfInstallments}
+                                        type="date"
+                                        name="chequeDate"
+                                        value={formData.chequeDate}
                                         onChange={handleInputChange}
                                         className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                        min="0"
-                                        max="24"
-                                        required
                                     />
                                 </div>
-                            )}
-
-                            {admissionType === "BOARD" && (
-                                <div>
-                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course Duration (Months) *</label>
-                                    <div className="flex gap-2">
-                                        <div className={`flex-1 border rounded-lg p-2 font-bold ${isDarkMode ? 'bg-gray-800 border-gray-700 text-cyan-400' : 'bg-gray-100 border-gray-300 text-cyan-600'}`}>
-                                            {feeBreakdown.courseDurationMonths} Months
-                                        </div>
-                                    </div>
-                                    <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Includes 1 Down Payment + {Math.max(0, feeBreakdown.courseDurationMonths - 1)} Installments</p>
+                                <div className="md:col-span-2">
+                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Bank Name</label>
+                                    <input
+                                        type="text"
+                                        name="accountHolderName"
+                                        value={formData.accountHolderName}
+                                        onChange={handleInputChange}
+                                        className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                        placeholder="e.g. HDFC, ICICI..."
+                                    />
                                 </div>
-                            )}
+                                <div className="md:col-span-2">
+                                    <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Bank Account <span className="text-red-500">*</span></label>
+                                    <select
+                                        name="bankAccount"
+                                        value={formData.bankAccount}
+                                        onChange={handleInputChange}
+                                        className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                        required
+                                    >
+                                        <option value="">Select Bank Account</option>
+                                        {masterAccounts.map(account => (
+                                            <option key={account._id} value={account._id}>
+                                                {account.accname.toUpperCase()} (A/C: {account.accno})
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </>
+                        ) : (
                             <div>
-                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Admitted By <span className="text-red-500">*</span></label>
-                                <select
-                                    required
-                                    name="admittedBy"
-                                    value={formData.admittedBy}
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                                    Transaction ID / Ref {(['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod)) && <span className="text-red-500">*</span>}
+                                </label>
+                                <input
+                                    type="text"
+                                    name="transactionId"
+                                    value={formData.transactionId}
                                     onChange={handleInputChange}
                                     className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
-                                >
-                                    <option value="">Select Admitting Officer</option>
-                                    {admittedByOptions.map(u => (
-                                        <option key={u._id} value={u._id}>
-                                            {u.name.toUpperCase()} ({u.role.toUpperCase()})
-                                        </option>
-                                    ))}
-                                </select>
+                                    placeholder={(['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod)) ? "Required reference" : "Optional"}
+                                    required={(['UPI', 'CARD', 'BANK_TRANSFER'].includes(formData.paymentMethod)) && parseFloat(formData.downPayment) > 0}
+                                />
+
                             </div>
+                        )}
+
+                        {admissionType === "NORMAL" && (
+                            <div>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Number of Installments *</label>
+                                <input
+                                    type="number"
+                                    name="numberOfInstallments"
+                                    value={formData.numberOfInstallments}
+                                    onChange={handleInputChange}
+                                    className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                                    min="0"
+                                    max="24"
+                                    required
+                                />
+                            </div>
+                        )}
+
+                        {admissionType === "BOARD" && (
+                            <div>
+                                <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Course Duration (Months) *</label>
+                                <div className="flex gap-2">
+                                    <div className={`flex-1 border rounded-lg p-2 font-bold ${isDarkMode ? 'bg-gray-800 border-gray-700 text-cyan-400' : 'bg-gray-100 border-gray-300 text-cyan-600'}`}>
+                                        {feeBreakdown.courseDurationMonths} Months
+                                    </div>
+                                </div>
+                                <p className="text-[10px] text-gray-500 mt-1 uppercase font-bold">Includes 1 Down Payment + {Math.max(0, feeBreakdown.courseDurationMonths - 1)} Installments</p>
+                            </div>
+                        )}
+                        <div>
+                            <label className={`block mb-2 text-sm ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Admitted By <span className="text-red-500">*</span></label>
+                            <select
+                                required
+                                name="admittedBy"
+                                value={formData.admittedBy}
+                                onChange={handleInputChange}
+                                className={`w-full border rounded-lg p-2 focus:outline-none focus:border-cyan-500 ${isDarkMode ? 'bg-gray-800 border-gray-700 text-white' : 'bg-white border-gray-300 text-gray-900'}`}
+                            >
+                                <option value="">Select Admitting Officer</option>
+                                {admittedByOptions.map(u => (
+                                    <option key={u._id} value={u._id}>
+                                        {u.name.toUpperCase()} ({u.role.toUpperCase()})
+                                    </option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* Right Column - Fee Breakdown */}
-                <div className="space-y-6">
-                    {selectedCourse && (
-                        <>
-                            {/* Course Fee Structure */}
-                            <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                                <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Course Fee Structure</h3>
-                                <div className="space-y-2 max-h-52 overflow-y-auto pr-2 custom-scrollbar">
-                                    {selectedCourse.feesStructure.map((fee, index) => {
-                                        const discountPct = parseFloat((fee.discount || '0').toString().replace('%', '').trim()) || 0;
-                                        const maxAmt = (discountPct / 100) * (Number(fee.value) || 0);
-                                        return (
-                                            <div key={index} className={`p-2 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                                                <div className="flex justify-between items-start">
-                                                    <div>
-                                                        <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{fee.feesType}</span>
-                                                        {discountPct > 0 && (
-                                                            <span className="ml-2 text-[9px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-400 border border-orange-500/30 px-1.5 py-0.5 rounded">
-                                                                {discountPct}% disc
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                    <span className={`font-medium text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(fee.value)}</span>
+            {/* Right Column - Fee Breakdown */}
+            <div className="space-y-6">
+                {selectedCourse && (
+                    <>
+                        {/* Course Fee Structure */}
+                        <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                            <h3 className={`text-lg font-semibold mb-4 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>Course Fee Structure</h3>
+                            <div className="space-y-2 max-h-52 overflow-y-auto pr-2 custom-scrollbar">
+                                {selectedCourse.feesStructure.map((fee, index) => {
+                                    const discountPct = parseFloat((fee.discount || '0').toString().replace('%', '').trim()) || 0;
+                                    const maxAmt = (discountPct / 100) * (Number(fee.value) || 0);
+                                    return (
+                                        <div key={index} className={`p-2 rounded ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <span className={`text-sm ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>{fee.feesType}</span>
+                                                    {discountPct > 0 && (
+                                                        <span className="ml-2 text-[9px] font-black uppercase tracking-wider bg-orange-500/20 text-orange-400 border border-orange-500/30 px-1.5 py-0.5 rounded">
+                                                            {discountPct}% disc
+                                                        </span>
+                                                    )}
                                                 </div>
-                                                {discountPct > 0 && (
-                                                    <div className="flex justify-between items-center mt-1">
-                                                        <span className="text-[10px] text-orange-400">Max discount allowed</span>
-                                                        <span className="text-[10px] font-bold text-orange-400">₹{Math.floor(maxAmt).toLocaleString('en-IN')}</span>
-                                                    </div>
-                                                )}
+                                                <span className={`font-medium text-sm ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(fee.value)}</span>
                                             </div>
-                                        );
-                                    })}
-                                </div>
-
-                                <div className={`border-t my-2 pt-2 space-y-2 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                                    {admissionType === "BOARD" && feeBreakdown.monthlyFees && (
-                                        <div className="flex justify-between items-center bg-cyan-900/20 p-2 rounded">
-                                            <span className="text-cyan-400 font-semibold">Monthly Fees (Per Month)</span>
-                                            <span className="text-cyan-400 font-bold">₹{fmt(feeBreakdown.monthlyFees)}</span>
+                                            {discountPct > 0 && (
+                                                <div className="flex justify-between items-center mt-1">
+                                                    <span className="text-[10px] text-orange-400">Max discount allowed</span>
+                                                    <span className="text-[10px] font-bold text-orange-400">₹{Math.floor(maxAmt).toLocaleString('en-IN')}</span>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
-                                    {admissionType === "BOARD" && feeBreakdown.courseDurationMonths && (
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-gray-400">Duration</span>
-                                            <span className="text-white">{feeBreakdown.courseDurationMonths} Months</span>
-                                        </div>
-                                    )}
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-400">{admissionType === "BOARD" ? "Total Course Fees" : "Base Fees"}</span>
-                                        <span className="text-white">₹{fmt(feeBreakdown.baseFees)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-400">CGST (9%)</span>
-                                        <span className="text-white">₹{fmt(feeBreakdown.cgstAmount)}</span>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-gray-400">SGST (9%)</span>
-                                        <span className="text-white">₹{fmt(feeBreakdown.sgstAmount)}</span>
-                                    </div>
-                                    {/* Max Discount allowed summary */}
-                                    {(() => {
-                                        const maxAllowed = getMaxAllowedDiscount();
-                                        return maxAllowed > 0 && maxAllowed < Infinity ? (
-                                            <div className={`flex justify-between items-center p-2 rounded border border-dashed ${isDarkMode ? 'border-orange-500/30 bg-orange-500/5' : 'border-orange-300 bg-orange-50'}`}>
-                                                <span className="text-orange-400 text-xs font-bold uppercase tracking-wider">Max Discount Cap</span>
-                                                <span className="text-orange-400 text-xs font-bold">₹{Math.floor(maxAllowed).toLocaleString('en-IN')}</span>
-                                            </div>
-                                        ) : null;
-                                    })()}
-                                    {formData.feeWaiver > 0 && (
-                                        <div className={`flex justify-between items-center p-2 rounded ${discountError ? 'bg-red-500/10' : 'bg-green-500/10'}`}>
-                                            <span className={`font-semibold text-sm ${discountError ? 'text-red-400' : 'text-green-400'}`}>
-                                                Fee Waiver (Discount) {discountError ? '⚠ Exceeds Cap!' : ''}
-                                            </span>
-                                            <span className={`font-bold ${discountError ? 'text-red-400' : 'text-green-400'}`}>-₹{fmt(formData.feeWaiver)}</span>
-                                        </div>
-                                    )}
-                                    {feeBreakdown.previousBalance > 0 && (
-                                        <div className="flex justify-between items-center bg-yellow-500/10 p-2 rounded">
-                                            <span className="text-yellow-400">Previous Balance (Carry Forward)</span>
-                                            <span className="text-yellow-400 font-bold">+₹{fmt(feeBreakdown.previousBalance)}</span>
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className={`flex justify-between items-center p-3 rounded border mt-3 ${isDarkMode ? 'bg-cyan-500/20 border-cyan-500/50' : 'bg-cyan-50 border-cyan-200'}`}>
-                                    <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-semibold`}>Total Fees (with GST)</span>
-                                    <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-bold text-lg`}>₹{fmt(feeBreakdown.totalFees)}</span>
-                                </div>
+                                    );
+                                })}
                             </div>
 
-                            {/* Payment Breakdown */}
-                            <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
-                                <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
-                                    <FaCalculator className="text-cyan-400" />
-                                    Payment Breakdown
-                                </h3>
-
-                                <div className="space-y-3">
-                                    <div className="flex justify-between">
-                                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Fees</span>
-                                        <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(feeBreakdown.totalFees)}</span>
+                            <div className={`border-t my-2 pt-2 space-y-2 ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                {admissionType === "BOARD" && feeBreakdown.monthlyFees && (
+                                    <div className="flex justify-between items-center bg-cyan-900/20 p-2 rounded">
+                                        <span className="text-cyan-400 font-semibold">Monthly Fees (Per Month)</span>
+                                        <span className="text-cyan-400 font-bold">₹{fmt(feeBreakdown.monthlyFees)}</span>
                                     </div>
-                                    <div className="flex justify-between">
-                                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Down Payment</span>
-                                        <span className="text-green-500 font-medium">-₹{fmt(feeBreakdown.downPayment)}</span>
+                                )}
+                                {admissionType === "BOARD" && feeBreakdown.courseDurationMonths && (
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-gray-400">Duration</span>
+                                        <span className="text-white">{feeBreakdown.courseDurationMonths} Months</span>
                                     </div>
-                                    <div className={`border-t pt-2 flex justify-between ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remaining Amount</span>
-                                        <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(feeBreakdown.remainingAmount)}</span>
-                                    </div>
-                                    {feeBreakdown.installmentAmount > 0 && (
-                                        <div className="flex justify-between">
-                                            <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{admissionType === "BOARD" ? "Per Month" : "Per Installment"}</span>
-                                            <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-medium`}>₹{fmt(feeBreakdown.installmentAmount)}</span>
-                                        </div>
-                                    )}
+                                )}
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400">{admissionType === "BOARD" ? "Total Course Fees" : "Base Fees"}</span>
+                                    <span className="text-white">₹{fmt(feeBreakdown.baseFees)}</span>
                                 </div>
-
-                                {/* Payment Schedule / Monthly Breakdown */}
-                                {feeBreakdown.paymentSchedule.length > 0 && (
-                                    <div className="mt-4">
-                                        <h4 className={`text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
-                                            {admissionType === "BOARD" ? "Monthly Breakdown" : "Payment Schedule"}
-                                        </h4>
-                                        <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
-                                            {feeBreakdown.paymentSchedule.map((payment, index) => (
-                                                <div key={index} className={`flex justify-between items-center p-2 rounded text-sm ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
-                                                    <div>
-                                                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-700'}`}>
-                                                            {admissionType === "BOARD" ? `Month ${payment.installmentNumber}` : `Installment ${payment.installmentNumber}`}
-                                                        </span>
-                                                        <p className="text-xs text-gray-500">{payment.dueDate}</p>
-                                                    </div>
-                                                    <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(payment.amount)}</span>
-                                                </div>
-                                            ))}
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400">CGST (9%)</span>
+                                    <span className="text-white">₹{fmt(feeBreakdown.cgstAmount)}</span>
+                                    <span className="text-white">₹{fmt(feeBreakdown.displayCgst ?? feeBreakdown.cgstAmount)}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-gray-400">SGST (9%)</span>
+                                    <span className="text-white">₹{fmt(feeBreakdown.sgstAmount)}</span>
+                                    <span className="text-white">₹{fmt(feeBreakdown.displaySgst ?? feeBreakdown.sgstAmount)}</span>
+                                </div>
+                                {/* Max Discount allowed summary */}
+                                {(() => {
+                                    const maxAllowed = getMaxAllowedDiscount();
+                                    return maxAllowed > 0 && maxAllowed < Infinity ? (
+                                        <div className={`flex justify-between items-center p-2 rounded border border-dashed ${isDarkMode ? 'border-orange-500/30 bg-orange-500/5' : 'border-orange-300 bg-orange-50'}`}>
+                                            <span className="text-orange-400 text-xs font-bold uppercase tracking-wider">Max Discount Cap</span>
+                                            <span className="text-orange-400 text-xs font-bold">₹{Math.floor(maxAllowed).toLocaleString('en-IN')}</span>
                                         </div>
+                                    ) : null;
+                                })()}
+                                {formData.feeWaiver > 0 && (
+                                    <div className={`flex justify-between items-center p-2 rounded ${discountError ? 'bg-red-500/10' : 'bg-green-500/10'}`}>
+                                        <span className={`font-semibold text-sm ${discountError ? 'text-red-400' : 'text-green-400'}`}>
+                                            Fee Waiver (Discount) {discountError ? '⚠ Exceeds Cap!' : ''}
+                                        </span>
+                                        <span className={`font-bold ${discountError ? 'text-red-400' : 'text-green-400'}`}>-₹{fmt(formData.feeWaiver)}</span>
+                                    </div>
+                                )}
+                                {feeBreakdown.previousBalance > 0 && (
+                                    <div className="flex justify-between items-center bg-yellow-500/10 p-2 rounded">
+                                        <span className="text-yellow-400">Previous Balance (Carry Forward)</span>
+                                        <span className="text-yellow-400 font-bold">+₹{fmt(feeBreakdown.previousBalance)}</span>
                                     </div>
                                 )}
                             </div>
-                        </>
-                    )}
 
-                    {/* Submit Button */}
-                    {!discountError && (
-                        <button
-                            type="submit"
-                            disabled={loading || !selectedCourse}
-                            className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                            {loading ? "Creating Admission..." : "Create Admission"}
-                        </button>
-                    )}
-                </div>
-            </form>
+                            <div className={`flex justify-between items-center p-3 rounded border mt-3 ${isDarkMode ? 'bg-cyan-500/20 border-cyan-500/50' : 'bg-cyan-50 border-cyan-200'}`}>
+                                <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-semibold`}>Total Fees (with GST)</span>
+                                <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-bold text-lg`}>₹{fmt(feeBreakdown.totalFees)}</span>
+                                <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-bold text-lg`}>₹{fmt(feeBreakdown.displayTotalWithGst ?? feeBreakdown.totalFees)}</span>
+                            </div>
 
-            {/* Success/Bill Generation Modal */}
-            {createdAdmission && (
-                <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
-                    <div className={`rounded-xl border p-6 max-w-md w-full text-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200 shadow-xl'}`}>
-                        <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
-                            <FaMoneyBillWave className="text-3xl text-green-500" />
-                        </div>
-                        <h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Admission Successful!</h3>
-                        <p className={`mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                            Student has been successfully admitted to {createdAdmission.course?.courseName}.
-                        </p>
-
-                        <div className="space-y-3">
-                            {formData.paymentMethod === "CHEQUE" && (
-                                <div className={`p-3 rounded-lg border text-left ${isDarkMode ? 'bg-yellow-900/20 border-yellow-700/40 text-yellow-300' : 'bg-yellow-50 border-yellow-300 text-yellow-800'}`}>
-                                    <p className="text-xs font-bold uppercase tracking-wide mb-1">⚠ Cheque — Pending Clearance</p>
-                                    <p className="text-[11px]">Payment recorded. The bill will be generated only after the cheque is approved in <strong>Cheque Management</strong>. No transaction will appear in Finance reports until then.</p>
+                            {feeBreakdown.isPhsps && (
+                                <div className={`flex justify-between items-center p-3 rounded border mt-2 ${isDarkMode ? 'bg-emerald-500/15 border-emerald-500/40' : 'bg-emerald-50 border-emerald-300'}`}>
+                                    <div className="flex flex-col">
+                                        <span className="text-xs font-black uppercase tracking-wider text-emerald-400">PHSPS Net Fees (0% GST)</span>
+                                        <span className="text-[10px] text-gray-400">Final fees based on Base Fees (No GST for PHSPS)</span>
+                                    </div>
+                                    <span className="text-lg font-black text-emerald-400">₹{fmt(feeBreakdown.totalFees)}</span>
                                 </div>
                             )}
-                            {createdAdmission.downPayment > 0 && formData.paymentMethod !== "CHEQUE" && (
-                                <button
-                                    onClick={() => setBillModal({
-                                        show: true,
-                                        admission: createdAdmission,
-                                        installment: {
-                                            installmentNumber: 0,
-                                            amount: createdAdmission.downPayment,
-                                            paidAmount: createdAdmission.downPayment,
-                                            paidDate: new Date(),
-                                            paymentMethod: formData.paymentMethod,
-                                            status: "PAID"
-                                        }
-                                    })}
-                                    className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center justify-center gap-2 shadow-md"
-                                >
-                                    <FaFileInvoice /> Generate Bill (Down Payment)
-                                </button>
-                            )}
-
-                            <button
-                                onClick={() => navigate("/admissions")}
-                                className={`w-full py-3 font-semibold rounded-lg ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
-                            >
-                                {formData.paymentMethod === "CHEQUE" ? "Close & View Admissions" : "Go to Counselling List"}
-                            </button>
-
-                            <button
-                                onClick={() => navigate("/enrolled-students")}
-                                className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg flex items-center justify-center gap-2 shadow-md transition-all"
-                            >
-                                <FaUserGraduate /> View Enrolled Students
-                            </button>
                         </div>
+
+                        {/* Payment Breakdown */}
+                        <div className={`p-6 rounded-lg border ${isDarkMode ? 'bg-[#1a1f24] border-gray-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                            <h3 className={`text-lg font-semibold mb-4 flex items-center gap-2 ${isDarkMode ? 'text-white' : 'text-gray-800'}`}>
+                                <FaCalculator className="text-cyan-400" />
+                                Payment Breakdown
+                            </h3>
+
+                            <div className="space-y-3">
+                                <div className="flex justify-between">
+                                    <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Total Fees</span>
+                                    <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(feeBreakdown.totalFees)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Down Payment</span>
+                                    <span className="text-green-500 font-medium">-₹{fmt(feeBreakdown.downPayment)}</span>
+                                </div>
+                                <div className={`border-t pt-2 flex justify-between ${isDarkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                                    <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>Remaining Amount</span>
+                                    <span className={`font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(feeBreakdown.remainingAmount)}</span>
+                                </div>
+                                {feeBreakdown.installmentAmount > 0 && (
+                                    <div className="flex justify-between">
+                                        <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>{admissionType === "BOARD" ? "Per Month" : "Per Installment"}</span>
+                                        <span className={`${isDarkMode ? 'text-cyan-400' : 'text-cyan-700'} font-medium`}>₹{fmt(feeBreakdown.installmentAmount)}</span>
+                                    </div>
+                                )}
+                            </div>
+
+                            {/* Payment Schedule / Monthly Breakdown */}
+                            {feeBreakdown.paymentSchedule.length > 0 && (
+                                <div className="mt-4">
+                                    <h4 className={`text-sm font-semibold mb-2 ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
+                                        {admissionType === "BOARD" ? "Monthly Breakdown" : "Payment Schedule"}
+                                    </h4>
+                                    <div className="space-y-2 max-h-60 overflow-y-auto custom-scrollbar">
+                                        {feeBreakdown.paymentSchedule.map((payment, index) => (
+                                            <div key={index} className={`flex justify-between items-center p-2 rounded text-sm ${isDarkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                                                <div>
+                                                    <span className={`${isDarkMode ? 'text-gray-400' : 'text-gray-700'}`}>
+                                                        {admissionType === "BOARD" ? `Month ${payment.installmentNumber}` : `Installment ${payment.installmentNumber}`}
+                                                    </span>
+                                                    <p className="text-xs text-gray-500">{payment.dueDate}</p>
+                                                </div>
+                                                <span className={`font-medium ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>₹{fmt(payment.amount)}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </>
+                )}
+
+                {/* Submit Button */}
+                {!discountError && (
+                    <button
+                        type="submit"
+                        disabled={loading || !selectedCourse}
+                        className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-semibold py-3 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {loading ? "Creating Admission..." : "Create Admission"}
+                    </button>
+                )}
+            </div>
+        </form>
+
+        {/* Success/Bill Generation Modal */}
+        {createdAdmission && (
+            <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4">
+                <div className={`rounded-xl border p-6 max-w-md w-full text-center ${isDarkMode ? 'bg-[#1a1f24] border-gray-700' : 'bg-white border-gray-200 shadow-xl'}`}>
+                    <div className="w-16 h-16 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <FaMoneyBillWave className="text-3xl text-green-500" />
+                    </div>
+                    <h3 className={`text-xl font-bold mb-2 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Admission Successful!</h3>
+                    <p className={`mb-6 ${isDarkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                        Student has been successfully admitted to {createdAdmission.course?.courseName}.
+                    </p>
+
+                    <div className="space-y-3">
+                        {formData.paymentMethod === "CHEQUE" && (
+                            <div className={`p-3 rounded-lg border text-left ${isDarkMode ? 'bg-yellow-900/20 border-yellow-700/40 text-yellow-300' : 'bg-yellow-50 border-yellow-300 text-yellow-800'}`}>
+                                <p className="text-xs font-bold uppercase tracking-wide mb-1">⚠ Cheque — Pending Clearance</p>
+                                <p className="text-[11px]">Payment recorded. The bill will be generated only after the cheque is approved in <strong>Cheque Management</strong>. No transaction will appear in Finance reports until then.</p>
+                            </div>
+                        )}
+                        {createdAdmission.downPayment > 0 && formData.paymentMethod !== "CHEQUE" && (
+                            <button
+                                onClick={() => setBillModal({
+                                    show: true,
+                                    admission: createdAdmission,
+                                    installment: {
+                                        installmentNumber: 0,
+                                        amount: createdAdmission.downPayment,
+                                        paidAmount: createdAdmission.downPayment,
+                                        paidDate: new Date(),
+                                        paymentMethod: formData.paymentMethod,
+                                        status: "PAID"
+                                    }
+                                })}
+                                className="w-full py-3 bg-cyan-500 hover:bg-cyan-400 text-black font-bold rounded-lg flex items-center justify-center gap-2 shadow-md"
+                            >
+                                <FaFileInvoice /> Generate Bill (Down Payment)
+                            </button>
+                        )}
+
+                        <button
+                            onClick={() => navigate("/admissions")}
+                            className={`w-full py-3 font-semibold rounded-lg ${isDarkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-gray-200 hover:bg-gray-300 text-gray-800'}`}
+                        >
+                            {formData.paymentMethod === "CHEQUE" ? "Close & View Admissions" : "Go to Counselling List"}
+                        </button>
+
+                        <button
+                            onClick={() => navigate("/enrolled-students")}
+                            className="w-full py-3 bg-cyan-600 hover:bg-cyan-500 text-white font-bold rounded-lg flex items-center justify-center gap-2 shadow-md transition-all"
+                        >
+                            <FaUserGraduate /> View Enrolled Students
+                        </button>
                     </div>
                 </div>
-            )}
-            {/* Bill Generator Modal */}
-            {billModal.show && (
-                <BillGenerator
-                    admission={billModal.admission}
-                    installment={billModal.installment}
-                    isReceivingSlip={billModal.isReceivingSlip || billModal.installment?.isReceivingSlip}
-                    onClose={() => {
-                        setBillModal({ show: false, admission: null, installment: null, isReceivingSlip: false });
-                        navigate("/enrolled-students");
-                    }}
-                />
-            )}
-
-            {/* Razorpay POS Modal */}
-            <RazorpayPOSModal
-                isOpen={showPOSModal}
-                onClose={() => setShowPOSModal(false)}
-                amount={formData.downPayment}
-                invoiceId={`ADM-${Date.now()}`}
-                studentInfo={student}
-                admissionType={admissionType || "NORMAL"}
-                onPaymentSuccess={(posData) => {
-                    setShowPOSModal(false);
-                    handleSubmit(null, posData);
+            </div>
+        )}
+        {/* Bill Generator Modal */}
+        {billModal.show && (
+            <BillGenerator
+                admission={billModal.admission}
+                installment={billModal.installment}
+                isReceivingSlip={billModal.isReceivingSlip || billModal.installment?.isReceivingSlip}
+                onClose={() => {
+                    setBillModal({ show: false, admission: null, installment: null, isReceivingSlip: false });
+                    navigate("/enrolled-students");
                 }}
             />
-        </div>
-    );
+        )}
+
+        {/* Razorpay POS Modal */}
+        <RazorpayPOSModal
+            isOpen={showPOSModal}
+            onClose={() => setShowPOSModal(false)}
+            amount={formData.downPayment}
+            invoiceId={`ADM-${Date.now()}`}
+            studentInfo={student}
+            admissionType={admissionType || "NORMAL"}
+            onPaymentSuccess={(posData) => {
+                setShowPOSModal(false);
+                handleSubmit(null, posData);
+            }}
+        />
+    </div>
+);
 };
 
 export default StudentAdmissionPage;
