@@ -502,15 +502,14 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                                         <span className="text-[9px] text-gray-500 uppercase font-black tracking-widest block mb-1">CYCLE {idx + 1} / {admission.courseDurationMonths}</span>
                                                         <h4 className={`text-[13px] font-black uppercase tracking-tighter ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{item.monthName}</h4>
                                                     </div>
-                                                    <span className={`px-2 py-0.5 rounded-[2px] text-[9px] font-black tracking-widest ${
-                                                        item.paymentStatus === 'PAID' ? 'bg-emerald-500 text-white' : 
-                                                        item.paymentStatus === 'REJECTED' ? 'bg-red-500 text-white' :
-                                                        item.paymentStatus === 'PENDING_CLEARANCE' ? 'bg-cyan-500 text-white' : 
-                                                        'bg-amber-500 text-black'
-                                                    }`}>
-                                                        {item.paymentStatus === 'REJECTED' ? 'REJECTED' : 
-                                                         (item.paymentStatus === 'PENDING_CLEARANCE' ? 'IN PROCESS' : 
-                                                         (item.isPaid ? 'PAID' : 'PENDING'))}
+                                                    <span className={`px-2 py-0.5 rounded-[2px] text-[9px] font-black tracking-widest ${item.paymentStatus === 'PAID' ? 'bg-emerald-500 text-white' :
+                                                            item.paymentStatus === 'REJECTED' ? 'bg-red-500 text-white' :
+                                                                item.paymentStatus === 'PENDING_CLEARANCE' ? 'bg-cyan-500 text-white' :
+                                                                    'bg-amber-500 text-black'
+                                                        }`}>
+                                                        {item.paymentStatus === 'REJECTED' ? 'REJECTED' :
+                                                            (item.paymentStatus === 'PENDING_CLEARANCE' ? 'IN PROCESS' :
+                                                                (item.isPaid ? 'PAID' : 'PENDING'))}
                                                     </span>
                                                 </div>
                                                 <div className="space-y-2 mb-6 flex-grow">
@@ -835,16 +834,20 @@ const AdmissionDetailsModal = ({ admission, onClose, onUpdate, canEdit = false, 
                                         <select
                                             value={paymentData.bankAccount}
                                             onChange={(e) => setPaymentData({ ...paymentData, bankAccount: e.target.value })}
-                                            className={`w-full p-2.5 rounded-[4px] border font-bold text-[11px] uppercase tracking-wider focus:outline-none transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
+                                            className={`w-full p-2.5 rounded-[4px] border font-bold text-sm uppercase tracking-wide focus:outline-none transition-all ${isDarkMode ? 'bg-black/40 border-gray-800 text-white focus:border-cyan-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-cyan-500'}`}
                                             required
                                         >
-                                            <option value="">SELECT BANK ACCOUNT</option>
+                                            <option value="" className={`text-sm ${isDarkMode ? 'bg-[#131619] text-gray-400' : 'bg-white text-gray-500'}`}>SELECT BANK ACCOUNT</option>
                                             {masterAccounts.map(account => (
-                                                <option key={account._id} value={account._id}>
-                                                    {account.accname.toUpperCase()} (A/C: {account.accno})
-                                                </option>
+                                                    <option
+                                                        key={account._id}
+                                                        value={account._id}
+                                                        className={`text-sm py-1 font-semibold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                                                    >
+                                                        {account.accname.toUpperCase()} (A/C: {account.accno})
+                                                    </option>
                                             ))}
-                                        </select>
+                                                </select>
                                     </div>
                                 </div>
                             )}

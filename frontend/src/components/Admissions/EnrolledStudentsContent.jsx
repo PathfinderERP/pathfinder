@@ -340,13 +340,13 @@ const EnrolledStudentsContent = () => {
         'assistantcenterincharge',
         'assistantcentreincharge',
         'aci'
-    ].includes(userRoleClean) || 
-    userRoleClean.includes('zonalmanager') || 
-    userRoleClean.includes('digital') || 
-    userRoleClean.includes('assistantcenterincharge') ||
-    userRoleClean.includes('assistantcentreincharge') ||
-    userRoleClean === 'zm' ||
-    userRoleClean === 'aci';
+    ].includes(userRoleClean) ||
+        userRoleClean.includes('zonalmanager') ||
+        userRoleClean.includes('digital') ||
+        userRoleClean.includes('assistantcenterincharge') ||
+        userRoleClean.includes('assistantcentreincharge') ||
+        userRoleClean === 'zm' ||
+        userRoleClean === 'aci';
     const canEdit = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'edit');
     const canDeactivate = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'deactivate') || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
     const canDelete = isSuperAdmin || hasPermission(user.granularPermissions, 'admissions', 'enrolledStudents', 'delete');
@@ -1569,7 +1569,7 @@ const EnrolledStudentsContent = () => {
 
     const resolveCourseAmount = (admOrCourse, fallbackCourseId = null) => {
         if (!admOrCourse && !fallbackCourseId) return 0;
-        
+
         // 1. If it's an admission object
         if (admOrCourse?.totalFees !== undefined && admOrCourse?.totalFees !== null && Number(admOrCourse.totalFees) > 0) {
             return Number(admOrCourse.totalFees);
@@ -3501,11 +3501,10 @@ const EnrolledStudentsContent = () => {
                                     <button
                                         onClick={() => handleOpenBuyBookModal(selectedStudent)}
                                         disabled={selectedStudent.status === 'Deactivated'}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${
-                                            selectedStudent.status === 'Deactivated'
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${selectedStudent.status === 'Deactivated'
                                                 ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed')
                                                 : (isDarkMode ? 'bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white border border-purple-500/30 shadow-lg shadow-purple-500/10' : 'bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200 shadow-sm')
-                                        }`}
+                                            }`}
                                     >
                                         <FaBook size={10} /> Buy Book
                                     </button>
@@ -3734,11 +3733,10 @@ const EnrolledStudentsContent = () => {
                                         <button
                                             onClick={() => handleOpenBuyBookModal(selectedStudent)}
                                             disabled={selectedStudent.status === 'Deactivated'}
-                                            className={`flex items-center gap-1.5 px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest transition-all ${
-                                                selectedStudent.status === 'Deactivated'
+                                            className={`flex items-center gap-1.5 px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest transition-all ${selectedStudent.status === 'Deactivated'
                                                     ? 'opacity-40 cursor-not-allowed'
                                                     : (isDarkMode ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/30' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200')
-                                            }`}
+                                                }`}
                                         >
                                             <FaBook size={9} /> Buy Book
                                         </button>
@@ -3784,11 +3782,10 @@ const EnrolledStudentsContent = () => {
                                                             <button
                                                                 type="button"
                                                                 onClick={() => handleViewBookBill(item.billNumber)}
-                                                                className={`flex items-center justify-center gap-1.5 w-full py-1.5 px-2 rounded-[3px] text-[9px] font-black uppercase tracking-wider transition-all ${
-                                                                    isDarkMode
+                                                                className={`flex items-center justify-center gap-1.5 w-full py-1.5 px-2 rounded-[3px] text-[9px] font-black uppercase tracking-wider transition-all ${isDarkMode
                                                                         ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-500 hover:text-white border border-purple-500/30 shadow-sm'
                                                                         : 'bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200 shadow-sm'
-                                                                }`}
+                                                                    }`}
                                                                 title={`View Bill ${item.billNumber}`}
                                                             >
                                                                 <FaFileInvoice size={9} /> Receipt #{item.billNumber}
@@ -3807,11 +3804,10 @@ const EnrolledStudentsContent = () => {
                                                 type="button"
                                                 onClick={() => handleOpenBuyBookModal(selectedStudent)}
                                                 disabled={selectedStudent.status === 'Deactivated'}
-                                                className={`px-3.5 py-1.5 rounded-[4px] text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all ${
-                                                    selectedStudent.status === 'Deactivated'
+                                                className={`px-3.5 py-1.5 rounded-[4px] text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all ${selectedStudent.status === 'Deactivated'
                                                         ? 'opacity-40 cursor-not-allowed'
                                                         : (isDarkMode ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/40 shadow-sm' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-300 shadow-sm')
-                                                }`}
+                                                    }`}
                                             >
                                                 <FaBook size={10} /> Buy Book Now
                                             </button>
@@ -3939,11 +3935,10 @@ const EnrolledStudentsContent = () => {
                                                         <button
                                                             onClick={() => handleDownloadCourseFeePDF(admission)}
                                                             disabled={downloadingCourseFeeId === admission._id}
-                                                            className={`px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm ${
-                                                                isDarkMode
+                                                            className={`px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm ${isDarkMode
                                                                     ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500 hover:text-black'
                                                                     : 'bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-600 hover:text-white'
-                                                            } disabled:opacity-50`}
+                                                                } disabled:opacity-50`}
                                                             title="Download Course Fee Statement & Installment Breakup PDF"
                                                         >
                                                             {downloadingCourseFeeId === admission._id ? (
@@ -4129,13 +4124,12 @@ const EnrolledStudentsContent = () => {
                                                                     });
                                                                 }}
                                                                 disabled={selectedStudent.status === 'Deactivated'}
-                                                                className={`mt-2 text-[10px] px-2 py-1 rounded flex items-center gap-1 w-full justify-center transition-colors shadow-sm ${
-                                                                    selectedStudent.status === 'Deactivated'
+                                                                className={`mt-2 text-[10px] px-2 py-1 rounded flex items-center gap-1 w-full justify-center transition-colors shadow-sm ${selectedStudent.status === 'Deactivated'
                                                                         ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
                                                                         : admission.downPaymentStatus === "PENDING_CLEARANCE"
                                                                             ? 'bg-amber-600 hover:bg-amber-500 text-white'
                                                                             : 'bg-blue-500 hover:bg-blue-400 text-white'
-                                                                }`}
+                                                                    }`}
                                                                 title={selectedStudent.status === 'Deactivated' ? "Student is deactivated" : admission.downPaymentStatus === "PENDING_CLEARANCE" ? "Download Receiving Slip" : "Download Down Payment Receipt"}
                                                             >
                                                                 <FaFileInvoice /> {admission.downPaymentStatus === "PENDING_CLEARANCE" ? "Receiving Slip" : "Receipt"}
@@ -4194,9 +4188,8 @@ const EnrolledStudentsContent = () => {
                                                     <button
                                                         onClick={() => handleDownloadCourseFeePDF(admission)}
                                                         disabled={downloadingCourseFeeId === admission._id}
-                                                        className={`pb-2 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${
-                                                            isDarkMode ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'
-                                                        } disabled:opacity-50`}
+                                                        className={`pb-2 text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${isDarkMode ? 'text-cyan-400 hover:text-cyan-300' : 'text-cyan-600 hover:text-cyan-700'
+                                                            } disabled:opacity-50`}
                                                         title="Download Course Fee Statement & Installment Breakup PDF"
                                                     >
                                                         {downloadingCourseFeeId === admission._id ? (
@@ -4267,11 +4260,10 @@ const EnrolledStudentsContent = () => {
                                                                                                     isReceivingSlip: history.status === "PENDING_CLEARANCE"
                                                                                                 }
                                                                                             })}
-                                                                                            className={`mt-4 w-full py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${
-                                                                                                history.status === "PENDING_CLEARANCE"
+                                                                                            className={`mt-4 w-full py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${history.status === "PENDING_CLEARANCE"
                                                                                                     ? 'bg-amber-600 hover:bg-amber-500 text-white'
                                                                                                     : isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm'
-                                                                                            }`}
+                                                                                                }`}
                                                                                         >
                                                                                             <FaFileInvoice size={10} /> {history.status === "PENDING_CLEARANCE" ? "Receiving Slip" : "Extract Bill"}
                                                                                         </button>
@@ -4395,13 +4387,12 @@ const EnrolledStudentsContent = () => {
                                                                                                                 });
                                                                                                             }}
                                                                                                             disabled={selectedStudent.status === 'Deactivated'}
-                                                                                                            className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${
-                                                                                                                selectedStudent.status === 'Deactivated'
+                                                                                                            className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${selectedStudent.status === 'Deactivated'
                                                                                                                     ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')
                                                                                                                     : payment.status === "PENDING_CLEARANCE"
                                                                                                                         ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200 shadow-sm')
                                                                                                                         : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')
-                                                                                                            }`}
+                                                                                                                }`}
                                                                                                         >
                                                                                                             <FaFileInvoice size={10} /> {payment.status === "PENDING_CLEARANCE" ? "RECEIVING SLIP" : "BILL"}
                                                                                                         </button>
@@ -4471,13 +4462,12 @@ const EnrolledStudentsContent = () => {
                                                                                                             }
                                                                                                         })}
                                                                                                         disabled={selectedStudent.status === 'Deactivated'}
-                                                                                                        className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${
-                                                                                                            selectedStudent.status === 'Deactivated'
+                                                                                                        className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${selectedStudent.status === 'Deactivated'
                                                                                                                 ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')
                                                                                                                 : isSlip
                                                                                                                     ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200 shadow-sm')
                                                                                                                     : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')
-                                                                                                        }`}
+                                                                                                            }`}
                                                                                                         title={isSlip ? "Download Receiving Slip" : "Extract Receipt"}
                                                                                                     >
                                                                                                         <FaFileInvoice size={10} /> {isSlip ? "SLIP" : "REC"}
@@ -4709,107 +4699,111 @@ const EnrolledStudentsContent = () => {
                                         </div>
                                     </div>
                                     <div>
-                                        <label className="block text-[8px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2">
-                                            BANK ACCOUNT <span className="text-red-500">*</span>
-                                        </label>
-                                        <select
-                                            value={paymentData.bankAccount}
-                                            onChange={(e) => setPaymentData({ ...paymentData, bankAccount: e.target.value })}
-                                            required
-                                            className={`w-full p-2.5 rounded-[4px] border font-black uppercase tracking-widest text-[10px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-purple-500'}`}
-                                        >
-                                            <option value="">SELECT BANK ACCOUNT</option>
-                                            {masterAccounts.map(account => (
-                                                <option key={account._id} value={account._id}>
-                                                    {account.accname.toUpperCase()} (A/C: {account.accno})
-                                                </option>
+                                            <label className="block text-[10px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2">
+                                                BANK ACCOUNT <span className="text-red-500">*</span>
+                                            </label>
+                                            <select
+                                                value={paymentData.bankAccount}
+                                                onChange={(e) => setPaymentData({ ...paymentData, bankAccount: e.target.value })}
+                                                required
+                                                className={`w-full p-2.5 rounded-[4px] border font-bold text-sm tracking-wide focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-purple-500'}`}
+                                            >
+                                                <option value="" className={`text-sm ${isDarkMode ? 'bg-[#131619] text-gray-400' : 'bg-white text-gray-500'}`}>SELECT BANK ACCOUNT</option>
+                                                {masterAccounts.map(account => (
+                                                        <option
+                                                            key={account._id}
+                                                            value={account._id}
+                                                            className={`text-sm py-1 font-semibold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                                                        >
+                                                            {account.accname.toUpperCase()} (A/C: {account.accno})
+                                                        </option>
                                             ))}
-                                        </select>
+                                                    </select>
                                     </div>
-                                    <div>
-                                        <label className="block text-[8px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2">
-                                            Cheque Date <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="date"
-                                            value={paymentData.chequeDate}
-                                            onChange={(e) => setPaymentData({ ...paymentData, chequeDate: e.target.value })}
-                                            required
-                                            className={`w-full p-2.5 rounded-[4px] border font-black text-[10px] uppercase focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-white border-gray-200 text-gray-900'}`}
-                                        />
+                                            <div>
+                                                <label className="block text-[8px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2">
+                                                    Cheque Date <span className="text-red-500">*</span>
+                                                </label>
+                                                <input
+                                                    type="date"
+                                                    value={paymentData.chequeDate}
+                                                    onChange={(e) => setPaymentData({ ...paymentData, chequeDate: e.target.value })}
+                                                    required
+                                                    className={`w-full p-2.5 rounded-[4px] border font-black text-[10px] uppercase focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-white border-gray-200 text-gray-900'}`}
+                                                />
+                                            </div>
                                     </div>
-                                </div>
                             )}
 
-                            <div>
-                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
-                                    REMARKS
-                                </label>
-                                <textarea
-                                    value={paymentData.remarks}
-                                    onChange={(e) => setPaymentData({ ...paymentData, remarks: e.target.value })}
-                                    rows={3}
-                                    className={`w-full p-3 rounded-[4px] border font-bold uppercase tracking-widest text-[10px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500 shadow-inner'}`}
-                                    placeholder="OPTIONAL CONTEXTUAL METADATA..."
-                                />
-                            </div>
+                                    <div>
+                                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
+                                            REMARKS
+                                        </label>
+                                        <textarea
+                                            value={paymentData.remarks}
+                                            onChange={(e) => setPaymentData({ ...paymentData, remarks: e.target.value })}
+                                            rows={3}
+                                            className={`w-full p-3 rounded-[4px] border font-bold uppercase tracking-widest text-[10px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500 shadow-inner'}`}
+                                            placeholder="OPTIONAL CONTEXTUAL METADATA..."
+                                        />
+                                    </div>
 
-                            {/* Rolling Balance Opt-in */}
-                            {(() => {
-                                const diff = selectedInstallment.amount - paymentData.paidAmount;
-                                const isLastInstallment = selectedInstallment.installmentNumber === selectedAdmission.numberOfInstallments;
+                                    {/* Rolling Balance Opt-in */}
+                                    {(() => {
+                                        const diff = selectedInstallment.amount - paymentData.paidAmount;
+                                        const isLastInstallment = selectedInstallment.installmentNumber === selectedAdmission.numberOfInstallments;
 
-                                if (diff > 0 && isLastInstallment) {
-                                    return (
-                                        <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-yellow-50 border-yellow-200'}`}>
-                                            <label className="flex items-start gap-4 cursor-pointer">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={paymentData.carryForward}
-                                                    onChange={(e) => setPaymentData({ ...paymentData, carryForward: e.target.checked })}
-                                                    className={`w-5 h-5 mt-1 border transition-all ${isDarkMode ? 'bg-gray-900 border-gray-700 checked:bg-yellow-500' : 'bg-white border-gray-300 checked:bg-yellow-500'}`}
-                                                />
-                                                <div className="flex-1">
-                                                    <span className="text-yellow-500 font-black uppercase tracking-widest text-[10px] block">CARRY FORWARD FINAL BALANCE</span>
-                                                    <span className="text-gray-500 text-[9px] font-bold uppercase tracking-widest block mt-1 leading-relaxed">
-                                                        This is the terminal installment. Check to roll over the remaining ₹{diff.toLocaleString()} to global student credit balance.
-                                                    </span>
+                                        if (diff > 0 && isLastInstallment) {
+                                            return (
+                                                <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-yellow-50 border-yellow-200'}`}>
+                                                    <label className="flex items-start gap-4 cursor-pointer">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={paymentData.carryForward}
+                                                            onChange={(e) => setPaymentData({ ...paymentData, carryForward: e.target.checked })}
+                                                            className={`w-5 h-5 mt-1 border transition-all ${isDarkMode ? 'bg-gray-900 border-gray-700 checked:bg-yellow-500' : 'bg-white border-gray-300 checked:bg-yellow-500'}`}
+                                                        />
+                                                        <div className="flex-1">
+                                                            <span className="text-yellow-500 font-black uppercase tracking-widest text-[10px] block">CARRY FORWARD FINAL BALANCE</span>
+                                                            <span className="text-gray-500 text-[9px] font-bold uppercase tracking-widest block mt-1 leading-relaxed">
+                                                                This is the terminal installment. Check to roll over the remaining ₹{diff.toLocaleString()} to global student credit balance.
+                                                            </span>
+                                                        </div>
+                                                    </label>
                                                 </div>
-                                            </label>
-                                        </div>
-                                    );
-                                }
-                                return null;
-                            })()}
-
-                            <div className="flex gap-4 pt-4">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (paymentData.paymentMethod === 'RAZORPAY_POS') {
-                                            setShowPOSModal(true);
-                                        } else {
-                                            handlePaymentSubmit({ preventDefault: () => { } });
+                                            );
                                         }
-                                    }}
-                                    disabled={processingPayment}
-                                    className={`flex-1 py-4 font-black uppercase tracking-[0.2em] text-[11px] rounded-[4px] transition-all flex items-center justify-center gap-3 shadow-lg ${processingPayment ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/20 active:scale-95'}`}
-                                >
-                                    {processingPayment ? (
-                                        <><FaSync className="animate-spin" /> SYNCHRONIZING...</>
-                                    ) : (
-                                        <><FaCheckCircle size={14} /> AUTHORIZE TRANSACTION</>
-                                    )}
-                                </button>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowPaymentModal(false)}
-                                    className={`px-8 py-4 font-black uppercase tracking-[0.2em] text-[11px] rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                                >
-                                    Cancel
-                                </button>
-                            </div>
-                        </form>
+                                        return null;
+                                    })()}
+
+                                    <div className="flex gap-4 pt-4">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (paymentData.paymentMethod === 'RAZORPAY_POS') {
+                                                    setShowPOSModal(true);
+                                                } else {
+                                                    handlePaymentSubmit({ preventDefault: () => { } });
+                                                }
+                                            }}
+                                            disabled={processingPayment}
+                                            className={`flex-1 py-4 font-black uppercase tracking-[0.2em] text-[11px] rounded-[4px] transition-all flex items-center justify-center gap-3 shadow-lg ${processingPayment ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/20 active:scale-95'}`}
+                                        >
+                                            {processingPayment ? (
+                                                <><FaSync className="animate-spin" /> SYNCHRONIZING...</>
+                                            ) : (
+                                                <><FaCheckCircle size={14} /> AUTHORIZE TRANSACTION</>
+                                            )}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowPaymentModal(false)}
+                                            className={`px-8 py-4 font-black uppercase tracking-[0.2em] text-[11px] rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                        >
+                                            Cancel
+                                        </button>
+                                    </div>
+                                </form>
                     </div>
                 </div>
             )}
@@ -4936,31 +4930,30 @@ const EnrolledStudentsContent = () => {
                                     }
                                     onChange={handleSelectBuyBookCourse}
                                     required
-                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                        isDarkMode
+                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                             : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                    }`}
+                                        }`}
                                 >
                                     <option value="">-- Choose Course for Book Purchase --</option>
                                     {studentAdmissions.filter(adm => {
                                         const cName = resolveCourseName(adm);
                                         return /vso|key to success/i.test(cName || "") || adm.course?.isBookCourse;
                                     }).length > 0 && (
-                                        <optgroup label="Student's Enrolled Book Courses">
-                                            {studentAdmissions.filter(adm => {
-                                                const cName = resolveCourseName(adm);
-                                                return /vso|key to success/i.test(cName || "") || adm.course?.isBookCourse;
-                                            }).map(adm => {
-                                                const cName = resolveCourseName(adm);
-                                                return (
-                                                    <option key={adm._id} value={`adm_${adm._id}`}>
-                                                        {cName} ({adm.academicSession || 'Active'})
-                                                    </option>
-                                                );
-                                            })}
-                                        </optgroup>
-                                    )}
+                                            <optgroup label="Student's Enrolled Book Courses">
+                                                {studentAdmissions.filter(adm => {
+                                                    const cName = resolveCourseName(adm);
+                                                    return /vso|key to success/i.test(cName || "") || adm.course?.isBookCourse;
+                                                }).map(adm => {
+                                                    const cName = resolveCourseName(adm);
+                                                    return (
+                                                        <option key={adm._id} value={`adm_${adm._id}`}>
+                                                            {cName} ({adm.academicSession || 'Active'})
+                                                        </option>
+                                                    );
+                                                })}
+                                            </optgroup>
+                                        )}
                                     {masterCourses.length > 0 && (() => {
                                         const bookMasterCourses = masterCourses.filter(c => c.isBookCourse === true || /vso|key to success/i.test(c.courseName || ""));
                                         const displayCourses = bookMasterCourses.length > 0 ? bookMasterCourses : masterCourses;
@@ -4992,11 +4985,10 @@ const EnrolledStudentsContent = () => {
                                     value={buyBookForm.itemName}
                                     onChange={(e) => setBuyBookForm({ ...buyBookForm, itemName: e.target.value })}
                                     placeholder="e.g. Foundation Class 10 - Books Set"
-                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                        isDarkMode
+                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                             : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                    }`}
+                                        }`}
                                 />
                             </div>
 
@@ -5007,9 +4999,8 @@ const EnrolledStudentsContent = () => {
                                         <label className={`text-[10px] font-black uppercase tracking-widest ${isDarkMode ? 'text-gray-300' : 'text-gray-700'}`}>
                                             Course Amount (₹) <span className="text-red-500">*</span>
                                         </label>
-                                        <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-1 ${
-                                            isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-100 text-purple-700 border border-purple-200'
-                                        }`}>
+                                        <span className={`text-[8px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded flex items-center gap-1 ${isDarkMode ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-purple-100 text-purple-700 border border-purple-200'
+                                            }`}>
                                             <FaLock size={8} /> Auto-Fetched
                                         </span>
                                     </div>
@@ -5021,11 +5012,10 @@ const EnrolledStudentsContent = () => {
                                             disabled
                                             value={buyBookForm.amount ? fmt(buyBookForm.amount) : "0.00"}
                                             placeholder="0.00"
-                                            className={`w-full pl-7 pr-8 py-2.5 sm:py-3 rounded-[4px] border text-xs font-black cursor-not-allowed select-none ${
-                                                isDarkMode
+                                            className={`w-full pl-7 pr-8 py-2.5 sm:py-3 rounded-[4px] border text-xs font-black cursor-not-allowed select-none ${isDarkMode
                                                     ? 'bg-black/40 border-gray-700/80 text-gray-200 shadow-inner'
                                                     : 'bg-gray-100 border-gray-300 text-gray-800 shadow-inner'
-                                            }`}
+                                                }`}
                                         />
                                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" title="Locked to Course Amount">
                                             <FaLock size={10} />
@@ -5046,11 +5036,10 @@ const EnrolledStudentsContent = () => {
                                             value={buyBookForm.discount}
                                             onChange={(e) => setBuyBookForm({ ...buyBookForm, discount: e.target.value })}
                                             placeholder="0.00"
-                                            className={`w-full pl-7 pr-3 py-2.5 sm:py-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                                isDarkMode
+                                            className={`w-full pl-7 pr-3 py-2.5 sm:py-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                                     ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                                     : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                            }`}
+                                                }`}
                                         />
                                     </div>
                                 </div>
@@ -5072,11 +5061,10 @@ const EnrolledStudentsContent = () => {
                                     <select
                                         value={buyBookForm.paymentMethod}
                                         onChange={(e) => setBuyBookForm({ ...buyBookForm, paymentMethod: e.target.value })}
-                                        className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                            isDarkMode
+                                        className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                                 ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                                 : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                        }`}
+                                            }`}
                                     >
                                         <option value="CASH">CASH</option>
                                         <option value="UPI">UPI</option>
@@ -5094,11 +5082,10 @@ const EnrolledStudentsContent = () => {
                                         type="date"
                                         value={buyBookForm.receivedDate}
                                         onChange={(e) => setBuyBookForm({ ...buyBookForm, receivedDate: e.target.value })}
-                                        className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                            isDarkMode
+                                        className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                                 ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                                 : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                        }`}
+                                            }`}
                                     />
                                 </div>
                             </div>
@@ -5116,11 +5103,10 @@ const EnrolledStudentsContent = () => {
                                             value={buyBookForm.transactionId}
                                             onChange={(e) => setBuyBookForm({ ...buyBookForm, transactionId: e.target.value })}
                                             placeholder="Enter Reference / UTR / Cheque No."
-                                            className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                                isDarkMode
+                                            className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                                     ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                                     : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                            }`}
+                                                }`}
                                         />
                                     </div>
                                     <div>
@@ -5132,11 +5118,10 @@ const EnrolledStudentsContent = () => {
                                             value={buyBookForm.accountHolderName}
                                             onChange={(e) => setBuyBookForm({ ...buyBookForm, accountHolderName: e.target.value })}
                                             placeholder="Optional"
-                                            className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                                isDarkMode
+                                            className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                                     ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                                     : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                            }`}
+                                                }`}
                                         />
                                     </div>
                                 </div>
@@ -5152,11 +5137,10 @@ const EnrolledStudentsContent = () => {
                                     value={buyBookForm.remarks}
                                     onChange={(e) => setBuyBookForm({ ...buyBookForm, remarks: e.target.value })}
                                     placeholder="e.g. Study Kit Part 1 & Part 2"
-                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${
-                                        isDarkMode
+                                    className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
                                             ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
                                             : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
-                                    }`}
+                                        }`}
                                 />
                             </div>
 
@@ -5166,9 +5150,8 @@ const EnrolledStudentsContent = () => {
                                     type="button"
                                     onClick={() => setIsBuyBookModalOpen(false)}
                                     disabled={submittingBuyBook}
-                                    className={`px-5 py-2.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${
-                                        isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                                    }`}
+                                    className={`px-5 py-2.5 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                                        }`}
                                 >
                                     Cancel
                                 </button>
