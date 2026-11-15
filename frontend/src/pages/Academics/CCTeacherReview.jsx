@@ -256,7 +256,7 @@ const CCTeacherReview = () => {
                                 <Select
                                     isMulti
                                     isSearchable
-                                    options={dropdownData.subjects.map(s => ({ value: s._id, label: s.subjectName || s.name }))}
+                                    options={dropdownData.subjects.map(s => ({ value: s._id, label: s.subName || s.subjectName || s.name }))}
                                     value={filters.subjectId}
                                     onChange={(val) => handleFilterChange("subjectId", val)}
                                     styles={customSelectStyles}

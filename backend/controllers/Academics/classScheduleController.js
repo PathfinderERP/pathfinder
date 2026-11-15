@@ -1278,7 +1278,7 @@ const checkIsHazraUser = async (user) => {
     if (!user) return false;
     const rawRole = (user.role || "").toLowerCase().replace(/\s+/g, "");
     if (rawRole === 'superadmin' || user.role === 'superAdmin') return true;
-    
+
     const userCentres = (user.centres || []).map(c => (c && c._id ? c._id.toString() : (c ? c.toString() : '')));
     if (userCentres.includes(HAZRA_CENTRE_ID)) return true;
 
@@ -2053,9 +2053,9 @@ export const markTeacherAttendance = async (req, res) => {
         currentClass.attendanceLongitude = longitude;
         await currentClass.save();
 
-        res.status(200).json({ 
-            message: currentClass.teacherAttendance ? "Attendance marked successfully" : "Attendance unmarked successfully", 
-            class: currentClass 
+        res.status(200).json({
+            message: currentClass.teacherAttendance ? "Attendance marked successfully" : "Attendance unmarked successfully",
+            class: currentClass
         });
     } catch (error) {
         console.error("Error marking teacher attendance:", error);
@@ -2093,7 +2093,13 @@ export const startStudy = async (req, res) => {
 // Get required data for dropdowns (Helper endpoint)
 export const getClassDropdownData = async (req, res) => {
     try {
-        const subjects = await Subject.find().sort({ subName: 1 });
+        const rawSubjects = await Subject.find().sort({ subName: 1 }).lean();
+        const subjects = rawSubjects.map(s => ({
+            ...s,
+            subName: s.subName,
+            subjectName: s.subName,
+            name: s.subName
+        }));
         const masterSubjects = subjects; // Both are same now
         const courses = await Course.find();
         let teachers, coordinators, centres, batches;
@@ -2185,16 +2191,16 @@ export const importClassesExcel = async (req, res) => {
 
             // 1. Check Mandatory fields
             const requiredFields = [
-                'Class Name', 
-                'Date', 
-                'Class Mode', 
-                'Start Time', 
+                'Class Name',
+                'Date',
+                'Class Mode',
+                'Start Time',
                 'Class Hours',
-                'End Time', 
-                'Center', 
-                'Batch', 
-                'Subject', 
-                'Teacher', 
+                'End Time',
+                'Center',
+                'Batch',
+                'Subject',
+                'Teacher',
                 'Session',
                 'Exam',
                 'Academic Class',
@@ -3187,4 +3193,4 @@ export const bulkStartClass = async (req, res) => {
         console.error("Error bulk starting classes:", error);
         res.status(500).json({ message: "Server error", error: error.message });
     }
-};
+};

@@ -2266,8 +2266,8 @@ const Classes = () => {
                             <label className="text-xs font-bold text-gray-400 mb-1 ml-1 uppercase letter-spacing-wide">Subject</label>
                             <Select
                                 isMulti
-                                options={dropdownData.subjects?.map(s => ({ value: s._id, label: s.subjectName || s.name }))}
-                                value={dropdownData.subjects?.filter(s => filters.subjectId.split(',').includes(s._id)).map(s => ({ value: s._id, label: s.subjectName || s.name }))}
+                                options={dropdownData.subjects?.map(s => ({ value: s._id, label: s.subName || s.subjectName || s.name }))}
+                                value={dropdownData.subjects?.filter(s => filters.subjectId.split(',').includes(s._id)).map(s => ({ value: s._id, label: s.subName || s.subjectName || s.name }))}
                                 onChange={(selected) => handleMultiSelectChange(selected, "subjectId")}
                                 placeholder="Select Subject"
                                 styles={customSelectStyles}
@@ -2498,145 +2498,142 @@ const Classes = () => {
                                         const isStartReached = !schedStart || (currentTime.getTime() + GRACE_PERIOD_MS) >= schedStart.getTime();
 
                                         return (
-                                        <tr key={cls._id} className={`transition-colors text-sm group ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-50 text-gray-600'}`}>
-                                            <td className={`p-4 font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cls.className}</td>
-                                            <td className="p-4">{cls.batchNames || cls.batchId?.batchName || cls.batchId?.name || "-"}</td>
-                                            <td className="p-4">
-                                                <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${cls.classMode === 'Online' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
-                                                    {cls.classMode}
-                                                </span>
-                                            </td>
-                                            <td className="p-4">{cls.centreNames || "-"}</td>
-                                            <td className="p-4">{cls.acadSubjectId?.masterSubjectId?.subName || cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
-                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
-                                            <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
-                                            <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
-                                            <td className="p-4">{cls.coordinatorName || cls.coordinatorId?.name || "-"}</td>
-                                            <td className="p-4 font-mono">{formatDate(cls.date)}</td>
-                                            <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>
-                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.startTime}</td>
-                                            <td className="p-4 text-xs font-bold text-gray-400">{cls.endTime}</td>
-                                            <td className="p-4 text-xs font-bold text-gray-400">
-                                                {cls.actualStartTime ? new Date(cls.actualStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
-                                                {" - "}
-                                                {cls.actualEndTime ? new Date(cls.actualEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                {cls.teacherAttendance ? (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => (canEdit || isAcademicAdmin || isTeacher || isHod) && handleTeacherAttendance(cls._id, false)}
-                                                        disabled={!isStartReached || !(canEdit || isAcademicAdmin || isTeacher || isHod)}
-                                                        className={`bg-green-600/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold border border-green-600/50 flex items-center justify-center gap-1 mx-auto w-fit transition-all ${
-                                                            !isStartReached
-                                                                ? "opacity-50 cursor-not-allowed"
-                                                                : (canEdit || isAcademicAdmin || isTeacher || isHod) ? "hover:bg-green-600/30 cursor-pointer" : "cursor-default"
-                                                        }`}
-                                                        title={!isStartReached ? `Teacher attendance active after start time (${cls.startTime})` : "Click to mark Absent"}
-                                                    >
-                                                        <FaCheck size={10} /> Present
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => (canEdit || isAcademicAdmin || isTeacher || isHod) && handleTeacherAttendance(cls._id, true)}
-                                                        disabled={!isStartReached || !(canEdit || isAcademicAdmin || isTeacher || isHod)}
-                                                        className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center justify-center gap-1 mx-auto w-fit transition-all ${
-                                                            !isStartReached
-                                                                ? "bg-red-600/10 text-red-400/50 border-red-600/20 opacity-50 cursor-not-allowed"
-                                                                : (canEdit || isAcademicAdmin || isTeacher || isHod)
-                                                                    ? "bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border-red-600/50 cursor-pointer shadow-sm shadow-red-900/10"
-                                                                    : "bg-red-600/20 text-red-400 border-red-600/50 cursor-default"
-                                                        }`}
-                                                        title={!isStartReached ? `Teacher attendance active after start time (${cls.startTime})` : "Click to mark Present"}
-                                                    >
-                                                        Absent
-                                                    </button>
-                                                )}
-                                            </td>
-                                            <td className="p-4 text-center font-mono text-[10px] text-cyan-400">
-                                                {cls.studyStartTime ? new Date(cls.studyStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
-                                            </td>
-                                            <td className="p-4 text-center">
-                                                {cls.status === "Completed" && isAcademicAdmin && (
-                                                    <button
-                                                        onClick={() => {
-                                                            setSelectedClassForFeedback(cls);
-                                                            const existingFeedback = cls.teacherFeedback && cls.teacherFeedback.length > 0
-                                                                ? cls.teacherFeedback
-                                                                : staticFeedbackCriteria.map(criteria => ({ criteria, rating: "Good" }));
-                                                            setTeacherFeedback(existingFeedback);
-                                                            setShowFeedbackModal(true);
-                                                        }}
-                                                        className="bg-purple-600/10 text-purple-400 px-3 py-1 rounded text-[10px] font-bold uppercase border border-purple-600/30 hover:bg-purple-600 hover:text-white transition-all shadow-lg"
-                                                    >
-                                                        {cls.teacherFeedback && cls.teacherFeedback.length > 0 ? "Feedback" : "Add Feedback"}
-                                                    </button>
-                                                )}
-                                                {cls.status === "Completed" && isTeacher && <span className="text-[10px] font-bold text-gray-500 uppercase italic">Locked</span>}
-                                                {cls.status !== "Completed" && "-"}
-                                            </td>
-                                            <td className="p-4">
-                                                <div className="relative group/hover">
-                                                    {cls.status === "Upcoming" && (
-                                                        isAcademicAdmin ? (
-                                                            <button
-                                                                onClick={() => handleStartClass(cls._id)}
-                                                                disabled={!isStartReached}
-                                                                className={`px-3 py-1 rounded text-[10px] font-bold uppercase border transition-all ${
-                                                                    !isStartReached
-                                                                        ? "bg-gray-600/10 text-gray-500 border-gray-600/20 cursor-not-allowed opacity-50"
-                                                                        : "bg-green-600/10 text-green-400 border-green-600/30 hover:bg-green-600 hover:text-white transition-all shadow-lg shadow-green-900/10 cursor-pointer"
+                                            <tr key={cls._id} className={`transition-colors text-sm group ${isDarkMode ? 'hover:bg-[#252b32] text-gray-300' : 'hover:bg-gray-50 text-gray-600'}`}>
+                                                <td className={`p-4 font-semibold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{cls.className}</td>
+                                                <td className="p-4">{cls.batchNames || cls.batchId?.batchName || cls.batchId?.name || "-"}</td>
+                                                <td className="p-4">
+                                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${cls.classMode === 'Online' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/20' : 'bg-orange-500/10 text-orange-400 border border-orange-500/20'}`}>
+                                                        {cls.classMode}
+                                                    </span>
+                                                </td>
+                                                <td className="p-4">{cls.centreNames || "-"}</td>
+                                                <td className="p-4">{cls.acadSubjectId?.masterSubjectId?.subName || cls.subjectName || cls.subjectId?.subName || cls.subjectId?.subjectName || "-"}</td>
+                                                <td className="p-4 text-xs font-bold text-gray-400">{cls.chapterName || "-"}</td>
+                                                <td className="p-4 text-xs italic text-cyan-400/60">{cls.topicIds && cls.topicIds.length > 0 ? cls.topicIds.map(t => t.topicName).join(", ") : (cls.topicName || "-")}</td>
+                                                <td className="p-4 font-medium text-cyan-400/80">{cls.teacherId?.name || "-"}</td>
+                                                <td className="p-4">{cls.coordinatorName || cls.coordinatorId?.name || "-"}</td>
+                                                <td className="p-4 font-mono">{formatDate(cls.date)}</td>
+                                                <td className="p-4 whitespace-nowrap text-[10px] text-gray-500">{formatDate(cls.updatedAt)}</td>
+                                                <td className="p-4 text-xs font-bold text-gray-400">{cls.startTime}</td>
+                                                <td className="p-4 text-xs font-bold text-gray-400">{cls.endTime}</td>
+                                                <td className="p-4 text-xs font-bold text-gray-400">
+                                                    {cls.actualStartTime ? new Date(cls.actualStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
+                                                    {" - "}
+                                                    {cls.actualEndTime ? new Date(cls.actualEndTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    {cls.teacherAttendance ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => (canEdit || isAcademicAdmin || isTeacher || isHod) && handleTeacherAttendance(cls._id, false)}
+                                                            disabled={!isStartReached || !(canEdit || isAcademicAdmin || isTeacher || isHod)}
+                                                            className={`bg-green-600/20 text-green-400 px-3 py-1 rounded-full text-xs font-bold border border-green-600/50 flex items-center justify-center gap-1 mx-auto w-fit transition-all ${!isStartReached
+                                                                    ? "opacity-50 cursor-not-allowed"
+                                                                    : (canEdit || isAcademicAdmin || isTeacher || isHod) ? "hover:bg-green-600/30 cursor-pointer" : "cursor-default"
                                                                 }`}
-                                                                title={!isStartReached ? `Class can only be started at or after ${cls.startTime}` : "Start Class"}
-                                                            >
-                                                                Start
-                                                            </button>
-                                                        ) : (
-                                                            <span className="text-[10px] font-bold text-gray-600 uppercase italic">Upcoming</span>
-                                                        )
+                                                            title={!isStartReached ? `Teacher attendance active after start time (${cls.startTime})` : "Click to mark Absent"}
+                                                        >
+                                                            <FaCheck size={10} /> Present
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => (canEdit || isAcademicAdmin || isTeacher || isHod) && handleTeacherAttendance(cls._id, true)}
+                                                            disabled={!isStartReached || !(canEdit || isAcademicAdmin || isTeacher || isHod)}
+                                                            className={`px-3 py-1 rounded-full text-xs font-bold border flex items-center justify-center gap-1 mx-auto w-fit transition-all ${!isStartReached
+                                                                    ? "bg-red-600/10 text-red-400/50 border-red-600/20 opacity-50 cursor-not-allowed"
+                                                                    : (canEdit || isAcademicAdmin || isTeacher || isHod)
+                                                                        ? "bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white border-red-600/50 cursor-pointer shadow-sm shadow-red-900/10"
+                                                                        : "bg-red-600/20 text-red-400 border-red-600/50 cursor-default"
+                                                                }`}
+                                                            title={!isStartReached ? `Teacher attendance active after start time (${cls.startTime})` : "Click to mark Present"}
+                                                        >
+                                                            Absent
+                                                        </button>
                                                     )}
-                                                    {cls.status === "Ongoing" && (
-                                                        <div className="flex gap-1 items-center">
-                                                            {isAcademicAdmin ? (
+                                                </td>
+                                                <td className="p-4 text-center font-mono text-[10px] text-cyan-400">
+                                                    {cls.studyStartTime ? new Date(cls.studyStartTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : "-"}
+                                                </td>
+                                                <td className="p-4 text-center">
+                                                    {cls.status === "Completed" && isAcademicAdmin && (
+                                                        <button
+                                                            onClick={() => {
+                                                                setSelectedClassForFeedback(cls);
+                                                                const existingFeedback = cls.teacherFeedback && cls.teacherFeedback.length > 0
+                                                                    ? cls.teacherFeedback
+                                                                    : staticFeedbackCriteria.map(criteria => ({ criteria, rating: "Good" }));
+                                                                setTeacherFeedback(existingFeedback);
+                                                                setShowFeedbackModal(true);
+                                                            }}
+                                                            className="bg-purple-600/10 text-purple-400 px-3 py-1 rounded text-[10px] font-bold uppercase border border-purple-600/30 hover:bg-purple-600 hover:text-white transition-all shadow-lg"
+                                                        >
+                                                            {cls.teacherFeedback && cls.teacherFeedback.length > 0 ? "Feedback" : "Add Feedback"}
+                                                        </button>
+                                                    )}
+                                                    {cls.status === "Completed" && isTeacher && <span className="text-[10px] font-bold text-gray-500 uppercase italic">Locked</span>}
+                                                    {cls.status !== "Completed" && "-"}
+                                                </td>
+                                                <td className="p-4">
+                                                    <div className="relative group/hover">
+                                                        {cls.status === "Upcoming" && (
+                                                            isAcademicAdmin ? (
                                                                 <button
-                                                                    onClick={() => handleEndClass(cls._id)}
-                                                                    className="bg-red-600 text-white border border-red-700 hover:bg-red-700 px-3 py-1 rounded text-[10px] font-bold uppercase transition-all shadow-lg animate-pulse cursor-pointer"
-                                                                    title="End Class"
+                                                                    onClick={() => handleStartClass(cls._id)}
+                                                                    disabled={!isStartReached}
+                                                                    className={`px-3 py-1 rounded text-[10px] font-bold uppercase border transition-all ${!isStartReached
+                                                                            ? "bg-gray-600/10 text-gray-500 border-gray-600/20 cursor-not-allowed opacity-50"
+                                                                            : "bg-green-600/10 text-green-400 border-green-600/30 hover:bg-green-600 hover:text-white transition-all shadow-lg shadow-green-900/10 cursor-pointer"
+                                                                        }`}
+                                                                    title={!isStartReached ? `Class can only be started at or after ${cls.startTime}` : "Start Class"}
                                                                 >
-                                                                    End
+                                                                    Start
                                                                 </button>
                                                             ) : (
-                                                                <span className="text-[10px] font-bold text-cyan-400 uppercase italic animate-pulse">Ongoing</span>
-                                                            )}
-                                                            <div className="invisible group-hover/hover:visible">
-                                                                <TimeRemaining endTimeString={cls.endTime} classDate={cls.date} />
+                                                                <span className="text-[10px] font-bold text-gray-600 uppercase italic">Upcoming</span>
+                                                            )
+                                                        )}
+                                                        {cls.status === "Ongoing" && (
+                                                            <div className="flex gap-1 items-center">
+                                                                {isAcademicAdmin ? (
+                                                                    <button
+                                                                        onClick={() => handleEndClass(cls._id)}
+                                                                        className="bg-red-600 text-white border border-red-700 hover:bg-red-700 px-3 py-1 rounded text-[10px] font-bold uppercase transition-all shadow-lg animate-pulse cursor-pointer"
+                                                                        title="End Class"
+                                                                    >
+                                                                        End
+                                                                    </button>
+                                                                ) : (
+                                                                    <span className="text-[10px] font-bold text-cyan-400 uppercase italic animate-pulse">Ongoing</span>
+                                                                )}
+                                                                <div className="invisible group-hover/hover:visible">
+                                                                    <TimeRemaining endTimeString={cls.endTime} classDate={cls.date} />
+                                                                </div>
                                                             </div>
-                                                        </div>
-                                                    )}
-                                                    {cls.status === "Completed" && (
-                                                        <span className="text-[10px] font-bold text-gray-600 uppercase italic">Completed</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="p-4 text-right">
-                                                <div className="flex justify-end gap-3 transition-opacity">
-                                                    {(canEdit || isAcademicAdmin) && (
-                                                        <button onClick={() => handleEdit(cls)} title="Edit Class" className="text-yellow-400 hover:text-yellow-200 transition-colors">
-                                                            <FaEdit />
-                                                        </button>
-                                                    )}
-                                                    {(canDelete || isAcademicAdmin) && (
-                                                        <button onClick={() => handleDelete(cls._id)} title="Delete Class" className="text-red-400 hover:text-red-300 transition-colors">
-                                                            <FaTrash />
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })
-                            )}
+                                                        )}
+                                                        {cls.status === "Completed" && (
+                                                            <span className="text-[10px] font-bold text-gray-600 uppercase italic">Completed</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="p-4 text-right">
+                                                    <div className="flex justify-end gap-3 transition-opacity">
+                                                        {(canEdit || isAcademicAdmin) && (
+                                                            <button onClick={() => handleEdit(cls)} title="Edit Class" className="text-yellow-400 hover:text-yellow-200 transition-colors">
+                                                                <FaEdit />
+                                                            </button>
+                                                        )}
+                                                        {(canDelete || isAcademicAdmin) && (
+                                                            <button onClick={() => handleDelete(cls._id)} title="Delete Class" className="text-red-400 hover:text-red-300 transition-colors">
+                                                                <FaTrash />
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
                             </tbody>
                         </table>
                     </div>
