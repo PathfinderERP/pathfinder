@@ -3378,19 +3378,21 @@ const EnrolledStudentsContent = () => {
                         <div className={`p-4 sm:p-6 border-b flex flex-col lg:flex-row justify-between items-start lg:items-center gap-3 sm:gap-4 ${isDarkMode ? 'border-gray-700 bg-[#1e2329]' : 'border-gray-100 bg-gray-50'}`}>
                             <div className="min-w-0 flex-1 w-full">
                                 <div className="flex items-center justify-between gap-2">
-                                    <h3 className={`text-xl sm:text-2xl font-black uppercase italic tracking-tighter flex items-center gap-2 sm:gap-3 truncate ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
-                                        <div className="p-2 bg-cyan-500/10 text-cyan-500 rounded-[4px] shrink-0">
-                                            <FaUserGraduate size={18} className="sm:w-5 sm:h-5" />
-                                        </div>
-                                        <span className="truncate">{selectedStudent.studentsDetails?.[0]?.studentName}</span>
-                                    </h3>
-                                    <button
-                                        onClick={closeStudentModal}
-                                        className={`lg:hidden p-1.5 rounded-[4px] transition-all shrink-0 ${isDarkMode ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'}`}
-                                        title="Close"
-                                    >
-                                        <FaTimes size={18} />
-                                    </button>
+                                        <h3 className={`text-xl sm:text-2xl font-black uppercase italic tracking-tighter flex items-center gap-2 sm:gap-3 ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>
+                                            <div className="p-2 bg-cyan-500/10 text-cyan-500 rounded-[4px] shrink-0">
+                                                <FaUserGraduate size={18} className="sm:w-5 sm:h-5" />
+                                            </div>
+                                            <span className="break-words select-all" title={selectedStudent.studentsDetails?.[0]?.studentName || selectedStudent.studentName || ''}>
+                                                {selectedStudent.studentsDetails?.[0]?.studentName || selectedStudent.studentName || selectedStudent.name || 'N/A'}
+                                            </span>
+                                        </h3>
+                                        <button
+                                            onClick={closeStudentModal}
+                                            className={`lg:hidden p-1.5 rounded-[4px] transition-all shrink-0 ${isDarkMode ? 'text-gray-400 hover:text-white hover:bg-gray-800' : 'text-gray-400 hover:text-gray-900 hover:bg-gray-100'}`}
+                                            title="Close"
+                                        >
+                                            <FaTimes size={18} />
+                                        </button>
                                 </div>
                                 <div className="flex flex-wrap gap-2 sm:gap-4 text-[10px] font-bold uppercase tracking-widest mt-2 text-gray-500">
                                     <span className="flex items-center gap-1.5 shrink-0"><FaPhoneAlt size={10} className="text-cyan-500" /> {selectedStudent.studentsDetails?.[0]?.mobileNum}</span>
@@ -3502,8 +3504,8 @@ const EnrolledStudentsContent = () => {
                                         onClick={() => handleOpenBuyBookModal(selectedStudent)}
                                         disabled={selectedStudent.status === 'Deactivated'}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 sm:px-4 sm:py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest transition-all ${selectedStudent.status === 'Deactivated'
-                                                ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed')
-                                                : (isDarkMode ? 'bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white border border-purple-500/30 shadow-lg shadow-purple-500/10' : 'bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200 shadow-sm')
+                                            ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-400 cursor-not-allowed')
+                                            : (isDarkMode ? 'bg-purple-500/10 text-purple-400 hover:bg-purple-500 hover:text-white border border-purple-500/30 shadow-lg shadow-purple-500/10' : 'bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200 shadow-sm')
                                             }`}
                                     >
                                         <FaBook size={10} /> Buy Book
@@ -3734,8 +3736,8 @@ const EnrolledStudentsContent = () => {
                                             onClick={() => handleOpenBuyBookModal(selectedStudent)}
                                             disabled={selectedStudent.status === 'Deactivated'}
                                             className={`flex items-center gap-1.5 px-3 py-1 rounded-[4px] text-[9px] font-black uppercase tracking-widest transition-all ${selectedStudent.status === 'Deactivated'
-                                                    ? 'opacity-40 cursor-not-allowed'
-                                                    : (isDarkMode ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/30' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200')
+                                                ? 'opacity-40 cursor-not-allowed'
+                                                : (isDarkMode ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/30' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200')
                                                 }`}
                                         >
                                             <FaBook size={9} /> Buy Book
@@ -3783,8 +3785,8 @@ const EnrolledStudentsContent = () => {
                                                                 type="button"
                                                                 onClick={() => handleViewBookBill(item.billNumber)}
                                                                 className={`flex items-center justify-center gap-1.5 w-full py-1.5 px-2 rounded-[3px] text-[9px] font-black uppercase tracking-wider transition-all ${isDarkMode
-                                                                        ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-500 hover:text-white border border-purple-500/30 shadow-sm'
-                                                                        : 'bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200 shadow-sm'
+                                                                    ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-500 hover:text-white border border-purple-500/30 shadow-sm'
+                                                                    : 'bg-purple-50 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-200 shadow-sm'
                                                                     }`}
                                                                 title={`View Bill ${item.billNumber}`}
                                                             >
@@ -3805,8 +3807,8 @@ const EnrolledStudentsContent = () => {
                                                 onClick={() => handleOpenBuyBookModal(selectedStudent)}
                                                 disabled={selectedStudent.status === 'Deactivated'}
                                                 className={`px-3.5 py-1.5 rounded-[4px] text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 transition-all ${selectedStudent.status === 'Deactivated'
-                                                        ? 'opacity-40 cursor-not-allowed'
-                                                        : (isDarkMode ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/40 shadow-sm' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-300 shadow-sm')
+                                                    ? 'opacity-40 cursor-not-allowed'
+                                                    : (isDarkMode ? 'bg-purple-500/20 text-purple-300 hover:bg-purple-600 hover:text-white border border-purple-500/40 shadow-sm' : 'bg-purple-100 text-purple-700 hover:bg-purple-600 hover:text-white border border-purple-300 shadow-sm')
                                                     }`}
                                             >
                                                 <FaBook size={10} /> Buy Book Now
@@ -3936,8 +3938,8 @@ const EnrolledStudentsContent = () => {
                                                             onClick={() => handleDownloadCourseFeePDF(admission)}
                                                             disabled={downloadingCourseFeeId === admission._id}
                                                             className={`px-3 py-1.5 rounded-[4px] text-[10px] font-black uppercase tracking-wider transition-all flex items-center gap-1.5 shadow-sm ${isDarkMode
-                                                                    ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500 hover:text-black'
-                                                                    : 'bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-600 hover:text-white'
+                                                                ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 hover:bg-cyan-500 hover:text-black'
+                                                                : 'bg-cyan-50 text-cyan-700 border border-cyan-200 hover:bg-cyan-600 hover:text-white'
                                                                 } disabled:opacity-50`}
                                                             title="Download Course Fee Statement & Installment Breakup PDF"
                                                         >
@@ -4125,10 +4127,10 @@ const EnrolledStudentsContent = () => {
                                                                 }}
                                                                 disabled={selectedStudent.status === 'Deactivated'}
                                                                 className={`mt-2 text-[10px] px-2 py-1 rounded flex items-center gap-1 w-full justify-center transition-colors shadow-sm ${selectedStudent.status === 'Deactivated'
-                                                                        ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
-                                                                        : admission.downPaymentStatus === "PENDING_CLEARANCE"
-                                                                            ? 'bg-amber-600 hover:bg-amber-500 text-white'
-                                                                            : 'bg-blue-500 hover:bg-blue-400 text-white'
+                                                                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed'
+                                                                    : admission.downPaymentStatus === "PENDING_CLEARANCE"
+                                                                        ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                                                                        : 'bg-blue-500 hover:bg-blue-400 text-white'
                                                                     }`}
                                                                 title={selectedStudent.status === 'Deactivated' ? "Student is deactivated" : admission.downPaymentStatus === "PENDING_CLEARANCE" ? "Download Receiving Slip" : "Download Down Payment Receipt"}
                                                             >
@@ -4261,8 +4263,8 @@ const EnrolledStudentsContent = () => {
                                                                                                 }
                                                                                             })}
                                                                                             className={`mt-4 w-full py-2 rounded-[4px] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 transition-all ${history.status === "PENDING_CLEARANCE"
-                                                                                                    ? 'bg-amber-600 hover:bg-amber-500 text-white'
-                                                                                                    : isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm'
+                                                                                                ? 'bg-amber-600 hover:bg-amber-500 text-white'
+                                                                                                : isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm'
                                                                                                 }`}
                                                                                         >
                                                                                             <FaFileInvoice size={10} /> {history.status === "PENDING_CLEARANCE" ? "Receiving Slip" : "Extract Bill"}
@@ -4388,10 +4390,10 @@ const EnrolledStudentsContent = () => {
                                                                                                             }}
                                                                                                             disabled={selectedStudent.status === 'Deactivated'}
                                                                                                             className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${selectedStudent.status === 'Deactivated'
-                                                                                                                    ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')
-                                                                                                                    : payment.status === "PENDING_CLEARANCE"
-                                                                                                                        ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200 shadow-sm')
-                                                                                                                        : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')
+                                                                                                                ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')
+                                                                                                                : payment.status === "PENDING_CLEARANCE"
+                                                                                                                    ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200 shadow-sm')
+                                                                                                                    : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')
                                                                                                                 }`}
                                                                                                         >
                                                                                                             <FaFileInvoice size={10} /> {payment.status === "PENDING_CLEARANCE" ? "RECEIVING SLIP" : "BILL"}
@@ -4463,10 +4465,10 @@ const EnrolledStudentsContent = () => {
                                                                                                         })}
                                                                                                         disabled={selectedStudent.status === 'Deactivated'}
                                                                                                         className={`px-4 py-1.5 text-[9px] font-black uppercase tracking-widest rounded-[4px] transition-all flex items-center justify-center gap-2 mx-auto ${selectedStudent.status === 'Deactivated'
-                                                                                                                ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')
-                                                                                                                : isSlip
-                                                                                                                    ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200 shadow-sm')
-                                                                                                                    : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')
+                                                                                                            ? (isDarkMode ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-gray-100 text-gray-300 cursor-not-allowed')
+                                                                                                            : isSlip
+                                                                                                                ? (isDarkMode ? 'bg-amber-500/20 text-amber-400 hover:bg-amber-500/30' : 'bg-amber-100 text-amber-700 hover:bg-amber-200 shadow-sm')
+                                                                                                                : (isDarkMode ? 'bg-gray-800 text-cyan-400 hover:bg-gray-700' : 'bg-gray-100 text-cyan-600 hover:bg-gray-200 shadow-sm')
                                                                                                             }`}
                                                                                                         title={isSlip ? "Download Receiving Slip" : "Extract Receipt"}
                                                                                                     >
@@ -4699,111 +4701,111 @@ const EnrolledStudentsContent = () => {
                                         </div>
                                     </div>
                                     <div>
-                                            <label className="block text-[10px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2">
-                                                BANK ACCOUNT <span className="text-red-500">*</span>
-                                            </label>
-                                            <select
-                                                value={paymentData.bankAccount}
-                                                onChange={(e) => setPaymentData({ ...paymentData, bankAccount: e.target.value })}
-                                                required
-                                                className={`w-full p-2.5 rounded-[4px] border font-bold text-sm tracking-wide focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-purple-500'}`}
-                                            >
-                                                <option value="" className={`text-sm ${isDarkMode ? 'bg-[#131619] text-gray-400' : 'bg-white text-gray-500'}`}>SELECT BANK ACCOUNT</option>
-                                                {masterAccounts.map(account => (
-                                                        <option
-                                                            key={account._id}
-                                                            value={account._id}
-                                                            className={`text-sm py-1 font-semibold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
-                                                        >
-                                                            {account.accname.toUpperCase()} (A/C: {account.accno})
-                                                        </option>
-                                            ))}
-                                                    </select>
-                                    </div>
-                                            <div>
-                                                <label className="block text-[8px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2">
-                                                    Cheque Date <span className="text-red-500">*</span>
-                                                </label>
-                                                <input
-                                                    type="date"
-                                                    value={paymentData.chequeDate}
-                                                    onChange={(e) => setPaymentData({ ...paymentData, chequeDate: e.target.value })}
-                                                    required
-                                                    className={`w-full p-2.5 rounded-[4px] border font-black text-[10px] uppercase focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-white border-gray-200 text-gray-900'}`}
-                                                />
-                                            </div>
-                                    </div>
-                            )}
-
-                                    <div>
-                                        <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
-                                            REMARKS
+                                        <label className="block text-[10px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2">
+                                            BANK ACCOUNT <span className="text-red-500">*</span>
                                         </label>
-                                        <textarea
-                                            value={paymentData.remarks}
-                                            onChange={(e) => setPaymentData({ ...paymentData, remarks: e.target.value })}
-                                            rows={3}
-                                            className={`w-full p-3 rounded-[4px] border font-bold uppercase tracking-widest text-[10px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500 shadow-inner'}`}
-                                            placeholder="OPTIONAL CONTEXTUAL METADATA..."
+                                        <select
+                                            value={paymentData.bankAccount}
+                                            onChange={(e) => setPaymentData({ ...paymentData, bankAccount: e.target.value })}
+                                            required
+                                            className={`w-full p-2.5 rounded-[4px] border font-bold text-sm tracking-wide focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-white border-gray-200 text-gray-900 focus:border-purple-500'}`}
+                                        >
+                                            <option value="" className={`text-sm ${isDarkMode ? 'bg-[#131619] text-gray-400' : 'bg-white text-gray-500'}`}>SELECT BANK ACCOUNT</option>
+                                            {masterAccounts.map(account => (
+                                                <option
+                                                    key={account._id}
+                                                    value={account._id}
+                                                    className={`text-sm py-1 font-semibold ${isDarkMode ? 'bg-[#131619] text-white' : 'bg-white text-gray-900'}`}
+                                                >
+                                                    {account.accname.toUpperCase()} (A/C: {account.accno})
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label className="block text-[8px] font-black text-purple-500 uppercase tracking-[0.2em] mb-2">
+                                            Cheque Date <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="date"
+                                            value={paymentData.chequeDate}
+                                            onChange={(e) => setPaymentData({ ...paymentData, chequeDate: e.target.value })}
+                                            required
+                                            className={`w-full p-2.5 rounded-[4px] border font-black text-[10px] uppercase focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-purple-500/50' : 'bg-white border-gray-200 text-gray-900'}`}
                                         />
                                     </div>
+                                </div>
+                            )}
 
-                                    {/* Rolling Balance Opt-in */}
-                                    {(() => {
-                                        const diff = selectedInstallment.amount - paymentData.paidAmount;
-                                        const isLastInstallment = selectedInstallment.installmentNumber === selectedAdmission.numberOfInstallments;
+                            <div>
+                                <label className="block text-[10px] font-black text-gray-500 uppercase tracking-widest mb-2">
+                                    REMARKS
+                                </label>
+                                <textarea
+                                    value={paymentData.remarks}
+                                    onChange={(e) => setPaymentData({ ...paymentData, remarks: e.target.value })}
+                                    rows={3}
+                                    className={`w-full p-3 rounded-[4px] border font-bold uppercase tracking-widest text-[10px] focus:outline-none transition-all ${isDarkMode ? 'bg-[#131619] border-gray-800 text-white focus:border-cyan-500/50' : 'bg-gray-50 border-gray-200 text-gray-900 focus:border-cyan-500 shadow-inner'}`}
+                                    placeholder="OPTIONAL CONTEXTUAL METADATA..."
+                                />
+                            </div>
 
-                                        if (diff > 0 && isLastInstallment) {
-                                            return (
-                                                <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-yellow-50 border-yellow-200'}`}>
-                                                    <label className="flex items-start gap-4 cursor-pointer">
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={paymentData.carryForward}
-                                                            onChange={(e) => setPaymentData({ ...paymentData, carryForward: e.target.checked })}
-                                                            className={`w-5 h-5 mt-1 border transition-all ${isDarkMode ? 'bg-gray-900 border-gray-700 checked:bg-yellow-500' : 'bg-white border-gray-300 checked:bg-yellow-500'}`}
-                                                        />
-                                                        <div className="flex-1">
-                                                            <span className="text-yellow-500 font-black uppercase tracking-widest text-[10px] block">CARRY FORWARD FINAL BALANCE</span>
-                                                            <span className="text-gray-500 text-[9px] font-bold uppercase tracking-widest block mt-1 leading-relaxed">
-                                                                This is the terminal installment. Check to roll over the remaining ₹{diff.toLocaleString()} to global student credit balance.
-                                                            </span>
-                                                        </div>
-                                                    </label>
+                            {/* Rolling Balance Opt-in */}
+                            {(() => {
+                                const diff = selectedInstallment.amount - paymentData.paidAmount;
+                                const isLastInstallment = selectedInstallment.installmentNumber === selectedAdmission.numberOfInstallments;
+
+                                if (diff > 0 && isLastInstallment) {
+                                    return (
+                                        <div className={`p-4 rounded-[4px] border ${isDarkMode ? 'bg-yellow-500/5 border-yellow-500/20' : 'bg-yellow-50 border-yellow-200'}`}>
+                                            <label className="flex items-start gap-4 cursor-pointer">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={paymentData.carryForward}
+                                                    onChange={(e) => setPaymentData({ ...paymentData, carryForward: e.target.checked })}
+                                                    className={`w-5 h-5 mt-1 border transition-all ${isDarkMode ? 'bg-gray-900 border-gray-700 checked:bg-yellow-500' : 'bg-white border-gray-300 checked:bg-yellow-500'}`}
+                                                />
+                                                <div className="flex-1">
+                                                    <span className="text-yellow-500 font-black uppercase tracking-widest text-[10px] block">CARRY FORWARD FINAL BALANCE</span>
+                                                    <span className="text-gray-500 text-[9px] font-bold uppercase tracking-widest block mt-1 leading-relaxed">
+                                                        This is the terminal installment. Check to roll over the remaining ₹{diff.toLocaleString()} to global student credit balance.
+                                                    </span>
                                                 </div>
-                                            );
-                                        }
-                                        return null;
-                                    })()}
+                                            </label>
+                                        </div>
+                                    );
+                                }
+                                return null;
+                            })()}
 
-                                    <div className="flex gap-4 pt-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (paymentData.paymentMethod === 'RAZORPAY_POS') {
-                                                    setShowPOSModal(true);
-                                                } else {
-                                                    handlePaymentSubmit({ preventDefault: () => { } });
-                                                }
-                                            }}
-                                            disabled={processingPayment}
-                                            className={`flex-1 py-4 font-black uppercase tracking-[0.2em] text-[11px] rounded-[4px] transition-all flex items-center justify-center gap-3 shadow-lg ${processingPayment ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/20 active:scale-95'}`}
-                                        >
-                                            {processingPayment ? (
-                                                <><FaSync className="animate-spin" /> SYNCHRONIZING...</>
-                                            ) : (
-                                                <><FaCheckCircle size={14} /> AUTHORIZE TRANSACTION</>
-                                            )}
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowPaymentModal(false)}
-                                            className={`px-8 py-4 font-black uppercase tracking-[0.2em] text-[11px] rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
-                                        >
-                                            Cancel
-                                        </button>
-                                    </div>
-                                </form>
+                            <div className="flex gap-4 pt-4">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (paymentData.paymentMethod === 'RAZORPAY_POS') {
+                                            setShowPOSModal(true);
+                                        } else {
+                                            handlePaymentSubmit({ preventDefault: () => { } });
+                                        }
+                                    }}
+                                    disabled={processingPayment}
+                                    className={`flex-1 py-4 font-black uppercase tracking-[0.2em] text-[11px] rounded-[4px] transition-all flex items-center justify-center gap-3 shadow-lg ${processingPayment ? 'bg-gray-800 text-gray-600 cursor-not-allowed' : 'bg-cyan-600 hover:bg-cyan-500 text-white shadow-cyan-500/20 active:scale-95'}`}
+                                >
+                                    {processingPayment ? (
+                                        <><FaSync className="animate-spin" /> SYNCHRONIZING...</>
+                                    ) : (
+                                        <><FaCheckCircle size={14} /> AUTHORIZE TRANSACTION</>
+                                    )}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setShowPaymentModal(false)}
+                                    className={`px-8 py-4 font-black uppercase tracking-[0.2em] text-[11px] rounded-[4px] transition-all ${isDarkMode ? 'bg-gray-800 text-gray-400 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'}`}
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
                     </div>
                 </div>
             )}
@@ -4931,8 +4933,8 @@ const EnrolledStudentsContent = () => {
                                     onChange={handleSelectBuyBookCourse}
                                     required
                                     className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
-                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                        ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                        : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
                                         }`}
                                 >
                                     <option value="">-- Choose Course for Book Purchase --</option>
@@ -4986,8 +4988,8 @@ const EnrolledStudentsContent = () => {
                                     onChange={(e) => setBuyBookForm({ ...buyBookForm, itemName: e.target.value })}
                                     placeholder="e.g. Foundation Class 10 - Books Set"
                                     className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
-                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                        ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                        : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
                                         }`}
                                 />
                             </div>
@@ -5013,8 +5015,8 @@ const EnrolledStudentsContent = () => {
                                             value={buyBookForm.amount ? fmt(buyBookForm.amount) : "0.00"}
                                             placeholder="0.00"
                                             className={`w-full pl-7 pr-8 py-2.5 sm:py-3 rounded-[4px] border text-xs font-black cursor-not-allowed select-none ${isDarkMode
-                                                    ? 'bg-black/40 border-gray-700/80 text-gray-200 shadow-inner'
-                                                    : 'bg-gray-100 border-gray-300 text-gray-800 shadow-inner'
+                                                ? 'bg-black/40 border-gray-700/80 text-gray-200 shadow-inner'
+                                                : 'bg-gray-100 border-gray-300 text-gray-800 shadow-inner'
                                                 }`}
                                         />
                                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500" title="Locked to Course Amount">
@@ -5037,8 +5039,8 @@ const EnrolledStudentsContent = () => {
                                             onChange={(e) => setBuyBookForm({ ...buyBookForm, discount: e.target.value })}
                                             placeholder="0.00"
                                             className={`w-full pl-7 pr-3 py-2.5 sm:py-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
-                                                    ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
-                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                                : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
                                                 }`}
                                         />
                                     </div>
@@ -5062,8 +5064,8 @@ const EnrolledStudentsContent = () => {
                                         value={buyBookForm.paymentMethod}
                                         onChange={(e) => setBuyBookForm({ ...buyBookForm, paymentMethod: e.target.value })}
                                         className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
-                                                : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                            ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
                                             }`}
                                     >
                                         <option value="CASH">CASH</option>
@@ -5083,8 +5085,8 @@ const EnrolledStudentsContent = () => {
                                         value={buyBookForm.receivedDate}
                                         onChange={(e) => setBuyBookForm({ ...buyBookForm, receivedDate: e.target.value })}
                                         className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
-                                                ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
-                                                : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                            ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
                                             }`}
                                     />
                                 </div>
@@ -5104,8 +5106,8 @@ const EnrolledStudentsContent = () => {
                                             onChange={(e) => setBuyBookForm({ ...buyBookForm, transactionId: e.target.value })}
                                             placeholder="Enter Reference / UTR / Cheque No."
                                             className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
-                                                    ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
-                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                                : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
                                                 }`}
                                         />
                                     </div>
@@ -5119,8 +5121,8 @@ const EnrolledStudentsContent = () => {
                                             onChange={(e) => setBuyBookForm({ ...buyBookForm, accountHolderName: e.target.value })}
                                             placeholder="Optional"
                                             className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
-                                                    ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
-                                                    : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                                ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                                : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
                                                 }`}
                                         />
                                     </div>
@@ -5138,8 +5140,8 @@ const EnrolledStudentsContent = () => {
                                     onChange={(e) => setBuyBookForm({ ...buyBookForm, remarks: e.target.value })}
                                     placeholder="e.g. Study Kit Part 1 & Part 2"
                                     className={`w-full p-2.5 sm:p-3 rounded-[4px] border text-xs font-bold outline-none transition-all ${isDarkMode
-                                            ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
-                                            : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
+                                        ? 'bg-[#131619] border-gray-700 text-white focus:border-purple-500'
+                                        : 'bg-white border-gray-300 text-gray-900 focus:border-purple-500'
                                         }`}
                                 />
                             </div>
