@@ -788,6 +788,14 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         },
         {
             $lookup: {
+                from: "allocations",
+                localField: "billId",
+                foreignField: "billNumber",
+                as: "inventoryAllocation"
+            }
+        },
+        {
+            $lookup: {
                 from: "students",
                 localField: "admissionInfo.student",
                 foreignField: "_id",
@@ -803,11 +811,56 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             }
         },
         {
+            $lookup: {
+                from: "students",
+                localField: "admission",
+                foreignField: "_id",
+                as: "studentInfoDirect"
+            }
+        },
+        {
+            $lookup: {
+                from: "students",
+                localField: "inventoryAllocation.student",
+                foreignField: "_id",
+                as: "studentInfoAlloc"
+            }
+        },
+        {
             $addFields: {
                 studentInfo: {
                     $ifNull: [
                         { $arrayElemAt: ["$studentInfoNormal", 0] },
-                        { $arrayElemAt: ["$studentInfoBoard", 0] }
+                        { $arrayElemAt: ["$studentInfoBoard", 0] },
+                        { $arrayElemAt: ["$studentInfoDirect", 0] },
+                        { $arrayElemAt: ["$studentInfoAlloc", 0] }
+                    ]
+                }
+            }
+        },
+        {
+            $lookup: {
+                from: "admissions",
+                localField: "inventoryAllocation.admission",
+                foreignField: "_id",
+                as: "admissionInfoAlloc"
+            }
+        },
+        {
+            $lookup: {
+                from: "admissions",
+                localField: "studentInfo._id",
+                foreignField: "student",
+                as: "admissionInfoFromStudent"
+            }
+        },
+        {
+            $addFields: {
+                admissionInfo: {
+                    $ifNull: [
+                        "$admissionInfo",
+                        { $arrayElemAt: ["$admissionInfoAlloc", 0] },
+                        { $arrayElemAt: ["$admissionInfoFromStudent", 0] }
                     ]
                 }
             }
@@ -828,6 +881,24 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         },
         {
             $lookup: {
+                from: "courses",
+                localField: "boardCourseName",
+                foreignField: "courseName",
+                as: "courseByName"
+            }
+        },
+        {
+            $addFields: {
+                courseInfo: {
+                    $ifNull: [
+                        "$courseInfo",
+                        { $arrayElemAt: ["$courseByName", 0] }
+                    ]
+                }
+            }
+        },
+        {
+            $lookup: {
                 from: "users",
                 localField: "recordedBy",
                 foreignField: "_id",
@@ -840,14 +911,6 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 localField: "admissionInfo.department",
                 foreignField: "_id",
                 as: "departmentInfo"
-            }
-        },
-        {
-            $lookup: {
-                from: "allocations",
-                localField: "billId",
-                foreignField: "billNumber",
-                as: "inventoryAllocation"
             }
         },
         {
@@ -889,6 +952,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 studentName: {
                     $ifNull: [
                         { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
+                        "$studentInfo.studentName",
                         "$admissionInfo.name",
                         ""
                     ]
@@ -1013,13 +1077,18 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 studentClass: {
                     $ifNull: [
                         { $arrayElemAt: ["$classInfo.name", 0] },
-                        "$admissionInfo.lastClass"
+                        "$admissionInfo.lastClass",
+                        { $arrayElemAt: ["$inventoryAllocation.className", 0] },
+                        { $arrayElemAt: ["$studentInfo.studentsDetails.lastClass", 0] },
+                        "-"
                     ]
                 },
                 departmentName: {
                     $ifNull: [
                         { $arrayElemAt: ["$departmentInfo.departmentName", 0] },
-                        { $arrayElemAt: ["$courseDepartmentInfo.departmentName", 0] }
+                        { $arrayElemAt: ["$courseDepartmentInfo.departmentName", 0] },
+                        { $arrayElemAt: ["$inventoryAllocation.departmentName", 0] },
+                        "-"
                     ]
                 }
             }
@@ -1108,13 +1177,28 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                             receivedDate: "$actualReceivedDate",
                             centre: "$effectiveCentre",
                             academicSession: "$admissionInfo.academicSession",
-                            admissionNumber: { $ifNull: ["$admissionInfo.admissionNumber", "$admissionInfo.rollNo"] },
+                            admissionNumber: {
+                                $ifNull: [
+                                    "$admissionInfo.admissionNumber",
+                                    "$admissionInfo.rollNo",
+                                    { $arrayElemAt: ["$studentInfo.studentsDetails.admissionNo", 0] },
+                                    { $arrayElemAt: ["$studentInfo.studentsDetails.rollNo", 0] },
+                                    "$studentInfo.uid",
+                                    {
+                                        $cond: {
+                                            if: { $gt: [{ $size: { $ifNull: ["$inventoryAllocation", []] } }, 0] },
+                                            then: "EXTERNAL",
+                                            else: "-"
+                                        }
+                                    }
+                                ]
+                            },
                             studentName: "$studentName",
-                            studentClass: 1,
+                            studentClass: "$studentClass",
                             billId: 1,
                             transactionId: 1,
                             courseName: 1,
-                            departmentName: { $arrayElemAt: ["$departmentInfo.departmentName", 0] },
+                            departmentName: "$departmentName",
                             paymentMethod: 1,
                             installmentNumber: 1,
                             status: 1,
@@ -1263,6 +1347,14 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
         },
         {
             $lookup: {
+                from: "allocations",
+                localField: "billId",
+                foreignField: "billNumber",
+                as: "inventoryAllocation"
+            }
+        },
+        {
+            $lookup: {
                 from: "students",
                 localField: "admissionInfo.student",
                 foreignField: "_id",
@@ -1278,11 +1370,56 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             }
         },
         {
+            $lookup: {
+                from: "students",
+                localField: "admission",
+                foreignField: "_id",
+                as: "studentInfoDirect"
+            }
+        },
+        {
+            $lookup: {
+                from: "students",
+                localField: "inventoryAllocation.student",
+                foreignField: "_id",
+                as: "studentInfoAlloc"
+            }
+        },
+        {
             $addFields: {
                 studentInfo: {
                     $ifNull: [
                         { $arrayElemAt: ["$studentInfoNormal", 0] },
-                        { $arrayElemAt: ["$studentInfoBoard", 0] }
+                        { $arrayElemAt: ["$studentInfoBoard", 0] },
+                        { $arrayElemAt: ["$studentInfoDirect", 0] },
+                        { $arrayElemAt: ["$studentInfoAlloc", 0] }
+                    ]
+                }
+            }
+        },
+        {
+            $lookup: {
+                from: "admissions",
+                localField: "inventoryAllocation.admission",
+                foreignField: "_id",
+                as: "admissionInfoAlloc"
+            }
+        },
+        {
+            $lookup: {
+                from: "admissions",
+                localField: "studentInfo._id",
+                foreignField: "student",
+                as: "admissionInfoFromStudent"
+            }
+        },
+        {
+            $addFields: {
+                admissionInfo: {
+                    $ifNull: [
+                        "$admissionInfo",
+                        { $arrayElemAt: ["$admissionInfoAlloc", 0] },
+                        { $arrayElemAt: ["$admissionInfoFromStudent", 0] }
                     ]
                 }
             }
@@ -1299,6 +1436,24 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
             $unwind: {
                 path: "$courseInfo",
                 preserveNullAndEmptyArrays: true
+            }
+        },
+        {
+            $lookup: {
+                from: "courses",
+                localField: "boardCourseName",
+                foreignField: "courseName",
+                as: "courseByName"
+            }
+        },
+        {
+            $addFields: {
+                courseInfo: {
+                    $ifNull: [
+                        "$courseInfo",
+                        { $arrayElemAt: ["$courseByName", 0] }
+                    ]
+                }
             }
         },
         {
@@ -1330,6 +1485,7 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 studentName: {
                     $ifNull: [
                         { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
+                        "$studentInfo.studentName",
                         "$admissionInfo.name",
                         ""
                     ]
@@ -1345,7 +1501,9 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                 departmentName: {
                     $ifNull: [
                         { $arrayElemAt: ["$departmentInfo.departmentName", 0] },
-                        { $arrayElemAt: ["$courseDepartmentInfo.departmentName", 0] }
+                        { $arrayElemAt: ["$courseDepartmentInfo.departmentName", 0] },
+                        { $arrayElemAt: ["$inventoryAllocation.departmentName", 0] },
+                        "-"
                     ]
                 },
                 recordedByName: {
@@ -1393,7 +1551,22 @@ export const getDailyCollectionReportData = async ({ query, user }) => {
                             receivedDate: "$effectiveDate",
                             centre: "$effectiveCentre",
                             academicSession: "$admissionInfo.academicSession",
-                            admissionNumber: { $ifNull: ["$admissionInfo.admissionNumber", "$admissionInfo.rollNo"] },
+                            admissionNumber: {
+                                $ifNull: [
+                                    "$admissionInfo.admissionNumber",
+                                    "$admissionInfo.rollNo",
+                                    { $arrayElemAt: ["$studentInfo.studentsDetails.admissionNo", 0] },
+                                    { $arrayElemAt: ["$studentInfo.studentsDetails.rollNo", 0] },
+                                    "$studentInfo.uid",
+                                    {
+                                        $cond: {
+                                            if: { $gt: [{ $size: { $ifNull: ["$inventoryAllocation", []] } }, 0] },
+                                            then: "EXTERNAL",
+                                            else: "-"
+                                        }
+                                    }
+                                ]
+                            },
                             studentName: "$studentName",
                             billId: { $ifNull: ["$billId", "-"] },
                             transactionId: 1,

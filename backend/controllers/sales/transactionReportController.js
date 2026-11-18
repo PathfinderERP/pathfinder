@@ -249,6 +249,7 @@ export const getTransactionReport = async (req, res) => {
             searchMatch = {
                 $or: [
                     { "studentInfo.studentsDetails.studentName": searchRegex },
+                    { "studentInfo.studentName": searchRegex },
                     { "studentInfo.studentsDetails.studentEmail": searchRegex },
                     { "admissionInfo.admissionNumber": searchRegex },
                     { "billId": searchRegex },
@@ -630,7 +631,17 @@ export const getTransactionReport = async (req, res) => {
             },
             { $match: admissionMatch },
 
-            // Lookup Student Details (handle difference between 'student' and 'studentId' fields)
+            // Lookup Inventory Allocations (for Book / Store purchases)
+            {
+                $lookup: {
+                    from: "allocations",
+                    localField: "billId",
+                    foreignField: "billNumber",
+                    as: "inventoryAllocation"
+                }
+            },
+
+            // Lookup Student Details (handle difference between 'student' and 'studentId' fields, plus direct studentId or allocation student)
             {
                 $lookup: {
                     from: "students",
@@ -648,18 +659,84 @@ export const getTransactionReport = async (req, res) => {
                 }
             },
             {
+                $lookup: {
+                    from: "students",
+                    localField: "admission",
+                    foreignField: "_id",
+                    as: "studentInfoDirect"
+                }
+            },
+            {
+                $lookup: {
+                    from: "students",
+                    localField: "inventoryAllocation.student",
+                    foreignField: "_id",
+                    as: "studentInfoAlloc"
+                }
+            },
+            {
                 $addFields: {
                     studentInfo: {
                         $ifNull: [
                             { $arrayElemAt: ["$studentInfoNormal", 0] },
-                            { $arrayElemAt: ["$studentInfoBoard", 0] }
+                            { $arrayElemAt: ["$studentInfoBoard", 0] },
+                            { $arrayElemAt: ["$studentInfoDirect", 0] },
+                            { $arrayElemAt: ["$studentInfoAlloc", 0] }
                         ]
                     }
                 }
             },
             { $unwind: { path: "$studentInfo", preserveNullAndEmptyArrays: true } },
+
+            // Fallback admission lookup if payment was linked directly to a student or allocation
+            {
+                $lookup: {
+                    from: "admissions",
+                    localField: "inventoryAllocation.admission",
+                    foreignField: "_id",
+                    as: "admissionInfoAlloc"
+                }
+            },
+            {
+                $lookup: {
+                    from: "admissions",
+                    localField: "studentInfo._id",
+                    foreignField: "student",
+                    as: "admissionInfoFromStudent"
+                }
+            },
+            {
+                $addFields: {
+                    admissionInfo: {
+                        $ifNull: [
+                            "$admissionInfo",
+                            { $arrayElemAt: ["$admissionInfoAlloc", 0] },
+                            { $arrayElemAt: ["$admissionInfoFromStudent", 0] }
+                        ]
+                    }
+                }
+            },
+
             { $lookup: { from: "courses", localField: "admissionInfo.course", foreignField: "_id", as: "courseInfo" } },
             { $unwind: { path: "$courseInfo", preserveNullAndEmptyArrays: true } },
+            {
+                $lookup: {
+                    from: "courses",
+                    localField: "boardCourseName",
+                    foreignField: "courseName",
+                    as: "courseByName"
+                }
+            },
+            {
+                $addFields: {
+                    courseInfo: {
+                        $ifNull: [
+                            "$courseInfo",
+                            { $arrayElemAt: ["$courseByName", 0] }
+                        ]
+                    }
+                }
+            },
             aggregateMatchStage,
             {
                 $lookup: {
@@ -744,14 +821,6 @@ export const getTransactionReport = async (req, res) => {
                 }
             },
             {
-                $lookup: {
-                    from: "allocations",
-                    localField: "billId",
-                    foreignField: "billNumber",
-                    as: "inventoryAllocation"
-                }
-            },
-            {
                 $addFields: {
                     inventoryCourseName: {
                         $cond: {
@@ -817,43 +886,58 @@ export const getTransactionReport = async (req, res) => {
                     studentName: { 
                         $ifNull: [
                             { $arrayElemAt: ["$studentInfo.studentsDetails.studentName", 0] },
-                            "$admissionInfo.name"
+                            "$studentInfo.studentName",
+                            "$admissionInfo.name",
+                            ""
                         ]
                     },
                     studentEmail: { 
                         $ifNull: [
                             { $arrayElemAt: ["$studentInfo.studentsDetails.studentEmail", 0] },
-                            "$admissionInfo.email"
+                            "$studentInfo.studentEmail",
+                            "$studentInfo.email",
+                            "$admissionInfo.email",
+                            ""
                         ]
                     },
                     studentMobile: { 
                         $ifNull: [
                             { $arrayElemAt: ["$studentInfo.studentsDetails.mobileNum", 0] },
-                            "$admissionInfo.mobile"
+                            "$studentInfo.mobileNum",
+                            "$admissionInfo.mobile",
+                            ""
                         ]
                     },
                     studentWhatsapp: { 
                         $ifNull: [
                             { $arrayElemAt: ["$studentInfo.studentsDetails.whatsappNumber", 0] },
-                            "$admissionInfo.mobile"
+                            "$studentInfo.whatsappNumber",
+                            "$admissionInfo.mobile",
+                            ""
                         ]
                     },
                     studentAddress: { 
                         $ifNull: [
                             { $arrayElemAt: ["$studentInfo.studentsDetails.address", 0] },
-                            "$admissionInfo.address"
+                            "$studentInfo.address",
+                            "$admissionInfo.address",
+                            ""
                         ]
                     },
                     guardianName: { 
                         $ifNull: [
                             { $arrayElemAt: ["$studentInfo.guardians.guardianName", 0] },
-                            "$admissionInfo.guardianName"
+                            "$studentInfo.fatherName",
+                            "$admissionInfo.guardianName",
+                            ""
                         ]
                     },
                     guardianMobile: { 
                         $ifNull: [
                             { $arrayElemAt: ["$studentInfo.guardians.guardianMobile", 0] },
-                            "$admissionInfo.guardianMobile"
+                            "$studentInfo.guardianMobile",
+                            "$admissionInfo.guardianMobile",
+                            ""
                         ]
                     },
 
@@ -875,7 +959,13 @@ export const getTransactionReport = async (req, res) => {
                                 $cond: {
                                     if: { $gt: [{ $size: { $ifNull: ["$admissionInfoPntse", []] } }, 0] },
                                     then: "PNTSE",
-                                    else: { $ifNull: ["$departmentDetails.departmentName", "BOARD"] }
+                                    else: {
+                                        $ifNull: [
+                                            "$departmentDetails.departmentName",
+                                            { $arrayElemAt: ["$inventoryAllocation.departmentName", 0] },
+                                            "BOARD"
+                                        ]
+                                    }
                                 }
                             }
                         }
@@ -883,12 +973,28 @@ export const getTransactionReport = async (req, res) => {
                     session: {
                         $ifNull: [
                             "$admissionInfo.academicSession",
+                            { $arrayElemAt: ["$inventoryAllocation.session", 0] },
                             { $arrayElemAt: ["$pntseSessionInfo.sessionName", 0] },
                             { $arrayElemAt: ["$pntseSessionInfo.name", 0] },
                             "$admissionInfo.session"
                         ]
                     },
-                    admissionNumber: { $ifNull: ["$admissionInfo.admissionNumber", "$admissionInfo.rollNo"] },
+                    admissionNumber: {
+                        $ifNull: [
+                            "$admissionInfo.admissionNumber",
+                            "$admissionInfo.rollNo",
+                            { $arrayElemAt: ["$studentInfo.studentsDetails.admissionNo", 0] },
+                            { $arrayElemAt: ["$studentInfo.studentsDetails.rollNo", 0] },
+                            "$studentInfo.uid",
+                            {
+                                $cond: {
+                                    if: { $gt: [{ $size: { $ifNull: ["$inventoryAllocation", []] } }, 0] },
+                                    then: "EXTERNAL",
+                                    else: "-"
+                                }
+                            }
+                        ]
+                    },
                     receivedDate: "$receivedDate",
                     billId: "$billId",
                     receiptNo: {
